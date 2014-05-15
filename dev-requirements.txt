@@ -1,0 +1,5 @@
+# Install our development requirements
+tox
+
+# Install packaging itself
+-e .

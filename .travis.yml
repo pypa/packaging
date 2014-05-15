@@ -1,0 +1,26 @@
+language: python
+python: 3.4
+
+env:
+  - TOXENV=py26
+  - TOXENV=py27
+  - TOXENV=py32
+  - TOXENV=py33
+  - TOXENV=py34
+  - TOXENV=pypy
+  - TOXENV=pep8
+  - TOXENV=py2pep8
+  - TOXENV=docs
+
+install:
+  - pip install tox
+
+script:
+  - tox
+
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#caremad"
+    use_notice: true
+    skip_join: true
