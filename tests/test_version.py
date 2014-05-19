@@ -15,11 +15,14 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
+import re
 
 import pretend
 import pytest
 
-from packaging.version import Version, InvalidVersion
+from packaging.version import (
+    Version, InvalidVersion, Specifier, InvalidSpecifier,
+)
 
 
 # This list must be in the correct sorting order
@@ -329,3 +332,430 @@ class TestVersion:
         )
 
         assert getattr(operator, op)(Version("1"), other) is expected
+
+
+# These should all be without spaces, we'll generate some with spaces using
+# these as templates.
+SPECIFIERS = [
+    "~=2.0", "==2.1.*", "==2.1.0.3", "!=2.2.*", "!=2.2.0.5", "<=5", ">=7.9a1",
+    "<1.0.dev1", ">2.0.post1",
+]
+
+
+class TestSpecifier:
+
+    @pytest.mark.parametrize(
+        "specifier",
+        # Generate all possible combinations of the SPECIFIERS to test to make
+        # sure they all work.
+        [
+            ",".join(combination)
+            for combination in itertools.chain(*(
+                itertools.combinations(SPECIFIERS, n)
+                for n in range(1, len(SPECIFIERS) + 1)
+            ))
+        ]
+        +
+        # Do the same thing, except include spaces in the specifiers
+        [
+            ",".join([
+                " ".join(re.split(r"(~=|==|!=|<=|>=|<|>)", item)[1:])
+                for item in combination
+            ])
+            for combination in itertools.chain(*(
+                itertools.combinations(SPECIFIERS, n)
+                for n in range(1, len(SPECIFIERS) + 1)
+            ))
+        ]
+        +
+        # Finally do the same thing once more, except join some with spaces and
+        # some without.
+        [
+            ",".join([
+                ("" if j % 2 else " ").join(
+                    re.split(r"(~=|==|!=|<=|>=|<|>)", item)[1:]
+                )
+                for j, item in enumerate(combination)
+            ])
+            for combination in itertools.chain(*(
+                itertools.combinations(SPECIFIERS, n)
+                for n in range(1, len(SPECIFIERS) + 1)
+            ))
+        ]
+    )
+    def test_specifiers_valid(self, specifier):
+        Specifier(specifier)
+
+    @pytest.mark.parametrize(
+        "specifier",
+        [
+            # Operator-less specifier
+            "2.0",
+
+            # Invalid operator
+            "=>2.0",
+
+            # Version-less specifier
+            "==",
+
+            # Local segment on operators which don't support them
+            "~=1.0+5",
+            ">=1.0+deadbeef",
+            "<=1.0+abc123",
+            ">1.0+watwat",
+            "<1.0+1.0",
+
+            # Prefix matching on operators which don't support them
+            "~=1.0.*",
+            ">=1.0.*",
+            "<=1.0.*",
+            ">1.0.*",
+            "<1.0.*",
+
+            # Combination of local and prefix matching on operators which do
+            # support one or the other
+            "==1.0.*+5",
+            "!=1.0.*+deadbeef",
+
+            # Prefix matching cannot be used inside of a local version
+            "==1.0+5.*",
+            "!=1.0+deadbeef.*",
+
+            # Prefix matching must appear at the end
+            "==1.0.*.5",
+
+            # Compatible operator requires 2 digits in the release operator
+            "~=1",
+
+            # Cannot use a prefix matching after a .devN version
+            "==1.0.dev1.*",
+            "!=1.0.dev1.*",
+        ],
+    )
+    def test_specifiers_invalid(self, specifier):
+        with pytest.raises(InvalidSpecifier):
+            Specifier(specifier)
+
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [
+            # Single item specifiers should just be reflexive
+            ("!=2.0", "!=2.0"),
+            ("<2.0", "<2.0"),
+            ("<=2.0", "<=2.0"),
+            ("==2.0", "==2.0"),
+            (">2.0", ">2.0"),
+            (">=2.0", ">=2.0"),
+            ("~=2.0", "~=2.0"),
+
+            # Multiple item specifiers should be sorted lexicographically
+            ("<2,!=1.5", "!=1.5,<2"),
+            (
+                "~=1.3.5,>5.3,==1.3.*,<=700,>=0,!=99.99,<1000",
+                "!=99.99,<1000,<=700,==1.3.*,>5.3,>=0,~=1.3.5",
+            ),
+
+            # Spaces should be removed
+            ("== 2.0", "==2.0"),
+            (">=2.0, !=2.1.0", "!=2.1.0,>=2.0"),
+            ("< 2, >= 5,~= 2.2,==5.4", "<2,==5.4,>=5,~=2.2"),
+        ],
+    )
+    def test_specifiers_str_and_repr(self, specifier, expected):
+        spec = Specifier(specifier)
+
+        assert str(spec) == expected
+        assert repr(spec) == "<Specifier({0})>".format(repr(expected))
+
+    @pytest.mark.parametrize("specifier", SPECIFIERS)
+    def test_specifiers_hash(self, specifier):
+        assert hash(Specifier(specifier)) == hash(Specifier(specifier))
+
+    @pytest.mark.parametrize(
+        "specifiers",
+        [
+            ["!=2", "==2.*"],
+            [">=5.7", "<7000"],
+            ["==2.5.0+3", ">1"],
+        ],
+    )
+    def test_combining_specifiers(self, specifiers):
+        # Test combining Specifier objects
+        spec = Specifier(specifiers[0])
+        for s in specifiers[1:]:
+            spec &= Specifier(s)
+        assert spec == Specifier(",".join(specifiers))
+
+        # Test combining a string with a Specifier object
+        spec = Specifier(specifiers[0])
+        for s in specifiers[1:]:
+            spec &= s
+        assert spec == Specifier(",".join(specifiers))
+
+    def test_combining_non_specifiers(self):
+        with pytest.raises(TypeError):
+            Specifier("==2.0") & 12
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, x, operator.eq) for x in SPECIFIERS]
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [
+                    (x, y, operator.ne)
+                    for j, y in enumerate(SPECIFIERS)
+                    if i != j
+                ]
+                for i, x in enumerate(SPECIFIERS)
+            ]
+        )
+    )
+    def test_comparison_true(self, left, right, op):
+        assert op(Specifier(left), Specifier(right))
+        assert op(left, Specifier(right))
+        assert op(Specifier(left), right)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, x, operator.ne) for x in SPECIFIERS]
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [
+                    (x, y, operator.eq)
+                    for j, y in enumerate(SPECIFIERS)
+                    if i != j
+                ]
+                for i, x in enumerate(SPECIFIERS)
+            ]
+        )
+    )
+    def test_comparison_false(self, left, right, op):
+        assert not op(Specifier(left), Specifier(right))
+        assert not op(left, Specifier(right))
+        assert not op(Specifier(left), right)
+
+    def test_comparison_non_specifier(self):
+        assert Specifier("==1.0") != 12
+        assert not Specifier("==1.0") == 12
+
+    @pytest.mark.parametrize(
+        ("version", "spec", "expected"),
+        [
+            (v, s, True)
+            for v, s in [
+                # Test the equality operation
+                ("2.0", "==2"),
+                ("2.0", "==2.0"),
+                ("2.0", "==2.0.0"),
+                ("2.0+deadbeef", "==2"),
+                ("2.0+deadbeef", "==2.0"),
+                ("2.0+deadbeef", "==2.0.0"),
+                ("2.0+deadbeef", "==2+deadbeef"),
+                ("2.0+deadbeef", "==2.0+deadbeef"),
+                ("2.0+deadbeef", "==2.0.0+deadbeef"),
+                ("2.0+deadbeef.0", "==2.0.0+deadbeef.00"),
+
+                # Test the equality operation with a prefix
+                ("2.dev1", "==2.*"),
+                ("2a1", "==2.*"),
+                ("2a1.post1", "==2.*"),
+                ("2b1", "==2.*"),
+                ("2b1.dev1", "==2.*"),
+                ("2c1", "==2.*"),
+                ("2c1.post1.dev1", "==2.*"),
+                ("2rc1", "==2.*"),
+                ("2", "==2.*"),
+                ("2.0", "==2.*"),
+                ("2.0.0", "==2.*"),
+                ("2.0.post1", "==2.0.post1.*"),
+                ("2.0.post1.dev1", "==2.0.post1.*"),
+
+                # Test the in-equality operation
+                ("2.1", "!=2"),
+                ("2.1", "!=2.0"),
+                ("2.0.1", "!=2"),
+                ("2.0.1", "!=2.0"),
+                ("2.0.1", "!=2.0.0"),
+                ("2.0", "!=2.0+deadbeef"),
+
+                # Test the in-equality operation with a prefix
+                ("2.0", "!=3.*"),
+                ("2.1", "!=2.0.*"),
+
+                # Test the greater than equal operation
+                ("2.0", ">=2"),
+                ("2.0", ">=2.0"),
+                ("2.0", ">=2.0.0"),
+                ("2.0.post1", ">=2"),
+                ("2.0.post1.dev1", ">=2"),
+                ("3", ">=2"),
+
+                # Test the less than equal operation
+                ("2.0", "<=2"),
+                ("2.0", "<=2.0"),
+                ("2.0", "<=2.0.0"),
+                ("2.0.dev1", "<=2"),
+                ("2.0a1", "<=2"),
+                ("2.0a1.dev1", "<=2"),
+                ("2.0b1", "<=2"),
+                ("2.0b1.post1", "<=2"),
+                ("2.0c1", "<=2"),
+                ("2.0c1.post1.dev1", "<=2"),
+                ("2.0rc1", "<=2"),
+                ("1", "<=2"),
+
+                # Test the greater than operation
+                ("3", ">2"),
+                ("2.1", ">2.0"),
+
+                # Test the less than operation
+                ("1", "<2"),
+                ("2.0", "<2.1"),
+
+                # Test the compatibility operation
+                ("1", "~=1.0"),
+                ("1.0.1", "~=1.0"),
+                ("1.1", "~=1.0"),
+                ("1.9999999", "~=1.0"),
+
+                # Test that epochs are handled sanely
+                ("2:1.0", "~=2:1.0"),
+                ("2:1.0", "==2:1.*"),
+                ("2:1.0", "==2:1.0"),
+                ("2:1.0", "!=1.0"),
+                ("1.0", "!=2:1.0"),
+                ("1.0", "<=2:0.1"),
+                ("2:1.0", ">=2.0"),
+                ("1.0", "<2:0.1"),
+                ("2:1.0", ">2.0"),
+            ]
+        ]
+        +
+        [
+            (v, s, False)
+            for v, s in [
+                # Test the equality operation
+                ("2.1", "==2"),
+                ("2.1", "==2.0"),
+                ("2.1", "==2.0.0"),
+                ("2.0", "==2.0+deadbeef"),
+
+                # Test the equality operation with a prefix
+                ("2.0", "==3.*"),
+                ("2.1", "==2.0.*"),
+
+                # Test the in-equality operation
+                ("2.0", "!=2"),
+                ("2.0", "!=2.0"),
+                ("2.0", "!=2.0.0"),
+                ("2.0+deadbeef", "!=2"),
+                ("2.0+deadbeef", "!=2.0"),
+                ("2.0+deadbeef", "!=2.0.0"),
+                ("2.0+deadbeef", "!=2+deadbeef"),
+                ("2.0+deadbeef", "!=2.0+deadbeef"),
+                ("2.0+deadbeef", "!=2.0.0+deadbeef"),
+                ("2.0+deadbeef.0", "!=2.0.0+deadbeef.00"),
+
+                # Test the in-equality operation with a prefix
+                ("2.dev1", "!=2.*"),
+                ("2a1", "!=2.*"),
+                ("2a1.post1", "!=2.*"),
+                ("2b1", "!=2.*"),
+                ("2b1.dev1", "!=2.*"),
+                ("2c1", "!=2.*"),
+                ("2c1.post1.dev1", "!=2.*"),
+                ("2rc1", "!=2.*"),
+                ("2", "!=2.*"),
+                ("2.0", "!=2.*"),
+                ("2.0.0", "!=2.*"),
+                ("2.0.post1", "!=2.0.post1.*"),
+                ("2.0.post1.dev1", "!=2.0.post1.*"),
+
+                # Test the greater than equal operation
+                ("2.0.dev1", ">=2"),
+                ("2.0a1", ">=2"),
+                ("2.0a1.dev1", ">=2"),
+                ("2.0b1", ">=2"),
+                ("2.0b1.post1", ">=2"),
+                ("2.0c1", ">=2"),
+                ("2.0c1.post1.dev1", ">=2"),
+                ("2.0rc1", ">=2"),
+                ("1", ">=2"),
+
+                # Test the less than equal operation
+                ("2.0.post1", "<=2"),
+                ("2.0.post1.dev1", "<=2"),
+                ("3", "<=2"),
+
+                # Test the greater than operation
+                ("1", ">2"),
+                ("2.0.dev1", ">2"),
+                ("2.0a1", ">2"),
+                ("2.0a1.post1", ">2"),
+                ("2.0b1", ">2"),
+                ("2.0b1.dev1", ">2"),
+                ("2.0c1", ">2"),
+                ("2.0c1.post1.dev1", ">2"),
+                ("2.0rc1", ">2"),
+                ("2.0", ">2"),
+                ("2.0.post1", ">2"),
+                ("2.0.post1.dev1", ">2"),
+                ("2.0.1", ">2"),
+
+                # Test the less than operation
+                ("2.0.dev1", "<2"),
+                ("2.0a1", "<2"),
+                ("2.0a1.post1", "<2"),
+                ("2.0b1", "<2"),
+                ("2.0b2.dev1", "<2"),
+                ("2.0c1", "<2"),
+                ("2.0c1.post1.dev1", "<2"),
+                ("2.0rc1", "<2"),
+                ("2.0", "<2"),
+                ("2.post1", "<2"),
+                ("2.post1.dev1", "<2"),
+                ("3", "<2"),
+
+                # Test the compatibility operation
+                ("2.0", "~=1.0"),
+                ("1.1.0", "~=1.0.0"),
+                ("1.1.post1", "~=1.0.0"),
+
+                # Test that epochs are handled sanely
+                ("1.0", "~=2:1.0"),
+                ("2:1.0", "~=1.0"),
+                ("2:1.0", "==1.0"),
+                ("1.0", "==2:1.0"),
+                ("2:1.0", "==1.*"),
+                ("1.0", "==2:1.*"),
+                ("2:1.0", "!=2:1.0"),
+            ]
+        ],
+    )
+    def test_specifiers(self, version, spec, expected):
+        spec = Specifier(spec)
+
+        if expected:
+            # Test that the plain string form works
+            assert version in spec
+
+            # Test that the version instance form works
+            assert Version(version) in spec
+        else:
+            # Test that the plain string form works
+            assert version not in spec
+
+            # Test that the version instance form works
+            assert Version(version) not in spec

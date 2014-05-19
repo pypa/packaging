@@ -17,12 +17,11 @@ import collections
 import itertools
 import re
 
+from ._compat import string_types
 from ._structures import Infinity
 
-# TODO: We deviate from the spec in that we have no implicit specifier operator
-#       instead we mandate all specifiers must include an explicit operator.
 
-__all__ = ["Version"]
+__all__ = ["Version", "Specifier"]
 
 
 _Version = collections.namedtuple(
@@ -233,3 +232,269 @@ def _cmpkey(epoch, release, pre, post, dev, local):
         )
 
     return (epoch, release, pre, post, dev, local)
+
+
+class InvalidSpecifier(ValueError):
+    """
+    An invalid specifier was found, users should refer to PEP 440.
+    """
+
+
+class Specifier(object):
+
+    _regex = re.compile(
+        r"""
+        ^
+        (?P<operator>(~=|==|!=|<=|>=|<|>))
+        (?P<version>
+            (?:
+                # The (non)equality operators allow for wild card and local
+                # versions to be specified so we have to define these two
+                # operators separately to enable that.
+                (?<===|!=)            # Only match for equals and not equals
+
+                (?:[0-9]+:)?          # epoch
+                [0-9]+(?:\.[0-9]+)*   # release
+                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:\.post[0-9]+)?     # post release
+
+                # You cannot use a wild card and a dev or local version
+                # together so group them with a | and make them optional.
+                (?:
+                    (?:\.dev[0-9]+)?      # dev release
+                    (?:\+[a-z0-9]+(?:[a-z0-9_\.+]*[a-z0-9])?) # local
+                    |
+                    \.\*  # Wild card syntax of .*
+                )?
+            )
+            |
+            (?:
+                # The compatible operator requires at least two digits in the
+                # release segment.
+                (?<=~=)               # Only match for the compatible operator
+
+                (?:[0-9]+:)?          # epoch
+                [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
+                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:\.post[0-9]+)?     # post release
+                (?:\.dev[0-9]+)?      # dev release
+            )
+            |
+            (?:
+                # All other operators only allow a sub set of what the
+                # (non)equality operators do. Specifically they do not allow
+                # local versions to be specified nor do they allow the prefix
+                # matching wild cards.
+                (?<!==|!=|~=)         # We have special cases for these
+                                      # operators so we want to make sure they
+                                      # don't match here.
+
+                (?:[0-9]+:)?          # epoch
+                [0-9]+(?:\.[0-9]+)*   # release
+                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:\.post[0-9]+)?     # post release
+                (?:\.dev[0-9]+)?      # dev release
+            )
+        )
+        $
+        """,
+        re.VERBOSE,
+    )
+
+    _operators = {
+        "~=": "compatible",
+        "==": "equal",
+        "!=": "not_equal",
+        "<=": "less_than_equal",
+        ">=": "greater_than_equal",
+        "<": "less_than",
+        ">": "greater_than",
+    }
+
+    def __init__(self, specs, prereleases=False):
+        # Normalize the specification to remove all of the whitespace
+        specs = specs.replace(" ", "")
+
+        # Split on comma to get each individual specification
+        _specs = set()
+        for spec in specs.split(","):
+            match = self._regex.search(spec)
+            if not match:
+                raise InvalidSpecifier("Invalid specifier: '{0}'".format(spec))
+
+            _specs.add(
+                (match.group("operator"), match.group("version"))
+            )
+
+        # Set a frozen set for our specifications
+        self._specs = frozenset(_specs)
+
+    def __repr__(self):
+        return "<Specifier({0})>".format(repr(str(self)))
+
+    def __str__(self):
+        return ",".join(["".join(s) for s in sorted(self._specs)])
+
+    def __hash__(self):
+        return hash(self._specs)
+
+    def __and__(self, other):
+        if isinstance(other, string_types):
+            other = Specifier(other)
+        elif not isinstance(other, Specifier):
+            return NotImplemented
+
+        return self.__class__(",".join([str(self), str(other)]))
+
+    def __eq__(self, other):
+        if isinstance(other, string_types):
+            other = Specifier(other)
+        elif not isinstance(other, Specifier):
+            return NotImplemented
+
+        return self._specs == other._specs
+
+    def __ne__(self, other):
+        if isinstance(other, string_types):
+            other = Specifier(other)
+        elif not isinstance(other, Specifier):
+            return NotImplemented
+
+        return self._specs != other._specs
+
+    def __contains__(self, item):
+        # Normalize item to a Version, this allows us to have a shortcut for
+        # ``"2.0" in Specifier(">=2")
+        if not isinstance(item, Version):
+            item = Version(item)
+
+        # Ensure that the passed in version matches all of our version
+        # specifiers
+        return all(
+            self._get_operator(op)(item, spec) for op, spec, in self._specs
+        )
+
+    def _get_operator(self, op):
+        return getattr(self, "_compare_{0}".format(self._operators[op]))
+
+    def _compare_compatible(self, prospective, spec):
+        # Compatible releases have an equivalent combination of >= and ==. That
+        # is that ~=2.2 is equivalent to >=2.2,==2.*. This allows us to
+        # implement this in terms of the other specifiers instead of
+        # implementing it ourselves. The only thing we need to do is construct
+        # the other specifiers.
+
+        # We want everything but the last item in the version, but we want to
+        # ignore post and dev releases and we want to treat the pre-release as
+        # it's own separate segment.
+        prefix = ".".join(
+            list(
+                itertools.takewhile(
+                    lambda x: (not x.startswith("post")
+                               and not x.startswith("dev")),
+                    _version_split(spec),
+                )
+            )[:-1]
+        )
+
+        # Add the prefix notation to the end of our string
+        prefix += ".*"
+
+        return (self._get_operator(">=")(prospective, spec)
+                and self._get_operator("==")(prospective, prefix))
+
+    def _compare_equal(self, prospective, spec):
+        # We need special logic to handle prefix matching
+        if spec.endswith(".*"):
+            # Split the spec out by dots, and pretend that there is an implicit
+            # dot in between a release segment and a pre-release segment.
+            spec = _version_split(spec[:-2])  # Remove the trailing .*
+
+            # Split the prospective version out by dots, and pretend that there
+            # is an implicit dot in between a release segment and a pre-release
+            # segment.
+            prospective = _version_split(str(prospective))
+
+            # Shorten the prospective version to be the same length as the spec
+            # so that we can determine if the specifier is a prefix of the
+            # prospective version or not.
+            prospective = prospective[:len(spec)]
+
+            # Pad out our two sides with zeros so that they both equal the same
+            # length.
+            spec, prospective = _pad_version(spec, prospective)
+        else:
+            # Convert our spec string into a Version
+            spec = Version(spec)
+
+            # If the specifier does not have a local segment, then we want to
+            # act as if the prospective version also does not have a local
+            # segment.
+            if not spec.local:
+                prospective = Version(prospective.public)
+
+        return prospective == spec
+
+    def _compare_not_equal(self, prospective, spec):
+        return not self._compare_equal(prospective, spec)
+
+    def _compare_less_than_equal(self, prospective, spec):
+        return prospective <= Version(spec)
+
+    def _compare_greater_than_equal(self, prospective, spec):
+        return prospective >= Version(spec)
+
+    def _compare_less_than(self, prospective, spec):
+        # Less than are defined as exclusive operators, this implies that
+        # pre-releases do not match for the same series as the spec. This is
+        # implemented by making <V imply !=V.*.
+        return (prospective < Version(spec)
+                and self._get_operator("!=")(prospective, spec + ".*"))
+
+    def _compare_greater_than(self, prospective, spec):
+        # Greater than are defined as exclusive operators, this implies that
+        # pre-releases do not match for the same series as the spec. This is
+        # implemented by making >V imply !=V.*.
+        return (prospective > Version(spec)
+                and self._get_operator("!=")(prospective, spec + ".*"))
+
+
+_prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
+
+
+def _version_split(version):
+    result = []
+    for item in version.split("."):
+        match = _prefix_regex.search(item)
+        if match:
+            result.extend(match.groups())
+        else:
+            result.append(item)
+    return result
+
+
+def _pad_version(left, right):
+    left_split, right_split = [], []
+
+    # Get the release segment of our versions
+    left_split.append(list(itertools.takewhile(lambda x: x.isdigit(), left)))
+    right_split.append(list(itertools.takewhile(lambda x: x.isdigit(), right)))
+
+    # Get the rest of our versions
+    left_split.append(left[len(left_split):])
+    right_split.append(left[len(right_split):])
+
+    # Insert our padding
+    left_split.insert(
+        1,
+        ["0"] * max(0, len(right_split[0]) - len(left_split[0])),
+    )
+    right_split.insert(
+        1,
+        ["0"] * max(0, len(left_split[0]) - len(right_split[0])),
+    )
+
+    return (
+        list(itertools.chain(*left_split)),
+        list(itertools.chain(*right_split)),
+    )

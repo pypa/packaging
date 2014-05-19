@@ -1,2 +1,3 @@
 [run]
 branch = True
+omit = packaging/_compat.py
