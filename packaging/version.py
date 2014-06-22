@@ -45,11 +45,15 @@ class Version(object):
             (?:(?P<epoch>[0-9]+):)?               # epoch
             (?P<release>[0-9]+(?:\.[0-9]+)*)      # release segment
             (?P<pre>                              # pre release
-                (?:[-\.])?
+                [-\.]?
                 (?P<pre_l>(a|b|c|rc|alpha|beta))  #  - pre-release letter
                 (?P<pre_n>[0-9]+)?                #  - pre-release number
             )?
-            (?:\.post(?P<post>[0-9]+))?           # post release
+            (?P<post>                             # post release
+                [-\.]?
+                (?P<post_l>post)
+                (?P<post_n>[0-9]+)?
+            )?
             (?P<dev>                              # dev release
                 [-\.]?
                 (?P<dev_l>dev)
@@ -72,9 +76,18 @@ class Version(object):
         self._version = _Version(
             epoch=int(match.group("epoch")) if match.group("epoch") else 0,
             release=_parse_release_version(match.group("release")),
-            pre=_parse_pre_version(match.group("pre_l"), match.group("pre_n")),
-            post=int(match.group("post")) if match.group("post") else None,
-            dev=_parse_pre_version(match.group("dev_l"), match.group("dev_n")),
+            pre=_parse_letter_version(
+                match.group("pre_l"),
+                match.group("pre_n"),
+            ),
+            post=_parse_letter_version(
+                match.group("post_l"),
+                match.group("post_n"),
+            ),
+            dev=_parse_letter_version(
+                match.group("dev_l"),
+                match.group("dev_n"),
+            ),
             local=_parse_local_version(match.group("local")),
         )
 
@@ -107,7 +120,7 @@ class Version(object):
 
         # Post-release
         if self._version.post is not None:
-            parts.append(".post{0}".format(self._version.post))
+            parts.append(".post{0}".format(self._version.post[1]))
 
         # Development release
         if self._version.dev is not None:
@@ -179,7 +192,7 @@ def _parse_release_version(part):
     )
 
 
-def _parse_pre_version(letter, number):
+def _parse_letter_version(letter, number):
     if letter:
         # We consider there to be an implicit 0 in a pre-release if there is
         # not a numeral associated with it.
@@ -278,7 +291,7 @@ class Specifier(object):
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:\.post[0-9]+)?     # post release
+                (?:[-\.]?post[0-9]*)? # post release
 
                 # You cannot use a wild card and a dev or local version
                 # together so group them with a | and make them optional.
@@ -298,7 +311,7 @@ class Specifier(object):
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:\.post[0-9]+)?     # post release
+                (?:[-\.]?post[0-9]*)? # post release
                 (?:[-\.]?dev[0-9]*)?  # dev release
             )
             |
@@ -314,7 +327,7 @@ class Specifier(object):
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:\.post[0-9]+)?     # post release
+                (?:[-\.]?post[0-9]*)? # post release
                 (?:[-\.]?dev[0-9]*)?  # dev release
             )
         )

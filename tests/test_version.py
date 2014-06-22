@@ -153,6 +153,21 @@ class TestVersion:
             ("1.0-RC", "1.0c0"),
             ("1.0-RC1", "1.0c1"),
 
+            # Various post release incarnations
+            ("1.0post", "1.0.post0"),
+            ("1.0.post", "1.0.post0"),
+            ("1.0post1", "1.0.post1"),
+            ("1.0post", "1.0.post0"),
+            ("1.0-post", "1.0.post0"),
+            ("1.0-post1", "1.0.post1"),
+            ("1.0POST", "1.0.post0"),
+            ("1.0.POST", "1.0.post0"),
+            ("1.0POST1", "1.0.post1"),
+            ("1.0POST", "1.0.post0"),
+            ("1.0.POST1", "1.0.post1"),
+            ("1.0-POST", "1.0.post0"),
+            ("1.0-POST1", "1.0.post1"),
+
             # Local version case insensitivity
             ("1.0+AbC", "1.0+abc"),
 
@@ -620,6 +635,21 @@ class TestSpecifier:
             "1.0.RC1",
             "1.0-RC",
             "1.0-RC1",
+
+            # Various post release incarnations
+            "1.0post",
+            "1.0.post",
+            "1.0post1",
+            "1.0post",
+            "1.0-post",
+            "1.0-post1",
+            "1.0POST",
+            "1.0.POST",
+            "1.0POST1",
+            "1.0POST",
+            "1.0.POST1",
+            "1.0-POST",
+            "1.0-POST1",
 
             # Local version case insensitivity
             "1.0+AbC"
