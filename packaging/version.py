@@ -42,19 +42,24 @@ class Version(object):
         r"""
         ^
         (?:
-            (?:(?P<epoch>[0-9]+):)?          # epoch
-            (?P<release>[0-9]+(?:\.[0-9]+)*) # release segment
-            (?P<pre>                         # pre release
-                (?P<pre_l>(a|b|c|rc))        #  - pre-release letter
-                (?P<pre_n>[0-9]+)            #  - pre-release number
+            (?:(?P<epoch>[0-9]+):)?               # epoch
+            (?P<release>[0-9]+(?:\.[0-9]+)*)      # release segment
+            (?P<pre>                              # pre release
+                (?:[-\.])?
+                (?P<pre_l>(a|b|c|rc|alpha|beta))  #  - pre-release letter
+                (?P<pre_n>[0-9]+)?                #  - pre-release number
             )?
-            (?:\.post(?P<post>[0-9]+))?      # post release
-            (?:\.dev(?P<dev>[0-9]+))?        # dev release
+            (?:\.post(?P<post>[0-9]+))?           # post release
+            (?P<dev>                              # dev release
+                [-\.]?
+                (?P<dev_l>dev)
+                (?P<dev_n>[0-9]+)?
+            )?
         )
         (?:\+(?P<local>[a-z0-9]+(?:[a-z0-9\.]*[a-z0-9])?))? # local version
         $
         """,
-        re.VERBOSE,
+        re.VERBOSE | re.IGNORECASE,
     )
 
     def __init__(self, version):
@@ -66,10 +71,10 @@ class Version(object):
         # Store the parsed out pieces of the version
         self._version = _Version(
             epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=_parse_dot_version(match.group("release")),
+            release=_parse_release_version(match.group("release")),
             pre=_parse_pre_version(match.group("pre_l"), match.group("pre_n")),
             post=int(match.group("post")) if match.group("post") else None,
-            dev=int(match.group("dev")) if match.group("dev") else None,
+            dev=_parse_pre_version(match.group("dev_l"), match.group("dev_n")),
             local=_parse_local_version(match.group("local")),
         )
 
@@ -106,7 +111,7 @@ class Version(object):
 
         # Development release
         if self._version.dev is not None:
-            parts.append(".dev{0}".format(self._version.dev))
+            parts.append(".dev{0}".format(self._version.dev[1]))
 
         # Local version segment
         if self._version.local is not None:
@@ -158,7 +163,7 @@ class Version(object):
         return bool(self._version.dev or self._version.pre)
 
 
-def _parse_dot_version(part):
+def _parse_release_version(part):
     """
     Takes a string like "1.0.4.0" and turns it into (1, 0, 4).
     """
@@ -175,13 +180,19 @@ def _parse_dot_version(part):
 
 
 def _parse_pre_version(letter, number):
-    if letter and number:
+    if letter:
+        # We consider there to be an implicit 0 in a pre-release if there is
+        # not a numeral associated with it.
+        if number is None:
+            number = 0
+
         # We consider the "rc" form of a pre-release to be long-form for the
         # "c" form, thus we normalize "rc" to "c" so we can properly compare
         # them as equal.
         if letter == "rc":
             letter = "c"
-        return (letter, int(number))
+
+        return letter, int(number)
 
 
 def _parse_local_version(local):
@@ -231,7 +242,7 @@ def _cmpkey(epoch, release, pre, post, dev, local):
             for i in local
         )
 
-    return (epoch, release, pre, post, dev, local)
+    return epoch, release, pre, post, dev, local
 
 
 class InvalidSpecifier(ValueError):
@@ -255,14 +266,14 @@ class Specifier(object):
 
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:\.post[0-9]+)?     # post release
 
                 # You cannot use a wild card and a dev or local version
                 # together so group them with a | and make them optional.
                 (?:
-                    (?:\.dev[0-9]+)?      # dev release
-                    (?:\+[a-z0-9]+(?:[a-z0-9_\.+]*[a-z0-9])?) # local
+                    (?:[-\.]?dev[0-9]*)?                       # dev release
+                    (?:\+[a-z0-9]+(?:[a-z0-9_\.+]*[a-z0-9])?)? # local
                     |
                     \.\*  # Wild card syntax of .*
                 )?
@@ -275,9 +286,9 @@ class Specifier(object):
 
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
-                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:\.post[0-9]+)?     # post release
-                (?:\.dev[0-9]+)?      # dev release
+                (?:[-\.]?dev[0-9]*)?  # dev release
             )
             |
             (?:
@@ -291,14 +302,14 @@ class Specifier(object):
 
                 (?:[0-9]+:)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:(a|b|c|rc)[0-9]+)? # pre release
+                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:\.post[0-9]+)?     # post release
-                (?:\.dev[0-9]+)?      # dev release
+                (?:[-\.]?dev[0-9]*)?  # dev release
             )
         )
         $
         """,
-        re.VERBOSE,
+        re.VERBOSE | re.IGNORECASE,
     )
 
     _operators = {
