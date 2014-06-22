@@ -439,7 +439,7 @@ class TestVersion:
 # these as templates.
 SPECIFIERS = [
     "~=2.0", "==2.1.*", "==2.1.0.3", "!=2.2.*", "!=2.2.0.5", "<=5", ">=7.9a1",
-    "<1.0.dev1", ">2.0.post1",
+    "<1.0.dev1", ">2.0.post1", "===lolwat",
 ]
 
 
@@ -968,3 +968,29 @@ class TestSpecifier:
 
             # Test that the version instance form works
             assert Version(version) not in spec
+
+    @pytest.mark.parametrize(
+        ("version", "spec", "expected"),
+        [
+            # Test identity comparison by itself
+            ("lolwat", "===lolwat", True),
+            ("Lolwat", "===lolwat", True),
+            ("1.0", "===1.0", True),
+            ("nope", "===lolwat", False),
+            ("1.0.0", "===1.0", False),
+
+            # Test multiple specs combined with an identity comparison
+            ("nope", "===nope,!=1.0", False),
+            ("1.0.0", "===1.0.0,==1.*", True),
+            ("1.0.0", "===1.0,==1.*", False),
+        ],
+    )
+    def test_specifiers_identity(self, version, spec, expected):
+        spec = Specifier(spec)
+
+        if expected:
+            # Identity comparisons only support the plain string form
+            assert version in spec
+        else:
+            # Identity comparisons only support the plain string form
+            assert version not in spec

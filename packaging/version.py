@@ -256,8 +256,19 @@ class Specifier(object):
     _regex = re.compile(
         r"""
         ^
-        (?P<operator>(~=|==|!=|<=|>=|<|>))
+        (?P<operator>(~=|==|!=|<=|>=|<|>|===))
         (?P<version>
+            (?:
+                # The identity operators allow for an escape hatch that will
+                # do an exact string match of the version you wish to install.
+                # This will not be parsed by PEP 440 and we cannot determine
+                # any semantic meaning from it. This operator is discouraged
+                # but included entirely as an escape hatch.
+                (?<====)  # Only match for the identity operator
+                .*        # We just match everything, since we are only testing
+                          # for strict identity.
+            )
+            |
             (?:
                 # The (non)equality operators allow for wild card and local
                 # versions to be specified so we have to define these two
@@ -320,6 +331,7 @@ class Specifier(object):
         ">=": "greater_than_equal",
         "<": "less_than",
         ">": "greater_than",
+        "===": "identity",
     }
 
     def __init__(self, specs, prereleases=False):
@@ -376,13 +388,31 @@ class Specifier(object):
     def __contains__(self, item):
         # Normalize item to a Version, this allows us to have a shortcut for
         # ``"2.0" in Specifier(">=2")
+        version_item = item
         if not isinstance(item, Version):
-            item = Version(item)
+            try:
+                version_item = Version(item)
+            except ValueError:
+                # If we cannot parse this as a version, then we can only
+                # support identity comparison so do a quick check to see if the
+                # spec contains any non identity specifiers
+                #
+                # This will return False if we do not have any specifiers, this
+                # is on purpose as a non PEP 440 version should require
+                # explicit opt in because otherwise they cannot be sanely
+                # prioritized
+                if (not self._specs
+                        or any(op != "===" for op, _ in self._specs)):
+                    return False
 
         # Ensure that the passed in version matches all of our version
         # specifiers
         return all(
-            self._get_operator(op)(item, spec) for op, spec, in self._specs
+            self._get_operator(op)(
+                version_item if op != "===" else item,
+                spec,
+            )
+            for op, spec, in self._specs
         )
 
     def _get_operator(self, op):
@@ -468,6 +498,9 @@ class Specifier(object):
         # implemented by making >V imply !=V.*.
         return (prospective > Version(spec)
                 and self._get_operator("!=")(prospective, spec + ".*"))
+
+    def _compare_identity(self, prospective, spec):
+        return prospective.lower() == spec.lower()
 
 
 _prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
