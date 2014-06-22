@@ -75,7 +75,7 @@ class Version(object):
         # Store the parsed out pieces of the version
         self._version = _Version(
             epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=_parse_release_version(match.group("release")),
+            release=tuple(int(i) for i in match.group("release").split(".")),
             pre=_parse_letter_version(
                 match.group("pre_l"),
                 match.group("pre_n"),
@@ -176,22 +176,6 @@ class Version(object):
         return bool(self._version.dev or self._version.pre)
 
 
-def _parse_release_version(part):
-    """
-    Takes a string like "1.0.4.0" and turns it into (1, 0, 4).
-    """
-    return tuple(
-        reversed(
-            list(
-                itertools.dropwhile(
-                    lambda x: x == 0,
-                    reversed(list(int(i) for i in part.split("."))),
-                )
-            )
-        )
-    )
-
-
 def _parse_letter_version(letter, number):
     if letter:
         # We consider there to be an implicit 0 in a pre-release if there is
@@ -220,6 +204,20 @@ def _parse_local_version(local):
 
 
 def _cmpkey(epoch, release, pre, post, dev, local):
+    # When we compare a release version, we want to compare it with all of the
+    # trailing zeros removed. So we'll use a reverse the list, drop all the now
+    # leading zeros until we come to something non zero, then take the rest
+    # re-reverse it back into the correct order and make it a tuple and use
+    # that for our sorting key.
+    release = tuple(
+        reversed(list(
+            itertools.dropwhile(
+                lambda x: x == 0,
+                reversed(release),
+            )
+        ))
+    )
+
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this
     # if there is not a pre or a post segment. If we have one of those then
