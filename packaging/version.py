@@ -183,10 +183,17 @@ def _parse_letter_version(letter, number):
         if number is None:
             number = 0
 
-        # We consider the "rc" form of a pre-release to be long-form for the
-        # "c" form, thus we normalize "rc" to "c" so we can properly compare
-        # them as equal.
-        if letter == "rc":
+        # We normalize any letters to their lower case form
+        letter = letter.lower()
+
+        # We consider some words to be alternate spellings of other words and
+        # in those cases we want to normalize the spellings to our preferred
+        # spelling.
+        if letter == "alpha":
+            letter = "a"
+        elif letter == "beta":
+            letter = "b"
+        elif letter == "rc":
             letter = "c"
 
         return letter, int(number)
@@ -198,7 +205,7 @@ def _parse_local_version(local):
     """
     if local is not None:
         return tuple(
-            part if not part.isdigit() else int(part)
+            part.lower() if not part.isdigit() else int(part)
             for part in local.split(".")
         )
 

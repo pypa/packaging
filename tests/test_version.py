@@ -173,18 +173,18 @@ class TestVersion:
 
             # Integer Normalization
             ("1.01", "1.1"),
-            ("1.0a05", "1a5"),
-            ("1.0b07", "1a7"),
-            ("1.0c056", "1a56"),
-            ("1.0rc09", "1a9"),
-            ("1.0.post000", "1.post0"),
+            ("1.0a05", "1.0a5"),
+            ("1.0b07", "1.0b7"),
+            ("1.0c056", "1.0c56"),
+            ("1.0rc09", "1.0c9"),
+            ("1.0.post000", "1.0.post0"),
             ("1.1.dev09000", "1.1.dev9000"),
             ("00:1.2", "1.2"),
-            ("0100:0.0", "100:0"),
+            ("0100:0.0", "100:0.0"),
         ],
     )
     def test_normalized_versions(self, version, normalized):
-        str(Version(version)) == normalized
+        assert str(Version(version)) == normalized
 
     @pytest.mark.parametrize(
         ("version", "expected"),
