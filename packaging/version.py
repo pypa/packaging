@@ -42,7 +42,7 @@ class Version(object):
         r"""
         ^
         (?:
-            (?:(?P<epoch>[0-9]+):)?               # epoch
+            (?:(?P<epoch>[0-9]+)!)?               # epoch
             (?P<release>[0-9]+(?:\.[0-9]+)*)      # release segment
             (?P<pre>                              # pre release
                 [-\.]?
@@ -109,7 +109,7 @@ class Version(object):
 
         # Epoch
         if self._version.epoch != 0:
-            parts.append("{0}:".format(self._version.epoch))
+            parts.append("{0}!".format(self._version.epoch))
 
         # Release segment
         parts.append(".".join(str(x) for x in self._version.release))
@@ -293,7 +293,7 @@ class Specifier(object):
                 # operators separately to enable that.
                 (?<===|!=)            # Only match for equals and not equals
 
-                (?:[0-9]+:)?          # epoch
+                (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:[-\.]?post[0-9]*)? # post release
@@ -313,7 +313,7 @@ class Specifier(object):
                 # release segment.
                 (?<=~=)               # Only match for the compatible operator
 
-                (?:[0-9]+:)?          # epoch
+                (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:[-\.]?post[0-9]*)? # post release
@@ -329,7 +329,7 @@ class Specifier(object):
                                       # operators so we want to make sure they
                                       # don't match here.
 
-                (?:[0-9]+:)?          # epoch
+                (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
                 (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
                 (?:[-\.]?post[0-9]*)? # post release
