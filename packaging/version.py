@@ -358,7 +358,7 @@ class Specifier(object):
 
         # Split on comma to get each individual specification
         _specs = set()
-        for spec in specs.split(","):
+        for spec in (s for s in specs.split(",") if s):
             match = self._regex.search(spec)
             if not match:
                 raise InvalidSpecifier("Invalid specifier: '{0}'".format(spec))
