@@ -21,7 +21,7 @@ import pretend
 import pytest
 
 from packaging.version import (
-    Version, InvalidVersion, Specifier, InvalidSpecifier,
+    Version, LegacyVersion, InvalidVersion, Specifier, InvalidSpecifier,
 )
 
 
@@ -448,6 +448,97 @@ class TestVersion:
         )
 
         assert getattr(operator, op)(Version("1"), other) is expected
+
+
+LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0"]
+
+
+class TestLegacyVersion:
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_valid_legacy_versions(self, version):
+        LegacyVersion(version)
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_str_repr(self, version):
+        assert str(LegacyVersion(version)) == version
+        assert (repr(LegacyVersion(version))
+                == "<LegacyVersion({0})>".format(repr(version)))
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_hash(self, version):
+        assert hash(LegacyVersion(version)) == hash(LegacyVersion(version))
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_public(self, version):
+        assert LegacyVersion(version).public == version
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_local(self, version):
+        assert LegacyVersion(version).local is None
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_is_prerelease(self, version):
+        assert not LegacyVersion(version).is_prerelease
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        # Below we'll generate every possible combination of
+        # VERSIONS + LEGACY_VERSIONS that should be True for the given operator
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, x, operator.eq) for x in VERSIONS + LEGACY_VERSIONS]
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [
+                    (x, y, operator.ne)
+                    for j, y in enumerate(VERSIONS + LEGACY_VERSIONS)
+                    if i != j
+                ]
+                for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
+            ]
+        )
+    )
+    def test_comparison_true(self, left, right, op):
+        assert op(LegacyVersion(left), LegacyVersion(right))
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        # Below we'll generate every possible combination of
+        # VERSIONS + LEGACY_VERSIONS that should be False for the given
+        # operator
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [
+                    (x, y, operator.eq)
+                    for j, y in enumerate(VERSIONS + LEGACY_VERSIONS)
+                    if i != j
+                ]
+                for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [(x, x, operator.ne) for x in VERSIONS + LEGACY_VERSIONS]
+            ]
+        )
+    )
+    def test_comparison_false(self, left, right, op):
+        assert not op(LegacyVersion(left), LegacyVersion(right))
+
+    @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
+    def test_compare_other(self, op, expected):
+        other = pretend.stub(
+            **{"__{0}__".format(op): lambda other: NotImplemented}
+        )
+
+        assert getattr(operator, op)(LegacyVersion("1"), other) is expected
 
 
 # These should all be without spaces, we'll generate some with spaces using

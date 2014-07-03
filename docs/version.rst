@@ -82,6 +82,35 @@ Reference
         represents a prerelease or a final release.
 
 
+.. class:: LegacyVersion(version)
+
+    This class abstracts handling of a project's versions if they are not
+    compatible with the scheme defined in `PEP 440`_. It implements a similar
+    interface to that of :class:`Version` however it is considered unorderable
+    and many of the comparison types are not implemented.
+
+    :param str version: The string representation of a version which will be
+                        used as is.
+
+    .. attribute:: public
+
+        A string representing the public version portion of this
+        :class:`LegacyVersion`. This will always be the entire version string.
+
+    .. attribute:: local
+
+        This will always be ``None`` since without `PEP 440`_ we do not have
+        the concept of a local version. It exists primarily to allow a
+        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
+
+    .. attribute:: is_prerelease
+
+        A boolean value indicating whether this :class:`LegacyVersion`
+        represents a prerelease or a final release. Since without `PEP 440`_
+        there is no concept of pre or final releases this will always be
+        `False` and exists for compatibility with :class:`Version`.
+
+
 .. class:: Specifier(specifier)
 
     This class abstracts handling of specifying the dependencies of a project.

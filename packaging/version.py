@@ -36,6 +36,45 @@ class InvalidVersion(ValueError):
     """
 
 
+class LegacyVersion(object):
+
+    def __init__(self, version):
+        self._version = str(version)
+
+    def __str__(self):
+        return self._version
+
+    def __repr__(self):
+        return "<LegacyVersion({0})>".format(repr(str(self)))
+
+    def __hash__(self):
+        return hash(self._version)
+
+    def __eq__(self, other):
+        if not isinstance(other, LegacyVersion):
+            return NotImplemented
+
+        return self._version.lower() == other._version.lower()
+
+    def __ne__(self, other):
+        if not isinstance(other, LegacyVersion):
+            return NotImplemented
+
+        return self._version.lower() != other._version.lower()
+
+    @property
+    def public(self):
+        return self._version
+
+    @property
+    def local(self):
+        return None
+
+    @property
+    def is_prerelease(self):
+        return False
+
+
 class Version(object):
 
     _regex = re.compile(
