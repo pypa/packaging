@@ -443,24 +443,25 @@ class Specifier(object):
         return self._specs != other._specs
 
     def __contains__(self, item):
-        # Normalize item to a Version, this allows us to have a shortcut for
-        # ``"2.0" in Specifier(">=2")
-        version_item = item
-        if not isinstance(item, Version):
+        # Normalize item to a Version or LegacyVersion, this allows us to have
+        # a shortcut for ``"2.0" in Specifier(">=2")
+        if isinstance(item, (Version, LegacyVersion)):
+            version_item = item
+        else:
             try:
                 version_item = Version(item)
             except ValueError:
-                # If we cannot parse this as a version, then we can only
-                # support identity comparison so do a quick check to see if the
-                # spec contains any non identity specifiers
-                #
-                # This will return False if we do not have any specifiers, this
-                # is on purpose as a non PEP 440 version should require
-                # explicit opt in because otherwise they cannot be sanely
-                # prioritized
-                if (not self._specs
-                        or any(op != "===" for op, _ in self._specs)):
-                    return False
+                version_item = LegacyVersion(item)
+
+        # If we're operating on a LegacyVersion, then we can only support
+        # arbitrary comparison so do a quick check to see if the spec contains
+        # any non arbitrary specifiers
+        if isinstance(version_item, LegacyVersion):
+            # This will return False if we do not have any specifiers, this is
+            # on purpose as a non PEP 440 version should require explicit opt
+            # in because otherwise they cannot be sanely prioritized
+            if not self._specs or any(op != "===" for op, _ in self._specs):
+                return False
 
         # Ensure that the passed in version matches all of our version
         # specifiers
