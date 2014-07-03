@@ -388,7 +388,7 @@ class Specifier(object):
         ">=": "greater_than_equal",
         "<": "less_than",
         ">": "greater_than",
-        "===": "identity",
+        "===": "arbitrary",
     }
 
     def __init__(self, specs, prereleases=False):
@@ -556,8 +556,8 @@ class Specifier(object):
         return (prospective > Version(spec)
                 and self._get_operator("!=")(prospective, spec + ".*"))
 
-    def _compare_identity(self, prospective, spec):
-        return prospective.lower() == spec.lower()
+    def _compare_arbitrary(self, prospective, spec):
+        return str(prospective).lower() == str(spec).lower()
 
 
 _prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
