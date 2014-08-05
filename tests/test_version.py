@@ -62,7 +62,6 @@ class TestVersion:
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
-            "1.0+1_1",
         ]
     )
     def test_invalid_versions(self, version):
@@ -181,6 +180,10 @@ class TestVersion:
             ("1.1.dev09000", "1.1.dev9000"),
             ("00!1.2", "1.2"),
             ("0100!0.0", "100!0.0"),
+
+            # Various other normalizations
+            ("v1.0", "1.0"),
+            ("   v1.0\t\n", "1.0"),
         ],
     )
     def test_normalized_versions(self, version, normalized):
@@ -566,7 +569,7 @@ class TestSpecifier:
         # Do the same thing, except include spaces in the specifiers
         [
             ",".join([
-                " ".join(re.split(r"(~=|==|!=|<=|>=|<|>)", item)[1:])
+                " ".join(re.split(r"(===|~=|==|!=|<=|>=|<|>)", item)[1:])
                 for item in combination
             ])
             for combination in itertools.chain(*(
@@ -580,7 +583,7 @@ class TestSpecifier:
         [
             ",".join([
                 ("" if j % 2 else " ").join(
-                    re.split(r"(~=|==|!=|<=|>=|<|>)", item)[1:]
+                    re.split(r"(===|~=|==|!=|<=|>=|<|>)", item)[1:]
                 )
                 for j, item in enumerate(combination)
             ])
@@ -755,6 +758,10 @@ class TestSpecifier:
             "1.1.dev09000",
             "00!1.2",
             "0100!0.0",
+
+            # Various other normalizations
+            "v1.0",
+            "  \r \f \v v1.0\t\n",
         ],
     )
     def test_specifiers_normalized(self, version):

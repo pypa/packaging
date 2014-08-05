@@ -80,26 +80,32 @@ class Version(object):
     _regex = re.compile(
         r"""
         ^
+        \s*
+        v?
         (?:
-            (?:(?P<epoch>[0-9]+)!)?               # epoch
-            (?P<release>[0-9]+(?:\.[0-9]+)*)      # release segment
-            (?P<pre>                              # pre release
-                [-\.]?
-                (?P<pre_l>(a|b|c|rc|alpha|beta))  #  - pre-release letter
-                (?P<pre_n>[0-9]+)?                #  - pre-release number
+            (?:(?P<epoch>[0-9]+)!)?                           # epoch
+            (?P<release>[0-9]+(?:\.[0-9]+)*)                  # release segment
+            (?P<pre>                                          # pre-release
+                [-_\.]?
+                (?P<pre_l>(a|b|c|rc|alpha|beta|pre|preview))
+                [-_\.]?
+                (?P<pre_n>[0-9]+)?
             )?
-            (?P<post>                             # post release
-                [-\.]?
-                (?P<post_l>post)
+            (?P<post>                                         # post release
+                [-_\.]?
+                (?P<post_l>post|rev|r)
+                [-_\.]?
                 (?P<post_n>[0-9]+)?
             )?
-            (?P<dev>                              # dev release
-                [-\.]?
+            (?P<dev>                                          # dev release
+                [-_\.]?
                 (?P<dev_l>dev)
+                [-_\.]?
                 (?P<dev_n>[0-9]+)?
             )?
         )
-        (?:\+(?P<local>[a-z0-9]+(?:[a-z0-9\.]*[a-z0-9])?))? # local version
+        (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
+        \s*
         $
         """,
         re.VERBOSE | re.IGNORECASE,
@@ -232,10 +238,13 @@ def _parse_letter_version(letter, number):
             letter = "a"
         elif letter == "beta":
             letter = "b"
-        elif letter == "rc":
+        elif letter in ["rc", "pre", "preview"]:
             letter = "c"
 
         return letter, int(number)
+
+
+_local_version_seperators = re.compile(r"[\._-]")
 
 
 def _parse_local_version(local):
@@ -245,7 +254,7 @@ def _parse_local_version(local):
     if local is not None:
         return tuple(
             part.lower() if not part.isdigit() else int(part)
-            for part in local.split(".")
+            for part in _local_version_seperators.split(local)
         )
 
 
@@ -313,6 +322,7 @@ class Specifier(object):
     _regex = re.compile(
         r"""
         ^
+        \s*
         (?P<operator>(~=|==|!=|<=|>=|<|>|===))
         (?P<version>
             (?:
@@ -322,8 +332,9 @@ class Specifier(object):
                 # any semantic meaning from it. This operator is discouraged
                 # but included entirely as an escape hatch.
                 (?<====)  # Only match for the identity operator
-                .*        # We just match everything, since we are only testing
-                          # for strict identity.
+                \s*
+                [^\s]*    # We just match everything, except for whitespace
+                          # since we are only testing for strict identity.
             )
             |
             (?:
@@ -332,16 +343,23 @@ class Specifier(object):
                 # operators separately to enable that.
                 (?<===|!=)            # Only match for equals and not equals
 
+                \s*
+                v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:[-\.]?post[0-9]*)? # post release
+                (?:                   # pre release
+                    [-_\.]?
+                    (a|b|c|rc|alpha|beta|pre|preview)
+                    [-_\.]?
+                    [0-9]*
+                )?
+                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
 
                 # You cannot use a wild card and a dev or local version
                 # together so group them with a | and make them optional.
                 (?:
-                    (?:[-\.]?dev[0-9]*)?                       # dev release
-                    (?:\+[a-z0-9]+(?:[a-z0-9_\.+]*[a-z0-9])?)? # local
+                    (?:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
+                    (?:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
                     |
                     \.\*  # Wild card syntax of .*
                 )?
@@ -352,11 +370,18 @@ class Specifier(object):
                 # release segment.
                 (?<=~=)               # Only match for the compatible operator
 
+                \s*
+                v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
-                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:[-\.]?post[0-9]*)? # post release
-                (?:[-\.]?dev[0-9]*)?  # dev release
+                (?:                   # pre release
+                    [-_\.]?
+                    (a|b|c|rc|alpha|beta|pre|preview)
+                    [-_\.]?
+                    [0-9]*
+                )?
+                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
+                (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
             |
             (?:
@@ -368,13 +393,21 @@ class Specifier(object):
                                       # operators so we want to make sure they
                                       # don't match here.
 
+                \s*
+                v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:[-\.]?(a|b|c|rc|alpha|beta)[0-9]*)? # pre release
-                (?:[-\.]?post[0-9]*)? # post release
-                (?:[-\.]?dev[0-9]*)?  # dev release
+                (?:                   # pre release
+                    [-_\.]?
+                    (a|b|c|rc|alpha|beta|pre|preview)
+                    [-_\.]?
+                    [0-9]*
+                )?
+                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
+                (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
         )
+        \s*
         $
         """,
         re.VERBOSE | re.IGNORECASE,
@@ -392,9 +425,6 @@ class Specifier(object):
     }
 
     def __init__(self, specs, prereleases=False):
-        # Normalize the specification to remove all of the whitespace
-        specs = specs.replace(" ", "")
-
         # Split on comma to get each individual specification
         _specs = set()
         for spec in (s for s in specs.split(",") if s):
@@ -403,7 +433,10 @@ class Specifier(object):
                 raise InvalidSpecifier("Invalid specifier: '{0}'".format(spec))
 
             _specs.add(
-                (match.group("operator"), match.group("version"))
+                (
+                    match.group("operator").strip(),
+                    match.group("version").strip(),
+                )
             )
 
         # Set a frozen set for our specifications
