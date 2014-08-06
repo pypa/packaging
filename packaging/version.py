@@ -92,10 +92,14 @@ class Version(object):
                 (?P<pre_n>[0-9]+)?
             )?
             (?P<post>                                         # post release
-                [-_\.]?
-                (?P<post_l>post|rev|r)
-                [-_\.]?
-                (?P<post_n>[0-9]+)?
+                (?:-(?P<post_n1>[0-9]+))
+                |
+                (?:
+                    [-_\.]?
+                    (?P<post_l>post|rev|r)
+                    [-_\.]?
+                    (?P<post_n2>[0-9]+)?
+                )
             )?
             (?P<dev>                                          # dev release
                 [-_\.]?
@@ -127,7 +131,7 @@ class Version(object):
             ),
             post=_parse_letter_version(
                 match.group("post_l"),
-                match.group("post_n"),
+                match.group("post_n1") or match.group("post_n2"),
             ),
             dev=_parse_letter_version(
                 match.group("dev_l"),
@@ -242,6 +246,12 @@ def _parse_letter_version(letter, number):
             letter = "c"
 
         return letter, int(number)
+    if not letter and number:
+        # We assume if we are given a number, but we are not given a letter
+        # then this is using the implicit post release syntax (e.g. 1.0-1)
+        letter = "post"
+
+        return letter, int(number)
 
 
 _local_version_seperators = re.compile(r"[\._-]")
@@ -353,7 +363,9 @@ class Specifier(object):
                     [-_\.]?
                     [0-9]*
                 )?
-                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
+                (?:                   # post release
+                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
+                )?
 
                 # You cannot use a wild card and a dev or local version
                 # together so group them with a | and make them optional.
@@ -380,7 +392,9 @@ class Specifier(object):
                     [-_\.]?
                     [0-9]*
                 )?
-                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
+                (?:                                   # post release
+                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
+                )?
                 (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
             |
@@ -403,7 +417,9 @@ class Specifier(object):
                     [-_\.]?
                     [0-9]*
                 )?
-                (?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)? # post release
+                (?:                                   # post release
+                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
+                )?
                 (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
         )
