@@ -21,6 +21,6 @@ script:
 notifications:
   irc:
     channels:
-      - "irc.freenode.org#caremad"
+      - "irc.freenode.org#pypa-dev"
     use_notice: true
     skip_join: true
