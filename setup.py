@@ -55,5 +55,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.4",
     ],
 
-    packages=setuptools.find_packages(exclude=["tests", "tests.*"]),
+    packages=[
+        "packaging",
+    ],
 )
