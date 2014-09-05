@@ -86,8 +86,11 @@ Reference
 
     This class abstracts handling of a project's versions if they are not
     compatible with the scheme defined in `PEP 440`_. It implements a similar
-    interface to that of :class:`Version` however it is considered unorderable
-    and many of the comparison types are not implemented.
+    interface to that of :class:`Version`.
+
+    This class implements the previous de facto sorting algorithm used by
+    setuptools, however it will always sort as less than a :class:`Version`
+    instance.
 
     :param str version: The string representation of a version which will be
                         used as is.

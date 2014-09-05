@@ -36,31 +36,47 @@ class InvalidVersion(ValueError):
     """
 
 
-class LegacyVersion(object):
+class _BaseVersion(object):
+
+    def __hash__(self):
+        return hash(self._key)
+
+    def __lt__(self, other):
+        return self._compare(other, lambda s, o: s < o)
+
+    def __le__(self, other):
+        return self._compare(other, lambda s, o: s <= o)
+
+    def __eq__(self, other):
+        return self._compare(other, lambda s, o: s == o)
+
+    def __ge__(self, other):
+        return self._compare(other, lambda s, o: s >= o)
+
+    def __gt__(self, other):
+        return self._compare(other, lambda s, o: s > o)
+
+    def __ne__(self, other):
+        return self._compare(other, lambda s, o: s != o)
+
+    def _compare(self, other, method):
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return method(self._key, other._key)
+
+
+class LegacyVersion(_BaseVersion):
 
     def __init__(self, version):
         self._version = str(version)
+        self._key = _legacy_cmpkey(self._version)
 
     def __str__(self):
         return self._version
 
     def __repr__(self):
         return "<LegacyVersion({0})>".format(repr(str(self)))
-
-    def __hash__(self):
-        return hash(self._version)
-
-    def __eq__(self, other):
-        if not isinstance(other, LegacyVersion):
-            return NotImplemented
-
-        return self._version.lower() == other._version.lower()
-
-    def __ne__(self, other):
-        if not isinstance(other, LegacyVersion):
-            return NotImplemented
-
-        return self._version.lower() != other._version.lower()
 
     @property
     def public(self):
@@ -75,7 +91,60 @@ class LegacyVersion(object):
         return False
 
 
-class Version(object):
+_legacy_version_component_re = re.compile(
+    r"(\d+ | [a-z]+ | \.| -)", re.VERBOSE,
+)
+
+_legacy_version_replacement_map = {
+    "pre": "c", "preview": "c", "-": "final-", "rc": "c", "dev": "@",
+}
+
+
+def _parse_version_parts(s):
+    for part in _legacy_version_component_re.split(s):
+        part = _legacy_version_replacement_map.get(part, part)
+
+        if not part or part == ".":
+            continue
+
+        if part[:1] in "0123456789":
+            # pad for numeric comparison
+            yield part.zfill(8)
+        else:
+            yield "*" + part
+
+    # ensure that alpha/beta/candidate are before final
+    yield "*final"
+
+
+def _legacy_cmpkey(version):
+    # We hardcode an epoch of -1 here. A PEP 440 version can only have a epoch
+    # greater than or equal to 0. This will effectively put the LegacyVersion,
+    # which uses the defacto standard originally implemented by setuptools,
+    # as before all PEP 440 versions.
+    epoch = -1
+
+    # This scheme is taken from pkg_resources.parse_version setuptools prior to
+    # it's adoption of the packaging library.
+    parts = []
+    for part in _parse_version_parts(version.lower()):
+        if part.startswith("*"):
+            # remove "-" before a prerelease tag
+            if part < "*final":
+                while parts and parts[-1] == "*final-":
+                    parts.pop()
+
+            # remove trailing zeros from each series of numeric parts
+            while parts and parts[-1] == "00000000":
+                parts.pop()
+
+        parts.append(part)
+    parts = tuple(parts)
+
+    return epoch, parts
+
+
+class Version(_BaseVersion):
 
     _regex = re.compile(
         r"""
@@ -182,33 +251,6 @@ class Version(object):
             )
 
         return "".join(parts)
-
-    def __hash__(self):
-        return hash(self._key)
-
-    def __lt__(self, other):
-        return self._compare(other, lambda s, o: s < o)
-
-    def __le__(self, other):
-        return self._compare(other, lambda s, o: s <= o)
-
-    def __eq__(self, other):
-        return self._compare(other, lambda s, o: s == o)
-
-    def __ge__(self, other):
-        return self._compare(other, lambda s, o: s >= o)
-
-    def __gt__(self, other):
-        return self._compare(other, lambda s, o: s > o)
-
-    def __ne__(self, other):
-        return self._compare(other, lambda s, o: s != o)
-
-    def _compare(self, other, method):
-        if not isinstance(other, Version):
-            return NotImplemented
-
-        return method(self._key, other._key)
 
     @property
     def public(self):
@@ -440,7 +482,7 @@ class Specifier(object):
         "===": "arbitrary",
     }
 
-    def __init__(self, specs, prereleases=False):
+    def __init__(self, specs="", prereleases=False):
         # Split on comma to get each individual specification
         _specs = set()
         for spec in (s for s in specs.split(",") if s):
@@ -492,6 +534,11 @@ class Specifier(object):
         return self._specs != other._specs
 
     def __contains__(self, item):
+        # Detect up front if we have any specifiers, if we do not then anything
+        # matches and we can short circuit all this logic.
+        if not self._specs:
+            return True
+
         # Normalize item to a Version or LegacyVersion, this allows us to have
         # a shortcut for ``"2.0" in Specifier(">=2")
         if isinstance(item, (Version, LegacyVersion)):
@@ -506,10 +553,7 @@ class Specifier(object):
         # arbitrary comparison so do a quick check to see if the spec contains
         # any non arbitrary specifiers
         if isinstance(version_item, LegacyVersion):
-            # This will return False if we do not have any specifiers, this is
-            # on purpose as a non PEP 440 version should require explicit opt
-            # in because otherwise they cannot be sanely prioritized
-            if not self._specs or any(op != "===" for op, _ in self._specs):
+            if any(op != "===" for op, _ in self._specs):
                 return False
 
         # Ensure that the passed in version matches all of our version
