@@ -454,8 +454,12 @@ class TestVersion:
 
         assert getattr(operator, op)(Version("1"), other) is expected
 
+    def test_compare_legacyversion_version(self):
+        result = sorted([Version("0"), LegacyVersion("1")])
+        assert result == [LegacyVersion("1"), Version("0")]
 
-LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0"]
+
+LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 
 
 class TestLegacyVersion:
@@ -1125,3 +1129,12 @@ class TestSpecifier:
         else:
             # Identity comparisons only support the plain string form
             assert version not in spec
+
+    @pytest.mark.parametrize(
+        "version",
+        VERSIONS + LEGACY_VERSIONS,
+    )
+    def test_empty_specifier(self, version):
+        spec = Specifier()
+
+        assert version in spec
