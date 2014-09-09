@@ -27,6 +27,9 @@ with open(os.path.join(base_dir, "packaging", "__about__.py")) as f:
 with open(os.path.join(base_dir, "README.rst")) as f:
     long_description = f.read()
 
+with open(os.path.join(base_dir, "CHANGELOG.rst")) as f:
+    long_description = "\n".join([long_description, f.read()])
+
 
 setuptools.setup(
     name=about["__title__"],
