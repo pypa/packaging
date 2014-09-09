@@ -497,7 +497,7 @@ class Specifier(object):
         "===": "arbitrary",
     }
 
-    def __init__(self, specs="", prereleases=False):
+    def __init__(self, specs="", prereleases=None):
         # Split on comma to get each individual specification
         _specs = set()
         for spec in (s for s in specs.split(",") if s):
@@ -514,6 +514,9 @@ class Specifier(object):
 
         # Set a frozen set for our specifications
         self._specs = frozenset(_specs)
+
+        # Store whether or not this Specifier should accept prereleases
+        self._prereleases = prereleases
 
     def __repr__(self):
         return "<Specifier({0})>".format(repr(str(self)))
@@ -549,11 +552,6 @@ class Specifier(object):
         return self._specs != other._specs
 
     def __contains__(self, item):
-        # Detect up front if we have any specifiers, if we do not then anything
-        # matches and we can short circuit all this logic.
-        if not self._specs:
-            return True
-
         # Normalize item to a Version or LegacyVersion, this allows us to have
         # a shortcut for ``"2.0" in Specifier(">=2")
         if isinstance(item, (Version, LegacyVersion)):
@@ -563,6 +561,17 @@ class Specifier(object):
                 version_item = Version(item)
             except ValueError:
                 version_item = LegacyVersion(item)
+
+        # Determine if we should be supporting prereleases in this specifier
+        # or not, if we do not support prereleases than we can short circuit
+        # logic if this version is a prereleases.
+        if version_item.is_prerelease and not self.prereleases:
+            return False
+
+        # Detect if we have any specifiers, if we do not then anything matches
+        # and we can short circuit all this logic.
+        if not self._specs:
+            return True
 
         # If we're operating on a LegacyVersion, then we can only support
         # arbitrary comparison so do a quick check to see if the spec contains
@@ -667,6 +676,34 @@ class Specifier(object):
 
     def _compare_arbitrary(self, prospective, spec):
         return str(prospective).lower() == str(spec).lower()
+
+    @property
+    def prereleases(self):
+        # If there is an explicit prereleases set for this, then we'll just
+        # blindly use that.
+        if self._prereleases is not None:
+            return self._prereleases
+
+        # Look at all of our specifiers and determine if they are inclusive
+        # operators, and if they are if they are including an explicit
+        # prerelease.
+        for spec, version in self._specs:
+            if spec in ["==", ">=", "<=", "~="]:
+                # The == specifier can include a trailing .*, if it does we
+                # want to remove before parsing.
+                if spec == "==" and version.endswith(".*"):
+                    version = version[:-2]
+
+                # Parse the version, and if it is a pre-release than this
+                # specifier allows pre-releases.
+                if parse(version).is_prerelease:
+                    return True
+
+        return False
+
+    @prereleases.setter
+    def prereleases(self, value):
+        self._prereleases = value
 
 
 _prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")

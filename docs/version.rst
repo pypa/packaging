@@ -121,7 +121,7 @@ Reference
         `False` and exists for compatibility with :class:`Version`.
 
 
-.. class:: Specifier(specifier)
+.. class:: Specifier(specifier, prereleases=None)
 
     This class abstracts handling of specifying the dependencies of a project.
     It implements the scheme defined in `PEP 440`_. You can test membership
@@ -135,8 +135,20 @@ Reference
 
     :param str specifier: The string representation of a specifier which will
                           be parsed and normalized before use.
+    :param bool prereleases: This tells the specifier if it should accept
+                             prerelease versions if applicable or not. The
+                             default of ``None`` will autodetect it from the
+                             given specifiers.
     :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
                               in any way then this exception will be raised.
+
+    .. attribute:: prereleases
+
+        A boolean value indicating whether this :class:`Specifier` represents
+        a specifier that includesa pre-release versions. This can be set to
+        either ``True`` or ``False`` to explicitly enable or disable
+        prereleases or it can be set to ``None`` (the default) to enable
+        autodetection.
 
 
 .. exception:: InvalidVersion

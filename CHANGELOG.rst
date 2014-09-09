@@ -7,6 +7,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add prerelease support to ``Specifier``.
+
 
 14.1 - 2014-09-08
 ~~~~~~~~~~~~~~~~~
