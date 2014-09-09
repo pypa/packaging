@@ -1,10 +1,9 @@
 Changelog
 =========
 
-14.1 - `master`_
-~~~~~~~~~~~~~~~~
 
-.. note:: This version is not yet released and is under active development.
+14.1 - 2014-09-08
+~~~~~~~~~~~~~~~~~
 
 * Allow ``LegacyVersion`` and ``Version`` to be sorted together.
 * Add ``packaging.version.parse()`` to enable easily parsing a version string
@@ -16,6 +15,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
