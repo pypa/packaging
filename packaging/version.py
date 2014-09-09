@@ -21,7 +21,10 @@ from ._compat import string_types
 from ._structures import Infinity
 
 
-__all__ = ["parse", "Version", "Specifier"]
+__all__ = [
+    "parse", "Version", "LegacyVersion", "InvalidVersion", "Specifier",
+    "InvalidSpecifier",
+]
 
 
 _Version = collections.namedtuple(
