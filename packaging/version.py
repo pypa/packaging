@@ -21,13 +21,25 @@ from ._compat import string_types
 from ._structures import Infinity
 
 
-__all__ = ["Version", "Specifier"]
+__all__ = ["parse", "Version", "Specifier"]
 
 
 _Version = collections.namedtuple(
     "_Version",
     ["epoch", "release", "dev", "pre", "post", "local"],
 )
+
+
+def parse(version):
+    """
+    Parse the given version string and return either a :class:`Version` object
+    or a :class:`LegacyVersion` object depending on if the given version is
+    a valid PEP 440 version or a legacy version.
+    """
+    try:
+        return Version(version)
+    except InvalidVersion:
+        return LegacyVersion(version)
 
 
 class InvalidVersion(ValueError):
