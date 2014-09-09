@@ -132,13 +132,13 @@ Reference
                               in any way then this exception will be raised.
 
 
-.. class:: InvalidVersion
+.. exception:: InvalidVersion
 
     Raised when attempting to create a :class:`Version` with a version string
     that does not conform to `PEP 440`_.
 
 
-.. class:: InvalidSpecifier
+.. exception:: InvalidSpecifier
 
     Raised when attempting to create a :class:`Specifier` with a specifier
     string that does not conform to `PEP 440`_.
