@@ -12,8 +12,8 @@ Usage
 
 .. doctest::
 
-    >>> from packaging.version import Version, Specifier
-    >>> v1 = Version("1.0a5")
+    >>> from packaging.version import Version, Specifier, parse
+    >>> v1 = parse("1.0a5")
     >>> v2 = Version("1.0")
     >>> v1
     <Version('1.0a5')>
@@ -55,6 +55,13 @@ Usage
 
 Reference
 ---------
+
+.. function:: parse(version)
+
+    This function takes a version string and will parse it as a
+    :class:`Version` if the version is a valid PEP 440 version, otherwise it
+    will parse it as a :class:`LegacyVersion`.
+
 
 .. class:: Version(version)
 

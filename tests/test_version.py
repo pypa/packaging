@@ -21,8 +21,19 @@ import pretend
 import pytest
 
 from packaging.version import (
-    Version, LegacyVersion, InvalidVersion, Specifier, InvalidSpecifier,
+    Version, LegacyVersion, InvalidVersion, Specifier, InvalidSpecifier, parse,
 )
+
+
+@pytest.mark.parametrize(
+    ("version", "klass"),
+    [
+        ("1.0", Version),
+        ("1-1-1", LegacyVersion),
+    ],
+)
+def test_parse(version, klass):
+    assert isinstance(parse(version), klass)
 
 
 # This list must be in the correct sorting order
