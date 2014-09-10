@@ -2,10 +2,8 @@ Changelog
 =========
 
 
-14.2 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+14.2 - 2014-09-10
+~~~~~~~~~~~~~~~~~
 
 * Add prerelease support to ``Specifier``.
 * Remove the ability to do ``item in Specifier()`` and replace it with
@@ -28,6 +26,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
