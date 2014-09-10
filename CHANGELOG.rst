@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+14.3 - `master`_
+~~~~~~~~~~~~~~~~
+
+.. note:: This version is not yet released and is under active development.
+
+
 14.2 - 2014-09-10
 ~~~~~~~~~~~~~~~~~
 
@@ -26,3 +32,6 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
+
+
+.. _`master`: https://github.com/pypa/packaging/
