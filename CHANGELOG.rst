@@ -7,6 +7,13 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add prerelease support to ``Specifier``.
+* Remove the ability to do ``item in Specifier()`` and replace it with
+  ``Specifier().contains(item)`` in order to allow flags that signal if a
+  prerelease should be accepted or not.
+* Add a method ``Specifier().filter()`` which will take an iterable and returns
+  an iterable with items that do not match the specifier filtered out.
+
 
 14.1 - 2014-09-08
 ~~~~~~~~~~~~~~~~~

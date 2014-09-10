@@ -44,13 +44,17 @@ Usage
     >>> combined_spec
     <Specifier('!=1.1,>=1.0,~=1.0')>
     >>> # We can check a version object to see if it falls within a specifier
-    >>> v1 in combined_spec
+    >>> combined_spec.contains(v1)
     False
-    >>> v2 in combined_spec
+    >>> combined_spec.contains(v2)
     True
     >>> # We can even do the same with a string based version
-    >>> "1.4" in combined_spec
+    >>> combined_spec.contains("1.4")
     True
+    >>> # Finally we can filter a list of versions to get only those which are
+    >>> # contained within our specifier.
+    >>> list(combined_spec.filter([v1, v2, "1.4"]))
+    [<Version('1.0')>, '1.4']
 
 
 Reference
@@ -121,13 +125,10 @@ Reference
         `False` and exists for compatibility with :class:`Version`.
 
 
-.. class:: Specifier(specifier)
+.. class:: Specifier(specifier, prereleases=None)
 
     This class abstracts handling of specifying the dependencies of a project.
-    It implements the scheme defined in `PEP 440`_. You can test membership
-    of a particular version within a set of specifiers in a :class:`Specifier`
-    instance by using the standard ``in`` operator (e.g.
-    ``Version("2.0") in Specifier("==2.0")``). You may also combine Specifier
+    It implements the scheme defined in `PEP 440`_. You may combine Specifier
     instances using the ``&`` operator (``Specifier(">2") & Specifier(">3")``).
 
     Both the membership test and the combination supports using raw strings
@@ -135,8 +136,51 @@ Reference
 
     :param str specifier: The string representation of a specifier which will
                           be parsed and normalized before use.
+    :param bool prereleases: This tells the specifier if it should accept
+                             prerelease versions if applicable or not. The
+                             default of ``None`` will autodetect it from the
+                             given specifiers.
     :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
                               in any way then this exception will be raised.
+
+    .. attribute:: prereleases
+
+        A boolean value indicating whether this :class:`Specifier` represents
+        a specifier that includesa pre-release versions. This can be set to
+        either ``True`` or ``False`` to explicitly enable or disable
+        prereleases or it can be set to ``None`` (the default) to enable
+        autodetection.
+
+    .. method:: contains(version, prereleases=None)
+
+        Determines if ``version``, which can be either a version string, a
+        :class:`Version`, or a :class:`LegacyVersion` object, is contained
+        within this specifier.
+
+        This will either match or not match prereleases based on the
+        ``prereleases`` parameter. When ``prereleases`` is set to ``None``
+        (the default) it will use the ``Specifier().prereleases`` attribute to
+        determine if to allow them. Otherwise it will use the boolean value of
+        the passed in value to determine if to allow them or not.
+
+    .. method:: filter(iterable, prereleases=None)
+
+        Takes an iterable that can contain version strings, :class:`Version`,
+        and :class:`LegacyVersion` instances and will then filter it, returning
+        an iterable that contains only items which match the rules of this
+        specifier object.
+
+        This method is smarter than just
+        ``filter(Specifier().contains, [...])`` because it implements the rule
+        from PEP 440 where a prerelease item SHOULD be accepted if no other
+        versions match the given specifier.
+
+        The ``prereleases`` parameter functions similarly to that of the same
+        parameter in ``contains``. If the value is ``None`` (the default) then
+        it will intelligently decide if to allow prereleases based on the
+        specifier, the ``Specifier().prereleases`` value, and the PEP 440
+        rules. Otherwise it will act as a boolean which will enable or disable
+        all prerelease versions from being included.
 
 
 .. exception:: InvalidVersion

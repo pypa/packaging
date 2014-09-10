@@ -1100,20 +1100,20 @@ class TestSpecifier:
         ],
     )
     def test_specifiers(self, version, spec, expected):
-        spec = Specifier(spec)
+        spec = Specifier(spec, prereleases=True)
 
         if expected:
             # Test that the plain string form works
-            assert version in spec
+            assert spec.contains(version)
 
             # Test that the version instance form works
-            assert Version(version) in spec
+            assert spec.contains(Version(version))
         else:
             # Test that the plain string form works
-            assert version not in spec
+            assert not spec.contains(version)
 
             # Test that the version instance form works
-            assert Version(version) not in spec
+            assert not spec.contains(Version(version))
 
     @pytest.mark.parametrize(
         ("version", "spec", "expected"),
@@ -1136,16 +1136,104 @@ class TestSpecifier:
 
         if expected:
             # Identity comparisons only support the plain string form
-            assert version in spec
+            assert spec.contains(version)
         else:
             # Identity comparisons only support the plain string form
-            assert version not in spec
+            assert not spec.contains(version)
 
     @pytest.mark.parametrize(
         "version",
         VERSIONS + LEGACY_VERSIONS,
     )
     def test_empty_specifier(self, version):
-        spec = Specifier()
+        spec = Specifier(prereleases=True)
 
-        assert version in spec
+        assert spec.contains(version)
+
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [
+            ("==1.0", False),
+            ("", False),
+            (">=1.0", False),
+            ("<=1.0", False),
+            ("~=1.0", False),
+            ("<1.0", False),
+            (">1.0", False),
+            ("<1.0.dev1", False),
+            (">1.0.dev1", False),
+            ("==1.0.*", False),
+            ("==1.0.dev1", True),
+            (">=1.0.dev1", True),
+            ("<=1.0.dev1", True),
+            ("~=1.0.dev1", True),
+        ],
+    )
+    def test_specifier_prereleases_detection(self, specifier, expected):
+        assert Specifier(specifier).prereleases == expected
+
+    def test_specifier_prereleases_explicit(self):
+        spec = Specifier()
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+        spec.prereleases = True
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+
+        spec = Specifier(prereleases=True)
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+        spec.prereleases = False
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+
+        spec = Specifier(prereleases=True)
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+        spec.prereleases = None
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+
+    @pytest.mark.parametrize(
+        ("specifier", "version", "expected"),
+        [
+            (">=1.0", "2.0.dev1", False),
+            (">=2.0.dev1", "2.0a1", True),
+            ("==2.0.*", "2.0a1.dev1", False),
+            ("==2.0a1.*", "2.0a1.dev1", True),
+            ("<=2.0", "1.0.dev1", False),
+            ("<=2.0.dev1", "1.0a1", True),
+        ],
+    )
+    def test_specifiers_prereleases(self, specifier, version, expected):
+        spec = Specifier(specifier)
+
+        if expected:
+            assert spec.contains(version)
+            spec.prereleases = False
+            assert not spec.contains(version)
+        else:
+            assert not spec.contains(version)
+            spec.prereleases = True
+            assert spec.contains(version)
+
+    @pytest.mark.parametrize(
+        ("specifier", "prereleases", "input", "expected"),
+        [
+            ("", None, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0.dev1", None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", None, ["1.0a1"], ["1.0a1"]),
+            ("", False, ["1.0a1"], []),
+            (">=1.0.dev1", False, ["1.0", "2.0a1"], ["1.0"]),
+            ("", True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", None, ["1.0", Version("2.0")], ["1.0", Version("2.0")]),
+        ],
+    )
+    def test_specifier_filter(self, specifier, prereleases, input, expected):
+        spec = Specifier(specifier)
+
+        kwargs = (
+            {"prereleases": prereleases} if prereleases is not None else {}
+        )
+
+        assert list(spec.filter(input, **kwargs)) == expected

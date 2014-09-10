@@ -497,7 +497,7 @@ class Specifier(object):
         "===": "arbitrary",
     }
 
-    def __init__(self, specs="", prereleases=False):
+    def __init__(self, specs="", prereleases=None):
         # Split on comma to get each individual specification
         _specs = set()
         for spec in (s for s in specs.split(",") if s):
@@ -514,6 +514,9 @@ class Specifier(object):
 
         # Set a frozen set for our specifications
         self._specs = frozenset(_specs)
+
+        # Store whether or not this Specifier should accept prereleases
+        self._prereleases = prereleases
 
     def __repr__(self):
         return "<Specifier({0})>".format(repr(str(self)))
@@ -547,39 +550,6 @@ class Specifier(object):
             return NotImplemented
 
         return self._specs != other._specs
-
-    def __contains__(self, item):
-        # Detect up front if we have any specifiers, if we do not then anything
-        # matches and we can short circuit all this logic.
-        if not self._specs:
-            return True
-
-        # Normalize item to a Version or LegacyVersion, this allows us to have
-        # a shortcut for ``"2.0" in Specifier(">=2")
-        if isinstance(item, (Version, LegacyVersion)):
-            version_item = item
-        else:
-            try:
-                version_item = Version(item)
-            except ValueError:
-                version_item = LegacyVersion(item)
-
-        # If we're operating on a LegacyVersion, then we can only support
-        # arbitrary comparison so do a quick check to see if the spec contains
-        # any non arbitrary specifiers
-        if isinstance(version_item, LegacyVersion):
-            if any(op != "===" for op, _ in self._specs):
-                return False
-
-        # Ensure that the passed in version matches all of our version
-        # specifiers
-        return all(
-            self._get_operator(op)(
-                version_item if op != "===" else item,
-                spec,
-            )
-            for op, spec, in self._specs
-        )
 
     def _get_operator(self, op):
         return getattr(self, "_compare_{0}".format(self._operators[op]))
@@ -667,6 +637,112 @@ class Specifier(object):
 
     def _compare_arbitrary(self, prospective, spec):
         return str(prospective).lower() == str(spec).lower()
+
+    @property
+    def prereleases(self):
+        # If there is an explicit prereleases set for this, then we'll just
+        # blindly use that.
+        if self._prereleases is not None:
+            return self._prereleases
+
+        # Look at all of our specifiers and determine if they are inclusive
+        # operators, and if they are if they are including an explicit
+        # prerelease.
+        for spec, version in self._specs:
+            if spec in ["==", ">=", "<=", "~="]:
+                # The == specifier can include a trailing .*, if it does we
+                # want to remove before parsing.
+                if spec == "==" and version.endswith(".*"):
+                    version = version[:-2]
+
+                # Parse the version, and if it is a pre-release than this
+                # specifier allows pre-releases.
+                if parse(version).is_prerelease:
+                    return True
+
+        return False
+
+    @prereleases.setter
+    def prereleases(self, value):
+        self._prereleases = value
+
+    def contains(self, item, prereleases=None):
+        # Determine if prereleases are to be allowed or not.
+        if prereleases is None:
+            prereleases = self.prereleases
+
+        # Normalize item to a Version or LegacyVersion, this allows us to have
+        # a shortcut for ``"2.0" in Specifier(">=2")
+        if isinstance(item, (Version, LegacyVersion)):
+            version_item = item
+        else:
+            try:
+                version_item = Version(item)
+            except ValueError:
+                version_item = LegacyVersion(item)
+
+        # Determine if we should be supporting prereleases in this specifier
+        # or not, if we do not support prereleases than we can short circuit
+        # logic if this version is a prereleases.
+        if version_item.is_prerelease and not prereleases:
+            return False
+
+        # Detect if we have any specifiers, if we do not then anything matches
+        # and we can short circuit all this logic.
+        if not self._specs:
+            return True
+
+        # If we're operating on a LegacyVersion, then we can only support
+        # arbitrary comparison so do a quick check to see if the spec contains
+        # any non arbitrary specifiers
+        if isinstance(version_item, LegacyVersion):
+            if any(op != "===" for op, _ in self._specs):
+                return False
+
+        # Ensure that the passed in version matches all of our version
+        # specifiers
+        return all(
+            self._get_operator(op)(
+                version_item if op != "===" else item,
+                spec,
+            )
+            for op, spec, in self._specs
+        )
+
+    def filter(self, iterable, prereleases=None):
+        iterable = list(iterable)
+        yielded = False
+        found_prereleases = []
+
+        kw = {"prereleases": prereleases if prereleases is not None else True}
+
+        # Attempt to iterate over all the values in the iterable and if any of
+        # them match, yield them.
+        for version in iterable:
+            if not isinstance(version, (Version, LegacyVersion)):
+                parsed_version = parse(version)
+            else:
+                parsed_version = version
+
+            if self.contains(parsed_version, **kw):
+                # If our version is a prerelease, and we were not set to allow
+                # prereleases, then we'll store it for later incase nothing
+                # else matches this specifier.
+                if (parsed_version.is_prerelease
+                        and not (prereleases or self.prereleases)):
+                    found_prereleases.append(version)
+                # Either this is not a prerelease, or we should have been
+                # accepting prereleases from the begining.
+                else:
+                    yielded = True
+                    yield version
+
+        # Now that we've iterated over everything, determine if we've yielded
+        # any values, and if we have not and we have any prereleases stored up
+        # then we will go ahead and yield the prereleases.
+        if not yielded and found_prereleases:
+            for version in found_prereleases:
+                yield version
 
 
 _prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
