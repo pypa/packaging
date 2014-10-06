@@ -21,6 +21,7 @@ API
     :maxdepth: 1
 
     version
+    specifiers
 
 
 Project

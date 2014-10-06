@@ -7,6 +7,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* **BACKWARDS INCOMPATIBLE** Move the specifier support out of
+  ``packaging.version`` into ``packaging.specifiers``.
+
 
 14.2 - 2014-09-10
 ~~~~~~~~~~~~~~~~~
