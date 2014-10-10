@@ -191,9 +191,11 @@ VERSION_PATTERN = r"""
     \s*
 """
 
+
 class Version(_BaseVersion):
 
-    _regex = re.compile('^' + VERSION_PATTERN + '$', re.VERBOSE | re.IGNORECASE)
+    _regex = re.compile('^' + VERSION_PATTERN + '$',
+                        re.VERBOSE | re.IGNORECASE)
 
     def __init__(self, version):
         # Validate the version and parse it into pieces
