@@ -15,18 +15,21 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
-import re
 
 import pytest
 
-from packaging.specifiers import InvalidSpecifier, Specifier
-from packaging.version import Version
+from packaging.specifiers import (
+    InvalidSpecifier, LegacySpecifier, Specifier, SpecifierSet,
+)
+from packaging.version import LegacyVersion, Version, parse
 
 from .test_version import VERSIONS, LEGACY_VERSIONS
 
 
-# These should all be without spaces, we'll generate some with spaces using
-# these as templates.
+LEGACY_SPECIFIERS = [
+    "==2.1.0.3", "!=2.2.0.5", "<=5", ">=7.9a1", "<1.0.dev1", ">2.0.post1",
+]
+
 SPECIFIERS = [
     "~=2.0", "==2.1.*", "==2.1.0.3", "!=2.2.*", "!=2.2.0.5", "<=5", ">=7.9a1",
     "<1.0.dev1", ">2.0.post1", "===lolwat",
@@ -35,45 +38,7 @@ SPECIFIERS = [
 
 class TestSpecifier:
 
-    @pytest.mark.parametrize(
-        "specifier",
-        # Generate all possible combinations of the SPECIFIERS to test to make
-        # sure they all work.
-        [
-            ",".join(combination)
-            for combination in itertools.chain(*(
-                itertools.combinations(SPECIFIERS, n)
-                for n in range(1, len(SPECIFIERS) + 1)
-            ))
-        ]
-        +
-        # Do the same thing, except include spaces in the specifiers
-        [
-            ",".join([
-                " ".join(re.split(r"(===|~=|==|!=|<=|>=|<|>)", item)[1:])
-                for item in combination
-            ])
-            for combination in itertools.chain(*(
-                itertools.combinations(SPECIFIERS, n)
-                for n in range(1, len(SPECIFIERS) + 1)
-            ))
-        ]
-        +
-        # Finally do the same thing once more, except join some with spaces and
-        # some without.
-        [
-            ",".join([
-                ("" if j % 2 else " ").join(
-                    re.split(r"(===|~=|==|!=|<=|>=|<|>)", item)[1:]
-                )
-                for j, item in enumerate(combination)
-            ])
-            for combination in itertools.chain(*(
-                itertools.combinations(SPECIFIERS, n)
-                for n in range(1, len(SPECIFIERS) + 1)
-            ))
-        ]
-    )
+    @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_valid(self, specifier):
         Specifier(specifier)
 
@@ -267,17 +232,8 @@ class TestSpecifier:
             (">=2.0", ">=2.0"),
             ("~=2.0", "~=2.0"),
 
-            # Multiple item specifiers should be sorted lexicographically
-            ("<2,!=1.5", "!=1.5,<2"),
-            (
-                "~=1.3.5,>5.3,==1.3.*,<=700,>=0,!=99.99,<1000",
-                "!=99.99,<1000,<=700,==1.3.*,>5.3,>=0,~=1.3.5",
-            ),
-
             # Spaces should be removed
-            ("== 2.0", "==2.0"),
-            (">=2.0, !=2.1.0", "!=2.1.0,>=2.0"),
-            ("< 2, >= 5,~= 2.2,==5.4", "<2,==5.4,>=5,~=2.2"),
+            ("< 2", "<2"),
         ],
     )
     def test_specifiers_str_and_repr(self, specifier, expected):
@@ -289,31 +245,6 @@ class TestSpecifier:
     @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_hash(self, specifier):
         assert hash(Specifier(specifier)) == hash(Specifier(specifier))
-
-    @pytest.mark.parametrize(
-        "specifiers",
-        [
-            ["!=2", "==2.*"],
-            [">=5.7", "<7000"],
-            ["==2.5.0+3", ">1"],
-        ],
-    )
-    def test_combining_specifiers(self, specifiers):
-        # Test combining Specifier objects
-        spec = Specifier(specifiers[0])
-        for s in specifiers[1:]:
-            spec &= Specifier(s)
-        assert spec == Specifier(",".join(specifiers))
-
-        # Test combining a string with a Specifier object
-        spec = Specifier(specifiers[0])
-        for s in specifiers[1:]:
-            spec &= s
-        assert spec == Specifier(",".join(specifiers))
-
-    def test_combining_non_specifiers(self):
-        with pytest.raises(TypeError):
-            Specifier("==2.0") & 12
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
@@ -368,6 +299,8 @@ class TestSpecifier:
     def test_comparison_non_specifier(self):
         assert Specifier("==1.0") != 12
         assert not Specifier("==1.0") == 12
+        assert Specifier("==1.0") != "12"
+        assert not Specifier("==1.0") == "12"
 
     @pytest.mark.parametrize(
         ("version", "spec", "expected"),
@@ -588,11 +521,6 @@ class TestSpecifier:
             ("1.0", "===1.0", True),
             ("nope", "===lolwat", False),
             ("1.0.0", "===1.0", False),
-
-            # Test multiple specs combined with an identity comparison
-            ("nope", "===nope,!=1.0", False),
-            ("1.0.0", "===1.0.0,==1.*", True),
-            ("1.0.0", "===1.0,==1.*", False),
         ],
     )
     def test_specifiers_identity(self, version, spec, expected):
@@ -606,19 +534,9 @@ class TestSpecifier:
             assert not spec.contains(version)
 
     @pytest.mark.parametrize(
-        "version",
-        VERSIONS + LEGACY_VERSIONS,
-    )
-    def test_empty_specifier(self, version):
-        spec = Specifier(prereleases=True)
-
-        assert spec.contains(version)
-
-    @pytest.mark.parametrize(
         ("specifier", "expected"),
         [
             ("==1.0", False),
-            ("", False),
             (">=1.0", False),
             ("<=1.0", False),
             ("~=1.0", False),
@@ -635,28 +553,6 @@ class TestSpecifier:
     )
     def test_specifier_prereleases_detection(self, specifier, expected):
         assert Specifier(specifier).prereleases == expected
-
-    def test_specifier_prereleases_explicit(self):
-        spec = Specifier()
-        assert not spec.prereleases
-        assert not spec.contains("1.0.dev1")
-        spec.prereleases = True
-        assert spec.prereleases
-        assert spec.contains("1.0.dev1")
-
-        spec = Specifier(prereleases=True)
-        assert spec.prereleases
-        assert spec.contains("1.0.dev1")
-        spec.prereleases = False
-        assert not spec.prereleases
-        assert not spec.contains("1.0.dev1")
-
-        spec = Specifier(prereleases=True)
-        assert spec.prereleases
-        assert spec.contains("1.0.dev1")
-        spec.prereleases = None
-        assert not spec.prereleases
-        assert not spec.contains("1.0.dev1")
 
     @pytest.mark.parametrize(
         ("specifier", "version", "expected"),
@@ -684,13 +580,9 @@ class TestSpecifier:
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "input", "expected"),
         [
-            ("", None, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0", None, ["2.0a1"], ["2.0a1"]),
             (">=1.0.dev1", None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
-            ("", None, ["1.0a1"], ["1.0a1"]),
-            ("", False, ["1.0a1"], []),
             (">=1.0.dev1", False, ["1.0", "2.0a1"], ["1.0"]),
-            ("", True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
-            ("", None, ["1.0", Version("2.0")], ["1.0", Version("2.0")]),
         ],
     )
     def test_specifier_filter(self, specifier, prereleases, input, expected):
@@ -701,3 +593,367 @@ class TestSpecifier:
         )
 
         assert list(spec.filter(input, **kwargs)) == expected
+
+    def test_specifier_explicit_leacy(self):
+        Specifier("==1.0").contains(LegacyVersion("1.0"))
+
+
+class TestLegacySpecifier:
+
+    @pytest.mark.parametrize(
+        ("version", "spec", "expected"),
+        [
+            (v, s, True)
+            for v, s in [
+                # Test the equality operation
+                ("2.0", "==2"),
+                ("2.0", "==2.0"),
+                ("2.0", "==2.0.0"),
+
+                # Test the in-equality operation
+                ("2.1", "!=2"),
+                ("2.1", "!=2.0"),
+                ("2.0.1", "!=2"),
+                ("2.0.1", "!=2.0"),
+                ("2.0.1", "!=2.0.0"),
+
+                # Test the greater than equal operation
+                ("2.0", ">=2"),
+                ("2.0", ">=2.0"),
+                ("2.0", ">=2.0.0"),
+                ("2.0.post1", ">=2"),
+                ("2.0.post1.dev1", ">=2"),
+                ("3", ">=2"),
+
+                # Test the less than equal operation
+                ("2.0", "<=2"),
+                ("2.0", "<=2.0"),
+                ("2.0", "<=2.0.0"),
+                ("2.0.dev1", "<=2"),
+                ("2.0a1", "<=2"),
+                ("2.0a1.dev1", "<=2"),
+                ("2.0b1", "<=2"),
+                ("2.0b1.post1", "<=2"),
+                ("2.0c1", "<=2"),
+                ("2.0c1.post1.dev1", "<=2"),
+                ("2.0rc1", "<=2"),
+                ("1", "<=2"),
+
+                # Test the greater than operation
+                ("3", ">2"),
+                ("2.1", ">2.0"),
+
+                # Test the less than operation
+                ("1", "<2"),
+                ("2.0", "<2.1"),
+            ]
+        ]
+        +
+        [
+            (v, s, False)
+            for v, s in [
+                # Test the equality operation
+                ("2.1", "==2"),
+                ("2.1", "==2.0"),
+                ("2.1", "==2.0.0"),
+
+                # Test the in-equality operation
+                ("2.0", "!=2"),
+                ("2.0", "!=2.0"),
+                ("2.0", "!=2.0.0"),
+
+                # Test the greater than equal operation
+                ("2.0.dev1", ">=2"),
+                ("2.0a1", ">=2"),
+                ("2.0a1.dev1", ">=2"),
+                ("2.0b1", ">=2"),
+                ("2.0b1.post1", ">=2"),
+                ("2.0c1", ">=2"),
+                ("2.0c1.post1.dev1", ">=2"),
+                ("2.0rc1", ">=2"),
+                ("1", ">=2"),
+
+                # Test the less than equal operation
+                ("2.0.post1", "<=2"),
+                ("2.0.post1.dev1", "<=2"),
+                ("3", "<=2"),
+
+                # Test the greater than operation
+                ("1", ">2"),
+                ("2.0.dev1", ">2"),
+                ("2.0a1", ">2"),
+                ("2.0a1.post1", ">2"),
+                ("2.0b1", ">2"),
+                ("2.0b1.dev1", ">2"),
+                ("2.0c1", ">2"),
+                ("2.0c1.post1.dev1", ">2"),
+                ("2.0rc1", ">2"),
+                ("2.0", ">2"),
+
+                # Test the less than operation
+                ("3", "<2"),
+            ]
+        ],
+    )
+    def test_specifiers(self, version, spec, expected):
+        spec = LegacySpecifier(spec, prereleases=True)
+
+        if expected:
+            # Test that the plain string form works
+            assert spec.contains(version)
+
+            # Test that the version instance form works
+            assert spec.contains(LegacyVersion(version))
+        else:
+            # Test that the plain string form works
+            assert not spec.contains(version)
+
+            # Test that the version instance form works
+            assert not spec.contains(LegacyVersion(version))
+
+    def test_specifier_explicit_prereleases(self):
+        spec = LegacySpecifier(">=1.0")
+        assert not spec.prereleases
+        spec.prereleases = True
+        assert spec.prereleases
+
+        spec = LegacySpecifier(">=1.0", prereleases=False)
+        assert not spec.prereleases
+        spec.prereleases = True
+        assert spec.prereleases
+
+        spec = LegacySpecifier(">=1.0", prereleases=True)
+        assert spec.prereleases
+        spec.prereleases = False
+        assert not spec.prereleases
+
+        spec = LegacySpecifier(">=1.0", prereleases=True)
+        assert spec.prereleases
+        spec.prereleases = None
+        assert not spec.prereleases
+
+
+class TestSpecifierSet:
+
+    @pytest.mark.parametrize(
+        "version",
+        VERSIONS + LEGACY_VERSIONS,
+    )
+    def test_empty_specifier(self, version):
+        spec = SpecifierSet(prereleases=True)
+
+        assert spec.contains(version)
+        assert spec.contains(parse(version))
+
+    def test_specifier_prereleases_explicit(self):
+        spec = SpecifierSet()
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+        spec.prereleases = True
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+
+        spec = SpecifierSet(prereleases=True)
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+        spec.prereleases = False
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+
+        spec = SpecifierSet(prereleases=True)
+        assert spec.prereleases
+        assert spec.contains("1.0.dev1")
+        spec.prereleases = None
+        assert not spec.prereleases
+        assert not spec.contains("1.0.dev1")
+
+    @pytest.mark.parametrize(
+        (
+            "specifier", "specifier_prereleases", "prereleases", "input",
+            "expected",
+        ),
+        [
+            # General test of the filter method
+            ("", None, None, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0.dev1", None, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", None, None, ["1.0a1"], ["1.0a1"]),
+            ("", None, None, ["1.0", Version("2.0")], ["1.0", Version("2.0")]),
+            ("", None, None, ["2.0dog", "1.0"], ["1.0"]),
+
+            # Test overriding with the prereleases parameter on filter
+            ("", None, False, ["1.0a1"], []),
+            (">=1.0.dev1", None, False, ["1.0", "2.0a1"], ["1.0"]),
+            ("", None, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+
+            # Test overriding with the overall specifier
+            ("", True, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", False, None, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0.dev1", True, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0.dev1", False, None, ["1.0", "2.0a1"], ["1.0"]),
+            ("", True, None, ["1.0a1"], ["1.0a1"]),
+            ("", False, None, ["1.0a1"], []),
+        ],
+    )
+    def test_specifier_filter(self, specifier_prereleases, specifier,
+                              prereleases, input, expected):
+        if specifier_prereleases is None:
+            spec = SpecifierSet(specifier)
+        else:
+            spec = SpecifierSet(specifier, prereleases=specifier_prereleases)
+
+        kwargs = (
+            {"prereleases": prereleases} if prereleases is not None else {}
+        )
+
+        assert list(spec.filter(input, **kwargs)) == expected
+
+    def test_legacy_specifiers_combined(self):
+        spec = SpecifierSet("<3,>1-1-1")
+        assert spec.contains("2.0")
+
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [
+            # Single item specifiers should just be reflexive
+            ("!=2.0", "!=2.0"),
+            ("<2.0", "<2.0"),
+            ("<=2.0", "<=2.0"),
+            ("==2.0", "==2.0"),
+            (">2.0", ">2.0"),
+            (">=2.0", ">=2.0"),
+            ("~=2.0", "~=2.0"),
+
+            # Spaces should be removed
+            ("< 2", "<2"),
+
+            # Multiple item specifiers should work
+            ("!=2.0,>1.0", "!=2.0,>1.0"),
+            ("!=2.0 ,>1.0", "!=2.0,>1.0"),
+        ],
+    )
+    def test_specifiers_str_and_repr(self, specifier, expected):
+        spec = SpecifierSet(specifier)
+
+        assert str(spec) == expected
+        assert repr(spec) == "<SpecifierSet({0})>".format(repr(expected))
+
+    @pytest.mark.parametrize("specifier", SPECIFIERS + LEGACY_SPECIFIERS)
+    def test_specifiers_hash(self, specifier):
+        assert hash(SpecifierSet(specifier)) == hash(SpecifierSet(specifier))
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">2.0", "<5.0", ">2.0,<5.0"),
+        ],
+    )
+    def test_specifiers_combine(self, left, right, expected):
+        result = SpecifierSet(left) & SpecifierSet(right)
+        assert result == SpecifierSet(expected)
+
+        result = SpecifierSet(left) & right
+        assert result == SpecifierSet(expected)
+
+        result = SpecifierSet(left, prereleases=True) & SpecifierSet(right)
+        assert result == SpecifierSet(expected)
+        assert result.prereleases
+
+        result = SpecifierSet(left, prereleases=False) & SpecifierSet(right)
+        assert result == SpecifierSet(expected)
+        assert not result.prereleases
+
+        result = SpecifierSet(left) & SpecifierSet(right, prereleases=True)
+        assert result == SpecifierSet(expected)
+        assert result.prereleases
+
+        result = SpecifierSet(left) & SpecifierSet(right, prereleases=False)
+        assert result == SpecifierSet(expected)
+        assert not result.prereleases
+
+        result = (
+            SpecifierSet(left, prereleases=True)
+            & SpecifierSet(right, prereleases=True)
+        )
+        assert result == SpecifierSet(expected)
+        assert result.prereleases
+
+        result = (
+            SpecifierSet(left, prereleases=False)
+            & SpecifierSet(right, prereleases=False)
+        )
+        assert result == SpecifierSet(expected)
+        assert not result.prereleases
+
+        with pytest.raises(ValueError):
+            result = (
+                SpecifierSet(left, prereleases=True)
+                & SpecifierSet(right, prereleases=False)
+            )
+
+        with pytest.raises(ValueError):
+            result = (
+                SpecifierSet(left, prereleases=False)
+                & SpecifierSet(right, prereleases=True)
+            )
+
+    def test_specifiers_combine_not_implemented(self):
+        with pytest.raises(TypeError):
+            SpecifierSet() & 12
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, x, operator.eq) for x in SPECIFIERS]
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [
+                    (x, y, operator.ne)
+                    for j, y in enumerate(SPECIFIERS)
+                    if i != j
+                ]
+                for i, x in enumerate(SPECIFIERS)
+            ]
+        )
+    )
+    def test_comparison_true(self, left, right, op):
+        assert op(SpecifierSet(left), SpecifierSet(right))
+        assert op(SpecifierSet(left), Specifier(right))
+        assert op(Specifier(left), SpecifierSet(right))
+        assert op(left, SpecifierSet(right))
+        assert op(SpecifierSet(left), right)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, x, operator.ne) for x in SPECIFIERS]
+            ]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [
+                    (x, y, operator.eq)
+                    for j, y in enumerate(SPECIFIERS)
+                    if i != j
+                ]
+                for i, x in enumerate(SPECIFIERS)
+            ]
+        )
+    )
+    def test_comparison_false(self, left, right, op):
+        assert not op(SpecifierSet(left), SpecifierSet(right))
+        assert not op(SpecifierSet(left), Specifier(right))
+        assert not op(Specifier(left), SpecifierSet(right))
+        assert not op(left, SpecifierSet(right))
+        assert not op(SpecifierSet(left), right)
+
+    def test_comparison_non_specifier(self):
+        assert SpecifierSet("==1.0") != 12
+        assert not SpecifierSet("==1.0") == 12
