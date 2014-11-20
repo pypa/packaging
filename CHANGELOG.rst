@@ -7,6 +7,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* **BACKWARDS INCOMPATIBLE** Refactor specifier support so that it can sanely
+  handle legacy specifiers as well as PEP 440 specifiers.
+
 * **BACKWARDS INCOMPATIBLE** Move the specifier support out of
   ``packaging.version`` into ``packaging.specifiers``.
 
