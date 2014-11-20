@@ -2,10 +2,8 @@ Changelog
 =========
 
 
-14.3 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+14.3 - 2014-11-19
+~~~~~~~~~~~~~~~~~
 
 * **BACKWARDS INCOMPATIBLE** Refactor specifier support so that it can sanely
   handle legacy specifiers as well as PEP 440 specifiers.
@@ -38,6 +36,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
