@@ -2,10 +2,8 @@ Changelog
 =========
 
 
-14.4 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+14.4 - 2014-12-15
+~~~~~~~~~~~~~~~~~
 
 * Ensure that versions are normalized before comparison when used in a
   specifier with a less than (``<``) or greater than (``>``) operator.
