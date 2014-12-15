@@ -7,6 +7,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Ensure that versions are normalized before comparison when used in a
+  specifier with a less than (``<``) or greater than (``>``) operator.
+
 
 14.3 - 2014-11-19
 ~~~~~~~~~~~~~~~~~
