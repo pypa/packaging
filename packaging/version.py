@@ -297,8 +297,8 @@ def _parse_letter_version(letter, number):
             letter = "a"
         elif letter == "beta":
             letter = "b"
-        elif letter in ["rc", "pre", "preview"]:
-            letter = "c"
+        elif letter in ["c", "pre", "preview"]:
+            letter = "rc"
 
         return letter, int(number)
     if not letter and number:
