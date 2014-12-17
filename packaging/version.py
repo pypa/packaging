@@ -159,7 +159,6 @@ def _legacy_cmpkey(version):
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
 VERSION_PATTERN = r"""
-    \s*
     v?
     (?:
         (?:(?P<epoch>[0-9]+)!)?                           # epoch
@@ -188,13 +187,12 @@ VERSION_PATTERN = r"""
         )?
     )
     (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
-    \s*
 """
 
 
 class Version(_BaseVersion):
 
-    _regex = re.compile('^' + VERSION_PATTERN + '$',
+    _regex = re.compile(r'^\s*' + VERSION_PATTERN + r'\s*$',
                         re.VERBOSE | re.IGNORECASE)
 
     def __init__(self, version):
