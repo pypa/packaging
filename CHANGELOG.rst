@@ -2,10 +2,8 @@ Changelog
 =========
 
 
-14.5 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+14.5 - 2014-12-17
+~~~~~~~~~~~~~~~~~
 
 * Normalize release candidates as ``rc`` instead of ``c``.
 
