@@ -7,6 +7,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Normalize release candidates as ``rc`` instead of ``c``.
+
 
 14.4 - 2014-12-15
 ~~~~~~~~~~~~~~~~~
