@@ -9,6 +9,9 @@ Changelog
 
 * Normalize release candidates as ``rc`` instead of ``c``.
 
+* Expose the ``VERSION_PATTERN`` constant, a regular expression matching
+  a valid version.
+
 
 14.4 - 2014-12-15
 ~~~~~~~~~~~~~~~~~
@@ -25,8 +28,6 @@ Changelog
 
 * **BACKWARDS INCOMPATIBLE** Move the specifier support out of
   ``packaging.version`` into ``packaging.specifiers``.
-* Expose the ``VERSION_PATTERN`` constant, a regular expression matching
-  a valid version.
 
 
 14.2 - 2014-09-10
