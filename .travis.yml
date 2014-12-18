@@ -1,6 +1,8 @@
 language: python
 python: 3.4
 
+sudo: false
+
 env:
   - TOXENV=py26
   - TOXENV=py27
