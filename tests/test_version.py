@@ -300,6 +300,42 @@ class TestVersion:
         assert Version(version).public == public
 
     @pytest.mark.parametrize(
+        ("version", "base_version"),
+        [
+            ("1.0", "1.0"),
+            ("1.0.dev6", "1.0"),
+            ("1.0a1", "1.0"),
+            ("1.0a1.post5", "1.0"),
+            ("1.0a1.post5.dev6", "1.0"),
+            ("1.0rc4", "1.0"),
+            ("1.0.post5", "1.0"),
+            ("1!1.0", "1!1.0"),
+            ("1!1.0.dev6", "1!1.0"),
+            ("1!1.0a1", "1!1.0"),
+            ("1!1.0a1.post5", "1!1.0"),
+            ("1!1.0a1.post5.dev6", "1!1.0"),
+            ("1!1.0rc4", "1!1.0"),
+            ("1!1.0.post5", "1!1.0"),
+            ("1.0+deadbeef", "1.0"),
+            ("1.0.dev6+deadbeef", "1.0"),
+            ("1.0a1+deadbeef", "1.0"),
+            ("1.0a1.post5+deadbeef", "1.0"),
+            ("1.0a1.post5.dev6+deadbeef", "1.0"),
+            ("1.0rc4+deadbeef", "1.0"),
+            ("1.0.post5+deadbeef", "1.0"),
+            ("1!1.0+deadbeef", "1!1.0"),
+            ("1!1.0.dev6+deadbeef", "1!1.0"),
+            ("1!1.0a1+deadbeef", "1!1.0"),
+            ("1!1.0a1.post5+deadbeef", "1!1.0"),
+            ("1!1.0a1.post5.dev6+deadbeef", "1!1.0"),
+            ("1!1.0rc4+deadbeef", "1!1.0"),
+            ("1!1.0.post5+deadbeef", "1!1.0"),
+        ],
+    )
+    def test_version_base_version(self, version, base_version):
+        assert Version(version).base_version == base_version
+
+    @pytest.mark.parametrize(
         ("version", "local"),
         [
             ("1.0", None),
@@ -502,6 +538,10 @@ class TestLegacyVersion:
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_public(self, version):
         assert LegacyVersion(version).public == version
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_base_version(self, version):
+        assert LegacyVersion(version).base_version == version
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_local(self, version):

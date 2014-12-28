@@ -60,6 +60,12 @@ Reference
 
         A string representing the public version portion of this ``Version()``.
 
+    .. attribute:: base_version
+
+        A string representing the base version of this :class:`Version`
+        instance. The base version is the public version of the project without
+        any pre or post release markers.
+
     .. attribute:: local
 
         A string representing the local version portion of this ``Version()``
@@ -93,6 +99,12 @@ Reference
 
         A string representing the public version portion of this
         :class:`LegacyVersion`. This will always be the entire version string.
+
+    .. attribute:: base_version
+
+        A string representing the base version portion of this
+        :class:`LegacyVersion` instance. This will always be the entire version
+        string.
 
     .. attribute:: local
 

@@ -96,6 +96,10 @@ class LegacyVersion(_BaseVersion):
         return self._version
 
     @property
+    def base_version(self):
+        return self._version
+
+    @property
     def local(self):
         return None
 
@@ -272,6 +276,19 @@ class Version(_BaseVersion):
     @property
     def public(self):
         return str(self).split("+", 1)[0]
+
+    @property
+    def base_version(self):
+        parts = []
+
+        # Epoch
+        if self._version.epoch != 0:
+            parts.append("{0}!".format(self._version.epoch))
+
+        # Release segment
+        parts.append(".".join(str(x) for x in self._version.release))
+
+        return "".join(parts)
 
     @property
     def local(self):

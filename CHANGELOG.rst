@@ -10,6 +10,9 @@ Changelog
 * Add ``Version().is_postrelease`` and ``LegacyVersion().is_postrelease`` to
   make it easy to determine if a release is a post release.
 
+* Add ``Version().base_version`` and ``LegacyVersion().base_version`` to make
+  it easy to get the public version without any pre or post release markers.
+
 
 14.5 - 2014-12-17
 ~~~~~~~~~~~~~~~~~
