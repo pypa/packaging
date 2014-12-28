@@ -7,6 +7,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add ``Version().is_postrelease`` and ``LegacyVersion().is_postrelease`` to
+  make it easy to determine if a release is a post release.
+
 
 14.5 - 2014-12-17
 ~~~~~~~~~~~~~~~~~

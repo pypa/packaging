@@ -365,6 +365,19 @@ class TestVersion:
         assert Version(version).is_prerelease is expected
 
     @pytest.mark.parametrize(
+        ("version", "expected"),
+        [
+            ("1.0.dev1", False),
+            ("1.0", False),
+            ("1.0+foo", False),
+            ("1.0.post1.dev1", True),
+            ("1.0.post1", True)
+        ],
+    )
+    def test_version_is_postrelease(self, version, expected):
+        assert Version(version).is_postrelease is expected
+
+    @pytest.mark.parametrize(
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that
         # should be True for the given operator
@@ -497,6 +510,10 @@ class TestLegacyVersion:
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_is_prerelease(self, version):
         assert not LegacyVersion(version).is_prerelease
+
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_legacy_version_is_postrelease(self, version):
+        assert not LegacyVersion(version).is_postrelease
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),

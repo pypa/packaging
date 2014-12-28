@@ -103,6 +103,10 @@ class LegacyVersion(_BaseVersion):
     def is_prerelease(self):
         return False
 
+    @property
+    def is_postrelease(self):
+        return False
+
 
 _legacy_version_component_re = re.compile(
     r"(\d+ | [a-z]+ | \.| -)", re.VERBOSE,
@@ -278,6 +282,10 @@ class Version(_BaseVersion):
     @property
     def is_prerelease(self):
         return bool(self._version.dev or self._version.pre)
+
+    @property
+    def is_postrelease(self):
+        return bool(self._version.post)
 
 
 def _parse_letter_version(letter, number):

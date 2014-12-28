@@ -29,6 +29,10 @@ Usage
     Traceback (most recent call last):
         ...
     InvalidVersion: Invalid version: 'french toast'
+    >>> Version("1.0").is_postrelease
+    False
+    >>> Version("1.0.post0").is_postrelease
+    True
 
 
 Reference
@@ -66,6 +70,11 @@ Reference
         A boolean value indicating whether this :class:`Version` instance
         represents a prerelease or a final release.
 
+    .. attribute:: is_postrelease
+
+        A boolean value indicating whether this :class:`Version` instance
+        represents a post-release.
+
 
 .. class:: LegacyVersion(version)
 
@@ -97,6 +106,13 @@ Reference
         represents a prerelease or a final release. Since without `PEP 440`_
         there is no concept of pre or final releases this will always be
         `False` and exists for compatibility with :class:`Version`.
+
+    .. attribute:: is_postrelease
+
+        A boolean value indicating whether this :class:`LegacyVersion`
+        represents a post-release. Since without `PEP 440`_ there is no concept
+        of post-releases this will always be ``False`` and exists for
+        compatibility with :class:`Version`.
 
 
 .. exception:: InvalidVersion
