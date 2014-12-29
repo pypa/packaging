@@ -4,6 +4,12 @@ packaging
 Core utilities for Python packages
 
 
+Documentation
+-------------
+
+`documentation`_
+
+
 Discussion
 ----------
 
