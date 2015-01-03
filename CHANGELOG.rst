@@ -7,6 +7,16 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add ``Version().is_postrelease`` and ``LegacyVersion().is_postrelease`` to
+  make it easy to determine if a release is a post release.
+
+* Add ``Version().base_version`` and ``LegacyVersion().base_version`` to make
+  it easy to get the public version without any pre or post release markers.
+
+* Support the update to PEP 440 which removed the implied ``!=V.*`` when using
+  either ``>V`` or ``<V`` and which instead special cased the handling of
+  pre-releases, post-releases, and local versions when using ``>V`` or ``<V``.
+
 
 14.5 - 2014-12-17
 ~~~~~~~~~~~~~~~~~

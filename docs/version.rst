@@ -29,6 +29,10 @@ Usage
     Traceback (most recent call last):
         ...
     InvalidVersion: Invalid version: 'french toast'
+    >>> Version("1.0").is_postrelease
+    False
+    >>> Version("1.0.post0").is_postrelease
+    True
 
 
 Reference
@@ -56,6 +60,12 @@ Reference
 
         A string representing the public version portion of this ``Version()``.
 
+    .. attribute:: base_version
+
+        A string representing the base version of this :class:`Version`
+        instance. The base version is the public version of the project without
+        any pre or post release markers.
+
     .. attribute:: local
 
         A string representing the local version portion of this ``Version()``
@@ -65,6 +75,11 @@ Reference
 
         A boolean value indicating whether this :class:`Version` instance
         represents a prerelease or a final release.
+
+    .. attribute:: is_postrelease
+
+        A boolean value indicating whether this :class:`Version` instance
+        represents a post-release.
 
 
 .. class:: LegacyVersion(version)
@@ -85,6 +100,12 @@ Reference
         A string representing the public version portion of this
         :class:`LegacyVersion`. This will always be the entire version string.
 
+    .. attribute:: base_version
+
+        A string representing the base version portion of this
+        :class:`LegacyVersion` instance. This will always be the entire version
+        string.
+
     .. attribute:: local
 
         This will always be ``None`` since without `PEP 440`_ we do not have
@@ -97,6 +118,13 @@ Reference
         represents a prerelease or a final release. Since without `PEP 440`_
         there is no concept of pre or final releases this will always be
         `False` and exists for compatibility with :class:`Version`.
+
+    .. attribute:: is_postrelease
+
+        A boolean value indicating whether this :class:`LegacyVersion`
+        represents a post-release. Since without `PEP 440`_ there is no concept
+        of post-releases this will always be ``False`` and exists for
+        compatibility with :class:`Version`.
 
 
 .. exception:: InvalidVersion
