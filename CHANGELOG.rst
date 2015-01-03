@@ -2,10 +2,8 @@ Changelog
 =========
 
 
-14.6 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+15.0 - 2015-01-02
+~~~~~~~~~~~~~~~~~
 
 * Add ``Version().is_postrelease`` and ``LegacyVersion().is_postrelease`` to
   make it easy to determine if a release is a post release.
@@ -68,6 +66,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
