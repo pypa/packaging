@@ -1,6 +1,11 @@
 Changelog
 =========
 
+15.1 - `master`_
+~~~~~~~~~~~~~~~~
+
+.. note:: This version is not yet released and is under active development.
+
 
 15.0 - 2015-01-02
 ~~~~~~~~~~~~~~~~~
@@ -66,3 +71,6 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
+
+
+.. _`master`: https://github.com/pypa/packaging/
