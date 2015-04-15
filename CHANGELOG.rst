@@ -6,6 +6,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix a logic error that was causing inconsistent answers about whether or not
+  a pre-release was contained within a ``SpecifierSet`` or not.
+
 
 15.0 - 2015-01-02
 ~~~~~~~~~~~~~~~~~
