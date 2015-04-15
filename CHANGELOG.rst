@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-15.1 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+15.1 - 2015-04-13
+~~~~~~~~~~~~~~~~~
 
 * Fix a logic error that was causing inconsistent answers about whether or not
   a pre-release was contained within a ``SpecifierSet`` or not.
@@ -74,6 +72,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
