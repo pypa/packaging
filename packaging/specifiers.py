@@ -152,6 +152,14 @@ class _IndividualSpecifier(BaseSpecifier):
         return version
 
     @property
+    def operator(self):
+        return self._spec[0]
+
+    @property
+    def version(self):
+        return self._spec[1]
+
+    @property
     def prereleases(self):
         return self._prereleases
 
@@ -176,7 +184,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
         # Actually do the comparison to determine if this item is contained
         # within this Specifier or not.
-        return self._get_operator(self._spec[0])(item, self._spec[1])
+        return self._get_operator(self.operator)(item, self.version)
 
     def filter(self, iterable, prereleases=None):
         yielded = False

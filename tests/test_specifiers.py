@@ -604,6 +604,42 @@ class TestSpecifier:
     def test_specifier_explicit_leacy(self):
         Specifier("==1.0").contains(LegacyVersion("1.0"))
 
+    @pytest.mark.parametrize(
+        ('spec', 'op'),
+        [
+            ('~=2.0', '~='),
+            ('==2.1.*', '=='),
+            ('==2.1.0.3', '=='),
+            ('!=2.2.*', '!='),
+            ('!=2.2.0.5', '!='),
+            ('<=5', '<='),
+            ('>=7.9a1', '>='),
+            ('<1.0.dev1', '<'),
+            ('>2.0.post1', '>'),
+            ('===lolwat', '==='),
+        ]
+    )
+    def test_specifier_operator_property(self, spec, op):
+        assert Specifier(spec).operator == op
+
+    @pytest.mark.parametrize(
+        ('spec', 'version'),
+        [
+            ('~=2.0', '2.0'),
+            ('==2.1.*', '2.1.*'),
+            ('==2.1.0.3', '2.1.0.3'),
+            ('!=2.2.*', '2.2.*'),
+            ('!=2.2.0.5', '2.2.0.5'),
+            ('<=5', '5'),
+            ('>=7.9a1', '7.9a1'),
+            ('<1.0.dev1', '1.0.dev1'),
+            ('>2.0.post1', '2.0.post1'),
+            ('===lolwat', 'lolwat'),
+        ]
+    )
+    def test_specifier_version_property(self, spec, version):
+        assert Specifier(spec).version == version
+
 
 class TestLegacySpecifier:
 
