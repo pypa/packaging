@@ -147,13 +147,9 @@ Reference
 
         The string value of the operator part of this specifier.
 
-    .. attribute:: version_string
-
-        The string version of the version part of this specifier.
-
     .. attribute:: version
 
-        The (parsed) :class:`Version` of this specifier.
+        The string version of the version part of this specifier.
 
     .. attribute:: prereleases
 
@@ -191,13 +187,9 @@ Reference
 
         The string value of the operator part of this specifier.
 
-    .. attribute:: version_string
-
-        The string version of the version part of this specifier.
-
     .. attribute:: version
 
-        The (parsed) :class:`Version` of this specifier.
+        The string version of the version part of this specifier.
 
     .. attribute:: prereleases
 

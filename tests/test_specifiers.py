@@ -641,10 +641,8 @@ class TestSpecifier:
             ('===lolwat', 'lolwat'),
         ]
     )
-    def test_specifier_version_properties(self, spec, version):
-        parsed_version = parse(version)
-        assert Specifier(spec).version_string == version
-        assert Specifier(spec).version == parsed_version
+    def test_specifier_version_property(self, spec, version):
+        assert Specifier(spec).version == version
 
     @pytest.mark.parametrize(
         ("spec", "expected_length"),
