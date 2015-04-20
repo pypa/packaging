@@ -508,15 +508,19 @@ class TestSpecifier:
 
         if expected:
             # Test that the plain string form works
+            assert version in spec
             assert spec.contains(version)
 
             # Test that the version instance form works
+            assert Version(version) in spec
             assert spec.contains(Version(version))
         else:
             # Test that the plain string form works
+            assert version not in spec
             assert not spec.contains(version)
 
             # Test that the version instance form works
+            assert Version(version) not in spec
             assert not spec.contains(Version(version))
 
     @pytest.mark.parametrize(
@@ -535,10 +539,10 @@ class TestSpecifier:
 
         if expected:
             # Identity comparisons only support the plain string form
-            assert spec.contains(version)
+            assert version in spec
         else:
             # Identity comparisons only support the plain string form
-            assert not spec.contains(version)
+            assert version not in spec
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),
@@ -576,13 +580,13 @@ class TestSpecifier:
         spec = Specifier(specifier)
 
         if expected:
-            assert spec.contains(version)
+            assert version in spec
             spec.prereleases = False
-            assert not spec.contains(version)
+            assert version not in spec
         else:
-            assert not spec.contains(version)
+            assert version not in spec
             spec.prereleases = True
-            assert spec.contains(version)
+            assert version in spec
 
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "input", "expected"),
@@ -743,15 +747,19 @@ class TestLegacySpecifier:
 
         if expected:
             # Test that the plain string form works
+            assert version in spec
             assert spec.contains(version)
 
             # Test that the version instance form works
+            assert LegacyVersion(version) in spec
             assert spec.contains(LegacyVersion(version))
         else:
             # Test that the plain string form works
+            assert version not in spec
             assert not spec.contains(version)
 
             # Test that the version instance form works
+            assert LegacyVersion(version) not in spec
             assert not spec.contains(LegacyVersion(version))
 
     def test_specifier_explicit_prereleases(self):
@@ -785,29 +793,37 @@ class TestSpecifierSet:
     def test_empty_specifier(self, version):
         spec = SpecifierSet(prereleases=True)
 
+        assert version in spec
         assert spec.contains(version)
+        assert parse(version) in spec
         assert spec.contains(parse(version))
 
     def test_specifier_prereleases_explicit(self):
         spec = SpecifierSet()
         assert not spec.prereleases
+        assert "1.0.dev1" not in spec
         assert not spec.contains("1.0.dev1")
         spec.prereleases = True
         assert spec.prereleases
+        assert "1.0.dev1" in spec
         assert spec.contains("1.0.dev1")
 
         spec = SpecifierSet(prereleases=True)
         assert spec.prereleases
+        assert "1.0.dev1" in spec
         assert spec.contains("1.0.dev1")
         spec.prereleases = False
         assert not spec.prereleases
+        assert "1.0.dev1" not in spec
         assert not spec.contains("1.0.dev1")
 
         spec = SpecifierSet(prereleases=True)
         assert spec.prereleases
+        assert "1.0.dev1" in spec
         assert spec.contains("1.0.dev1")
         spec.prereleases = None
         assert not spec.prereleases
+        assert "1.0.dev1" not in spec
         assert not spec.contains("1.0.dev1")
 
     @pytest.mark.parametrize(
@@ -852,7 +868,7 @@ class TestSpecifierSet:
 
     def test_legacy_specifiers_combined(self):
         spec = SpecifierSet("<3,>1-1-1")
-        assert spec.contains("2.0")
+        assert "2.0" in spec
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),

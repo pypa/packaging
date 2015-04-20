@@ -167,6 +167,9 @@ class _IndividualSpecifier(BaseSpecifier):
     def prereleases(self, value):
         self._prereleases = value
 
+    def __contains__(self, item):
+        return self.contains(item)
+
     def contains(self, item, prereleases=None):
         # Determine if prereleases are to be allowed or not.
         if prereleases is None:
@@ -690,6 +693,9 @@ class SpecifierSet(BaseSpecifier):
     @prereleases.setter
     def prereleases(self, value):
         self._prereleases = value
+
+    def __contains__(self, item):
+        return self.contains(item)
 
     def contains(self, item, prereleases=None):
         # Ensure that our item is a Version or LegacyVersion instance.
