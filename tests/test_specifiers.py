@@ -601,8 +601,9 @@ class TestSpecifier:
 
         assert list(spec.filter(input, **kwargs)) == expected
 
-    def test_specifier_explicit_leacy(self):
-        Specifier("==1.0").contains(LegacyVersion("1.0"))
+    @pytest.mark.xfail
+    def test_specifier_explicit_legacy(self):
+        assert Specifier("==1.0").contains(LegacyVersion("1.0"))
 
 
 class TestLegacySpecifier:
