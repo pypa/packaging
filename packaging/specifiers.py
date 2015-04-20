@@ -677,6 +677,12 @@ class SpecifierSet(BaseSpecifier):
 
         return self._specs != other._specs
 
+    def __len__(self):
+        return len(self._specs)
+
+    def __iter__(self):
+        return iter(self._specs)
+
     @property
     def prereleases(self):
         # If we have been given an explicit prerelease modifier, then we'll

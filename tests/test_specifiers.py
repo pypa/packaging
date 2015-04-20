@@ -644,6 +644,35 @@ class TestSpecifier:
     def test_specifier_version_property(self, spec, version):
         assert Specifier(spec).version == version
 
+    @pytest.mark.parametrize(
+        ("spec", "expected_length"),
+        [
+            ("", 0),
+            ("==2.0", 1),
+            (">=2.0", 1),
+            (">=2.0,<3", 2),
+            (">=2.0,<3,==2.4", 3),
+        ],
+    )
+    def test_length(self, spec, expected_length):
+        spec = SpecifierSet(spec)
+        assert len(spec) == expected_length
+
+    @pytest.mark.parametrize(
+        ("spec", "expected_items"),
+        [
+            ("", []),
+            ("==2.0", ["==2.0"]),
+            (">=2.0", [">=2.0"]),
+            (">=2.0,<3", [">=2.0", "<3"]),
+            (">=2.0,<3,==2.4", [">=2.0", "<3", "==2.4"]),
+        ],
+    )
+    def test_iteration(self, spec, expected_items):
+        spec = SpecifierSet(spec)
+        items = set(str(item) for item in spec)
+        assert items == set(expected_items)
+
 
 class TestLegacySpecifier:
 
