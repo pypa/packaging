@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-15.2 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+15.2 - 2015-05-13
+~~~~~~~~~~~~~~~~~
 
 * Fix an error where the arbitary specifier (``===``) was not correctly
   allowing pre-releases when it was being used.
@@ -90,6 +88,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
