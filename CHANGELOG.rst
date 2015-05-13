@@ -9,6 +9,15 @@ Changelog
 * Fix an error where the arbitary specifier (``===``) was not correctly
   allowing pre-releases when it was being used.
 
+* Expose the specifier and version parts through properties on the
+  ``Specifier`` classes.
+
+* Allow iterating over the ``SpecifierSet`` to get access to all of the
+  ``Specifier`` instances.
+
+* Allow testing if a version is contained within a specifier via the ``in``
+  operator.
+
 
 15.1 - 2015-04-13
 ~~~~~~~~~~~~~~~~~
