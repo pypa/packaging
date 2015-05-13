@@ -203,14 +203,6 @@ Reference
 
         See :meth:`SpecifierSet.contains()`.
 
-    .. method:: __len__()
-
-        See :meth:`SpecifierSet.__len__()`.
-
-    .. method:: __iter__()
-
-        See :meth:`SpecifierSet.__iter__()`.
-
     .. method:: filter(iterable, prereleases=None)
 
         See :meth:`SpecifierSet.filter()`.
