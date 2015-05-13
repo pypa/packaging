@@ -6,6 +6,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix an error where the arbitary specifier (``===``) was not correctly
+  allowing pre-releases when it was being used.
+
 
 15.1 - 2015-04-13
 ~~~~~~~~~~~~~~~~~
