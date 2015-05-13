@@ -32,12 +32,12 @@ Usage
     >>> v1 = Version("1.0a5")
     >>> v2 = Version("1.0")
     >>> # We can check a version object to see if it falls within a specifier
-    >>> combined_spec.contains(v1)
+    >>> v1 in combined_spec
     False
-    >>> combined_spec.contains(v2)
+    >>> v2 in combined_spec
     True
     >>> # We can even do the same with a string based version
-    >>> combined_spec.contains("1.4")
+    >>> "1.4" in combined_spec
     True
     >>> # Finally we can filter a list of versions to get only those which are
     >>> # contained within our specifier.
@@ -79,6 +79,14 @@ Reference
         prereleases or it can be set to ``None`` (the default) to enable
         autodetection.
 
+    .. method:: __contains__(version)
+
+        This is the more Pythonic version of :meth:`contains()`, but does
+        not allow you to override the ``prereleases`` argument.  If you
+        need that, use :meth:`contains()`.
+
+        See :meth:`contains()`.
+
     .. method:: contains(version, prereleases=None)
 
         Determines if ``version``, which can be either a version string, a
@@ -90,6 +98,15 @@ Reference
         (the default) it will use the ``Specifier().prereleases`` attribute to
         determine if to allow them. Otherwise it will use the boolean value of
         the passed in value to determine if to allow them or not.
+
+    .. method:: __len__()
+
+        Returns the number of specifiers in this specifier set.
+
+    .. method:: __iter__()
+
+        Returns an iterator over all the underlying :class:`Specifier`
+        (or :class:`LegacySpecifier`) instances in this specifier set.
 
     .. method:: filter(iterable, prereleases=None)
 
@@ -126,9 +143,21 @@ Reference
     :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
                               in any way then this exception will be raised.
 
+    .. attribute:: operator
+
+        The string value of the operator part of this specifier.
+
+    .. attribute:: version
+
+        The string version of the version part of this specifier.
+
     .. attribute:: prereleases
 
         See :attr:`SpecifierSet.prereleases`.
+
+    .. method:: __contains__(version)
+
+        See :meth:`SpecifierSet.__contains__()`.
 
     .. method:: contains(version, prereleases=None)
 
@@ -154,9 +183,21 @@ Reference
     :raises InvalidSpecifier: If the ``specifier`` is not parseable than this
                               will be raised.
 
+    .. attribute:: operator
+
+        The string value of the operator part of this specifier.
+
+    .. attribute:: version
+
+        The string version of the version part of this specifier.
+
     .. attribute:: prereleases
 
         See :attr:`SpecifierSet.prereleases`.
+
+    .. method:: __contains__(version)
+
+        See :meth:`SpecifierSet.__contains__()`.
 
     .. method:: contains(version, prereleases=None)
 
