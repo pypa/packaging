@@ -528,6 +528,7 @@ class TestSpecifier:
             ("1.0", "===1.0", True),
             ("nope", "===lolwat", False),
             ("1.0.0", "===1.0", False),
+            ("1.0.dev0", "===1.0.dev0", True),
         ],
     )
     def test_specifiers_identity(self, version, spec, expected):
