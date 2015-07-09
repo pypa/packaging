@@ -206,6 +206,8 @@ class Version(_BaseVersion):
     )
 
     def __init__(self, version):
+        version = str(version)
+
         # Validate the version and parse it into pieces
         match = self._regex.search(version)
         if not match:
