@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Normalize post-release spellings for rev/r prefixes. :issue:`35`
+
 
 15.2 - 2015-05-13
 ~~~~~~~~~~~~~~~~~
