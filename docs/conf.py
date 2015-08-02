@@ -35,6 +35,7 @@ sys.path.insert(0, os.path.abspath("."))
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
+    "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
 ]
@@ -71,6 +72,10 @@ exclude_patterns = ["_build"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
 
+extlinks = {
+    'issue': ('https://github.com/pypa/packaging/issues/%s', '#'),
+    'pull': ('https://github.com/pypa/packaging/pull/%s', 'PR #'),
+}
 # -- Options for HTML output --------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
