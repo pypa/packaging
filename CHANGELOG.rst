@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-15.3 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+15.3 - 2015-08-01
+~~~~~~~~~~~~~~~~~
 
 * Normalize post-release spellings for rev/r prefixes. :issue:`35`
 
@@ -96,6 +94,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
