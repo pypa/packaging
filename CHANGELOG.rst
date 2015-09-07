@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Support installation of packaging when only distutils is available.
+
 
 15.3 - 2015-08-01
 ~~~~~~~~~~~~~~~~~

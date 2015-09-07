@@ -15,7 +15,17 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import setuptools
+
+# While I generally consider it an antipattern to try and support both
+# setuptools and distutils with a single setup.py, in this specific instance
+# where packaging is a dependency of setuptools, it can create a circular
+# dependency when projects attempt to unbundle stuff from setuptools and pip.
+# Though we don't really support that, it makes things easier if we do this and
+# should hopefully cause less issues for end users.
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils import setup
 
 
 base_dir = os.path.dirname(__file__)
@@ -31,7 +41,7 @@ with open(os.path.join(base_dir, "CHANGELOG.rst")) as f:
     long_description = "\n".join([long_description, f.read()])
 
 
-setuptools.setup(
+setup(
     name=about["__title__"],
     version=about["__version__"],
 
