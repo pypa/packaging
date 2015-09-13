@@ -25,7 +25,7 @@ import os
 try:
     from setuptools import setup
 except ImportError:
-    from distutils import setup
+    from distutils.core import setup
 
 
 base_dir = os.path.dirname(__file__)
