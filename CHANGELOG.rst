@@ -6,6 +6,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Relicense so that packaging is available under *either* the Apache License,
+  Version 2.0 or a 2 Clause BSD license.
+
 * Support installation of packaging when only distutils is available.
 
 
