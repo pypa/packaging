@@ -23,10 +23,22 @@ def test_parse(version, klass):
     assert isinstance(parse(version), klass)
 
 
+class VersionObj(object):
+    def __init__(self, version):
+        self.version = version
+
+    def __str__(self):
+        return self.version
+
+    def __repr__(self):
+        return repr(self.version)
+
+version_obj = VersionObj('1.0a1')
+
 # This list must be in the correct sorting order
 VERSIONS = [
     # Implicit epoch of 0
-    "1.0.dev456", "1.0a1", "1.0a2.dev456", "1.0a12.dev456", "1.0a12",
+    "1.0.dev456", version_obj, "1.0a2.dev456", "1.0a12.dev456", "1.0a12",
     "1.0b1.dev456", "1.0b2", "1.0b2.post345.dev456", "1.0b2.post345",
     "1.0b2-346", "1.0c1.dev456", "1.0c1", "1.0rc2", "1.0c3", "1.0",
     "1.0.post456.dev34", "1.0.post456", "1.1.dev1", "1.2+123abc",
@@ -524,7 +536,7 @@ class TestLegacyVersion:
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_str_repr(self, version):
-        assert str(LegacyVersion(version)) == version
+        assert str(LegacyVersion(version)) == str(version)
         assert (repr(LegacyVersion(version))
                 == "<LegacyVersion({0})>".format(repr(version)))
 
@@ -534,11 +546,11 @@ class TestLegacyVersion:
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_public(self, version):
-        assert LegacyVersion(version).public == version
+        assert LegacyVersion(version).public == str(version)
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_base_version(self, version):
-        assert LegacyVersion(version).base_version == version
+        assert LegacyVersion(version).base_version == str(version)
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_local(self, version):
