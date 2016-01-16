@@ -323,6 +323,7 @@ class TestSpecifier:
                 ("2.0.0", "==2.*"),
                 ("2.0.post1", "==2.0.post1.*"),
                 ("2.0.post1.dev1", "==2.0.post1.*"),
+                ("2.1+local.version", "==2.1.*"),
 
                 # Test the in-equality operation
                 ("2.1", "!=2"),

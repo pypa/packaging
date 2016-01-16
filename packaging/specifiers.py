@@ -416,6 +416,8 @@ class Specifier(_IndividualSpecifier):
     def _compare_equal(self, prospective, spec):
         # We need special logic to handle prefix matching
         if spec.endswith(".*"):
+            # In the case of prefix matching we want to ignore local segment.
+            prospective = Version(prospective.public)
             # Split the spec out by dots, and pretend that there is an implicit
             # dot in between a release segment and a pre-release segment.
             spec = _version_split(spec[:-2])  # Remove the trailing .*
