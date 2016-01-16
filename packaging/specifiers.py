@@ -194,8 +194,8 @@ class _IndividualSpecifier(BaseSpecifier):
                 # If our version is a prerelease, and we were not set to allow
                 # prereleases, then we'll store it for later incase nothing
                 # else matches this specifier.
-                if (parsed_version.is_prerelease
-                        and not (prereleases or self.prereleases)):
+                if (parsed_version.is_prerelease and not
+                        (prereleases or self.prereleases)):
                     found_prereleases.append(version)
                 # Either this is not a prerelease, or we should have been
                 # accepting prereleases from the begining.
@@ -399,8 +399,8 @@ class Specifier(_IndividualSpecifier):
         prefix = ".".join(
             list(
                 itertools.takewhile(
-                    lambda x: (not x.startswith("post")
-                               and not x.startswith("dev")),
+                    lambda x: (not x.startswith("post") and not
+                               x.startswith("dev")),
                     _version_split(spec),
                 )
             )[:-1]
@@ -409,8 +409,8 @@ class Specifier(_IndividualSpecifier):
         # Add the prefix notation to the end of our string
         prefix += ".*"
 
-        return (self._get_operator(">=")(prospective, spec)
-                and self._get_operator("==")(prospective, prefix))
+        return (self._get_operator(">=")(prospective, spec) and
+                self._get_operator("==")(prospective, prefix))
 
     @_require_version_compare
     def _compare_equal(self, prospective, spec):

@@ -250,8 +250,8 @@ class TestVersion:
     )
     def test_version_str_repr(self, version, expected):
         assert str(Version(version)) == expected
-        assert (repr(Version(version))
-                == "<Version({0})>".format(repr(expected)))
+        assert (repr(Version(version)) ==
+                "<Version({0})>".format(repr(expected)))
 
     def test_version_rc_and_c_equals(self):
         assert Version("1.0rc1") == Version("1.0c1")
@@ -420,31 +420,26 @@ class TestVersion:
             [
                 [(x, y, operator.lt) for y in VERSIONS[i + 1:]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the less than equal (<=) operator works correctly
             [
                 [(x, y, operator.le) for y in VERSIONS[i:]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the equal (==) operator works correctly
             [
                 [(x, x, operator.eq) for x in VERSIONS]
-            ]
-            +
+            ] +
             # Verify that the not equal (!=) operator works correctly
             [
                 [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the greater than equal (>=) operator works correctly
             [
                 [(x, y, operator.ge) for y in VERSIONS[:i + 1]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the greater than (>) operator works correctly
             [
                 [(x, y, operator.gt) for y in VERSIONS[:i]]
@@ -465,31 +460,26 @@ class TestVersion:
             [
                 [(x, y, operator.lt) for y in VERSIONS[:i + 1]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the less than equal (<=) operator works correctly
             [
                 [(x, y, operator.le) for y in VERSIONS[:i]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the equal (==) operator works correctly
             [
                 [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the not equal (!=) operator works correctly
             [
                 [(x, x, operator.ne) for x in VERSIONS]
-            ]
-            +
+            ] +
             # Verify that the greater than equal (>=) operator works correctly
             [
                 [(x, y, operator.ge) for y in VERSIONS[i + 1:]]
                 for i, x in enumerate(VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the greater than (>) operator works correctly
             [
                 [(x, y, operator.gt) for y in VERSIONS[i:]]
@@ -525,8 +515,8 @@ class TestLegacyVersion:
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_str_repr(self, version):
         assert str(LegacyVersion(version)) == version
-        assert (repr(LegacyVersion(version))
-                == "<LegacyVersion({0})>".format(repr(version)))
+        assert (repr(LegacyVersion(version)) ==
+                "<LegacyVersion({0})>".format(repr(version)))
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_hash(self, version):
@@ -561,8 +551,7 @@ class TestLegacyVersion:
             # Verify that the equal (==) operator works correctly
             [
                 [(x, x, operator.eq) for x in VERSIONS + LEGACY_VERSIONS]
-            ]
-            +
+            ] +
             # Verify that the not equal (!=) operator works correctly
             [
                 [
@@ -592,8 +581,7 @@ class TestLegacyVersion:
                     if i != j
                 ]
                 for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
-            ]
-            +
+            ] +
             # Verify that the not equal (!=) operator works correctly
             [
                 [(x, x, operator.ne) for x in VERSIONS + LEGACY_VERSIONS]

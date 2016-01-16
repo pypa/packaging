@@ -71,8 +71,8 @@ def pep440(cached=False):
     # pkg_resources and PEP 440
     compatible_sorting = [
         project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version)
-            == sorted((x for x in versions if _parse_version(x)), key=Version))
+        if (sorted(versions, key=pkg_resources.parse_version) ==
+            sorted((x for x in versions if _parse_version(x)), key=Version))
     ]
 
     # Determine a list of projects that sort exactly the same between
@@ -83,26 +83,25 @@ def pep440(cached=False):
             (p, [v for v in vs if _parse_version(v) is not None])
             for p, vs in data.items()
         )
-        if (sorted(versions, key=pkg_resources.parse_version)
-            == sorted(versions, key=Version))
+        if (sorted(versions, key=pkg_resources.parse_version) ==
+            sorted(versions, key=Version))
     ]
 
     # Determine a list of projects which do not have any versions that are
     # valid with PEP 440 and which have any versions registered
     only_invalid_versions = [
         project for project, versions in data.items()
-        if (versions
-            and not [v for v in versions if _parse_version(v) is not None])
+        if (versions and not
+            [v for v in versions if _parse_version(v) is not None])
     ]
 
     # Determine a list of projects which have matching latest versions between
     # pkg_resources and PEP 440
     differing_latest_versions = [
         project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version)[-1:]
-            != sorted(
-                (x for x in versions if _parse_version(x)),
-                key=Version)[-1:])
+        if (sorted(versions, key=pkg_resources.parse_version)[-1:] !=
+            sorted(
+                (x for x in versions if _parse_version(x)), key=Version)[-1:])
     ]
 
     # Print out our findings
