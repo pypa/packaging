@@ -5,6 +5,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import re
 
 # While I generally consider it an antipattern to try and support both
 # setuptools and distutils with a single setup.py, in this specific instance
@@ -28,7 +29,9 @@ with open(os.path.join(base_dir, "README.rst")) as f:
     long_description = f.read()
 
 with open(os.path.join(base_dir, "CHANGELOG.rst")) as f:
-    long_description = "\n".join([long_description, f.read()])
+    # Remove :issue:`ddd` tags that breaks the description rendering
+    changelog = re.sub(r':issue:`\d+`', '', f.read())
+    long_description = "\n".join([long_description, changelog])
 
 
 setup(
