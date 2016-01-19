@@ -12,7 +12,7 @@ Usage
 
 .. doctest::
 
-    >>> from packaging.markers import Marker
+    >>> from packaging.markers import Marker, UndefinedEnvironmentName
     >>> marker = Marker("python_version>'2'")
     >>> marker
     <Marker('python_version > "2"')>
@@ -37,7 +37,7 @@ Usage
     >>> # Evaluating an extra marker with no environment is an error
     >>> try:
     ...     extra.evaluate()
-    ... except ValueError:
+    ... except UndefinedEnvironmentName:
     ...     pass
     >>> extra_environment = {'extra': ''}
     >>> extra.evaluate(environment=extra_environment)
@@ -66,12 +66,28 @@ Reference
 
     :param dict environment: A dictionary containing keys and values to
                              override the detected environment.
-    :raises ValueError: If the marker contains 'extra', and 'extra' isn't
-                        defined in the environment.
+    :raises: UndefinedComparison: If the marker uses a PEP 440 comparison on
+                                  strings which are not valid PEP 440 versions.
+    :raises: UndefinedEnvironmentName: If the marker accesses a value that
+                                       isn't present inside of the environment
+                                       dictionary.
 
 .. exception:: InvalidMarker
 
     Raised when attempting to create a :class:`Marker` with a string that
     does not conform to PEP 508.
+
+
+.. exception:: UndefinedComparison
+
+    Raised when attempting to evaluate a :class:`Marker` with a PEP 440
+    comparison operator against values that are not valid PEP 440 versions.
+
+
+.. exception:: UndefinedEnvironmentName
+
+    Raised when attempting to evaluate a :class:`Marker` with a value that is
+    missing from the evaluation environment.
+
 
 .. _`PEP 508`: https://www.python.org/dev/peps/pep-0508/
