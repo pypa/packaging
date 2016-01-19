@@ -46,6 +46,8 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
 
+    install_requires=["pyparsing"],
+
     classifiers=[
         "Intended Audience :: Developers",
 
