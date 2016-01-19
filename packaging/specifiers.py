@@ -569,8 +569,8 @@ def _pad_version(left, right):
     right_split.append(list(itertools.takewhile(lambda x: x.isdigit(), right)))
 
     # Get the rest of our versions
-    left_split.append(left[len(left_split):])
-    right_split.append(left[len(right_split):])
+    left_split.append(left[len(left_split[0]):])
+    right_split.append(right[len(right_split[0]):])
 
     # Insert our padding
     left_split.insert(
