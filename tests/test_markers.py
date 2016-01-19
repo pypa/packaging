@@ -13,8 +13,8 @@ import pretend
 import pytest
 
 from packaging.markers import (
-    Node, InvalidMarker, UndefinedComparison, Marker, _eval_op,
-    default_environment, format_full_version,
+    Node, InvalidMarker, UndefinedComparison, UndefinedEnvironmentName, Marker,
+    _eval_op, default_environment, format_full_version,
 )
 
 
@@ -246,7 +246,7 @@ class TestMarker:
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
         m = Marker("extra == 'security'")
-        with pytest.raises(ValueError):
+        with pytest.raises(UndefinedEnvironmentName):
             m.evaluate()
 
     @pytest.mark.parametrize(
