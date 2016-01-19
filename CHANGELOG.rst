@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-15.4 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.0 - 2016-01-19
+~~~~~~~~~~~~~~~~~
 
 * Relicense so that packaging is available under *either* the Apache License,
   Version 2.0 or a 2 Clause BSD license.
@@ -110,6 +108,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
