@@ -11,6 +11,9 @@ Changelog
 
 * Support installation of packaging when only distutils is available.
 
+* Fix ``==`` comparison when there is a prefix and a local version in play.
+  (:issue:`41`).
+
 
 15.3 - 2015-08-01
 ~~~~~~~~~~~~~~~~~
