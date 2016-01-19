@@ -17,7 +17,8 @@ from .specifiers import Specifier, InvalidSpecifier
 
 
 __all__ = [
-    "InvalidMarker", "UndefinedComparison", "Marker", "default_environment",
+    "InvalidMarker", "UndefinedComparison", "UndefinedEnvironmentName",
+    "Marker", "default_environment",
 ]
 
 
@@ -30,6 +31,13 @@ class InvalidMarker(ValueError):
 class UndefinedComparison(ValueError):
     """
     An invalid operation was attempted on a value that doesn't support it.
+    """
+
+
+class UndefinedEnvironmentName(ValueError):
+    """
+    A name was attempted to be used that does not exist inside of the
+    environment.
     """
 
 
@@ -161,6 +169,20 @@ def _eval_op(lhs, op, rhs):
     return oper(lhs, rhs)
 
 
+_undefined = object()
+
+
+def _get_env(environment, name):
+    value = environment.get(name, _undefined)
+
+    if value is _undefined:
+        raise UndefinedEnvironmentName(
+            "{0!r} does not exist in evaluation environment.".format(name)
+        )
+
+    return value
+
+
 def _evaluate_markers(markers, environment):
     groups = [[]]
 
@@ -171,15 +193,15 @@ def _evaluate_markers(markers, environment):
             groups[-1].append(_evaluate_markers(marker, environment))
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
-            if ((lhs.value == 'extra' or rhs.value == 'extra') and
-               'extra' not in environment):
-                raise ValueError("can not evaluate extra marker without "
-                                 "environment override")
+
             if isinstance(lhs, Variable):
-                value = _eval_op(environment[lhs.value], op, rhs.value)
+                lhs_value = _get_env(environment, lhs.value)
+                rhs_value = rhs.value
             else:
-                value = _eval_op(lhs.value, op, environment[rhs.value])
-            groups[-1].append(value)
+                lhs_value = lhs.value
+                rhs_value = _get_env(environment, rhs.value)
+
+            groups[-1].append(_eval_op(lhs_value, op, rhs_value))
         else:
             assert marker in ["and", "or"]
             if marker == "or":
