@@ -30,7 +30,11 @@ with open(os.path.join(base_dir, "README.rst")) as f:
 
 with open(os.path.join(base_dir, "CHANGELOG.rst")) as f:
     # Remove :issue:`ddd` tags that breaks the description rendering
-    changelog = re.sub(r':issue:`\d+`', '', f.read())
+    changelog = re.sub(
+        r":issue:`(\d+)`",
+        r"`#\1 <https://github.com/pypa/packaging/issues/\1>`__",
+        f.read(),
+    )
     long_description = "\n".join([long_description, changelog])
 
 
