@@ -17,6 +17,7 @@ env:
 
 install:
   - pip install tox
+  - if [[ $TOXENV == 'pep8' || $TOXENV == 'py32' ]]; then pip install "virtualenv<14" ; fi
 
 script:
   - tox
