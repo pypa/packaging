@@ -23,6 +23,7 @@ API
     version
     specifiers
     markers
+    requirements
 
 
 Project
