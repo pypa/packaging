@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.1 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.1 - 2016-02-07
+~~~~~~~~~~~~~~~~~
 
 * Implement requirement specifiers from PEP 508.
 
@@ -117,5 +115,3 @@ Changelog
 
 * Initial release.
 
-
-.. _`master`: https://github.com/pypa/packaging/
