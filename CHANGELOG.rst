@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Implement requirement specifiers from PEP 508.
+
 
 16.0 - 2016-01-19
 ~~~~~~~~~~~~~~~~~
