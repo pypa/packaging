@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.2 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.2 - 2016-02-09
+~~~~~~~~~~~~~~~~~
 
 * Add a function that implements the name canonicalization from PEP 503.
 
@@ -122,6 +120,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
