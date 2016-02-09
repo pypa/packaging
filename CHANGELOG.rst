@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add a function that implements the name canonicalization from PEP 503.
+
 
 16.1 - 2016-02-07
 ~~~~~~~~~~~~~~~~~
