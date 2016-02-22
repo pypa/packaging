@@ -56,6 +56,15 @@ class TestRequirements:
         req = Requirement("name>=3")
         self._assert_requirement(req, "name", specifier=">=3")
 
+    def test_with_legacy_version(self):
+        req = Requirement("name==1.0.org1")
+        self._assert_requirement(req, "name", specifier="==1.0.org1")
+
+    def test_with_legacy_version_and_marker(self):
+        req = Requirement("name>=1.x.y;python_version=='2.6'")
+        self._assert_requirement(req, "name", specifier=">=1.x.y",
+                                 marker='python_version == "2.6"')
+
     def test_name_with_multiple_versions(self):
         req = Requirement("name>=3,<2")
         self._assert_requirement(req, "name", specifier="<2,>=3")
