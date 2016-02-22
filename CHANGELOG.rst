@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.3 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.3 - 2016-02-21
+~~~~~~~~~~~~~~~~~
 
 * Fix a bug where ``packaging.requirements:Requirement`` was overly strict when
   matching legacy requirements.
@@ -129,6 +127,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
