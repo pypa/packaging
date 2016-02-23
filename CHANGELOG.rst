@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix a regression in parsing requirements like ``foo (==4)``.
+
 
 16.3 - 2016-02-21
 ~~~~~~~~~~~~~~~~~
