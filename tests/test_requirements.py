@@ -73,6 +73,22 @@ class TestRequirements:
         req = Requirement("name>=3,<2")
         self._assert_requirement(req, "name", specifier="<2,>=3")
 
+    def test_name_with_multiple_versions_and_right_pre_whitespace(self):
+        req = Requirement("name>=3, <2")
+        self._assert_requirement(req, "name", specifier="<2,>=3")
+
+    def test_name_with_multiple_versions_and_right_post_whitespace(self):
+        req = Requirement("name>=3,<2 ")
+        self._assert_requirement(req, "name", specifier="<2,>=3")
+
+    def test_name_with_multiple_versions_and_right_pre_post_whitespace(self):
+        req = Requirement("name>=3, <2 ")
+        self._assert_requirement(req, "name", specifier="<2,>=3")
+
+    def test_name_with_multiple_versions_and_all_whitespace(self):
+        req = Requirement("name >= 3 , <2 ")
+        self._assert_requirement(req, "name", specifier="<2,>=3")
+
     def test_extras(self):
         req = Requirement("foobar [quux,bar]")
         self._assert_requirement(req, "foobar", extras=["bar", "quux"])

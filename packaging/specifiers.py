@@ -215,20 +215,22 @@ class LegacySpecifier(_IndividualSpecifier):
 
     _regex_str = (
         r"""
+        \s*
         (?P<operator>(==|!=|<=|>=|<|>))
         \s*
         (?P<version>
-            [^;\s)]* # We just match everything, except for whitespace,
-                     # a semi-colon for marker support, and closing paren
-                     # since versions can be enclosed in them. Since this is
-                     # a "legacy" specifier and the version string can be
-                     # just about anything.
+            [^;\s),]* # We just match everything, except for whitespace,
+                      # a comma for multiple version support, a semi-colon for
+                      # marker support, and closing paren since versions can be
+                      # enclosed in them. Since this is a "legacy" specifier
+                      # and the version string can be just about anything.
         )
+        \s*
         """
     )
 
     _regex = re.compile(
-        r"^\s*" + _regex_str + r"\s*$", re.VERBOSE | re.IGNORECASE)
+        r"^" + _regex_str + r"$", re.VERBOSE | re.IGNORECASE)
 
     _operators = {
         "==": "equal",
@@ -276,6 +278,7 @@ class Specifier(_IndividualSpecifier):
 
     _regex_str = (
         r"""
+        \s*
         (?P<operator>(~=|==|!=|<=|>=|<|>|===))
         (?P<version>
             (?:
@@ -366,11 +369,12 @@ class Specifier(_IndividualSpecifier):
                 (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
         )
+        \s*
         """
     )
 
     _regex = re.compile(
-        r"^\s*" + _regex_str + r"\s*$", re.VERBOSE | re.IGNORECASE)
+        r"^" + _regex_str + r"$", re.VERBOSE | re.IGNORECASE)
 
     _operators = {
         "~=": "compatible",
