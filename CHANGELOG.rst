@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix a regression in parsing requirements with multiple versions and
+  whitespace, like ``foo>=2.0, !=2.1``. (:issue:`65`).
 
 16.4 - 2016-02-22
 ~~~~~~~~~~~~~~~~~
