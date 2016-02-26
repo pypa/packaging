@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.5 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.5 - 2016-02-26
+~~~~~~~~~~~~~~~~~
 
 * Fix a regression in parsing requirements with whitespaces between the comma
   separators.
@@ -142,6 +140,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
