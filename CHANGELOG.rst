@@ -6,6 +6,9 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix a regression in parsing requirements with whitespaces between the comma
+  separators.
+
 
 16.4 - 2016-02-22
 ~~~~~~~~~~~~~~~~~
