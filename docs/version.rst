@@ -136,7 +136,7 @@ Reference
 .. data:: VERSION_PATTERN
 
     A string containing the regular expression used to match a valid version.
-    The patterm is not anchored at either end, and is intended for embedding
+    The pattern is not anchored at either end, and is intended for embedding
     in larger expressions (for example, matching a version number as part of
     a file name). The regular expression should be compiled with the
     ``re.VERBOSE`` and ``re.IGNORECASE`` flags set.

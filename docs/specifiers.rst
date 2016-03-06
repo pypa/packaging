@@ -48,10 +48,10 @@ Usage
 Reference
 ---------
 
-.. class:: SpeciferSet(specifiers, prereleases=None)
+.. class:: SpecifierSet(specifiers, prereleases=None)
 
     This class abstracts handling specifying the dependencies of a project. It
-    can be passed a single specifier (``>=3.0``), a comma seperated list of
+    can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all. Each individual
     specifier be attempted to be parsed as a PEP 440 specifier
     (:class:`Specifier`) or as a legacy, setuptools style specifier
@@ -59,11 +59,11 @@ Reference
     using the ``&`` operator (``SpecifierSet(">2") & SpecifierSet("<4")``).
 
     Both the membership tests and the combination support using raw strings
-    in place of already instatiated bojects.
+    in place of already instantiated objects.
 
-    :param str specifiers: The string representation of a specifier or a comma
-                          seperated list of specifiers which will be parsed and
-                          normalized before use.
+    :param str specifiers: The string representation of a specifier or a
+                           comma-separated list of specifiers which will
+                           be parsed and normalized before use.
     :param bool prereleases: This tells the SpecifierSet if it should accept
                              prerelease versions if applicable or not. The
                              default of ``None`` will autodetect it from the
@@ -74,7 +74,7 @@ Reference
     .. attribute:: prereleases
 
         A boolean value indicating whether this :class:`SpecifierSet`
-        represents a specifier that includesa pre-release versions. This can be
+        represents a specifier that includes a pre-release versions. This can be
         set to either ``True`` or ``False`` to explicitly enable or disable
         prereleases or it can be set to ``None`` (the default) to enable
         autodetection.
@@ -130,8 +130,8 @@ Reference
 
 .. class:: Specifier(specifier, prereleases=None)
 
-    This class abstracts the handling of a single `PEP 440`_ compataible
-    specifier. It is generally not required to instatiate this manually,
+    This class abstracts the handling of a single `PEP 440`_ compatible
+    specifier. It is generally not required to instantiate this manually,
     preferring instead to work with :class:`SpecifierSet`.
 
     :param str specifier: The string representation of a specifier which will
@@ -170,8 +170,8 @@ Reference
 
 .. class:: LegacySpecifier(specifier, prereleases=None)
 
-    This class abstracts the handling of a single legacy, setuptools tyle
-    specifier. It is generally not required to instatiate this manually,
+    This class abstracts the handling of a single legacy, setuptools style
+    specifier. It is generally not required to instantiate this manually,
     preferring instead to work with :class:`SpecifierSet`.
 
     :param str specifier: The string representation of a specifier which will
@@ -180,7 +180,7 @@ Reference
                              prerelease versions if applicable or not. The
                              default of ``None`` will autodetect it from the
                              given specifiers.
-    :raises InvalidSpecifier: If the ``specifier`` is not parseable than this
+    :raises InvalidSpecifier: If the ``specifier`` is not parseable then this
                               will be raised.
 
     .. attribute:: operator
