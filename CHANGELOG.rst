@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.6 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.6 - 2016-03-29
+~~~~~~~~~~~~~~~~~
 
 * Add support for the deprecated, PEP 345 environment markers in addition to the
   newer markers.
@@ -149,6 +147,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
