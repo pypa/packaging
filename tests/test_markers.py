@@ -19,10 +19,15 @@ from packaging.markers import (
 
 
 VARIABLES = [
-    "extra", "implementation_version", "implementation_version", "os_name",
+    "extra", "implementation_name", "implementation_version", "os_name",
     "platform_machine", "platform_release", "platform_system",
     "platform_version", "python_full_version", "python_version",
     "platform_python_implementation", "sys_platform",
+]
+
+PEP_345_VARIABLES = [
+    "os.name", "sys.platform", "platform.version", "platform.machine",
+    "platform.python_implementation",
 ]
 
 OPERATORS = [
@@ -293,5 +298,51 @@ class TestMarker:
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
+        args = [] if environment is None else [environment]
+        assert Marker(marker_string).evaluate(*args) == expected
+
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            "{0} {1} {2!r}".format(*i)
+            for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
+        ] + [
+            "{2!r} {1} {0}".format(*i)
+            for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
+        ],
+    )
+    def test_parses_pep345_valid(self, marker_string):
+        Marker(marker_string)
+
+    @pytest.mark.parametrize(
+        ("marker_string", "environment", "expected"),
+        [
+            ("os.name == '{0}'".format(os.name), None, True),
+            ("sys.platform == 'win32'", {"sys_platform": "linux2"}, False),
+            (
+                "platform.version in 'Ubuntu'",
+                {"platform_version": "#39"},
+                False,
+            ),
+            (
+                "platform.machine=='x86_64'",
+                {"platform_machine": "x86_64"},
+                True,
+            ),
+            (
+                "platform.python_implementation=='Jython'",
+                {"platform_python_implementation": "CPython"},
+                False,
+            ),
+            (
+                "python_version == '2.5' and platform.python_implementation"
+                "!= 'Jython'",
+                {"python_version": "2.7"},
+                False,
+            ),
+        ],
+    )
+    def test_evaluate_pep345_markers(self, marker_string, environment,
+                                     expected):
         args = [] if environment is None else [environment]
         assert Marker(marker_string).evaluate(*args) == expected
