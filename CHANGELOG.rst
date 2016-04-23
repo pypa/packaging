@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.7 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.7 - 2016-04-23
+~~~~~~~~~~~~~~~~~
 
 * Add support for the deprecated ``python_implementation`` marker which was
   an undocumented setuptools marker in addition to the newer markers.
@@ -156,6 +154,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
