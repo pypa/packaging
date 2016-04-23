@@ -6,12 +6,15 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add support for the deprecated ``python_implementation`` marker which was
+  an undocumented setuptools marker in addition to the newer markers.
+
 
 16.6 - 2016-03-29
 ~~~~~~~~~~~~~~~~~
 
-* Add support for the deprecated, PEP 345 environment markers in addition to the
-  newer markers.
+* Add support for the deprecated, PEP 345 environment markers in addition to
+  the newer markers.
 
 
 16.5 - 2016-02-26
