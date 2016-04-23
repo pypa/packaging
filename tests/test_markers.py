@@ -30,6 +30,10 @@ PEP_345_VARIABLES = [
     "platform.python_implementation",
 ]
 
+SETUPTOOLS_VARIABLES = [
+    "python_implementation",
+]
+
 OPERATORS = [
     "===", "==", ">=", "<=", "!=", "~=", ">", "<", "in", "not in",
 ]
@@ -346,3 +350,21 @@ class TestMarker:
                                      expected):
         args = [] if environment is None else [environment]
         assert Marker(marker_string).evaluate(*args) == expected
+
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            "{0} {1} {2!r}".format(*i)
+            for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
+        ] + [
+            "{2!r} {1} {0}".format(*i)
+            for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
+        ],
+    )
+    def test_parses_setuptools_legacy_valid(self, marker_string):
+        Marker(marker_string)
+
+    def test_evaluate_setuptools_legacy_markers(self):
+        marker_string = "python_implementation=='Jython'"
+        args = [{"platform_python_implementation": "CPython"}]
+        assert Marker(marker_string).evaluate(*args) is False
