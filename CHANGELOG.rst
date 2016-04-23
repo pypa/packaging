@@ -1,6 +1,12 @@
 Changelog
 ---------
 
+16.8 - `master`_
+~~~~~~~~~~~~~~~~
+
+.. note:: This version is not yet released and is under active development.
+
+
 16.7 - 2016-04-23
 ~~~~~~~~~~~~~~~~~
 
@@ -154,3 +160,6 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
+
+
+.. _`master`: https://github.com/pypa/packaging/
