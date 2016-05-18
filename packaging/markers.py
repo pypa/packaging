@@ -52,13 +52,26 @@ class Node(object):
     def __repr__(self):
         return "<{0}({1!r})>".format(self.__class__.__name__, str(self))
 
+    def serialize(self):
+        raise NotImplementedError
+
 
 class Variable(Node):
-    pass
+
+    def serialize(self):
+        return str(self)
 
 
 class Value(Node):
-    pass
+
+    def serialize(self):
+        return '"{0}"'.format(self)
+
+
+class Op(Node):
+
+    def serialize(self):
+        return str(self)
 
 
 VARIABLE = (
@@ -103,6 +116,7 @@ VERSION_CMP = (
 )
 
 MARKER_OP = VERSION_CMP | L("not in") | L("in")
+MARKER_OP.setParseAction(lambda s, l, t: Op(t[0]))
 
 MARKER_VALUE = QuotedString("'") | QuotedString('"')
 MARKER_VALUE.setParseAction(lambda s, l, t: Value(t[0]))
@@ -149,7 +163,7 @@ def _format_marker(marker, first=True):
         else:
             return "(" + " ".join(inner) + ")"
     elif isinstance(marker, tuple):
-        return '{0} {1} "{2}"'.format(*marker)
+        return " ".join([m.serialize() for m in marker])
     else:
         return marker
 
