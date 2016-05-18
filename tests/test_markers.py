@@ -58,6 +58,10 @@ class TestNode:
     def test_repr(self, value):
         assert repr(Node(value)) == "<Node({0!r})>".format(str(value))
 
+    def test_base_class(self):
+        with pytest.raises(NotImplementedError):
+            Node("cover all the code").serialize()
+
 
 class TestOperatorEvaluation:
 
