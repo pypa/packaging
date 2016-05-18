@@ -69,7 +69,7 @@ class TestOperatorEvaluation:
 
     def test_fails_when_undefined(self):
         with pytest.raises(UndefinedComparison):
-            _eval_op("2.7.0", "~=", "invalid")
+            Marker("'2.7.0' ~= os_name").evaluate()
 
 
 FakeVersionInfo = collections.namedtuple(
