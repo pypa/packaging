@@ -14,7 +14,7 @@ import pytest
 
 from packaging.markers import (
     Node, InvalidMarker, UndefinedComparison, UndefinedEnvironmentName, Marker,
-    _eval_op, default_environment, format_full_version,
+    default_environment, format_full_version,
 )
 
 
@@ -62,10 +62,10 @@ class TestNode:
 class TestOperatorEvaluation:
 
     def test_prefers_pep440(self):
-        assert _eval_op("2.7.10", ">", "2.7.9")
+        assert Marker('"2.7.9" < "foo"').evaluate(dict(foo='2.7.10'))
 
     def test_falls_back_to_python(self):
-        assert _eval_op("b", ">", "a")
+        assert Marker('"b" > "a"').evaluate(dict(a='a'))
 
     def test_fails_when_undefined(self):
         with pytest.raises(UndefinedComparison):
