@@ -182,13 +182,13 @@ _operators = {
 
 def _eval_op(lhs, op, rhs):
     try:
-        spec = Specifier("".join([op, rhs]))
+        spec = Specifier("".join([op.serialize(), rhs]))
     except InvalidSpecifier:
         pass
     else:
         return spec.contains(lhs)
 
-    oper = _operators.get(op)
+    oper = _operators.get(op.serialize())
     if oper is None:
         raise UndefinedComparison(
             "Undefined {0!r} on {1!r} and {2!r}.".format(op, lhs, rhs)
