@@ -154,3 +154,19 @@ class TestRequirements:
         assert isinstance(req.url, str)
         assert isinstance(req.specifier, SpecifierSet)
         assert req.marker is None
+
+    def test_sys_platform_linux_equal(self):
+        req = Requirement('something>=1.2.3; sys_platform == "foo"')
+
+        assert req.name == 'something'
+        assert req.marker is not None
+        assert req.marker.evaluate(dict(sys_platform="foo")) is True
+        assert req.marker.evaluate(dict(sys_platform="bar")) is False
+
+    def test_sys_platform_linux_in(self):
+        req = Requirement("aviato>=1.2.3; 'f' in sys_platform")
+
+        assert req.name == 'aviato'
+        assert req.marker is not None
+        assert req.marker.evaluate(dict(sys_platform="foo")) is True
+        assert req.marker.evaluate(dict(sys_platform="bar")) is False
