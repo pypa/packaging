@@ -14,5 +14,5 @@ bug check out `what to put in your bug report`_.
     submitting-patches
     reviewing-patches
 
-.. _`GitHub`: https://github.com/dstufft/packaging
+.. _`GitHub`: https://github.com/pypa/packaging
 .. _`what to put in your bug report`: http://www.contribution-guide.org/#what-to-put-in-your-bug-report
