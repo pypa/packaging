@@ -133,7 +133,7 @@ class TestDefaultEnvironment:
             sys.implementation.version
         )
         if sys.implementation.version.releaselevel != "final":
-            iver = "{0}{1}[0]{2}".format(
+            iver = "{0}{1[0]}{2}".format(
                 iver,
                 sys.implementation.version.releaselevel,
                 sys.implementation.version.serial,
