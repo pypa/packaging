@@ -81,6 +81,12 @@ Reference
         A boolean value indicating whether this :class:`Version` instance
         represents a post-release.
 
+    .. attribute:: rpm_version
+
+        A tuple value containing the epoch and version string usable for the RPM
+        packaging system. The ``rpm_version`` doesn't contain the ``local``
+        portion of the ``Version()``.
+
 
 .. class:: LegacyVersion(version)
 

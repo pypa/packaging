@@ -9,7 +9,23 @@ import operator
 import pretend
 import pytest
 
+# check if the RPM python binding are installed
+try:
+    import rpm
+    HAS_RPM = True
+except:
+    HAS_RPM = False
+
 from packaging.version import Version, LegacyVersion, InvalidVersion, parse
+
+
+def _rpm_create_version_header(epoch, version, release):
+        """helper function to create a RPM header"""
+        hdr = rpm.hdr()
+        hdr[rpm.RPMTAG_EPOCH] = epoch
+        hdr[rpm.RPMTAG_VERSION] = "{0}".format(version)
+        hdr[rpm.RPMTAG_RELEASE] = "{0}".format(release)
+        return hdr
 
 
 @pytest.mark.parametrize(
@@ -21,7 +37,6 @@ from packaging.version import Version, LegacyVersion, InvalidVersion, parse
 )
 def test_parse(version, klass):
     assert isinstance(parse(version), klass)
-
 
 # This list must be in the correct sorting order
 VERSIONS = [
@@ -501,6 +516,36 @@ class TestVersion:
     def test_compare_legacyversion_version(self):
         result = sorted([Version("0"), LegacyVersion("1")])
         assert result == [LegacyVersion("1"), Version("0")]
+
+    @pytest.mark.parametrize(
+        ("v_lower", "v_higher", "expected"),
+        itertools.chain(
+            *
+            # Verify that version-1 is always lower that version
+            [
+                [
+                    (x, y, -1) for x, y in itertools.izip(
+                        # ignore versions which contain a local portion
+                        itertools.ifilter(lambda v: '+' not in v, VERSIONS),
+                        itertools.ifilter(lambda v: '+' not in v, VERSIONS[:1])
+                    )
+                ]
+            ]
+        )
+    )
+    @pytest.mark.skipif(HAS_RPM == False,
+                        reason="RPM python bindings not installed")
+    def test_rpm_version(self, v_lower, v_higher, expected):
+        if v_lower == v_higher:
+            expected = 0
+        # RPM version strings
+        epoch_lower, v_lower_rpm = Version(v_lower).rpm_version
+        epoch_higher, v_higher_rpm = Version(v_higher).rpm_version
+        # RPM header
+        hdr_lower = _rpm_create_version_header(epoch_lower, v_lower_rpm, 0)
+        hdr_higher = _rpm_create_version_header(epoch_higher, v_higher_rpm, 0)
+        # RPM compare
+        assert rpm.versionCompare(hdr_lower, hdr_higher) == expected
 
 
 LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]

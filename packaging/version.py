@@ -294,6 +294,30 @@ class Version(_BaseVersion):
     def is_postrelease(self):
         return bool(self._version.post)
 
+    @property
+    def rpm_version(self):
+        """create a version string that is valid for RPM packaging systems
+        Note: This needs at least rpm >= 4.10 where tilde (~) support was added
+        """
+        parts = []
+
+        # Release segment
+        parts.append(".".join(str(x) for x in self._version.release))
+
+        # Pre-release
+        if self._version.pre is not None:
+            parts.append("~")
+            parts.append("".join(str(x) for x in self._version.pre))
+
+        # Post-release
+        if self._version.post is not None:
+            parts.append(".post{0}".format(self._version.post[1]))
+
+        # Development release
+        if self._version.dev is not None:
+            parts.append("~dev{0}".format(self._version.dev[1]))
+
+        return self._version.epoch, "".join(parts)
 
 def _parse_letter_version(letter, number):
     if letter:
