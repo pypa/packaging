@@ -6,6 +6,10 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix markers that utilize ``in`` so that they render correctly.
+
+* Fix an erroneous test on Python RC releases.
+
 
 16.7 - 2016-04-23
 ~~~~~~~~~~~~~~~~~
