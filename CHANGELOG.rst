@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.8 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+16.8 - 2016-10-29
+~~~~~~~~~~~~~~~~~
 
 * Fix markers that utilize ``in`` so that they render correctly.
 
@@ -164,6 +162,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
