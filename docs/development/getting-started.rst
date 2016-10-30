@@ -37,7 +37,6 @@ each supported Python version and run the tests. For example:
 
     $ tox
     ...
-    ERROR:   py26: InterpreterNotFound: python2.6
      py27: commands succeeded
     ERROR:   pypy: InterpreterNotFound: pypy
     ERROR:   py32: InterpreterNotFound: python3.2
