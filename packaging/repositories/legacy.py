@@ -4,26 +4,24 @@
 from __future__ import absolute_import, division, print_function
 
 import cgi
-import functools
 
 import attr
 import html5lib
 
 from six.moves import urllib_parse
-from twisted.internet.defer import Deferred
 
-from .base import AvailableFile, BaseRepository
+from .base import AvailableFile, BaseRepository, Request
+from ._utils import as_fetcher
 from ..utils import canonicalize_name
 
 
-@attr.s(cmp=False, frozen=True, slots=True)
+@attr.s(cmp=False, slots=True)
 class _HTMLRepository(BaseRepository):
 
     # TODO: Determine how we should actually set thse values.
     _ALLOWED_HASHES = frozenset(["md5", "sha256"])
 
     url = attr.ib()
-    transport = attr.ib(hash=False, repr=False)
 
     def _get_project_url(self, project):
         raise NotImplementedError
@@ -39,7 +37,9 @@ class _HTMLRepository(BaseRepository):
         else:
             return self.url
 
-    def _handle_response(self, project, resp):
+    @as_fetcher
+    def fetch(self, project):
+
         # TODO: Is there an order that we should be returning from this? Is
         #       that meaningful? Perhaps order of priority?
         # TODO: Do we want this to yield one item per file? One item per
@@ -48,6 +48,8 @@ class _HTMLRepository(BaseRepository):
         #       - I think that we're likely to want to use a single item per
         #         file. This will work better when we combine multiple
         #         repositories into a single stream of files.
+
+        resp = yield Request(url=self._get_project_url(project))
 
         _, params = cgi.parse_header(resp.headers.get("Content-Type", ""))
         encoding = params.get("charset")
@@ -89,14 +91,6 @@ class _HTMLRepository(BaseRepository):
                 )
 
         return result
-
-    def fetch(self, project):
-        d = Deferred()
-        d.addCallback(self.transport.get)
-        d.addCallback(functools.partial(self._handle_response, project))
-        d.callback(self._get_project_url(project))
-
-        return d
 
 
 class SimpleRepository(_HTMLRepository):

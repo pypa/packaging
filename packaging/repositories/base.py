@@ -10,6 +10,20 @@ import six
 
 
 @attr.s(cmp=False, frozen=True, slots=True)
+class Request(object):
+
+    url = attr.ib()
+
+
+@attr.s(cmp=False, frozen=True, slots=True)
+class Response(object):
+
+    request = attr.ib()
+    content = attr.ib()
+    headers = attr.ib(default=attr.Factory(dict))
+
+
+@attr.s(cmp=False, frozen=True, slots=True)
 class AvailableFile(object):
 
     # TODO: What is the appropiate data structure for this? We need to

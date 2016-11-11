@@ -3,38 +3,54 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
-import itertools
+import functools
 
 import attr
 
-from twisted.internet.defer import gatherResults
-
 from .base import BaseRepository
+from ._utils import as_fetcher
 
 
-@attr.s(cmp=False, frozen=True, slots=True)
+@attr.s(cmp=False, slots=True)
 class FilteredRepository(BaseRepository):
 
     repository = attr.ib()
     _predicate = attr.ib(repr=False, hash=False)
 
     def fetch(self, project):
-        d = self.repository.fetch(project)
-        d.addCallback(lambda results: list(filter(self._predicate, results)))
+        fetcher = self.repository.fetch(project)
 
-        return d
+        original_get_files = fetcher.get_files
+
+        @functools.wraps(fetcher.get_files)
+        def filtered_get_files(*args, **kwargs):
+            files = original_get_files(*args, **kwargs)
+            return list(filter(self._predicate, files))
+
+        fetcher.get_files = filtered_get_files
+
+        return fetcher
 
 
-@attr.s(cmp=False, frozen=True, slots=True)
+@attr.s(cmp=False, slots=True)
 class MultiRepository(BaseRepository):
 
     repositories = attr.ib()
 
+    @as_fetcher
     def fetch(self, project):
-        d = gatherResults(
-            [r.fetch(project) for r in self.repositories],
-            consumeErrors=True,
-        )
-        d.addCallback(lambda r: list(itertools.chain.from_iterable(r)))
+        results = []
 
-        return d
+        for repository in self.repositories:
+            fetcher = repository.fetch(project)
+            while not fetcher.finished:
+                for request in fetcher.pending_requests():
+                    resp = yield request
+                    fetcher.add_response(
+                        resp.request,
+                        resp.content,
+                        headers=resp.headers,
+                    )
+            results.extend(fetcher.get_files())
+
+        return results
