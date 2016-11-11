@@ -3,10 +3,13 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
+import functools
+
 import attr
 import html5lib
 
 from six.moves import urllib_parse
+from twisted.internet.defer import Deferred
 
 from .base import AvailableFile, BaseRepository
 from ..utils import canonicalize_name
@@ -35,7 +38,7 @@ class _HTMLRepository(BaseRepository):
         else:
             return self.url
 
-    def fetch(self, project):
+    def _handle_response(self, project, resp):
         # TODO: Is there an order that we should be returning from this? Is
         #       that meaningful? Perhaps order of priority?
         # TODO: Do we want this to yield one item per file? One item per
@@ -45,15 +48,13 @@ class _HTMLRepository(BaseRepository):
         #         file. This will work better when we combine multiple
         #         repositories into a single stream of files.
 
-        # Fetch the data from the repository
-        resp = self.transport.get(self._get_project_url(project))
-
-        # Actually parse the HTML we've gotten now.
         html = html5lib.parse(
             resp.data,
             namespaceHTMLElements=False,
             transport_encoding=resp.encoding,
         )
+
+        result = []
 
         for anchor in html.findall(".//a"):
             # TODO: Should we filter out anything that isn't a valid file for
@@ -74,12 +75,24 @@ class _HTMLRepository(BaseRepository):
                             # should *always* hash to the same thing.
                             hashes[key.lower()] = value[0]
 
-                yield AvailableFile(
-                    project=project,
-                    version=None,
-                    location=urllib_parse.urldefrag(location).url,
-                    hashes=hashes,
+                result.append(
+                    AvailableFile(
+                        project=project,
+                        version=None,
+                        location=urllib_parse.urldefrag(location).url,
+                        hashes=hashes,
+                    )
                 )
+
+        return result
+
+    def fetch(self, project):
+        d = Deferred()
+        d.addCallback(self.transport.get)
+        d.addCallback(functools.partial(self._handle_response, project))
+        d.callback(self._get_project_url(project))
+
+        return d
 
 
 class SimpleRepository(_HTMLRepository):

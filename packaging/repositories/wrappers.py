@@ -3,7 +3,11 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
+import itertools
+
 import attr
+
+from twisted.internet.defer import gatherResults
 
 from .base import BaseRepository
 
@@ -15,8 +19,10 @@ class FilteredRepository(BaseRepository):
     _predicate = attr.ib(repr=False, hash=False)
 
     def fetch(self, project):
-        for item in filter(self._predicate, self.repository.fetch(project)):
-            yield item
+        d = self.repository.fetch(project)
+        d.addCallback(lambda results: list(filter(self._predicate, results)))
+
+        return d
 
 
 @attr.s(cmp=False, frozen=True, slots=True)
@@ -25,6 +31,10 @@ class MultiRepository(BaseRepository):
     repositories = attr.ib()
 
     def fetch(self, project):
-        for repository in self.repositories:
-            for item in repository.fetch(project):
-                yield item
+        d = gatherResults(
+            [r.fetch(project) for r in self.repositories],
+            consumeErrors=True,
+        )
+        d.addCallback(lambda r: list(itertools.chain.from_iterable(r)))
+
+        return d
