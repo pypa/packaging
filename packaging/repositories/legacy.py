@@ -3,6 +3,7 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
+import cgi
 import functools
 
 import attr
@@ -48,10 +49,13 @@ class _HTMLRepository(BaseRepository):
         #         file. This will work better when we combine multiple
         #         repositories into a single stream of files.
 
+        _, params = cgi.parse_header(resp.headers.get("Content-Type", ""))
+        encoding = params.get("charset")
+
         html = html5lib.parse(
-            resp.data,
+            resp.content,
             namespaceHTMLElements=False,
-            transport_encoding=resp.encoding,
+            transport_encoding=encoding,
         )
 
         result = []
