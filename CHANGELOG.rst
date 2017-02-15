@@ -1,10 +1,12 @@
 Changelog
 ---------
 
-16.9 - `master`_
+17.0 - `master`_
 ~~~~~~~~~~~~~~~~
 
 .. note:: This version is not yet released and is under active development.
+
+* Drop support for Python 3.2
 
 
 16.8 - 2016-10-29
