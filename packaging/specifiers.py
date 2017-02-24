@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
@@ -276,7 +277,7 @@ class Specifier(_IndividualSpecifier):
 
     _regex_str = (
         r"""
-        (?P<operator>(~=|==|!=|<=|>=|<|>|===))
+        (?P<operator>(===|~=|==|!=|<=|>=|<|>|=|≥|≤|≠|≡|≅))
         (?P<version>
             (?:
                 # The identity operators allow for an escape hatch that will
@@ -284,7 +285,7 @@ class Specifier(_IndividualSpecifier):
                 # This will not be parsed by PEP 440 and we cannot determine
                 # any semantic meaning from it. This operator is discouraged
                 # but included entirely as an escape hatch.
-                (?<====)  # Only match for the identity operator
+                (?:(?<====)|(?<=≡))  # Only match for the identity operator
                 \s*
                 [^\s]*    # We just match everything, except for whitespace
                           # since we are only testing for strict identity.
@@ -294,7 +295,11 @@ class Specifier(_IndividualSpecifier):
                 # The (non)equality operators allow for wild card and local
                 # versions to be specified so we have to define these two
                 # operators separately to enable that.
-                (?<===|!=)            # Only match for equals and not equals
+                (?:  # Only match for equals and not equals
+                    (?<===|!=) |
+                    (?<=(?<!~|=|!|>|<)=) |
+                    (?<=≠)
+                )
 
                 \s*
                 v?
@@ -323,7 +328,7 @@ class Specifier(_IndividualSpecifier):
             (?:
                 # The compatible operator requires at least two digits in the
                 # release segment.
-                (?<=~=)               # Only match for the compatible operator
+                (?:(?<=~=)|(?<=≅))    # Only match for the compatible operator
 
                 \s*
                 v?
@@ -347,8 +352,8 @@ class Specifier(_IndividualSpecifier):
                 # local versions to be specified nor do they allow the prefix
                 # matching wild cards.
                 (?<!==|!=|~=)         # We have special cases for these
-                                      # operators so we want to make sure they
-                                      # don't match here.
+                (?<!(?<!~|=|!|>|<)=)  # operators so we want to make sure they
+                (?<!≠|≅)              # don't match here.
 
                 \s*
                 v?
@@ -374,13 +379,19 @@ class Specifier(_IndividualSpecifier):
 
     _operators = {
         "~=": "compatible",
+        "≅": "compatible",
         "==": "equal",
+        "=": "equal",
         "!=": "not_equal",
+        "≠": "not_equal",
         "<=": "less_than_equal",
+        "≤": "less_than_equal",
         ">=": "greater_than_equal",
+        "≥": "greater_than_equal",
         "<": "less_than",
         ">": "greater_than",
         "===": "arbitrary",
+        "≡": "arbitrary",
     }
 
     @_require_version_compare
@@ -527,10 +538,11 @@ class Specifier(_IndividualSpecifier):
         # operators, and if they are if they are including an explicit
         # prerelease.
         operator, version = self._spec
-        if operator in ["==", ">=", "<=", "~=", "==="]:
+        if (operator in
+                ["=", "==", ">=", "≥", "<=", "≤", "~=", "≅", "===", "≡"]):
             # The == specifier can include a trailing .*, if it does we
             # want to remove before parsing.
-            if operator == "==" and version.endswith(".*"):
+            if operator in ["=", "=="] and version.endswith(".*"):
                 version = version[:-2]
 
             # Parse the version, and if it is a pre-release than this

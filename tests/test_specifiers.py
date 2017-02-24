@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
@@ -21,8 +22,9 @@ LEGACY_SPECIFIERS = [
 ]
 
 SPECIFIERS = [
-    "~=2.0", "==2.1.*", "==2.1.0.3", "!=2.2.*", "!=2.2.0.5", "<=5", ">=7.9a1",
-    "<1.0.dev1", ">2.0.post1", "===lolwat",
+    "~=2.0", "≅2.0", "==2.1.*", "=2.1.*", "==2.1.0.3", "=2.1.0.3", "!=2.2.*",
+    "≠2.2.*", "!=2.2.0.5", "≠2.2.0.5", "<=5", "≤5", ">=7.9a1", "≥7.9a1",
+    "<1.0.dev1", ">2.0.post1", "===lolwat", "≡lolwat",
 ]
 
 
@@ -46,6 +48,7 @@ class TestSpecifier:
 
             # Local segment on operators which don't support them
             "~=1.0+5",
+            "≅1.0+5",
             ">=1.0+deadbeef",
             "<=1.0+abc123",
             ">1.0+watwat",
@@ -53,6 +56,7 @@ class TestSpecifier:
 
             # Prefix matching on operators which don't support them
             "~=1.0.*",
+            "≅1.0.*",
             ">=1.0.*",
             "<=1.0.*",
             ">1.0.*",
@@ -62,20 +66,24 @@ class TestSpecifier:
             # support one or the other
             "==1.0.*+5",
             "!=1.0.*+deadbeef",
+            "≠1.0.*+deadbeef",
 
             # Prefix matching cannot be used inside of a local version
             "==1.0+5.*",
             "!=1.0+deadbeef.*",
+            "≠1.0+deadbeef.*",
 
             # Prefix matching must appear at the end
             "==1.0.*.5",
 
             # Compatible operator requires 2 digits in the release operator
             "~=1",
+            "≅1",
 
             # Cannot use a prefix matching after a .devN version
             "==1.0.dev1.*",
             "!=1.0.dev1.*",
+            "≠1.0.dev1.*",
         ],
     )
     def test_specifiers_invalid(self, specifier):
@@ -203,9 +211,9 @@ class TestSpecifier:
     )
     def test_specifiers_normalized(self, version):
         if "+" not in version:
-            ops = ["~=", "==", "!=", "<=", ">=", "<", ">"]
+            ops = ["~=", "≅", "==", "!=", "≠", "<=", ">=", "<", ">"]
         else:
-            ops = ["==", "!="]
+            ops = ["==", "!=", "≠"]
 
         for op in ops:
             Specifier(op + version)
@@ -215,12 +223,14 @@ class TestSpecifier:
         [
             # Single item specifiers should just be reflexive
             ("!=2.0", "!=2.0"),
+            ("≠2.0", "≠2.0"),
             ("<2.0", "<2.0"),
             ("<=2.0", "<=2.0"),
             ("==2.0", "==2.0"),
             (">2.0", ">2.0"),
             (">=2.0", ">=2.0"),
             ("~=2.0", "~=2.0"),
+            ("≅2.0", "≅2.0"),
 
             # Spaces should be removed
             ("< 2", "<2"),
@@ -325,15 +335,23 @@ class TestSpecifier:
 
                 # Test the in-equality operation
                 ("2.1", "!=2"),
+                ("2.1", "≠2"),
                 ("2.1", "!=2.0"),
+                ("2.1", "≠2.0"),
                 ("2.0.1", "!=2"),
+                ("2.0.1", "≠2"),
                 ("2.0.1", "!=2.0"),
+                ("2.0.1", "≠2.0"),
                 ("2.0.1", "!=2.0.0"),
+                ("2.0.1", "≠2.0.0"),
                 ("2.0", "!=2.0+deadbeef"),
+                ("2.0", "≠2.0+deadbeef"),
 
                 # Test the in-equality operation with a prefix
                 ("2.0", "!=3.*"),
+                ("2.0", "≠3.*"),
                 ("2.1", "!=2.0.*"),
+                ("2.1", "≠2.0.*"),
 
                 # Test the greater than equal operation
                 ("2.0", ">=2"),
@@ -371,16 +389,23 @@ class TestSpecifier:
 
                 # Test the compatibility operation
                 ("1", "~=1.0"),
+                ("1", "≅1.0"),
                 ("1.0.1", "~=1.0"),
+                ("1.0.1", "≅1.0"),
                 ("1.1", "~=1.0"),
+                ("1.1", "≅1.0"),
                 ("1.9999999", "~=1.0"),
+                ("1.9999999", "≅1.0"),
 
                 # Test that epochs are handled sanely
                 ("2!1.0", "~=2!1.0"),
+                ("2!1.0", "≅2!1.0"),
                 ("2!1.0", "==2!1.*"),
                 ("2!1.0", "==2!1.0"),
                 ("2!1.0", "!=1.0"),
+                ("2!1.0", "≠1.0"),
                 ("1.0", "!=2!1.0"),
+                ("1.0", "≠2!1.0"),
                 ("1.0", "<=2!0.1"),
                 ("2!1.0", ">=2.0"),
                 ("1.0", "<2!0.1"),
@@ -404,30 +429,53 @@ class TestSpecifier:
 
                 # Test the in-equality operation
                 ("2.0", "!=2"),
+                ("2.0", "≠2"),
                 ("2.0", "!=2.0"),
+                ("2.0", "≠2.0"),
                 ("2.0", "!=2.0.0"),
+                ("2.0", "≠2.0.0"),
                 ("2.0+deadbeef", "!=2"),
+                ("2.0+deadbeef", "≠2"),
                 ("2.0+deadbeef", "!=2.0"),
+                ("2.0+deadbeef", "≠2.0"),
                 ("2.0+deadbeef", "!=2.0.0"),
+                ("2.0+deadbeef", "≠2.0.0"),
                 ("2.0+deadbeef", "!=2+deadbeef"),
+                ("2.0+deadbeef", "≠2+deadbeef"),
                 ("2.0+deadbeef", "!=2.0+deadbeef"),
+                ("2.0+deadbeef", "≠2.0+deadbeef"),
                 ("2.0+deadbeef", "!=2.0.0+deadbeef"),
+                ("2.0+deadbeef", "≠2.0.0+deadbeef"),
                 ("2.0+deadbeef.0", "!=2.0.0+deadbeef.00"),
+                ("2.0+deadbeef.0", "≠2.0.0+deadbeef.00"),
 
                 # Test the in-equality operation with a prefix
                 ("2.dev1", "!=2.*"),
+                ("2.dev1", "≠2.*"),
                 ("2a1", "!=2.*"),
+                ("2a1", "≠2.*"),
                 ("2a1.post1", "!=2.*"),
+                ("2a1.post1", "≠2.*"),
                 ("2b1", "!=2.*"),
+                ("2b1", "≠2.*"),
                 ("2b1.dev1", "!=2.*"),
+                ("2b1.dev1", "≠2.*"),
                 ("2c1", "!=2.*"),
+                ("2c1", "≠2.*"),
                 ("2c1.post1.dev1", "!=2.*"),
+                ("2c1.post1.dev1", "≠2.*"),
                 ("2rc1", "!=2.*"),
+                ("2rc1", "≠2.*"),
                 ("2", "!=2.*"),
+                ("2", "≠2.*"),
                 ("2.0", "!=2.*"),
+                ("2.0", "≠2.*"),
                 ("2.0.0", "!=2.*"),
+                ("2.0.0", "≠2.*"),
                 ("2.0.post1", "!=2.0.post1.*"),
+                ("2.0.post1", "≠2.0.post1.*"),
                 ("2.0.post1.dev1", "!=2.0.post1.*"),
+                ("2.0.post1.dev1", "≠2.0.post1.*"),
 
                 # Test the greater than equal operation
                 ("2.0.dev1", ">=2"),
@@ -476,17 +524,23 @@ class TestSpecifier:
 
                 # Test the compatibility operation
                 ("2.0", "~=1.0"),
+                ("2.0", "≅1.0"),
                 ("1.1.0", "~=1.0.0"),
+                ("1.1.0", "≅1.0.0"),
                 ("1.1.post1", "~=1.0.0"),
+                ("1.1.post1", "≅1.0.0"),
 
                 # Test that epochs are handled sanely
                 ("1.0", "~=2!1.0"),
+                ("1.0", "≅2!1.0"),
                 ("2!1.0", "~=1.0"),
+                ("2!1.0", "≅1.0"),
                 ("2!1.0", "==1.0"),
                 ("1.0", "==2!1.0"),
                 ("2!1.0", "==1.*"),
                 ("1.0", "==2!1.*"),
                 ("2!1.0", "!=2!1.0"),
+                ("2!1.0", "≠2!1.0"),
             ]
         ],
     )
@@ -515,11 +569,17 @@ class TestSpecifier:
         [
             # Test identity comparison by itself
             ("lolwat", "===lolwat", True),
+            ("lolwat", "≡lolwat", True),
             ("Lolwat", "===lolwat", True),
+            ("Lolwat", "≡lolwat", True),
             ("1.0", "===1.0", True),
+            ("1.0", "≡1.0", True),
             ("nope", "===lolwat", False),
+            ("nope", "≡lolwat", False),
             ("1.0.0", "===1.0", False),
+            ("1.0.0", "≡1.0", False),
             ("1.0.dev0", "===1.0.dev0", True),
+            ("1.0.dev0", "≡1.0.dev0", True),
         ],
     )
     def test_specifiers_identity(self, version, spec, expected):
@@ -539,6 +599,7 @@ class TestSpecifier:
             (">=1.0", False),
             ("<=1.0", False),
             ("~=1.0", False),
+            ("≅1.0", False),
             ("<1.0", False),
             (">1.0", False),
             ("<1.0.dev1", False),
@@ -548,6 +609,7 @@ class TestSpecifier:
             (">=1.0.dev1", True),
             ("<=1.0.dev1", True),
             ("~=1.0.dev1", True),
+            ("≅1.0.dev1", True),
         ],
     )
     def test_specifier_prereleases_detection(self, specifier, expected):
@@ -601,15 +663,19 @@ class TestSpecifier:
         ('spec', 'op'),
         [
             ('~=2.0', '~='),
+            ("≅2.0", "≅"),
             ('==2.1.*', '=='),
             ('==2.1.0.3', '=='),
             ('!=2.2.*', '!='),
+            ("≠2.2.*", "≠"),
             ('!=2.2.0.5', '!='),
+            ("≠2.2.0.5", "≠"),
             ('<=5', '<='),
             ('>=7.9a1', '>='),
             ('<1.0.dev1', '<'),
             ('>2.0.post1', '>'),
             ('===lolwat', '==='),
+            ("≡lolwat", "≡"),
         ]
     )
     def test_specifier_operator_property(self, spec, op):
@@ -619,15 +685,19 @@ class TestSpecifier:
         ('spec', 'version'),
         [
             ('~=2.0', '2.0'),
+            ("≅2.0", "2.0"),
             ('==2.1.*', '2.1.*'),
             ('==2.1.0.3', '2.1.0.3'),
             ('!=2.2.*', '2.2.*'),
+            ("≠2.2.*", "2.2.*"),
             ('!=2.2.0.5', '2.2.0.5'),
+            ("≠2.2.0.5", "2.2.0.5"),
             ('<=5', '5'),
             ('>=7.9a1', '7.9a1'),
             ('<1.0.dev1', '1.0.dev1'),
             ('>2.0.post1', '2.0.post1'),
             ('===lolwat', 'lolwat'),
+            ("≡lolwat", "lolwat"),
         ]
     )
     def test_specifier_version_property(self, spec, version):
@@ -902,19 +972,23 @@ class TestSpecifierSet:
         [
             # Single item specifiers should just be reflexive
             ("!=2.0", "!=2.0"),
+            ("≠2.0", "≠2.0"),
             ("<2.0", "<2.0"),
             ("<=2.0", "<=2.0"),
             ("==2.0", "==2.0"),
             (">2.0", ">2.0"),
             (">=2.0", ">=2.0"),
             ("~=2.0", "~=2.0"),
+            ("≅2.0", "≅2.0"),
 
             # Spaces should be removed
             ("< 2", "<2"),
 
             # Multiple item specifiers should work
             ("!=2.0,>1.0", "!=2.0,>1.0"),
+            (">1.0,≠2.0", ">1.0,≠2.0"),
             ("!=2.0 ,>1.0", "!=2.0,>1.0"),
+            (">1.0 ,≠2.0", ">1.0,≠2.0"),
         ],
     )
     def test_specifiers_str_and_repr(self, specifier, expected):
