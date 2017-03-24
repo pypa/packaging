@@ -17,6 +17,7 @@ from packaging.version import Version, LegacyVersion, InvalidVersion, parse
     [
         ("1.0", Version),
         ("1-1-1", LegacyVersion),
+        (None, LegacyVersion),
     ],
 )
 def test_parse(version, klass):
@@ -53,6 +54,9 @@ class TestVersion:
     @pytest.mark.parametrize(
         "version",
         [
+            # None is not a valid version
+            None,
+
             # Non sensical versions should be invalid
             "french toast",
 
