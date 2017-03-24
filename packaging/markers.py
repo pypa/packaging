@@ -14,6 +14,7 @@ from pyparsing import Literal as L  # noqa
 
 from ._compat import string_types
 from .specifiers import Specifier, InvalidSpecifier
+from .version import Version, InvalidVersion
 
 
 __all__ = [
@@ -182,8 +183,11 @@ _operators = {
 
 def _eval_op(lhs, op, rhs):
     try:
+        # PEP 508: Use the PEP-440 version comparison rules
+        # when both sides have a valid version specifier.
         spec = Specifier("".join([op.serialize(), rhs]))
-    except InvalidSpecifier:
+        lhs = Version(lhs)
+    except (InvalidSpecifier, InvalidVersion):
         pass
     else:
         return spec.contains(lhs)

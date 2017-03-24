@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix a bug where ``packaging.markers.Marker.evaluate`` used PEP 440
+  version comparison when the left side is not a valid version specifier.
 * Drop support for python 2.6 and 3.2
 
 

@@ -303,6 +303,46 @@ class TestMarker:
                 {"extra": "security"},
                 True,
             ),
+            (
+                "extra == 'security'",
+                {"extra": None},
+                False,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": None},
+                False,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "foobar"},
+                False,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "3.7.0"},
+                True,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "3.7"},
+                True,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "3.7.0.0"},
+                True,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "3.7.0+youaregreat"},
+                True,
+            ),
+            (
+                "extra == '3.7.0'",
+                {"extra": "3.7.1"},
+                False,
+            ),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
