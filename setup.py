@@ -50,7 +50,10 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
 
-    install_requires=["pyparsing", "six"],
+    install_requires=[
+        "pyparsing>=2.0.2",  # Needed to avoid issue #91
+        "six",
+    ],
 
     classifiers=[
         "Intended Audience :: Developers",
