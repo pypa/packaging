@@ -5,7 +5,6 @@ sudo: false
 
 env:
   - TOXENV=py27
-  - TOXENV=py32
   - TOXENV=py33
   - TOXENV=py34
   - TOXENV=pypy
@@ -16,7 +15,6 @@ env:
 
 install:
   - pip install tox
-  - if [[ $TOXENV == 'pep8' || $TOXENV == 'py32' ]]; then pip install "virtualenv<14" ; fi
 
 script:
   - tox
