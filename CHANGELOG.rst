@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Drop support for python 2.6
+
 
 16.8 - 2016-10-29
 ~~~~~~~~~~~~~~~~~
