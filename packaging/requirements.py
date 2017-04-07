@@ -70,6 +70,9 @@ NAMED_REQUIREMENT = \
     NAME + Optional(EXTRAS) + (URL_AND_MARKER | VERSION_AND_MARKER)
 
 REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
+# pyparsing isn't thread safe during initialization, so we do it eagerly, see
+# issue #104
+REQUIREMENT.parseString("x[]")
 
 
 class Requirement(object):
