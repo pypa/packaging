@@ -56,7 +56,7 @@ _VERSION_SPEC.setParseAction(lambda s, l, t: t._raw_spec or '')
 VERSION_SPEC = originalTextFor(_VERSION_SPEC)("specifier")
 VERSION_SPEC.setParseAction(lambda s, l, t: t[1])
 
-MARKER_EXPR = originalTextFor(MARKER_EXPR())("marker")
+MARKER_EXPR = originalTextFor(MARKER_EXPR(""))("marker")
 MARKER_EXPR.setParseAction(
     lambda s, l, t: Marker(s[t._original_start:t._original_end])
 )
