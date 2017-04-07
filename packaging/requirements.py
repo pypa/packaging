@@ -5,7 +5,6 @@ from __future__ import absolute_import, division, print_function
 
 import string
 import re
-import threading
 
 from pyparsing import stringStart, stringEnd, originalTextFor, ParseException
 from pyparsing import ZeroOrMore, Word, Optional, Regex, Combine
@@ -71,8 +70,9 @@ NAMED_REQUIREMENT = \
     NAME + Optional(EXTRAS) + (URL_AND_MARKER | VERSION_AND_MARKER)
 
 REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
-# pyparsing isn't thread safe, see issue #104
-_REQUIREMENT_LOCK = threading.Lock()
+# pyparsing isn't thread safe during initialization, so we do it eagerly, see
+# issue #104
+REQUIREMENT.parseString("x[]")
 
 
 class Requirement(object):
@@ -90,8 +90,7 @@ class Requirement(object):
 
     def __init__(self, requirement_string):
         try:
-            with _REQUIREMENT_LOCK:
-                req = REQUIREMENT.parseString(requirement_string)
+            req = REQUIREMENT.parseString(requirement_string)
         except ParseException as e:
             raise InvalidRequirement(
                 "Invalid requirement, parse error at \"{0!r}\"".format(
