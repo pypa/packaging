@@ -57,6 +57,20 @@ class TestVersion:
             # None is not a valid version
             None,
 
+            # Numbers (not strings) are not valid versions
+            0,
+            1,
+            1.0,
+            1.1,
+
+            # Object that are not string are not valid versions
+            [],
+            [1],
+            {},
+            {'1': 1},
+            tuple(),
+            (1, 2),
+
             # Non sensical versions should be invalid
             "french toast",
 

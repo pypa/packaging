@@ -33,7 +33,7 @@ def parse(version):
         return LegacyVersion(version)
 
 
-class InvalidVersion(ValueError):
+class InvalidVersion(Exception):
     """
     An invalid version was found, users should refer to PEP 440.
     """
@@ -198,7 +198,14 @@ class Version(_BaseVersion):
 
     def __init__(self, version):
         # Validate the version and parse it into pieces
-        match = self._regex.search(str(version))
+        try:
+            match = self._regex.search(version)
+        except TypeError:
+            raise InvalidVersion(
+                "Invalid type: '{0}' of type '{1}' is not a string".format(
+                    version, type(version)
+                )
+            )
         if not match:
             raise InvalidVersion("Invalid version: '{0}'".format(version))
 
