@@ -13,6 +13,8 @@ Documentation
 Discussion
 ----------
 
+Check out the `documentation`_. 
+
 If you run into bugs, you can file them in our `issue tracker`_.
 
 You can also join ``#pypa`` on Freenode to ask questions or get involved.
