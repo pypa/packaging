@@ -90,12 +90,40 @@ class LegacyVersion(_BaseVersion):
         return self._version
 
     @property
+    def epoch(self):
+        return -1
+
+    @property
+    def release(self):
+        return None
+
+    @property
     def local(self):
+        return None
+
+    @property
+    def local_info(self):
+        return None
+
+    @property
+    def prerelease(self):
         return None
 
     @property
     def is_prerelease(self):
         return False
+
+    @property
+    def development(self):
+        return None
+
+    @property
+    def is_development(self):
+        return False
+
+    @property
+    def postrelease(self):
+        return None
 
     @property
     def is_postrelease(self):
@@ -282,14 +310,48 @@ class Version(_BaseVersion):
         return "".join(parts)
 
     @property
+    def epoch(self):
+        return self._version.epoch
+
+    @property
+    def release(self):
+        return self._version.release
+
+    @property
     def local(self):
         version_string = str(self)
         if "+" in version_string:
             return version_string.split("+", 1)[1]
 
     @property
+    def local_info(self):
+        return self._version.local
+
+    @property
+    def prerelease(self):
+        return self._version.pre
+
+    @property
     def is_prerelease(self):
         return bool(self._version.dev or self._version.pre)
+
+    @property
+    def development(self):
+        if self._version.dev is not None:
+            return self._version.dev[1]
+        else:
+            return None
+
+    @property
+    def is_development(self):
+        return bool(self._version.dev)
+
+    @property
+    def postrelease(self):
+        if self._version.post is not None:
+            return self._version.post[1]
+        else:
+            return None
 
     @property
     def is_postrelease(self):
