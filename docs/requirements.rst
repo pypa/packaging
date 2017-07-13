@@ -71,7 +71,7 @@ Reference
 
     .. attribute:: extras
 
-      A list of extras that the requirement specifies.
+      A set of extras that the requirement specifies.
 
     .. attribute:: specifier
 
