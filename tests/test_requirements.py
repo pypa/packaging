@@ -107,6 +107,18 @@ class TestRequirements:
         assert "Invalid URL: " in str(e)
         assert "gopher:/foo/com" in str(e)
 
+    def test_file_url(self):
+        req = Requirement("name @ file:///absolute/path")
+        self._assert_requirement(req, "name", "file:///absolute/path")
+        req = Requirement("name @ file://.")
+        self._assert_requirement(req, "name", "file://.")
+
+    def test_invalid_file_urls(self):
+        with pytest.raises(InvalidRequirement):
+            Requirement("name @ file:.")
+        with pytest.raises(InvalidRequirement):
+            Requirement("name @ file:/.")
+
     def test_extras_and_url_and_marker(self):
         req = Requirement(
             "name [fred,bar] @ http://foo.com ; python_version=='2.7'")
