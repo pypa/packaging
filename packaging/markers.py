@@ -14,7 +14,7 @@ from pyparsing import Literal as L  # noqa
 
 from ._compat import string_types
 from .specifiers import Specifier, InvalidSpecifier
-from .utils import canonicalize_name
+from .utils import safe_extra
 
 
 __all__ = [
@@ -92,7 +92,7 @@ VARIABLE = (
     L("platform.version") |  # PEP-345
     L("platform.machine") |  # PEP-345
     L("platform.python_implementation") |  # PEP-345
-    L("python_implementation") | # undocumented setuptools legacy
+    L("python_implementation") |  # undocumented setuptools legacy
     L("extra")
 )
 ALIASES = {
@@ -144,9 +144,11 @@ MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 
 MARKER = stringStart + MARKER_EXPR + stringEnd
 
+MARKER_EXTRA_VALUE = QuotedString("'") | QuotedString('"')
+MARKER_EXTRA_VALUE.setParseAction(lambda s, l, t: Value(safe_extra(t[0])))
 
 MARKER_EXTRA_ITEM = Group(
-    MARKER_EXTRA_VARIABLE + MARKER_EXTRA_OP + MARKER_VALUE
+    MARKER_EXTRA_VARIABLE + MARKER_EXTRA_OP + MARKER_EXTRA_VALUE
 )
 MARKER_EXTRA_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
 MARKER_EXTRA_EXPR = Forward()
@@ -293,31 +295,25 @@ def default_environment():
 class Marker(object):
 
     def __init__(self, marker):
-        self._marker_string = marker
-        extra_markers = MarkerExtraParser().get_extra_markers(
-            self._marker_string
-        )
-        if extra_markers:
-            good_names = MarkerExtraCleaner().clean_marker_extras(
-                extra_markers
+        try:
+            self._markers = _coerce_parse_result(
+                MARKER_EXTRA.parseString(marker)
             )
-            self._markers = good_names
-        else:
-            self._markers = self.get_marker_not_extra(self._marker_string)
+        except ParseException:
+            try:
+                self._markers = _coerce_parse_result(
+                    MARKER.parseString(marker)
+                )
+            except ParseException as e2:
+                err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
+                    marker, marker[e2.loc:e2.loc + 8])
+                raise InvalidMarker(err_str)
 
     def __str__(self):
         return _format_marker(self._markers)
 
     def __repr__(self):
         return "<Marker({0!r})>".format(str(self))
-
-    def get_marker_not_extra(self, marker):
-        try:
-            return _coerce_parse_result(MARKER.parseString(marker))
-        except ParseException as e2:
-            err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
-                marker, marker[e2.loc:e2.loc + 8])
-            raise InvalidMarker(err_str)
 
     def evaluate(self, environment=None):
         """Evaluate a marker.
@@ -333,84 +329,3 @@ class Marker(object):
             current_environment.update(environment)
 
         return _evaluate_markers(self._markers, current_environment)
-
-
-class MarkerExtraParser(object):
-
-    @classmethod
-    def get_extra_markers(cls, marker):
-        try:
-            tmp_markers = _coerce_parse_result(
-                MARKER_EXTRA.parseString(marker)
-            )
-            return tmp_markers
-        except ParseException:
-            return False
-
-
-class MarkerExtraCleaner(object):
-
-    @classmethod
-    def clean_marker_extras(cls, markers):
-        clean_markers = []
-        for parsed_marker in markers:
-            clean_marker = cls._clean_marker_extra(parsed_marker)
-            clean_markers.append(clean_marker)
-        return clean_markers
-
-    @classmethod
-    def _clean_marker_extra(cls, marker):
-        extra_locations = cls._get_extra_index_location(marker)
-        if extra_locations:
-            return cls._fix_extra_values(extra_locations, marker)
-        else:
-            return marker
-
-    @classmethod
-    def _get_extra_index_location(cls, marker):
-        locations = []
-        if len(marker) < 3:
-            return locations
-        for index in range(len(marker)):
-            if cls._is_variable(marker[index]):
-                if cls._is_op(marker[index + 1]):
-                    if cls._is_value(marker[index + 2]):
-                        locations.append(index)
-        return locations
-
-    @classmethod
-    def _is_variable(cls, variable):
-        return cls.check_attribute(variable, Variable, 'value', 'extra')
-
-    @classmethod
-    def _is_op(cls, op):
-        return cls.check_attribute(op, Op, 'value', ('==', '===', 'is'))
-
-    @classmethod
-    def _is_value(cls, value):
-        return isinstance(value, Value)
-
-    @staticmethod
-    def check_attribute(obj, object_types, attribute_names, attribute_values):
-        if not isinstance(attribute_values, (list, tuple)):
-            attribute_values = (attribute_values,)
-        if not isinstance(object_types, (list, tuple)):
-            object_types = (object_types,)
-        if not isinstance(attribute_names, (list, tuple)):
-            attribute_names = (attribute_names,)
-        for attribute_value in attribute_values:
-            for object_type in object_types:
-                for attribute_name in attribute_names:
-                    if isinstance(obj, object_type):
-                        if getattr(obj, attribute_name) == attribute_value:
-                            return True
-        return False
-
-    @classmethod
-    def _fix_extra_values(cls, extra_locations, marker):
-        parsed_marker = list(marker)
-        for extra_location in extra_locations:
-            parsed_marker[extra_location + 2].value = canonicalize_name(
-                parsed_marker[extra_location + 2].value
-            )
-        return tuple(parsed_marker)

@@ -13,9 +13,7 @@ import pretend
 import pytest
 
 from packaging.markers import (
-    Node, Variable, Op, Value,
-    InvalidMarker, UndefinedComparison, UndefinedEnvironmentName,
-    Marker, MarkerExtraParser, MarkerExtraCleaner,
+    Node, InvalidMarker, UndefinedComparison, UndefinedEnvironmentName, Marker,
     default_environment, format_full_version,
 )
 
@@ -201,8 +199,7 @@ class TestMarker:
         ],
     )
     def test_parses_valid(self, marker_string):
-        marker = Marker(marker_string)
-        assert marker._marker_string == marker_string
+        Marker(marker_string)
 
     @pytest.mark.parametrize(
         "marker_string",
@@ -315,53 +312,7 @@ class TestMarker:
     )
     def test_evaluates(self, marker_string, environment, expected):
         args = [] if environment is None else [environment]
-        marker = Marker(marker_string)
-        assert marker.evaluate(*args) == expected
-
-    @pytest.mark.parametrize(
-        ("marker_string", "expected"),
-        [
-            ("os_name == '{0}'".format(os.name), True),
-            ("os_name == 'foo'", True),
-            ("os_name == 'foo'", True),
-            ("'2.7' in python_version", True),
-            ("'2.7' not in python_version", True),
-            (
-                "os_name == 'foo' and python_version ~= '2.7.0'",
-                True,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                True,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                True,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                True,
-            ),
-            (
-                "extra == 'security'",
-                True,
-            ),
-            (
-                "extra == 'security'",
-                True,
-            ),
-            (
-                "extra == 'SECURITY'",
-                True,
-            ),
-        ],
-    )
-    def test_parse_marker_not_extra(self, marker_string, expected):
-        result = Marker(marker_string).get_marker_not_extra(marker_string)
-        assert bool(result) == expected
+        assert Marker(marker_string).evaluate(*args) == expected
 
     @pytest.mark.parametrize(
         "marker_string",
@@ -413,14 +364,10 @@ class TestMarker:
         "marker_string",
         [
             "{0} {1} {2!r}".format(*i)
-            for i in itertools.product(
-                SETUPTOOLS_VARIABLES, OPERATORS, VALUES
-            )
+            for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
         ] + [
             "{2!r} {1} {0}".format(*i)
-            for i in itertools.product(
-                SETUPTOOLS_VARIABLES, OPERATORS, VALUES
-            )
+            for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
         ],
     )
     def test_parses_setuptools_legacy_valid(self, marker_string):
@@ -430,204 +377,3 @@ class TestMarker:
         marker_string = "python_implementation=='Jython'"
         args = [{"platform_python_implementation": "CPython"}]
         assert Marker(marker_string).evaluate(*args) is False
-
-
-class TestMarkerExtraParser:
-    @pytest.mark.parametrize(
-        ("marker_string", "expected"),
-        [
-            ("os_name == '{0}'".format(os.name), False),
-            ("os_name == 'foo'", False),
-            ("os_name == 'foo'", False),
-            ("'2.7' in python_version", False),
-            ("'2.7' not in python_version", False),
-            (
-                "os_name == 'foo' and python_version ~= '2.7.0'",
-                False,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                False,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                False,
-            ),
-            (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
-                False,
-            ),
-            (
-                "extra == 'security'",
-                True,
-            ),
-            (
-                "extra == 'security'",
-                True,
-            ),
-            (
-                "extra == 'SECURITY'",
-                True,
-            ),
-        ],
-    )
-    def test_parse_extra_markers(self, marker_string, expected):
-        result = MarkerExtraParser.get_extra_markers(marker_string)
-        assert bool(result) == expected
-
-
-class TestExtraMarkerCleaner(object):
-    @pytest.mark.parametrize(
-        ("markers", "value"),
-        [
-            (
-                [((Variable('extra')), Op('=='), Value('Security'),)],
-                'security'
-            ),
-
-        ],
-    )
-    def test_clean_marker_extras(self, markers, value):
-        cleaner = MarkerExtraCleaner()
-        result = cleaner.clean_marker_extras(markers)
-        assert result[0][2].value == value
-
-    @pytest.mark.parametrize(
-        ("markers", "value"),
-        [
-            (
-                ((Variable('extra')), Op('=='), Value('Security'),),
-                'security'
-            ),
-
-        ],
-    )
-    def test_clean_marker_extra(self, markers, value):
-        cleaner = MarkerExtraCleaner()
-        result = cleaner._clean_marker_extra(markers)
-        assert result[2].value == value
-
-    @pytest.mark.parametrize(
-        ("markers", "locations"),
-        [
-            (
-                ((Variable('extra')), Op('=='), Value('Security'),),
-                [0]
-            ),
-            (
-                ((Variable('extra')), Op('is'), Value('Security'),),
-                [0]
-            ),
-            (
-                ((Variable('extra')), Op('<'), Value('Security'),),
-                []
-            ),
-            (
-                (
-                    (Variable('extra')),
-                    Op('=='),
-                    Value('Security'),
-                    (Variable('extra')),
-                    Op('=='),
-                    Value('Security')
-                ),
-                [0, 3]
-            ),
-            (
-                (
-                    (Variable('extra')),
-                    Op('=='),
-                    (Variable('extra')),
-                    (Variable('extra')),
-                    Op('=='),
-                    Value('Security'),
-                ),
-                [3]
-            ),
-            (
-                ((Variable('security')), Op('<'), Value('extra'),),
-                []
-            ),
-            (
-                ((Variable('extra')), Value('Security'),),
-                []
-            ),
-            (
-                ((Variable('security')), Value('extra'), Op('<'), ),
-                []
-            ),
-            (
-                ((Variable('security')), Op('<'), Op('<'),),
-                []
-            ),
-            (
-                tuple(),
-                []
-            ),
-            (
-                (
-                    (Variable('extra')),
-                    Op('=='),
-                    Value('Security'),
-                    Value('security')
-                ),
-                [0]
-            ),
-        ],
-    )
-    def test_get_extra_index_location(self, markers, locations):
-        cleaner = MarkerExtraCleaner()
-        result = cleaner._get_extra_index_location(markers)
-        assert result == locations
-
-    @pytest.mark.parametrize(
-        ("obj", "object_types", "attribute_names",
-         "attribute_values", "expect"),
-        [
-            (
-                Variable('extra'),
-                Variable,
-                'value',
-                'extra',
-                True
-            ),
-            (
-                Variable('extra'),
-                (Variable, Marker),
-                'value',
-                'extra',
-                True
-            ),
-            (
-                Variable('extra'),
-                Variable,
-                ('value', 'extra'),
-                'extra',
-                True
-            ),
-            (
-                Variable('extra'),
-                Variable,
-                'value',
-                ('extra', 'bad value'),
-                True
-            ),
-
-        ],
-    )
-    def test_check_attribute(
-            self,
-            obj,
-            object_types,
-            attribute_names,
-            attribute_values,
-            expect
-    ):
-        cleaner = MarkerExtraCleaner()
-        result = cleaner.check_attribute(
-            obj, object_types, attribute_names, attribute_values
-        )
-        assert result == expect
