@@ -118,7 +118,7 @@ VERSION_CMP = (
 
 MARKER_EXTRA_VARIABLE = L('extra')
 MARKER_EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
-MARKER_EXTRA_OP = (L("==") | L("===")) | L("not in") | L("in")
+MARKER_EXTRA_OP = (L("==") | L("===")) | L("!=")
 MARKER_EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
 
 
