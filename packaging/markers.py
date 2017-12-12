@@ -126,7 +126,18 @@ BOOLOP = L("and") | L("or")
 
 MARKER_VAR = VARIABLE | MARKER_VALUE
 
-MARKER_ITEM = Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
+# Special parsing rules apply for markers that evaluate extras.
+EXTRA_VARIABLE = L('extra')
+EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
+
+EXTRA_OP = (L("==") | L("===")) | L("!=")
+EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
+
+EXTRA_VALUE = QuotedString("'") | QuotedString('"')
+EXTRA_VALUE.setParseAction(lambda s, l, t: Value(safe_extra(t[0])))
+
+MARKER_ITEM = Group(EXTRA_VARIABLE + EXTRA_OP + EXTRA_VALUE) | \
+    Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
 MARKER_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
 
 LPAREN = L("(").suppress()
@@ -137,28 +148,6 @@ MARKER_ATOM = MARKER_ITEM | Group(LPAREN + MARKER_EXPR + RPAREN)
 MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 
 MARKER = stringStart + MARKER_EXPR + stringEnd
-
-MARKER_EXTRA_VARIABLE = L('extra')
-MARKER_EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
-MARKER_EXTRA_OP = (L("==") | L("===")) | L("!=")
-MARKER_EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
-
-MARKER_EXTRA_VALUE = QuotedString("'") | QuotedString('"')
-MARKER_EXTRA_VALUE.setParseAction(lambda s, l, t: Value(safe_extra(t[0])))
-
-MARKER_EXTRA_ITEM = Group(
-    MARKER_EXTRA_VARIABLE + MARKER_EXTRA_OP + MARKER_EXTRA_VALUE
-)
-MARKER_EXTRA_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
-MARKER_EXTRA_EXPR = Forward()
-
-MARKER_EXTRA_GROUP = Group(LPAREN + MARKER_EXTRA_EXPR + RPAREN)
-MARKER_EXTRA_ATOM = MARKER_EXTRA_ITEM | MARKER_EXTRA_GROUP
-
-MARKER_EXTRA_EXPR << MARKER_EXTRA_ATOM + ZeroOrMore(BOOLOP + MARKER_EXTRA_EXPR)
-MARKER_EXTRA = stringStart + MARKER_EXTRA_EXPR + stringEnd
-
-MARKER = MARKER_EXTRA | MARKER
 
 
 def _coerce_parse_result(results):
