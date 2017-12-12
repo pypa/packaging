@@ -312,5 +312,9 @@ class Marker(object):
         current_environment = default_environment()
         if environment is not None:
             current_environment.update(environment)
+        if current_environment.get('extra'):
+            current_environment['extra'] = safe_extra(
+                current_environment['extra']
+            )
 
         return _evaluate_markers(self._markers, current_environment)
