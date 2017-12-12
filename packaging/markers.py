@@ -160,6 +160,8 @@ MARKER_EXTRA_ATOM = MARKER_EXTRA_ITEM | MARKER_EXTRA_GROUP
 MARKER_EXTRA_EXPR << MARKER_EXTRA_ATOM + ZeroOrMore(BOOLOP + MARKER_EXTRA_EXPR)
 MARKER_EXTRA = stringStart + MARKER_EXTRA_EXPR + stringEnd
 
+MARKER = MARKER_EXTRA | MARKER
+
 
 def _coerce_parse_result(results):
     if isinstance(results, ParseResults):
@@ -296,18 +298,11 @@ class Marker(object):
 
     def __init__(self, marker):
         try:
-            self._markers = _coerce_parse_result(
-                MARKER_EXTRA.parseString(marker)
-            )
-        except ParseException:
-            try:
-                self._markers = _coerce_parse_result(
-                    MARKER.parseString(marker)
-                )
-            except ParseException as e2:
-                err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
-                    marker, marker[e2.loc:e2.loc + 8])
-                raise InvalidMarker(err_str)
+            self._markers = _coerce_parse_result(MARKER.parseString(marker))
+        except ParseException as e:
+            err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
+                marker, marker[e.loc:e.loc + 8])
+            raise InvalidMarker(err_str)
 
     def __str__(self):
         return _format_marker(self._markers)
