@@ -126,6 +126,8 @@ BOOLOP = L("and") | L("or")
 
 MARKER_VAR = VARIABLE | MARKER_VALUE
 
+MARKER_ITEM = Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
+
 # Special parsing rules apply for markers that evaluate extras.
 EXTRA_VARIABLE = L('extra')
 EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
@@ -136,8 +138,9 @@ EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
 EXTRA_VALUE = QuotedString("'") | QuotedString('"')
 EXTRA_VALUE.setParseAction(lambda s, l, t: Value(safe_extra(t[0])))
 
-MARKER_ITEM = Group(EXTRA_VARIABLE + EXTRA_OP + EXTRA_VALUE) | \
-    Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
+EXTRA_ITEM = Group(EXTRA_VARIABLE + EXTRA_OP + EXTRA_VALUE)
+
+MARKER_ITEM = EXTRA_ITEM | MARKER_ITEM
 MARKER_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
 
 LPAREN = L("(").suppress()
