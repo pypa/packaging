@@ -116,11 +116,6 @@ VERSION_CMP = (
     L("<")
 )
 
-MARKER_EXTRA_VARIABLE = L('extra')
-MARKER_EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
-MARKER_EXTRA_OP = (L("==") | L("===")) | L("!=")
-MARKER_EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
-
 
 MARKER_OP = VERSION_CMP | L("not in") | L("in")
 MARKER_OP.setParseAction(lambda s, l, t: Op(t[0]))
@@ -143,6 +138,11 @@ MARKER_ATOM = MARKER_ITEM | Group(LPAREN + MARKER_EXPR + RPAREN)
 MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 
 MARKER = stringStart + MARKER_EXPR + stringEnd
+
+MARKER_EXTRA_VARIABLE = L('extra')
+MARKER_EXTRA_VARIABLE.setParseAction(lambda s, l, t: Variable(t[0]))
+MARKER_EXTRA_OP = (L("==") | L("===")) | L("!=")
+MARKER_EXTRA_OP.setParseAction(lambda s, l, t: Op(t[0]))
 
 MARKER_EXTRA_VALUE = QuotedString("'") | QuotedString('"')
 MARKER_EXTRA_VALUE.setParseAction(lambda s, l, t: Value(safe_extra(t[0])))
