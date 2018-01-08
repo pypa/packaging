@@ -5,6 +5,7 @@
 .tox/
 .cache/
 .coverage
+.idea
 
 __pycache__/
 _build/
