@@ -135,7 +135,7 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "http://docs.python.org/": None,
+    "https://docs.python.org/": None,
 }
 
 epub_theme = "epub"
