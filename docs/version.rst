@@ -25,7 +25,7 @@ Usage
     0
     >>> v1.release
     (1, 0)
-    >>> v1.prerelease
+    >>> v1.pre
     ('a', 5)
     >>> v1.is_prerelease
     True
@@ -35,10 +35,10 @@ Usage
     Traceback (most recent call last):
         ...
     InvalidVersion: Invalid version: 'french toast'
-    >>> Version("1.0").postrelease
+    >>> Version("1.0").post
     >>> Version("1.0").is_postrelease
     False
-    >>> Version("1.0.post0").postrelease
+    >>> Version("1.0.post0").post
     0
     >>> Version("1.0.post0").is_postrelease
     True
@@ -91,13 +91,7 @@ Reference
         A string representing the local version portion of this ``Version()``
         if it has one, or ``None`` otherwise.
 
-    .. attribute:: local_info
-
-        If this :class:`Version` instance has a local version portion, this
-        attribute will be a tuple of the local version segments (a mixture of
-        integers and strings); otherwise, it will be `None`.
-
-    .. attribute:: prerelease
+    .. attribute:: pre
 
         If this :class:`Version` instance represents a prerelease, this
         attribute will be a pair of the prerelease phase (the string ``"a"``,
@@ -107,20 +101,20 @@ Reference
     .. attribute:: is_prerelease
 
         A boolean value indicating whether this :class:`Version` instance
-        represents a prerelease and/or developmental release.
+        represents a prerelease and/or development release.
 
-    .. attribute:: development
+    .. attribute:: dev
 
-        If this :class:`Version` instance represents a developmental release,
+        If this :class:`Version` instance represents a development release,
         this attribute will be the development release number (an integer);
         otherwise, it will be `None`.
 
-    .. attribute:: is_development
+    .. attribute:: is_devrelease
 
         A boolean value indicating whether this :class:`Version` instance
-        represents a developmental release.
+        represents a development release.
 
-    .. attribute:: postrelease
+    .. attribute:: post
 
         If this :class:`Version` instance represents a postrelease, this
         attribute will be the postrelease number (an integer); otherwise, it
@@ -176,13 +170,7 @@ Reference
         the concept of a local version. It exists primarily to allow a
         :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
 
-    .. attribute:: local_info
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a local version. It exists primarily to allow a
-        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
-
-    .. attribute:: prerelease
+    .. attribute:: pre
 
         This will always be ``None`` since without `PEP 440`_ we do not have
         the concept of a prerelease. It exists primarily to allow a
@@ -191,24 +179,24 @@ Reference
     .. attribute:: is_prerelease
 
         A boolean value indicating whether this :class:`LegacyVersion`
-        represents a prerelease and/or developmental release.  Since without
+        represents a prerelease and/or development release.  Since without
         `PEP 440`_ there is no concept of pre or dev releases this will
         always be `False` and exists for compatibility with :class:`Version`.
 
-    .. attribute:: development
+    .. attribute:: dev
 
         This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a developmental release. It exists primarily to allow a
+        the concept of a development release. It exists primarily to allow a
         :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
 
-    .. attribute:: is_development
+    .. attribute:: is_devrelease
 
         A boolean value indicating whether this :class:`LegacyVersion`
-        represents a developmental release.  Since without `PEP 440`_ there is
+        represents a development release.  Since without `PEP 440`_ there is
         no concept of dev releases this will always be `False` and exists for
         compatibility with :class:`Version`.
 
-    .. attribute:: postrelease
+    .. attribute:: post
 
         This will always be ``None`` since without `PEP 440`_ we do not have
         the concept of a postrelease. It exists primarily to allow a

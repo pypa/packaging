@@ -264,6 +264,7 @@ class TestVersion:
         ("version", "public"),
         [
             ("1.0", "1.0"),
+            ("1.0.dev0", "1.0.dev0"),
             ("1.0.dev6", "1.0.dev6"),
             ("1.0a1", "1.0a1"),
             ("1.0a1.post5", "1.0a1.post5"),
@@ -300,6 +301,7 @@ class TestVersion:
         ("version", "base_version"),
         [
             ("1.0", "1.0"),
+            ("1.0.dev0", "1.0"),
             ("1.0.dev6", "1.0"),
             ("1.0a1", "1.0"),
             ("1.0a1.post5", "1.0"),
@@ -336,6 +338,7 @@ class TestVersion:
         ("version", "epoch"),
         [
             ("1.0", 0),
+            ("1.0.dev0", 0),
             ("1.0.dev6", 0),
             ("1.0a1", 0),
             ("1.0a1.post5", 0),
@@ -372,6 +375,7 @@ class TestVersion:
         ("version", "release"),
         [
             ("1.0", (1, 0)),
+            ("1.0.dev0", (1, 0)),
             ("1.0.dev6", (1, 0)),
             ("1.0a1", (1, 0)),
             ("1.0a1.post5", (1, 0)),
@@ -408,6 +412,7 @@ class TestVersion:
         ("version", "local"),
         [
             ("1.0", None),
+            ("1.0.dev0", None),
             ("1.0.dev6", None),
             ("1.0a1", None),
             ("1.0a1.post5", None),
@@ -441,65 +446,10 @@ class TestVersion:
         assert Version(version).local == local
 
     @pytest.mark.parametrize(
-        ("version", "local_info"),
-        [
-            ("1.0.dev456", None),
-            ("1.0a1", None),
-            ("1.0a2.dev456", None),
-            ("1.0a12.dev456", None),
-            ("1.0a12", None),
-            ("1.0b1.dev456", None),
-            ("1.0b2", None),
-            ("1.0b2.post345.dev456", None),
-            ("1.0b2.post345", None),
-            ("1.0rc1.dev456", None),
-            ("1.0rc1", None),
-            ("1.0", None),
-            ("1.0.post456.dev34", None),
-            ("1.0.post456", None),
-            ("1.0.1", None),
-            ("0!1.0.2", None),
-            ("1.0.3+7", (7,)),
-            ("0!1.0.4+8.0", (8, 0)),
-            ("1.0.5+9.5", (9, 5)),
-            ("1.2+1234.abc", (1234, "abc")),
-            ("1.2+123456", (123456,)),
-            ("1.2+123abc", ("123abc",)),
-            ("1.2+123abc456", ("123abc456",)),
-            ("1.2+abc", ("abc",)),
-            ("1.2+ABC", ("abc",)),
-            ("1.2+abc123", ("abc123",)),
-            ("1.2+abc123def", ("abc123def",)),
-            ("1.1.dev1", None),
-            ("7!1.0.dev456", None),
-            ("7!1.0a1", None),
-            ("7!1.0a2.dev456", None),
-            ("7!1.0a12.dev456", None),
-            ("7!1.0a12", None),
-            ("7!1.0b1.dev456", None),
-            ("7!1.0b2", None),
-            ("7!1.0b2.post345.dev456", None),
-            ("7!1.0b2.post345", None),
-            ("7!1.0rc1.dev456", None),
-            ("7!1.0rc1", None),
-            ("7!1.0", None),
-            ("7!1.0.post456.dev34", None),
-            ("7!1.0.post456", None),
-            ("7!1.0.1", None),
-            ("7!1.0.2", None),
-            ("7!1.0.3+7", (7,)),
-            ("7!1.0.4+8.0", (8, 0)),
-            ("7!1.0.5+9.5", (9, 5)),
-            ("7!1.1.dev1", None),
-        ],
-    )
-    def test_version_local_info(self, version, local_info):
-        assert Version(version).local_info == local_info
-
-    @pytest.mark.parametrize(
-        ("version", "prerelease"),
+        ("version", "pre"),
         [
             ("1.0", None),
+            ("1.0.dev0", None),
             ("1.0.dev6", None),
             ("1.0a1", ('a', 1)),
             ("1.0a1.post5", ('a', 1)),
@@ -529,12 +479,13 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_prerelease(self, version, prerelease):
-        assert Version(version).prerelease == prerelease
+    def test_version_pre(self, version, pre):
+        assert Version(version).pre == pre
 
     @pytest.mark.parametrize(
         ("version", "expected"),
         [
+            ("1.0.dev0", True),
             ("1.0.dev1", True),
             ("1.0a1.dev1", True),
             ("1.0b1.dev1", True),
@@ -562,9 +513,10 @@ class TestVersion:
         assert Version(version).is_prerelease is expected
 
     @pytest.mark.parametrize(
-        ("version", "development"),
+        ("version", "dev"),
         [
             ("1.0", None),
+            ("1.0.dev0", 0),
             ("1.0.dev6", 6),
             ("1.0a1", None),
             ("1.0a1.post5", None),
@@ -594,13 +546,14 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_development(self, version, development):
-        assert Version(version).development == development
+    def test_version_dev(self, version, dev):
+        assert Version(version).dev == dev
 
     @pytest.mark.parametrize(
         ("version", "expected"),
         [
             ("1.0", False),
+            ("1.0.dev0", True),
             ("1.0.dev6", True),
             ("1.0a1", False),
             ("1.0a1.post5", False),
@@ -630,13 +583,14 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", False),
         ],
     )
-    def test_version_is_development(self, version, expected):
-        assert Version(version).is_development is expected
+    def test_version_is_devrelease(self, version, expected):
+        assert Version(version).is_devrelease is expected
 
     @pytest.mark.parametrize(
-        ("version", "postrelease"),
+        ("version", "post"),
         [
             ("1.0", None),
+            ("1.0.dev0", None),
             ("1.0.dev6", None),
             ("1.0a1", None),
             ("1.0a1.post5", 5),
@@ -666,8 +620,8 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", 5),
         ],
     )
-    def test_version_postrelease(self, version, postrelease):
-        assert Version(version).postrelease == postrelease
+    def test_version_post(self, version, post):
+        assert Version(version).post == post
 
     @pytest.mark.parametrize(
         ("version", "expected"),
@@ -815,28 +769,24 @@ class TestLegacyVersion:
         assert LegacyVersion(version).local is None
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_local_info(self, version):
-        assert LegacyVersion(version).local_info is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_prerelease(self, version):
-        assert LegacyVersion(version).prerelease is None
+    def test_legacy_version_pre(self, version):
+        assert LegacyVersion(version).pre is None
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_is_prerelease(self, version):
         assert not LegacyVersion(version).is_prerelease
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_development(self, version):
-        assert LegacyVersion(version).development is None
+    def test_legacy_version_dev(self, version):
+        assert LegacyVersion(version).dev is None
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_is_development(self, version):
-        assert not LegacyVersion(version).is_development
+    def test_legacy_version_is_devrelease(self, version):
+        assert not LegacyVersion(version).is_devrelease
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_postrelease(self, version):
-        assert LegacyVersion(version).postrelease is None
+    def test_legacy_version_post(self, version):
+        assert LegacyVersion(version).post is None
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_is_postrelease(self, version):

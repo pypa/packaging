@@ -98,15 +98,19 @@ class LegacyVersion(_BaseVersion):
         return None
 
     @property
+    def pre(self):
+        return None
+
+    @property
+    def post(self):
+        return None
+
+    @property
+    def dev(self):
+        return None
+
+    @property
     def local(self):
-        return None
-
-    @property
-    def local_info(self):
-        return None
-
-    @property
-    def prerelease(self):
         return None
 
     @property
@@ -114,19 +118,11 @@ class LegacyVersion(_BaseVersion):
         return False
 
     @property
-    def development(self):
-        return None
-
-    @property
-    def is_development(self):
+    def is_postrelease(self):
         return False
 
     @property
-    def postrelease(self):
-        return None
-
-    @property
-    def is_postrelease(self):
+    def is_devrelease(self):
         return False
 
 
@@ -266,46 +262,27 @@ class Version(_BaseVersion):
         parts = []
 
         # Epoch
-        if self._version.epoch != 0:
-            parts.append("{0}!".format(self._version.epoch))
+        if self.epoch != 0:
+            parts.append("{0}!".format(self.epoch))
 
         # Release segment
-        parts.append(".".join(str(x) for x in self._version.release))
+        parts.append(".".join(str(x) for x in self.release))
 
         # Pre-release
-        if self._version.pre is not None:
-            parts.append("".join(str(x) for x in self._version.pre))
+        if self.pre is not None:
+            parts.append("".join(str(x) for x in self.pre))
 
         # Post-release
-        if self._version.post is not None:
-            parts.append(".post{0}".format(self._version.post[1]))
+        if self.post is not None:
+            parts.append(".post{0}".format(self.post))
 
         # Development release
-        if self._version.dev is not None:
-            parts.append(".dev{0}".format(self._version.dev[1]))
+        if self.dev is not None:
+            parts.append(".dev{0}".format(self.dev))
 
         # Local version segment
-        if self._version.local is not None:
-            parts.append(
-                "+{0}".format(".".join(str(x) for x in self._version.local))
-            )
-
-        return "".join(parts)
-
-    @property
-    def public(self):
-        return str(self).split("+", 1)[0]
-
-    @property
-    def base_version(self):
-        parts = []
-
-        # Epoch
-        if self._version.epoch != 0:
-            parts.append("{0}!".format(self._version.epoch))
-
-        # Release segment
-        parts.append(".".join(str(x) for x in self._version.release))
+        if self.local is not None:
+            parts.append("+{0}".format(self.local))
 
         return "".join(parts)
 
@@ -318,44 +295,52 @@ class Version(_BaseVersion):
         return self._version.release
 
     @property
-    def local(self):
-        version_string = str(self)
-        if "+" in version_string:
-            return version_string.split("+", 1)[1]
-
-    @property
-    def local_info(self):
-        return self._version.local
-
-    @property
-    def prerelease(self):
+    def pre(self):
         return self._version.pre
 
     @property
+    def post(self):
+        return self._version.post[1] if self._version.post else None
+
+    @property
+    def dev(self):
+        return self._version.dev[1] if self._version.dev else None
+
+    @property
+    def local(self):
+        if self._version.local:
+            return ".".join(str(x) for x in self._version.local)
+        else:
+            return None
+
+    @property
+    def public(self):
+        return str(self).split("+", 1)[0]
+
+    @property
+    def base_version(self):
+        parts = []
+
+        # Epoch
+        if self.epoch != 0:
+            parts.append("{0}!".format(self.epoch))
+
+        # Release segment
+        parts.append(".".join(str(x) for x in self.release))
+
+        return "".join(parts)
+
+    @property
     def is_prerelease(self):
-        return bool(self._version.dev or self._version.pre)
-
-    @property
-    def development(self):
-        if self._version.dev is not None:
-            return self._version.dev[1]
-        else:
-            return None
-
-    @property
-    def is_development(self):
-        return bool(self._version.dev)
-
-    @property
-    def postrelease(self):
-        if self._version.post is not None:
-            return self._version.post[1]
-        else:
-            return None
+        return self.dev is not None or self.pre is not None
 
     @property
     def is_postrelease(self):
-        return bool(self._version.post)
+        return self.post is not None
+
+    @property
+    def is_devrelease(self):
+        return self.dev is not None
 
 
 def _parse_letter_version(letter, number):
