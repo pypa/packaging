@@ -16,6 +16,9 @@ Changelog
 * Add ``Version().is_devrelease`` and ``LegacyVersion().is_devrelease`` to
   make it easy to determine if a release is a development release.
 
+* Add ``utils.canonicalize_version`` to canonicalize version strings or
+  ``Version`` instances (:issue:`121`).
+
 
 16.8 - 2016-10-29
 ~~~~~~~~~~~~~~~~~
