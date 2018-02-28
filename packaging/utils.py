@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import re
 
-from .version import parse
+from .version import InvalidVersion, Version
 
 
 _canonicalize_regex = re.compile(r"[-_.]+")
@@ -22,7 +22,11 @@ def canonicalize_version(version):
     with the way it handles the release segment.
     """
 
-    version = parse(version)
+    try:
+        version = Version(version)
+    except InvalidVersion:
+        # Legacy versions cannot be normalized
+        return version
 
     parts = []
 
