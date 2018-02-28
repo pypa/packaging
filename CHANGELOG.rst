@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-16.9 - `master`_
-~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
+17.0 - 2017-02-28
+~~~~~~~~~~~~~~~~~
 
 * Drop support for python 2.6, 3.2, and 3.3.
 
@@ -181,6 +179,3 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Initial release.
-
-
-.. _`master`: https://github.com/pypa/packaging/
