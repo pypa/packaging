@@ -6,6 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Fix ``utils.canonicalize_version`` when supplying non PEP 440 versions.
+
 
 17.0 - 2017-02-28
 ~~~~~~~~~~~~~~~~~
