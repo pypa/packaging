@@ -7,7 +7,17 @@ Changelog
 .. note:: This version is not yet released and is under active development.
 
 * Drop support for python 2.6 and 3.2
+
 * Define minimal pyparsing version to 2.0.2 (:issue:`91`).
+
+* Add ``epoch``, ``release``, ``pre``, ``dev``, and ``post`` attributes to
+  ``Version`` and ``LegacyVersion`` (:issue:`34`).
+
+* Add ``Version().is_devrelease`` and ``LegacyVersion().is_devrelease`` to
+  make it easy to determine if a release is a development release.
+
+* Add ``utils.canonicalize_version`` to canonicalize version strings or
+  ``Version`` instances (:issue:`121`).
 
 
 16.8 - 2016-10-29
