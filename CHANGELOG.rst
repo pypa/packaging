@@ -6,7 +6,7 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
-* Drop support for python 2.6 and 3.2
+* Drop support for python 2.6, 3.2, and 3.3.
 
 * Define minimal pyparsing version to 2.0.2 (:issue:`91`).
 
