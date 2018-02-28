@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import re
 
-from .version import parse
+from .version import parse, LegacyVersion
 
 
 _canonicalize_regex = re.compile(r"[-_.]+")
@@ -23,6 +23,10 @@ def canonicalize_version(version):
     """
 
     version = parse(version)
+
+    # Legacy versions cannot be normalized
+    if isinstance(version, LegacyVersion):
+        return str(version)
 
     parts = []
 
