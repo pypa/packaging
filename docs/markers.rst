@@ -16,7 +16,7 @@ Usage
     >>> marker = Marker("python_version>'2'")
     >>> marker
     <Marker('python_version > "2"')>
-    >>> # We can evaluate a marker to see if the dependency is required
+    >>> # We can evaluate a marker to see if the dependency is met
     >>> marker.evaluate()
     True
     >>> # We can also override the environment
