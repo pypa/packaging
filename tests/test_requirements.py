@@ -170,3 +170,8 @@ class TestRequirements:
         assert req.marker is not None
         assert req.marker.evaluate(dict(sys_platform="foo")) is True
         assert req.marker.evaluate(dict(sys_platform="bar")) is False
+
+    def test_parseexception_error_msg(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("toto 42")
+            assert "Invalid Requiremnt" not in e
