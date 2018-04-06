@@ -92,9 +92,7 @@ class Requirement(object):
         try:
             req = REQUIREMENT.parseString(requirement_string)
         except ParseException as e:
-            raise InvalidRequirement(
-                "Invalid requirement, parse error at \"{0!r}\"".format(
-                    requirement_string[e.loc:e.loc + 8]))
+            raise InvalidRequirement("Parse error: {0!r}".format(e))
 
         self.name = req.name
         if req.url:
