@@ -3,9 +3,9 @@ Specifiers
 
 .. currentmodule:: packaging.specifiers
 
-A core requirement of dealing with dependency is the ability to specify what
-versions of a dependency are acceptable for you. `PEP 440`_ defines the
-standard specifier scheme which has been implemented by this module.
+A core requirement of dealing with dependencies is the ability to specify what
+versions of a dependency you accept. This module implements the `PEP 440`_
+dependency specification scheme.
 
 Usage
 -----
@@ -50,41 +50,45 @@ Reference
 
 .. class:: SpecifierSet(specifiers, prereleases=None)
 
-    This class abstracts handling specifying the dependencies of a project. It
+    This class abstracts the handling of project dependency specification . It
     can be passed a single specifier (``>=3.0``), a comma-separated list of
-    specifiers (``>=3.0,!=3.1``), or no specifier at all. Each individual
-    specifier be attempted to be parsed as a PEP 440 specifier
-    (:class:`Specifier`) or as a legacy, setuptools style specifier
-    (:class:`LegacySpecifier`). You may combine :class:`SpecifierSet` instances
-    using the ``&`` operator (``SpecifierSet(">2") & SpecifierSet("<4")``).
+    specifiers (``>=3.0,!=3.1``), or no specifier at all. An attempt is made
+    to parse each individual specifier as a PEP 440 specifier
+    (:class:`Specifier`) or, should that fail, as a legacy, setuptools style
+    specifier (:class:`LegacySpecifier`).
 
-    Both the membership tests and the combination support using raw strings
-    in place of already instantiated objects.
+    The ``&`` operator combines specifier sets (``SpecifierSet(">2") &
+    SpecifierSet("<4")``).  Version specifiers in string form are also
+    accepted (``SpecifierSet(">2") & "!=3.0, <4"``).
 
-    :param str specifiers: The string representation of a specifier or a
-                           comma-separated list of specifiers which will
-                           be parsed and normalized before use.
-    :param prereleases: This tells the SpecifierSet if it should accept
-                             prerelease versions if applicable or not. The
-                             default of ``None`` will autodetect it from the
-                             given specifiers.
+    The membership test functions accept versions as either raw
+    strings or instantiated objects.
+
+    :param str specifiers: A string representation of a version
+                           specifier or a string containing a
+                           comma-separated list of version specifiers.
+                           Parsed and normalized before use.
+    :param prereleases: Whether the SpecifierSet should accept prerelease
+                        versions. The default (``None``) accepts prerelease
+                        versions when the given ``specifiers`` allow such
+                        versions.
     :type prereleases: bool or None
-    :raises InvalidSpecifier: If the given ``specifiers`` are not parseable
-                              than this exception will be raised.
+    :raises InvalidSpecifier: Raised when any of the given ``specifiers`` are
+                              not parseable.
 
     .. attribute:: prereleases
 
         A boolean value indicating whether this :class:`SpecifierSet`
-        represents a specifier that includes a pre-release versions. This can be
+        should include pre-release versions. This can be
         set to either ``True`` or ``False`` to explicitly enable or disable
-        prereleases or it can be set to ``None`` (the default) to enable
-        autodetection.
+        prereleases or it can be set to ``None`` (the default) to
+        autodetect from the specifiers the set contains.
 
     .. method:: __contains__(version)
 
-        This is the more Pythonic version of :meth:`contains()`, but does
-        not allow you to override the ``prereleases`` argument.  If you
-        need that, use :meth:`contains()`.
+        This is the more Pythonic version of :meth:`contains()`, but does not
+        allow override of the ``prereleases`` argument.  If you need that,
+        use :meth:`contains()`.
 
         See :meth:`contains()`.
 
@@ -94,64 +98,68 @@ Reference
         :class:`Version`, or a :class:`LegacyVersion` object, is contained
         within this set of specifiers.
 
-        This will either match or not match prereleases based on the
-        ``prereleases`` parameter. When ``prereleases`` is set to ``None``
-        (the default) it will use the ``Specifier().prereleases`` attribute to
-        determine if to allow them. Otherwise it will use the boolean value of
-        the passed in value to determine if to allow them or not.
+        ``version`` either matches or does not match prereleases based on the
+        ``prereleases`` parameter. When ``prereleases`` is ``None`` (the
+        default) the :attr:`prereleases` attributes of the set's specifiers
+        determine whether to allow them. Otherwise the boolean value of
+        ``prereleases`` to determines whether they are allowed.
 
     .. method:: __len__()
 
-        Returns the number of specifiers in this specifier set.
+        Return the number of specifiers in the specifier set.
 
     .. method:: __iter__()
 
-        Returns an iterator over all the underlying :class:`Specifier`
-        (or :class:`LegacySpecifier`) instances in this specifier set.
+        Return an iterator over all the underlying :class:`Specifier` (or
+        :class:`LegacySpecifier`) instances in the specifier set.
 
     .. method:: filter(iterable, prereleases=None)
 
-        Takes an iterable that can contain version strings, :class:`Version`,
-        and :class:`LegacyVersion` instances and will then filter it, returning
-        an iterable that contains only items which match the rules of this
-        specifier object.
+        Takes an iterable containing version strings, :class:`Version`, and
+        :class:`LegacyVersion` instances.  Filters the iterable returning
+        an iterable containing only items matching the rules of the
+        specifier.
 
-        This method is smarter than just
-        ``filter(Specifier().contains, [...])`` because it implements the rule
-        from PEP 440 where a prerelease item SHOULD be accepted if no other
+        This method is smarter than
+        ``filter(Specifier().contains, [...])``. It implements the
+        PEP 440 rule where a prerelease item SHOULD be accepted when no other
         versions match the given specifier.
 
-        The ``prereleases`` parameter functions similarly to that of the same
-        parameter in ``contains``. If the value is ``None`` (the default) then
-        it will intelligently decide if to allow prereleases based on the
-        specifier, the ``Specifier().prereleases`` value, and the PEP 440
-        rules. Otherwise it will act as a boolean which will enable or disable
-        all prerelease versions from being included.
+        The ``prereleases`` parameter functions similar to the parameter of
+        the same name in :meth:`contains`. If the value is ``None`` (the
+        default) it intelligently decides whether to allow prereleases based
+        on the specifier's interpretation under the rules of PEP 440, and the
+        specifier's :attr:`prereleases` setting. Otherwise it acts as a
+        boolean which enables or disables the inclusion of all prerelease
+        versions.
+        See :meth:`SpecifierSet.filter()`.
 
 
 .. class:: Specifier(specifier, prereleases=None)
 
     This class abstracts the handling of a single `PEP 440`_ compatible
-    specifier. It is generally not required to instantiate this manually,
-    preferring instead to work with :class:`SpecifierSet`.
+    specifier. Instantiating this class manually is generally not required,
+    it is better to work with :class:`SpecifierSet`.
 
-    :param str specifier: The string representation of a specifier which will
-                          be parsed and normalized before use.
-    :param prereleases: This tells the specifier if it should accept
-                             prerelease versions if applicable or not. The
-                             default of ``None`` will autodetect it from the
-                             given specifiers.
+    :param str specifier: The string representation of a version
+                          specifier.  Parsed and normalized before
+                          use.
+    :param prereleases: Whether the specifier should accept prerelease
+                        versions. The default (``None``) accepts prerelease
+                        versions when the given ``specifier`` allows such
+                        versions.
     :type prereleases: bool or None
-    :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
-                              in any way then this exception will be raised.
+    :raises InvalidSpecifier: Raised when the ``specifier`` does not
+                              fully conform to PEP 440 and therefore
+                              cannot be parsed.
 
     .. attribute:: operator
 
-        The string value of the operator part of this specifier.
+        The string value of the comparison operator part of the specifier.
 
     .. attribute:: version
 
-        The string value of the version part of this specifier.
+        The string value of the version part of the specifier.
 
     .. attribute:: prereleases
 
@@ -173,26 +181,25 @@ Reference
 .. class:: LegacySpecifier(specifier, prereleases=None)
 
     This class abstracts the handling of a single legacy, setuptools style
-    specifier. It is generally not required to instantiate this manually,
-    preferring instead to work with :class:`SpecifierSet`.
+    specifier. Instantiating this class manually is generally not required,
+    it is better to work with :class:`SpecifierSet`.
 
-    :param str specifier: The string representation of a specifier which will
-                          be parsed and normalized before use.
-    :param prereleases: This tells the specifier if it should accept
-                             prerelease versions if applicable or not. The
-                             default of ``None`` will autodetect it from the
-                             given specifiers.
+    :param str specifier: The string representation of a version specifier.
+                          Parsed and normalized before use.
+    :param prereleases: Whether the specifier should accept prerelease
+                        versions. The default (``None``) accepts prerelease
+                        versions when the given ``specifier`` allows such
+                        versions.
     :type prereleases: bool or None
-    :raises InvalidSpecifier: If the ``specifier`` is not parseable then this
-                              will be raised.
+    :raises InvalidSpecifier: Raised when the ``specifier`` is not parseable.
 
     .. attribute:: operator
 
-        The string value of the operator part of this specifier.
+        The string value of the comparison operator part of the specifier.
 
     .. attribute:: version
 
-        The string version of the version part of this specifier.
+        The string value of the version part of the specifier.
 
     .. attribute:: prereleases
 
