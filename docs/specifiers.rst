@@ -64,10 +64,11 @@ Reference
     :param str specifiers: The string representation of a specifier or a
                            comma-separated list of specifiers which will
                            be parsed and normalized before use.
-    :param bool prereleases: This tells the SpecifierSet if it should accept
+    :param prereleases: This tells the SpecifierSet if it should accept
                              prerelease versions if applicable or not. The
                              default of ``None`` will autodetect it from the
                              given specifiers.
+    :type prereleases: bool or None
     :raises InvalidSpecifier: If the given ``specifiers`` are not parseable
                               than this exception will be raised.
 
@@ -136,10 +137,11 @@ Reference
 
     :param str specifier: The string representation of a specifier which will
                           be parsed and normalized before use.
-    :param bool prereleases: This tells the specifier if it should accept
+    :param prereleases: This tells the specifier if it should accept
                              prerelease versions if applicable or not. The
                              default of ``None`` will autodetect it from the
                              given specifiers.
+    :type prereleases: bool or None
     :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
                               in any way then this exception will be raised.
 
@@ -149,7 +151,7 @@ Reference
 
     .. attribute:: version
 
-        The string version of the version part of this specifier.
+        The string value of the version part of this specifier.
 
     .. attribute:: prereleases
 
@@ -176,10 +178,11 @@ Reference
 
     :param str specifier: The string representation of a specifier which will
                           be parsed and normalized before use.
-    :param bool prereleases: This tells the specifier if it should accept
+    :param prereleases: This tells the specifier if it should accept
                              prerelease versions if applicable or not. The
                              default of ``None`` will autodetect it from the
                              given specifiers.
+    :type prereleases: bool or None
     :raises InvalidSpecifier: If the ``specifier`` is not parseable then this
                               will be raised.
 
@@ -210,8 +213,7 @@ Reference
 
 .. exception:: InvalidSpecifier
 
-    Raised when attempting to create a :class:`Specifier` with a specifier
-    string that does not conform to `PEP 440`_.
+    Raised when a specifier string cannot be parsed.
 
 
 .. _`PEP 440`: https://www.python.org/dev/peps/pep-0440/
