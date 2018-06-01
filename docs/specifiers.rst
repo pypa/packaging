@@ -59,7 +59,10 @@ Reference
 
     The ``&`` operator combines specifier sets (``SpecifierSet(">2") &
     SpecifierSet("<4")``).  Version specifiers in string form are also
-    accepted (``SpecifierSet(">2") & "!=3.0, <4"``).
+    accepted (``SpecifierSet(">2") & "!=3.0, <4"``).  A specifier set
+    with a ``True`` :attr:`prereleases` value cannot be combined with
+    a specifier set having a ``False`` :attr:`prereleases`.  Attemping
+    to do so raises a :exc:`ValueError`.
 
     The membership test functions accept versions as either raw
     strings or instantiated objects.
