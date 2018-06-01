@@ -4,7 +4,7 @@ Specifiers
 .. currentmodule:: packaging.specifiers
 
 A core requirement of dealing with dependencies is the ability to specify what
-versions of a dependency you accept. This module implements the `PEP 440`_
+versions of a dependency you accept. This module implements the :pep:`440`
 dependency specification scheme.
 
 Usage
@@ -53,7 +53,7 @@ Reference
     This class abstracts the handling of project dependency specification . It
     can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all. An attempt is made
-    to parse each individual specifier as a PEP 440 specifier
+    to parse each individual specifier as a :pep:`440` specifier
     (:class:`Specifier`) or, should that fail, as a legacy, setuptools style
     specifier (:class:`LegacySpecifier`).
 
@@ -120,16 +120,15 @@ Reference
         an iterable containing only items matching the rules of the
         specifier.
 
-        This method is smarter than
-        ``filter(Specifier().contains, [...])``. It implements the
-        PEP 440 rule where a prerelease item SHOULD be accepted when no other
-        versions match the given specifier.
+        This method is smarter than ``filter(Specifier().contains,
+        [...])``. It implements the :pep:`440` rule where a prerelease item
+        SHOULD be accepted when no other versions match the given specifier.
 
         The ``prereleases`` parameter functions similar to the parameter of
         the same name in :meth:`contains`. If the value is ``None`` (the
         default) it intelligently decides whether to allow prereleases based
-        on the specifier's interpretation under the rules of PEP 440, and the
-        specifier's :attr:`prereleases` setting. Otherwise it acts as a
+        on the specifier's interpretation under the rules of :pep:`440`, and
+        the specifier's :attr:`prereleases` setting. Otherwise it acts as a
         boolean which enables or disables the inclusion of all prerelease
         versions.
         See :meth:`SpecifierSet.filter()`.
@@ -137,7 +136,7 @@ Reference
 
 .. class:: Specifier(specifier, prereleases=None)
 
-    This class abstracts the handling of a single `PEP 440`_ compatible
+    This class abstracts the handling of a single :pep:`440` compatible
     specifier. Instantiating this class manually is generally not required,
     it is better to work with :class:`SpecifierSet`.
 
@@ -149,9 +148,9 @@ Reference
                         versions when the given ``specifier`` allows such
                         versions.
     :type prereleases: bool or None
-    :raises InvalidSpecifier: Raised when the ``specifier`` does not
-                              fully conform to PEP 440 and therefore
-                              cannot be parsed.
+    :raises InvalidSpecifier: Raised when the ``specifier`` does not fully
+                              conform to :pep:`440` and therefore cannot be
+                              parsed.
 
     .. attribute:: operator
 
@@ -221,6 +220,3 @@ Reference
 .. exception:: InvalidSpecifier
 
     Raised when a specifier string cannot be parsed.
-
-
-.. _`PEP 440`: https://www.python.org/dev/peps/pep-0440/
