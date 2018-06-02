@@ -1041,3 +1041,25 @@ class TestSpecifierSet:
     def test_comparison_non_specifier(self):
         assert SpecifierSet("==1.0") != 12
         assert not SpecifierSet("==1.0") == 12
+
+
+class TestSpecifierClassInteractions:
+    """
+    Test interactions between different specifier classes
+    """
+
+    @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
+    def test_specifiers_eq(self, specifier):
+        legacy = LegacySpecifier(specifier)
+        spec = Specifier(specifier)
+
+        assert not legacy == spec
+        assert not spec == legacy
+
+    @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
+    def test_specifiers_ne(self, specifier):
+        legacy = LegacySpecifier(specifier)
+        spec = Specifier(specifier)
+
+        assert legacy != spec
+        assert spec != legacy
