@@ -1049,6 +1049,12 @@ class TestSpecifierClassInteractions:
     """
 
     @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
+    def test_specifiers_hash(self, specifier):
+        legacy_hash = hash(LegacySpecifier(specifier))
+        spec_hash = hash(Specifier(specifier))
+        assert legacy_hash != spec_hash
+
+    @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
     def test_specifiers_eq(self, specifier):
         legacy = LegacySpecifier(specifier)
         spec = Specifier(specifier)
