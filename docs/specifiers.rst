@@ -143,6 +143,10 @@ Reference
     specifier. Instantiating this class manually is generally not required,
     it is better to work with :class:`SpecifierSet`.
 
+    Object equality is based solely on the given ``specifier`` text.
+    Instances of this class are equal (compare ``==``) when their
+    :attr:`operator` and :attr:`version` are equal.
+
     :param str specifier: The string representation of a version
                           specifier.  Parsed and normalized before
                           use.
@@ -157,11 +161,15 @@ Reference
 
     .. attribute:: operator
 
-        The string value of the comparison operator part of the specifier.
+        The string value of the comparison operator part of the ``specifier``.
+        The value is as given, not normalized, but is stripped of leading and
+        trailing whitespace.
 
     .. attribute:: version
 
-        The string value of the version part of the specifier.
+        The string value of the version part of the ``specifier``.  The value
+        is as given, not normalized, but is stripped of leading and trailing
+        whitespace.
 
     .. attribute:: prereleases
 
@@ -186,6 +194,10 @@ Reference
     specifier. Instantiating this class manually is generally not required,
     it is better to work with :class:`SpecifierSet`.
 
+    Object equality is based solely on the given ``specifier`` text.
+    Instances of this class are equal (compare ``==``) when their
+    :attr:`operator` and :attr:`version` are equal.
+
     :param str specifier: The string representation of a version specifier.
                           Parsed and normalized before use.
     :param prereleases: Whether the specifier should accept prerelease
@@ -197,11 +209,15 @@ Reference
 
     .. attribute:: operator
 
-        The string value of the comparison operator part of the specifier.
+        The string value of the comparison operator part of the ``specifier``.
+        The value is as given, not normalized, but is stripped of leading and
+        trailing whitespace.
 
     .. attribute:: version
 
-        The string value of the version part of the specifier.
+        The string value of the version part of the ``specifier``.  The value
+        is as given, not normalized, but is stripped of leading and trailing
+        whitespace.
 
     .. attribute:: prereleases
 
