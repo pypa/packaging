@@ -108,9 +108,6 @@ class _IndividualSpecifier(BaseSpecifier):
     def __str__(self):
         return "{0}{1}".format(*self._spec)
 
-    def __hash__(self):
-        return hash(self._spec)
-
     def __eq__(self, other):
         if isinstance(other, string_types):
             try:
@@ -238,6 +235,12 @@ class LegacySpecifier(_IndividualSpecifier):
         "<": "less_than",
         ">": "greater_than",
     }
+
+    def __hash__(self):
+        return hash((LegacySpecifier, self._spec))
+
+    def __eq__(self, other):
+        return super(LegacySpecifier, self).__eq__(other)
 
     def _coerce_version(self, version):
         if not isinstance(version, LegacyVersion):
@@ -382,6 +385,12 @@ class Specifier(_IndividualSpecifier):
         ">": "greater_than",
         "===": "arbitrary",
     }
+
+    def __hash__(self):
+        return hash((Specifier, self._spec))
+
+    def __eq__(self, other):
+        return super(Specifier, self).__eq__(other)
 
     @_require_version_compare
     def _compare_compatible(self, prospective, spec):
