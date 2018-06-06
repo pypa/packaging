@@ -1058,14 +1058,28 @@ class TestSpecifierClassInteractions:
     def test_specifiers_eq(self, specifier):
         legacy = LegacySpecifier(specifier)
         spec = Specifier(specifier)
+        spec_set = SpecifierSet(specifier)
 
         assert not legacy == spec
         assert not spec == legacy
+
+        assert legacy == spec_set
+        assert spec_set == legacy
+
+        assert spec == spec_set
+        assert spec_set == spec
 
     @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
     def test_specifiers_ne(self, specifier):
         legacy = LegacySpecifier(specifier)
         spec = Specifier(specifier)
+        spec_set = SpecifierSet(specifier)
 
         assert legacy != spec
         assert spec != legacy
+
+        assert not legacy != spec_set
+        assert not spec_set != legacy
+
+        assert not spec != spec_set
+        assert not spec_set != spec

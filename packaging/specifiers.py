@@ -631,6 +631,7 @@ class SpecifierSet(BaseSpecifier):
         return ",".join(sorted(str(s) for s in self._specs))
 
     def __hash__(self):
+        # See note in __eq__().
         return hash(self._specs)
 
     def __and__(self, other):
@@ -657,6 +658,13 @@ class SpecifierSet(BaseSpecifier):
         return specifier
 
     def __eq__(self, other):
+        # Specifiers and LegacySpecifiers are converted to
+        # SpecifierSet before comparison.
+        # Note that this breaks the transitivity of == because
+        # instances of different _IndividualSpecifier classes, given
+        # the same specifier string, compare !=.  Note also that,
+        # given the same specifier string, although a SpecifierSet ==
+        # an _IndividualSpecifier their hashes are !=.
         if isinstance(other, string_types):
             other = SpecifierSet(other)
         elif isinstance(other, _IndividualSpecifier):
@@ -667,6 +675,7 @@ class SpecifierSet(BaseSpecifier):
         return self._specs == other._specs
 
     def __ne__(self, other):
+        # See note in __eq__().
         if isinstance(other, string_types):
             other = SpecifierSet(other)
         elif isinstance(other, _IndividualSpecifier):
