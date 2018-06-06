@@ -67,6 +67,17 @@ Reference
     The membership test functions accept versions as either raw
     strings or instantiated objects.
 
+    Object equality is based on the given ``specifiers`` string, other
+    parameters are ignored.  Specifier sets compare ``==`` when all the
+    individual specifiers in the set compare ``==``.  Strings compare ``==``
+    to specifier sets by first coercing the string to a specifier
+    set. :class:`Specifier`\s and :class:`LegacySpecifier`\s also compare
+    ``==`` with specifier sets by coercion to specifier set.  Note that this
+    last violates ``==`` transitivity because a :class:`Specifier` is always
+    ``!=`` a :class:`LegacySpecifier`.  Note also that, ``==`` or not,
+    :class:`SpecifierSet`, :class:`Specifier`, and :class:`LegacySpecifier`
+    instances always have different :func:`hash` values.
+
     :param str specifiers: A string representation of a version
                            specifier or a string containing a
                            comma-separated list of version specifiers.
