@@ -68,9 +68,9 @@ Use `tox`_ to build the documentation. For example:
 The HTML documentation index can now be found at
 ``docs/_build/html/index.html``.
 
-.. _`pytest`: https://pypi.python.org/pypi/pytest
-.. _`tox`: https://pypi.python.org/pypi/tox
-.. _`virtualenv`: https://pypi.python.org/pypi/virtualenv
-.. _`pip`: https://pypi.python.org/pypi/pip
-.. _`sphinx`: https://pypi.python.org/pypi/Sphinx
+.. _`pytest`: https://pypi.org/project/pytest/
+.. _`tox`: https://pypi.org/project/tox/
+.. _`virtualenv`: https://pypi.org/project/virtualenv/
+.. _`pip`: https://pypi.org/project/pip/
+.. _`sphinx`: https://pypi.org/project/Sphinx/
 .. _`reStructured Text`: http://sphinx-doc.org/rest.html
