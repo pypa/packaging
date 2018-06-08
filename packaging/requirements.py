@@ -101,7 +101,7 @@ class Requirement(object):
             parsed_url = urlparse.urlparse(req.url)
             if not (parsed_url.scheme and parsed_url.netloc) or (
                     not parsed_url.scheme and not parsed_url.netloc):
-                raise InvalidRequirement("Invalid URL given")
+                raise InvalidRequirement("Invalid URL: {0}".format(req.url))
             self.url = req.url
         else:
             self.url = None

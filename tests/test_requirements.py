@@ -97,8 +97,9 @@ class TestRequirements:
         assert str(parsed.marker) == 'os_name == "a"'
 
     def test_invalid_url(self):
-        with pytest.raises(InvalidRequirement):
+        with pytest.raises(InvalidRequirement) as e:
             Requirement("name @ gopher:/foo/com")
+            assert "Invalid URL: " in e
 
     def test_extras_and_url_and_marker(self):
         req = Requirement(
