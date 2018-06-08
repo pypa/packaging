@@ -424,7 +424,7 @@ class TestVersion:
         version = Version('1.1')
         with pytest.raises(ValueError) as e:
             version.bump_patch()
-            assert 'Level is bigger than release components.' in e
+        assert 'Level is bigger than release components.' in str(e)
 
     @pytest.mark.parametrize(
         ("version", "local"),
