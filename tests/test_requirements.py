@@ -174,4 +174,4 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-            assert "Invalid Requiremnt" not in e
+            assert "Expected stringEnd" in e
