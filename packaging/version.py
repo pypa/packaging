@@ -230,9 +230,10 @@ class Version(_BaseVersion):
                 raise InvalidVersion("Invalid version: '{0}'".format(version))
 
             # Store the parsed out pieces of the version
+            release_groups = match.group("release").split(".")
             self._version = _Version(
                 epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-                release=tuple(int(i) for i in match.group("release").split(".")),
+                release=tuple(int(i) for i in release_groups),
                 pre=_parse_letter_version(
                     match.group("pre_l"),
                     match.group("pre_n"),
