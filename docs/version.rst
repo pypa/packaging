@@ -31,6 +31,10 @@ Usage
     True
     >>> v2.is_prerelease
     False
+    >>> v1.bump_major()
+    <Version('2.0a5')>
+    >>> v1.bump_minor()
+    <Version('1.1a5')>
     >>> Version("french toast")
     Traceback (most recent call last):
         ...
@@ -124,6 +128,21 @@ Reference
 
         A boolean value indicating whether this :class:`Version` instance
         represents a post-release.
+
+    .. function:: bump_major
+
+        Returns new :class:`Version` instance with the major part of the
+        release segment increased by one.
+
+    .. function:: bump_minor
+
+        Returns new :class:`Version` instance with the minor part of the
+        release segment increased by one.
+
+    .. function:: bump_patch
+
+        Returns new :class:`Version` instance with the patch part of the
+        release segment increased by one.
 
 
 .. class:: LegacyVersion(version)
