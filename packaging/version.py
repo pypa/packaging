@@ -221,29 +221,32 @@ class Version(_BaseVersion):
     )
 
     def __init__(self, version):
-        # Validate the version and parse it into pieces
-        match = self._regex.search(version)
-        if not match:
-            raise InvalidVersion("Invalid version: '{0}'".format(version))
+        if isinstance(version, _Version):
+            self._version = version
+        else:
+            # Validate the version and parse it into pieces
+            match = self._regex.search(version)
+            if not match:
+                raise InvalidVersion("Invalid version: '{0}'".format(version))
 
-        # Store the parsed out pieces of the version
-        self._version = _Version(
-            epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=tuple(int(i) for i in match.group("release").split(".")),
-            pre=_parse_letter_version(
-                match.group("pre_l"),
-                match.group("pre_n"),
-            ),
-            post=_parse_letter_version(
-                match.group("post_l"),
-                match.group("post_n1") or match.group("post_n2"),
-            ),
-            dev=_parse_letter_version(
-                match.group("dev_l"),
-                match.group("dev_n"),
-            ),
-            local=_parse_local_version(match.group("local")),
-        )
+            # Store the parsed out pieces of the version
+            self._version = _Version(
+                epoch=int(match.group("epoch")) if match.group("epoch") else 0,
+                release=tuple(int(i) for i in match.group("release").split(".")),
+                pre=_parse_letter_version(
+                    match.group("pre_l"),
+                    match.group("pre_n"),
+                ),
+                post=_parse_letter_version(
+                    match.group("post_l"),
+                    match.group("post_n1") or match.group("post_n2"),
+                ),
+                dev=_parse_letter_version(
+                    match.group("dev_l"),
+                    match.group("dev_n"),
+                ),
+                local=_parse_local_version(match.group("local")),
+            )
 
         # Generate a key which will be used for sorting
         self._key = _cmpkey(
@@ -341,6 +344,94 @@ class Version(_BaseVersion):
     @property
     def is_devrelease(self):
         return self.dev is not None
+
+    def bump_major(self):
+        """Return new Version instance with major increased by one.
+
+        Returns
+        -------
+        Version
+            a new Version with the major version increased by one
+
+        Raises
+        ------
+        ValueError
+            This Version has no major version
+
+        """
+        return self._bump_release(0)
+
+    def bump_minor(self):
+        """Return new Version instance with minor increased by one.
+
+        Returns
+        -------
+        Version
+            a new Version with the minor version increased by one
+
+        Raises
+        ------
+        ValueError
+            This Version has no minor version
+
+        """
+        return self._bump_release(1)
+
+    def bump_patch(self):
+        """Return new Version instance with patch increased by one.
+
+        Returns
+        -------
+        Version
+            a new Version with the patch-level version increased by one
+
+        Raises
+        ------
+        ValueError
+            This Version has no patch-level
+
+        """
+        return self._bump_release(2)
+
+    def _bump_release(self, level):
+        """Increase release-`level` by one in new instance.
+
+        This method returns a new Version where the
+        Version.release-level (i.e. 0 = major, 1 = minor, 2 = patch) is
+        increased by one.
+
+        Parameters
+        ----------
+        level : int
+            the level corresponds to the position in the release-tuple
+            (e.g.: 0 -> major, 1 -> minor, 2 -> patch)
+
+        Returns
+        -------
+        Version
+            a new Version with the release-level increased by one
+
+        Raises
+        ------
+        ValueError
+            level is bigger than the available release-parts
+
+        """
+        if len(self._version.release) <= level:
+            raise ValueError('Level is bigger than release components.')
+
+        release = list(self._version.release)
+        release[level] += 1
+        release = tuple(release)
+        version = _Version(
+            epoch=self.epoch,
+            release=release,
+            pre=self.pre,
+            post=self.post,
+            dev=self.dev,
+            local=self.local
+        )
+        return Version(version)
 
 
 def _parse_letter_version(letter, number):
