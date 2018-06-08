@@ -99,7 +99,8 @@ class TestRequirements:
     def test_invalid_url(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name @ gopher:/foo/com")
-            assert "Invalid URL: " in e
+        assert "Invalid URL: " in str(e)
+        assert "gopher:/foo/com" in str(e)
 
     def test_extras_and_url_and_marker(self):
         req = Requirement(
@@ -175,4 +176,4 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-            assert "Expected stringEnd" in e
+        assert "Expected stringEnd" in str(e)
