@@ -16,7 +16,7 @@ Usage
     >>> marker = Marker("python_version>'2'")
     >>> marker
     <Marker('python_version > "2"')>
-    >>> # We can evaluate the marker to see if is satisfied
+    >>> # We can evaluate the marker to see if it is satisfied
     >>> marker.evaluate()
     True
     >>> # We can also override the environment
