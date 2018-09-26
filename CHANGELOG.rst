@@ -1,10 +1,10 @@
 Changelog
 ---------
 
-17.2 - `master`_
-~~~~~~~~~~~~~~~~
+18.0 - 2018-09-26
+~~~~~~~~~~~~~~~~~
 
-.. note:: This version is not yet released and is under active development.
+* Improve error messages when invalid requirements are given. (:issue:`129`)
 
 
 17.1 - 2017-02-28
