@@ -18,4 +18,4 @@ __author__ = "Donald Stufft and individual contributors"
 __email__ = "donald@stufft.io"
 
 __license__ = "BSD or Apache License, Version 2.0"
-__copyright__ = "Copyright 2014-2016 %s" % __author__
+__copyright__ = "Copyright 2014-2018 %s" % __author__
