@@ -23,6 +23,11 @@ class TestRequirements:
         req = Requirement(requirement)
         assert str(req) == requirement
 
+    def test_string_url_with_marker(self):
+        requirement = 'name@ http://foo.com ; extra == "feature"'
+        req = Requirement(requirement)
+        assert str(req) == requirement
+
     def test_repr(self):
         req = Requirement('name')
         assert repr(req) == "<Requirement('name')>"
