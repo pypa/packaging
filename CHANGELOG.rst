@@ -5,6 +5,8 @@ Changelog
 ~~~~~~~~~~~~~~~~
 .. note:: This version is not yet released and is under active development.
 
+* Fix string representation of PEP 508 direct URL requirements with markers.
+
 
 18.0 - 2018-09-26
 ~~~~~~~~~~~~~~~~~

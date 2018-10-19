@@ -120,6 +120,8 @@ class Requirement(object):
 
         if self.url:
             parts.append("@ {0}".format(self.url))
+            if self.marker:
+                parts.append(" ")
 
         if self.marker:
             parts.append("; {0}".format(self.marker))
