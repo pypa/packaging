@@ -407,8 +407,8 @@ class Specifier(_IndividualSpecifier):
         # Add the prefix notation to the end of our string
         prefix += ".*"
 
-        return (self._get_operator(">=")(prospective, spec) and
-                self._get_operator("==")(prospective, prefix))
+        return (self._get_operator(">=")(prospective, spec)
+                and self._get_operator("==")(prospective, prefix))
 
     @_require_version_compare
     def _compare_equal(self, prospective, spec):

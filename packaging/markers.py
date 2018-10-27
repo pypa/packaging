@@ -75,24 +75,24 @@ class Op(Node):
 
 
 VARIABLE = (
-    L("implementation_version") |
-    L("platform_python_implementation") |
-    L("implementation_name") |
-    L("python_full_version") |
-    L("platform_release") |
-    L("platform_version") |
-    L("platform_machine") |
-    L("platform_system") |
-    L("python_version") |
-    L("sys_platform") |
-    L("os_name") |
-    L("os.name") |  # PEP-345
-    L("sys.platform") |  # PEP-345
-    L("platform.version") |  # PEP-345
-    L("platform.machine") |  # PEP-345
-    L("platform.python_implementation") |  # PEP-345
-    L("python_implementation") |  # undocumented setuptools legacy
-    L("extra")
+    L("implementation_version")
+    | L("platform_python_implementation")
+    | L("implementation_name")
+    | L("python_full_version")
+    | L("platform_release")
+    | L("platform_version")
+    | L("platform_machine")
+    | L("platform_system")
+    | L("python_version")
+    | L("sys_platform")
+    | L("os_name")
+    | L("os.name")  # PEP-345
+    | L("sys.platform")  # PEP-345
+    | L("platform.version")  # PEP-345
+    | L("platform.machine")  # PEP-345
+    | L("platform.python_implementation")  # PEP-345
+    | L("python_implementation")  # undocumented setuptools legacy
+    | L("extra")
 )
 ALIASES = {
     'os.name': 'os_name',
@@ -105,14 +105,14 @@ ALIASES = {
 VARIABLE.setParseAction(lambda s, l, t: Variable(ALIASES.get(t[0], t[0])))
 
 VERSION_CMP = (
-    L("===") |
-    L("==") |
-    L(">=") |
-    L("<=") |
-    L("!=") |
-    L("~=") |
-    L(">") |
-    L("<")
+    L("===")
+    | L("==")
+    | L(">=")
+    | L("<=")
+    | L("!=")
+    | L("~=")
+    | L(">")
+    | L("<")
 )
 
 MARKER_OP = VERSION_CMP | L("not in") | L("in")
@@ -152,8 +152,8 @@ def _format_marker(marker, first=True):
     # where the single item is itself it's own list. In that case we want skip
     # the rest of this function so that we don't get extraneous () on the
     # outside.
-    if (isinstance(marker, list) and len(marker) == 1 and
-            isinstance(marker[0], (list, tuple))):
+    if (isinstance(marker, list) and len(marker) == 1
+            and isinstance(marker[0], (list, tuple))):
         return _format_marker(marker[0])
 
     if isinstance(marker, list):

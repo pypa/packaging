@@ -71,8 +71,8 @@ def pep440(cached=False):
     # pkg_resources and PEP 440
     compatible_sorting = [
         project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version) ==
-            sorted((x for x in versions if _parse_version(x)), key=Version))
+        if (sorted(versions, key=pkg_resources.parse_version)
+            == sorted((x for x in versions if _parse_version(x)), key=Version))
     ]
 
     # Determine a list of projects that sort exactly the same between
@@ -83,8 +83,8 @@ def pep440(cached=False):
             (p, [v for v in vs if _parse_version(v) is not None])
             for p, vs in data.items()
         )
-        if (sorted(versions, key=pkg_resources.parse_version) ==
-            sorted(versions, key=Version))
+        if (sorted(versions, key=pkg_resources.parse_version)
+            == sorted(versions, key=Version))
     ]
 
     # Determine a list of projects which do not have any versions that are
@@ -99,8 +99,8 @@ def pep440(cached=False):
     # pkg_resources and PEP 440
     differing_latest_versions = [
         project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version)[-1:] !=
-            sorted(
+        if (sorted(versions, key=pkg_resources.parse_version)[-1:]
+            != sorted(
                 (x for x in versions if _parse_version(x)), key=Version)[-1:])
     ]
 
