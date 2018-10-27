@@ -239,12 +239,13 @@ class TestSpecifier:
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain(
+            *
             # Verify that the equal (==) operator works correctly
-            * [
+            [
                 [(x, x, operator.eq) for x in SPECIFIERS]
-            ]
+            ] +
             # Verify that the not equal (!=) operator works correctly
-            + [
+            [
                 [
                     (x, y, operator.ne)
                     for j, y in enumerate(SPECIFIERS)
@@ -262,12 +263,13 @@ class TestSpecifier:
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain(
+            *
             # Verify that the equal (==) operator works correctly
-            * [
+            [
                 [(x, x, operator.ne) for x in SPECIFIERS]
-            ]
+            ] +
             # Verify that the not equal (!=) operator works correctly
-            + [
+            [
                 [
                     (x, y, operator.eq)
                     for j, y in enumerate(SPECIFIERS)
@@ -955,29 +957,29 @@ class TestSpecifierSet:
         assert not result.prereleases
 
         result = (
-            SpecifierSet(left, prereleases=True)
-            & SpecifierSet(right, prereleases=True)
+            SpecifierSet(left, prereleases=True) &
+            SpecifierSet(right, prereleases=True)
         )
         assert result == SpecifierSet(expected)
         assert result.prereleases
 
         result = (
-            SpecifierSet(left, prereleases=False)
-            & SpecifierSet(right, prereleases=False)
+            SpecifierSet(left, prereleases=False) &
+            SpecifierSet(right, prereleases=False)
         )
         assert result == SpecifierSet(expected)
         assert not result.prereleases
 
         with pytest.raises(ValueError):
             result = (
-                SpecifierSet(left, prereleases=True)
-                & SpecifierSet(right, prereleases=False)
+                SpecifierSet(left, prereleases=True) &
+                SpecifierSet(right, prereleases=False)
             )
 
         with pytest.raises(ValueError):
             result = (
-                SpecifierSet(left, prereleases=False)
-                & SpecifierSet(right, prereleases=True)
+                SpecifierSet(left, prereleases=False) &
+                SpecifierSet(right, prereleases=True)
             )
 
     def test_specifiers_combine_not_implemented(self):
@@ -987,12 +989,13 @@ class TestSpecifierSet:
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain(
+            *
             # Verify that the equal (==) operator works correctly
-            * [
+            [
                 [(x, x, operator.eq) for x in SPECIFIERS]
-            ]
+            ] +
             # Verify that the not equal (!=) operator works correctly
-            + [
+            [
                 [
                     (x, y, operator.ne)
                     for j, y in enumerate(SPECIFIERS)
@@ -1012,12 +1015,13 @@ class TestSpecifierSet:
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain(
+            *
             # Verify that the equal (==) operator works correctly
-            * [
+            [
                 [(x, x, operator.ne) for x in SPECIFIERS]
-            ]
+            ] +
             # Verify that the not equal (!=) operator works correctly
-            + [
+            [
                 [
                     (x, y, operator.eq)
                     for j, y in enumerate(SPECIFIERS)
