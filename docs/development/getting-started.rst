@@ -23,7 +23,7 @@ automatically, so all you have to do is:
 
 .. code-block:: console
 
-    $ tox -e py
+    $ tox
     ...
     62746 passed in 220.43 seconds
 
