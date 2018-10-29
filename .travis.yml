@@ -15,7 +15,7 @@ matrix:
       dist: xenial
     - python: 3.8-dev
       dist: xenial
-    - env: TOXENV=pep8
+    - env: TOXENV=lint
     - env: TOXENV=docs
     - env: TOXENV=packaging
 
