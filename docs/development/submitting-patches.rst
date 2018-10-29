@@ -18,10 +18,9 @@ follow the directions on the :doc:`security page </security>`.
 Code
 ----
 
-When in doubt, refer to :pep:`8` for Python code. You can check if your code
-meets our automated requirements by running ``flake8`` against it. If you've
-installed the development requirements this will automatically use our
-configuration. You can also run the ``tox`` job with ``tox -e pep8``.
+This project's source is auto-formatted with |black|. You can check if your
+code meets our requirements by running our linters against it with ``tox -e
+lint``.
 
 `Write comments as complete sentences.`_
 
@@ -75,6 +74,8 @@ So, specifically:
 * Use Sphinx parameter/attribute documentation `syntax`_.
 
 
+.. |black| replace:: ``black``
+.. _black: https://pypi.org/project/black/
 .. _`Write comments as complete sentences.`: https://nedbatchelder.com/blog/201401/comments_should_be_sentences.html
 .. _`syntax`: http://sphinx-doc.org/domains.html#info-field-lists
 .. _`Studies have shown`: http://www.ibm.com/developerworks/rational/library/11-proven-practices-for-peer-review/
