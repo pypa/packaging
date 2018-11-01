@@ -23,7 +23,7 @@ automatically, so all you have to do is:
 
 .. code-block:: console
 
-    $ tox
+    $ tox --skip-missing-interpreters
     ...
     62746 passed in 220.43 seconds
 
@@ -35,7 +35,7 @@ each supported Python version and run the tests. For example:
 
 .. code-block:: console
 
-    $ tox --skip-missing-interpreters
+    $ tox
     ...
      py27: commands succeeded
     ERROR:   pypy: InterpreterNotFound: pypy
