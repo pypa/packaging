@@ -35,7 +35,7 @@ each supported Python version and run the tests. For example:
 
 .. code-block:: console
 
-    $ tox
+    $ tox --skip-missing-interpreters
     ...
      py27: commands succeeded
     ERROR:   pypy: InterpreterNotFound: pypy
