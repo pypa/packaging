@@ -504,9 +504,9 @@ class TestVersion:
             ("1.0c1.post1", True),
             ("1.0rc1.post1", True),
             ("1.0", False),
-            ("1.0+dev", False),
+            ("1.0+dev", True),
             ("1.0.post1", False),
-            ("1.0.post1+dev", False),
+            ("1.0.post1+dev", True),
         ],
     )
     def test_version_is_prerelease(self, version, expected):
