@@ -203,7 +203,7 @@ VERSION_PATTERN = r"""
             )
         )?
         (?P<dev>                                          # dev release
-            [-_\.]?
+            [-_\.+]?
             (?P<dev_l>dev)
             [-_\.]?
             (?P<dev_n>[0-9]+)?
