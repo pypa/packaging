@@ -209,7 +209,7 @@ VERSION_PATTERN = r"""
             (?P<dev_n>[0-9]+)?
         )?
     )
-    (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
+    (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*)?)?       # local version
 """
 
 
