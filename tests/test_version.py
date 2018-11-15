@@ -176,6 +176,9 @@ class TestVersion:
 
             # Local version case insensitivity
             ("1.0+AbC", "1.0+abc"),
+            
+            # Permit a + for local version, with empty local string
+            ("1.0+", "1.0"),
 
             # Integer Normalization
             ("1.01", "1.1"),
