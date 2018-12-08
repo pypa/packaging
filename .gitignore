@@ -6,6 +6,7 @@
 .cache/
 .coverage
 .idea
+.venv
 
 __pycache__/
 _build/
