@@ -65,11 +65,9 @@ def parse_tag(tag):
 
 def parse_wheel_tag(path):
     name = os.path.splitext(path)[0]
-    parts = 3
     index = len(name)
-    while parts:
+    for _ in range(3):  # interpreter, ABI, platform.
         index = name.rindex("-", 0, index)
-        parts -= 1
     return parse_tag(name[index + 1:])
 
 
