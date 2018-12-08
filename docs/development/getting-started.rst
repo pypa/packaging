@@ -9,8 +9,8 @@ dependencies, install packaging in ``editable`` mode. For example:
 .. code-block:: console
 
     $ # Create a virtualenv and activate it
-    $ pip install --requirement dev-requirements.txt
-    $ pip install --editable .
+    $ python -m pip install --requirement dev-requirements.txt
+    $ python -m pip install --editable .
 
 You are now ready to run the tests and build the documentation.
 
