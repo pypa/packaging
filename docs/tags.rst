@@ -48,7 +48,7 @@ Reference
     :param str tag: XXX
 
 
-.. function:: parse_wheel_tag(path)
+.. function:: parse_wheel_filename(path)
 
     XXX
 

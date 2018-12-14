@@ -86,26 +86,26 @@ def test_parse_tag_multi_platform():
     assert given == expected
 
 
-def test_parse_wheel_tag_simple(example_tag):
-    given = tags.parse_wheel_tag("gidgethub-3.0.0-py3-none-any.whl")
+def test_parse_wheel_filename_simple(example_tag):
+    given = tags.parse_wheel_filename("gidgethub-3.0.0-py3-none-any.whl")
     assert given == {example_tag}
 
 
-def test_parse_wheel_tag_path(example_tag):
+def test_parse_wheel_filename_path(example_tag):
     path = os.path.join("some", "location", "gidgethub-3.0.0-py3-none-any.whl")
-    given = tags.parse_wheel_tag(path)
+    given = tags.parse_wheel_filename(path)
     assert given == {example_tag}
     if pathlib and sys.version_info[:2] >= (3, 6):
         filename = "gidgethub-3.0.0-py3-none-any.whl"
-        given = tags.parse_wheel_tag(
+        given = tags.parse_wheel_filename(
             pathlib.PurePath("some") / "location" / filename
         )
         assert given == {example_tag}
 
 
-def test_parse_wheel_tag_multi_interpreter(example_tag):
+def test_parse_wheel_filename_multi_interpreter(example_tag):
     expected = {example_tag, tags.Tag("py2", "none", "any")}
-    given = tags.parse_wheel_tag("pip-18.0-py2.py3-none-any.whl")
+    given = tags.parse_wheel_filename("pip-18.0-py2.py3-none-any.whl")
     assert given == expected
 
 

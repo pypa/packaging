@@ -63,7 +63,7 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
-def parse_wheel_tag(path):
+def parse_wheel_filename(path):
     name = os.path.splitext(path)[0]
     index = len(name)
     for _ in range(3):  # interpreter, ABI, platform.
