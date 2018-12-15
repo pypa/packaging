@@ -41,29 +41,19 @@ with open(os.path.join(base_dir, "CHANGELOG.rst")) as f:
 setup(
     name=about["__title__"],
     version=about["__version__"],
-
     description=about["__summary__"],
     long_description=long_description,
     license=about["__license__"],
     url=about["__uri__"],
-
     author=about["__author__"],
     author_email=about["__email__"],
-
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
-
-    install_requires=[
-        "pyparsing>=2.0.2",  # Needed to avoid issue #91
-        "six",
-    ],
-
+    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
+    install_requires=["pyparsing>=2.0.2", "six"],  # Needed to avoid issue #91
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-
         "License :: OSI Approved :: Apache Software License",
         "License :: OSI Approved :: BSD License",
-
         "Programming Language :: Python",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
@@ -73,8 +63,5 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-
-    packages=[
-        "packaging",
-    ],
+    packages=["packaging"],
 )
