@@ -1,4 +1,6 @@
 # Install our development requirements
+pretend
+pytest
 tox
 
 # Install packaging itself
