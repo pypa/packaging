@@ -7,6 +7,7 @@ import os
 try:
     from os import fspath
 except ImportError:
+    # From PEP 519.
     def fspath(path):
         """Return the string representation of the path.
 
