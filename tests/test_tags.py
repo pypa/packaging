@@ -2,9 +2,9 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+import collections
 import distutils.util
 import os.path
-
 try:
     import pathlib
 except ImportError:
@@ -313,6 +313,21 @@ def test_generic_abi():
     else:
         abi = "none"
     assert abi == tags._generic_abi()
+
+
+def test_pypy_interpreter(monkeypatch):
+    if hasattr(sys, "pypy_version_info"):
+            major, minor = sys.pypy_version_info[:2]
+    else:
+        attributes = ["major", "minor", "micro", "releaselevel", "serial"]
+        PyPyVersion = collections.namedtuple("version_info", attributes)
+        major, minor = 6, 0
+        pypy_version = PyPyVersion(major=major, minor=minor, micro=1,
+                                   releaselevel="final", serial=0)
+        monkeypatch.setattr(sys, "pypy_version_info", pypy_version,
+                            raising=False)
+    expected = "pp{}{}{}".format(sys.version_info[0], major, minor)
+    assert expected == tags._pypy_interpreter()
 
 
 def test_pypy_tags(monkeypatch):
