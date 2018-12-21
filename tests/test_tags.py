@@ -306,13 +306,15 @@ def test_sys_tags_on_mac_cpython(monkeypatch):
                                   "any")
 
 
-def test_generic_abi():
+def test_generic_abi(monkeypatch):
     abi = sysconfig.get_config_var("SOABI")
     if abi:
         abi = abi.replace(".", "_").replace("-", "_")
     else:
         abi = "none"
     assert abi == tags._generic_abi()
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
+    assert tags._generic_abi() == "none"
 
 
 def test_pypy_interpreter(monkeypatch):
