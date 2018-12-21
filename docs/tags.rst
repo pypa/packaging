@@ -4,8 +4,9 @@ Tags
 .. currentmodule:: packaging.tags
 
 Wheels encode the Python interpreter, ABI, and platform that they support in
-their filenames using *tags*. `PEP 425`_ specifies how to interpret these tags
-as well as how to specify them in a wheel filename.
+their filenames using *`platform compatibility tags`_*. This module provides
+support for both parsing these tags as well as discovering what tags the
+running Python interpreter supports.
 
 Usage
 -----
@@ -111,4 +112,5 @@ Reference
 
 .. _abbreviation codes: https://www.python.org/dev/peps/pep-0425/#python-tag
 .. _compressed tag set: https://www.python.org/dev/peps/pep-0425/#compressed-tag-sets
+.. _platform compatibility tags: https://packaging.python.org/specifications/platform-compatibility-tags/
 .. _PEP 425: https://www.python.org/dev/peps/pep-0425/
