@@ -564,3 +564,12 @@ def test_sys_tags_linux_cpython(monkeypatch):
     assert result[0] == tags.Tag(expected_interpreter, abi, platforms[0])
     expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
     assert result[-1] == expected
+
+
+def test_generic_sys_tags(monkeypatch):
+    monkeypatch.setattr(platform, "system", lambda: "Generic")
+    monkeypatch.setattr(tags, "_interpreter_name", lambda: "generic")
+
+    result = list(tags.sys_tags())
+    expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
+    assert result[-1] == expected
