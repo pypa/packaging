@@ -159,6 +159,7 @@ def test_macOS_architectures(arch, is_32bit, expected):
         ((10, 7), "ppc", []),
         ((10, 6), "ppc", ["ppc", "fat32", "fat", "universal"]),
         ((10, 0), "ppc", ["ppc", "fat32", "fat", "universal"]),
+        ((11, 0), "riscv", ["riscv", "universal"])
     ],
 )
 def test_macOS_binary_formats(version, arch, expected):
