@@ -371,7 +371,7 @@ def _interpreter_name():
 def _generic_interpreter(name, py_version):
     version = sysconfig.get_config_var("py_version_nodot")
     if not version:
-        version = "".join(py_version[:2])
+        version = "".join(map(str, py_version[:2]))
     return "{name}{version}".format(name=name, version=version)
 
 

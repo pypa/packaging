@@ -376,6 +376,11 @@ def test_generic_interpreter():
     assert result == "sillywalk{version}".format(version=version)
 
 
+def test_generic_interpreter_no_config_var(monkeypatch):
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
+    assert tags._generic_interpreter("sillywalk", (3, 6)) == "sillywalk36"
+
+
 def test_generic_platforms():
     platform = distutils.util.get_platform().replace("-", "_")
     platform = platform.replace(".", "_")
