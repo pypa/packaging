@@ -454,15 +454,45 @@ def test_check_glibc_version_warning(version_str):
         assert issubclass(w[0].category, RuntimeWarning)
 
 
-@pytest.mark.skipif(
-    platform.system() != "Linux",
-    reason="requires Linux/glibc"
-)
-def test_have_compatible_glibc():
-    # Assuming no one is running this test with a version of glibc released in
-    # 1997.
-    assert tags._have_compatible_glibc(2, 0)
+@pytest.mark.skipif(not ctypes, reason="requires ctypes")
+@pytest.mark.parametrize("version_str,expected", [
+    (b"2.4", "2.4"),
+    ("2.4", "2.4"),
+])
+def test_glibc_version_string(version_str, expected, monkeypatch):
 
+    class LibcVersion:
+        def __init__(self, version_str):
+            self.version_str = version_str
+
+        def __call__(self):
+            return version_str
+
+    class ProcessNamespace:
+        def __init__(self, libc_version):
+            self.gnu_get_libc_version = libc_version
+
+    process_namespace = ProcessNamespace(LibcVersion(version_str))
+    monkeypatch.setattr(ctypes, "CDLL",
+                        lambda _: process_namespace)
+
+    assert tags._glibc_version_string() == expected
+
+    del process_namespace.gnu_get_libc_version
+    assert tags._glibc_version_string() is None
+
+
+def test_have_compatible_glibc(monkeypatch):
+    if platform.system() == "Linux":
+        # Assuming no one is running this test with a version of glibc released in
+        # 1997.
+        assert tags._have_compatible_glibc(2, 0)
+    else:
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: None)
+        assert not tags._have_compatible_glibc(2, 4)
+
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.4")
+        assert tags._have_compatible_glibc(2, 4)
 
 def test_linux_platforms_64bit_on_64bit(monkeypatch):
     is_64bit_OS = distutils.util.get_platform().endswith("_x86_64")
