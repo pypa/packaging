@@ -397,6 +397,12 @@ def test_generic_tags():
         tags.Tag("sillywalk33", "none", "plat2"),
     ]
 
+    no_abi = tags._generic_tags("sillywalk34", (3, 4), "none", ["plat1", "plat2"])
+    assert list(no_abi) == [
+        tags.Tag("sillywalk34", "none", "plat1"),
+        tags.Tag("sillywalk34", "none", "plat2"),
+    ]
+
 
 def test_sys_tags_on_windows_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
