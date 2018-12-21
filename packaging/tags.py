@@ -10,7 +10,7 @@ try:
     from os import fspath
 except ImportError:
     # From PEP 519.
-    def fspath(path):
+    def fspath(path):  # pragma: no cover
         """Return the string representation of the path.
 
         If str or bytes is passed in, it is returned unchanged. If __fspath__()
