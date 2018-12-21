@@ -8,6 +8,14 @@ Changelog
 * Fix string representation of PEP 508 direct URL requirements with markers.
 * Add the :mod:`~packaging.tags` module.
 
+* Better handling of file URLs
+
+  This allows for using ``file:///absolute/path``, which was previously
+  prevented due to the missing ``netloc``.
+
+  This allows for all file URLs that ``urlunparse`` turns back into the
+  original URL to be valid.
+
 
 18.0 - 2018-09-26
 ~~~~~~~~~~~~~~~~~

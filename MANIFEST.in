@@ -2,6 +2,7 @@ include CHANGELOG.rst CONTRIBUTING.rst README.rst
 include LICENSE LICENSE.APACHE LICENSE.BSD
 
 include .coveragerc
+include .flake8
 include tox.ini
 
 recursive-include docs *
