@@ -3,6 +3,10 @@
 # for complete details.
 
 import collections
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
 import distutils.util
 import os.path
 try:
@@ -494,7 +498,8 @@ def test_have_compatible_glibc(monkeypatch):
         monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.4")
         assert tags._have_compatible_glibc(2, 4)
 
-def test_linux_platforms_64bit_on_64bit(monkeypatch):
+
+def test_linux_platforms_64bit_on_64bit_OS(monkeypatch):
     is_64bit_OS = distutils.util.get_platform().endswith("_x86_64")
     if platform.system() != "Linux" or not is_64bit_OS:
         monkeypatch.setattr(distutils.util, "get_platform",
@@ -505,11 +510,11 @@ def test_linux_platforms_64bit_on_64bit(monkeypatch):
     assert linux_platform == "linux_x86_64"
 
 
-def test_linux_platforms_32bit_linux_on_64bit_OS(monkeypatch):
-    is_32bit_OS = distutils.util.get_platform().endswith("_i686")
-    if platform.system() != "Linux" or not is_32bit_OS:
+def test_linux_platforms_32bit_on_64bit_OS(monkeypatch):
+    is_64bit_OS = distutils.util.get_platform().endswith("_x86_64")
+    if platform.system() != "Linux" or not is_64bit_OS:
         monkeypatch.setattr(distutils.util, "get_platform",
-                            lambda: "linux_i686")
+                            lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible",
                             lambda *args: False)
     linux_platform = tags._linux_platforms(is_32bit=True)[-1]
