@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import absolute_import
+
 import distutils.util
 import os
 try:
@@ -38,8 +40,10 @@ except ImportError:
                         + path_type.__name__)
 import os.path
 import platform
+import re
 import sys
 import sysconfig
+import warnings
 
 
 INTERPRETER_SHORT_NAMES = {
@@ -281,33 +285,56 @@ def _is_manylinux_compatible(name, glibc_version):
     return _have_compatible_glibc(*glibc_version)
 
 
-# From PEP 513.
-def _have_compatible_glibc(major, minimum_minor):
+def _glibc_version_string():
+    # type: () -> Optional[str]
+    # Returns glibc version string, or None if not using glibc.
     import ctypes
-
+    # ctypes.CDLL(None) internally calls dlopen(NULL), and as the dlopen
+    # manpage says, "If filename is NULL, then the returned handle is for the
+    # main program". This way we can let the linker do the work to figure out
+    # which libc our process is actually using.
     process_namespace = ctypes.CDLL(None)
     try:
         gnu_get_libc_version = process_namespace.gnu_get_libc_version
     except AttributeError:
         # Symbol doesn't exist -> therefore, we are not linked to
         # glibc.
-        return False
+        return None
 
-    # Call gnu_get_libc_version, which returns a string like "2.5".
+    # Call gnu_get_libc_version, which returns a string like "2.5"
     gnu_get_libc_version.restype = ctypes.c_char_p
     version_str = gnu_get_libc_version()
     # py2 / py3 compatibility:
     if not isinstance(version_str, str):
         version_str = version_str.decode("ascii")
 
+    return version_str
+
+
+# Separated out from have_compatible_glibc for easier unit testing.
+def _check_glibc_version(version_str, required_major, minimum_minor):
+    # type: (str, int, int) -> bool
     # Parse string and check against requested version.
-    version = [int(piece) for piece in version_str.split(".")]
-    assert len(version) == 2
-    if major != version[0]:
+    #
+    # We use a regexp instead of str.split because we want to discard any
+    # random junk that might come after the minor version -- this might happen
+    # in patched/forked versions of glibc (e.g. Linaro's version of glibc
+    # uses version strings like "2.20-2014.11"). See gh-3588.
+    m = re.match(r"(?P<major>[0-9]+)\.(?P<minor>[0-9]+)", version_str)
+    if not m:
+        warnings.warn("Expected glibc version with 2 components major.minor,"
+                      " got: %s" % version_str, RuntimeWarning)
         return False
-    if minimum_minor > version[1]:
+    return (int(m.group("major")) == required_major and
+            int(m.group("minor")) >= minimum_minor)
+
+
+def _have_compatible_glibc(required_major, minimum_minor):
+    # type: (int, int) -> bool
+    version_str = _glibc_version_string()  # type: Optional[str]
+    if version_str is None:
         return False
-    return True
+    return _check_glibc_version(version_str, required_major, minimum_minor)
 
 
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):

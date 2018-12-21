@@ -13,6 +13,7 @@ import platform
 import sys
 import sysconfig
 import types
+import warnings
 
 import pytest
 
@@ -413,6 +414,27 @@ def test_is_manylinux_compatible_glibc_support(monkeypatch):
     assert tags._have_compatible_glibc(2, 0)
     assert tags._have_compatible_glibc(2, 5)
     assert not tags._have_compatible_glibc(2, 10)
+
+
+@pytest.mark.parametrize("version_str,major,minor,expected", [
+    ("2.4", 2, 4, True),
+    ("2.4", 2, 5, False),
+    ("2.4", 2, 3, True),
+    ("3.4", 2, 4, False),
+])
+def test_check_glibc_version(version_str, major, minor, expected):
+    assert expected == tags._check_glibc_version(version_str, major, minor)
+
+
+@pytest.mark.parametrize("version_str", [
+    "glibc-2.4.5",
+    "2",
+])
+def test_check_glibc_version_warning(version_str):
+    with warnings.catch_warnings(record=True) as w:
+        tags._check_glibc_version(version_str, 2, 4)
+        assert len(w) == 1
+        assert issubclass(w[0].category, RuntimeWarning)
 
 
 @pytest.mark.skipif(
