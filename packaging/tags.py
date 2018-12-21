@@ -112,6 +112,8 @@ def _cpython_interpreter(py_version):
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
+# TODO: This code is simpler compared to pep425tags as CPython 2.7 didn't seem
+#       to need the fallbacks. This that acceptable?
 def _cpython_abi(py_version):
     soabi = sysconfig.get_config_var("SOABI")
     if soabi:
