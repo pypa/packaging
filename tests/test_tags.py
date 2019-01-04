@@ -508,7 +508,6 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
     assert tags._glibc_version_string() is None
 
 
-
 def test_have_compatible_glibc(monkeypatch):
     if platform.system() == "Linux":
         # Assuming no one is running this test with a version of glibc released in
