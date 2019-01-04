@@ -29,34 +29,34 @@ def example_tag():
     return tags.Tag("py3", "none", "any")
 
 
-def test_Tag_lowercasing():
+def test_tag_lowercasing():
     tag = tags.Tag("PY3", "None", "ANY")
     assert tag.interpreter == "py3"
     assert tag.abi == "none"
     assert tag.platform == "any"
 
 
-def test_Tag_equality():
+def test_tag_equality():
     args = "py3", "none", "any"
     assert tags.Tag(*args) == tags.Tag(*args)
 
 
-def test_Tag_hashing(example_tag):
+def test_tag_hashing(example_tag):
     tags = {example_tag}  # Should not raise TypeError.
     assert example_tag in tags
 
 
-def test_Tag_str(example_tag):
+def test_tag_str(example_tag):
     assert str(example_tag) == "py3-none-any"
 
 
-def test_Tag_repr(example_tag):
+def test_tag_repr(example_tag):
     assert repr(example_tag) == "<py3-none-any @ {tag_id}>".format(
         tag_id=id(example_tag)
     )
 
 
-def test_Tag_attribute_access(example_tag):
+def test_tag_attribute_access(example_tag):
     assert example_tag.interpreter == "py3"
     assert example_tag.abi == "none"
     assert example_tag.platform == "any"
@@ -136,7 +136,7 @@ def test__interpreter_name_cpython(name, expected, monkeypatch):
         ("ppc64", True, "ppc"),
     ],
 )
-def test_macOS_architectures(arch, is_32bit, expected):
+def test_macos_architectures(arch, is_32bit, expected):
     assert tags._mac_arch(arch, is_32bit=is_32bit) == expected
 
 
@@ -162,7 +162,7 @@ def test_macOS_architectures(arch, is_32bit, expected):
         ((11, 0), "riscv", ["riscv", "universal"])
     ],
 )
-def test_macOS_binary_formats(version, arch, expected):
+def test_macos_binary_formats(version, arch, expected):
     assert tags._mac_binary_formats(version, arch) == expected
 
 
@@ -186,7 +186,7 @@ def test_mac_platforms():
     assert not tags._mac_platforms((10, 0), "x86_64")
 
 
-def test_macOS_version_detection(monkeypatch):
+def test_macos_version_detection(monkeypatch):
     if platform.system() != "Darwin":
         monkeypatch.setattr(
             platform, "mac_ver", lambda: ("10.14", ("", "", ""), "x86_64")
@@ -199,7 +199,7 @@ def test_macOS_version_detection(monkeypatch):
 
 
 @pytest.mark.parametrize("arch", ["x86_64", "i386"])
-def test_macOS_arch_detection(arch, monkeypatch):
+def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver",
                             lambda: ("10.14", ("", "", ""), arch))
@@ -207,8 +207,8 @@ def test_macOS_arch_detection(arch, monkeypatch):
 
 
 def test_cpython_abi_py3(monkeypatch):
-    has_SOABI = bool(sysconfig.get_config_var("SOABI"))
-    if platform.python_implementation() != "CPython" or not has_SOABI:
+    has_soabi = bool(sysconfig.get_config_var("SOABI"))
+    if platform.python_implementation() != "CPython" or not has_soabi:
         monkeypatch.setattr(
             sysconfig, "get_config_var", lambda key: "'cpython-37m-darwin'"
         )
@@ -230,8 +230,8 @@ def test_cpython_abi_py3(monkeypatch):
     ],
 )
 def test_cpython_abi_py2(debug, pymalloc, unicode_width, monkeypatch):
-    has_SOABI = sysconfig.get_config_var("SOABI")
-    if platform.python_implementation() != "CPython" or has_SOABI:
+    has_soabi = sysconfig.get_config_var("SOABI")
+    if platform.python_implementation() != "CPython" or has_soabi:
         diff_debug = debug != sysconfig.get_config_var("Py_DEBUG")
         diff_malloc = pymalloc != sysconfig.get_config_var("WITH_PYMALLOC")
         unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
@@ -510,9 +510,9 @@ def test_have_compatible_glibc(monkeypatch):
     assert not tags._have_compatible_glibc(2, 4)
 
 
-def test_linux_platforms_64bit_on_64bit_OS(monkeypatch):
-    is_64bit_OS = distutils.util.get_platform().endswith("_x86_64")
-    if platform.system() != "Linux" or not is_64bit_OS:
+def test_linux_platforms_64bit_on_64bit_os(monkeypatch):
+    is_64bit_os = distutils.util.get_platform().endswith("_x86_64")
+    if platform.system() != "Linux" or not is_64bit_os:
         monkeypatch.setattr(distutils.util, "get_platform",
                             lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible",
@@ -521,9 +521,9 @@ def test_linux_platforms_64bit_on_64bit_OS(monkeypatch):
     assert linux_platform == "linux_x86_64"
 
 
-def test_linux_platforms_32bit_on_64bit_OS(monkeypatch):
-    is_64bit_OS = distutils.util.get_platform().endswith("_x86_64")
-    if platform.system() != "Linux" or not is_64bit_OS:
+def test_linux_platforms_32bit_on_64bit_os(monkeypatch):
+    is_64bit_os = distutils.util.get_platform().endswith("_x86_64")
+    if platform.system() != "Linux" or not is_64bit_os:
         monkeypatch.setattr(distutils.util, "get_platform",
                             lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible",
