@@ -247,14 +247,14 @@ def test_cpython_abi_py2(debug, pymalloc, unicode_width, monkeypatch):
                        "WITH_PYMALLOC": int(pymalloc),
                        "Py_UNICODE_SIZE": unicode_width}
         monkeypatch.setattr(sysconfig, "get_config_var", config_vars.__getitem__)
-        options = ""
-        if debug:
-            options += "d"
-        if pymalloc:
-            options += "m"
-        if unicode_width == 4:
-            options += "u"
-        assert "cp33{}".format(options) == tags._cpython_abi((3, 3))
+    options = ""
+    if debug:
+        options += "d"
+    if pymalloc:
+        options += "m"
+    if unicode_width == 4:
+        options += "u"
+    assert "cp33{}".format(options) == tags._cpython_abi((3, 3))
 
 
 def test_independent_tags():
