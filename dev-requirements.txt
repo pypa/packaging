@@ -1,5 +1,5 @@
 # Install our development requirements
-black
+black; python_version >= '3.6'
 flake8
 pep8-naming
 pretend
