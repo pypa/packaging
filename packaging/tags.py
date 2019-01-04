@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import distutils.util
 import os
+
 try:
     from os import fspath
 except ImportError:  # pragma: no cover
@@ -27,17 +28,22 @@ except ImportError:  # pragma: no cover
         try:
             path = path_type.__fspath__(path)
         except AttributeError:
-            if hasattr(path_type, '__fspath__'):
+            if hasattr(path_type, "__fspath__"):
                 raise
         else:
             if isinstance(path, (str, bytes)):
                 return path
             else:
-                raise TypeError("expected __fspath__() to return str or bytes,"
-                                " not " + type(path).__name__)
+                raise TypeError(
+                    "expected __fspath__() to return str or bytes,"
+                    " not " + type(path).__name__
+                )
 
-        raise TypeError("expected str, bytes or os.PathLike object, not "
-                        + path_type.__name__)
+        raise TypeError(
+            "expected str, bytes or os.PathLike object, not " + path_type.__name__
+        )
+
+
 import os.path
 import platform
 import re
@@ -60,7 +66,6 @@ _32_BIT_INTERPRETER = sys.maxsize <= 2 ** 32
 
 # A dataclass would be better, but Python 2.7. :(
 class Tag:
-
     def __init__(self, interpreter, abi, platform):
         self._tags = interpreter.lower(), abi.lower(), platform.lower()
 
@@ -104,7 +109,7 @@ def parse_wheel_filename(path):
     index = len(name)
     for _ in range(3):  # interpreter, ABI, platform.
         index = name.rindex("-", 0, index)
-    return parse_tag(name[index + 1:])
+    return parse_tag(name[index + 1 :])
 
 
 def _normalize_string(string):
@@ -145,8 +150,9 @@ def _cpython_tags(py_version, interpreter, abi, platforms):
     # PEP 384 was first implemented in Python 3.2.
     for minor_version in range(py_version[1] - 1, 1, -1):
         for platform_ in platforms:
-            interpreter = "cp{major}{minor}".format(major=py_version[0],
-                                                    minor=minor_version)
+            interpreter = "cp{major}{minor}".format(
+                major=py_version[0], minor=minor_version
+            )
             yield Tag(interpreter, "abi3", platform_)
 
 
@@ -289,6 +295,7 @@ def _glibc_version_string():
     # type: () -> Optional[str]
     # Returns glibc version string, or None if not using glibc.
     import ctypes
+
     # ctypes.CDLL(None) internally calls dlopen(NULL), and as the dlopen
     # manpage says, "If filename is NULL, then the returned handle is for the
     # main program". This way we can let the linker do the work to figure out
@@ -322,11 +329,16 @@ def _check_glibc_version(version_str, required_major, minimum_minor):
     # uses version strings like "2.20-2014.11"). See gh-3588.
     m = re.match(r"(?P<major>[0-9]+)\.(?P<minor>[0-9]+)", version_str)
     if not m:
-        warnings.warn("Expected glibc version with 2 components major.minor,"
-                      " got: %s" % version_str, RuntimeWarning)
+        warnings.warn(
+            "Expected glibc version with 2 components major.minor,"
+            " got: %s" % version_str,
+            RuntimeWarning,
+        )
         return False
-    return (int(m.group("major")) == required_major and
-            int(m.group("minor")) >= minimum_minor)
+    return (
+        int(m.group("major")) == required_major
+        and int(m.group("minor")) >= minimum_minor
+    )
 
 
 def _have_compatible_glibc(required_major, minimum_minor):
@@ -352,8 +364,7 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     else:
         platforms = []
     # Support for a later manylinux implies support for an earlier version.
-    platforms += [linux.replace("linux", name)
-                  for name, _ in manylinux_support_iter]
+    platforms += [linux.replace("linux", name) for name, _ in manylinux_support_iter]
     platforms.append(linux)
     return platforms
 
