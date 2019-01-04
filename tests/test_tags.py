@@ -444,9 +444,9 @@ def test_is_manylinux_compatible_glibc_support(monkeypatch):
     monkeypatch.setitem(sys.modules, "_manylinux", None)
     monkeypatch.setattr(tags, "_have_compatible_glibc",
                         lambda major, minor: (major, minor) <= (2, 5))
-    assert tags._have_compatible_glibc(2, 0)
-    assert tags._have_compatible_glibc(2, 5)
-    assert not tags._have_compatible_glibc(2, 10)
+    assert tags._is_manylinux_compatible("manylinux1", (2, 0))
+    assert tags._is_manylinux_compatible("manylinux1", (2, 5))
+    assert not tags._is_manylinux_compatible("manylinux1", (2, 10))
 
 
 @pytest.mark.parametrize("version_str,major,minor,expected", [
