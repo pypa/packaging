@@ -117,7 +117,7 @@ def _cpython_interpreter(py_version):
 
 
 # TODO: This code is simpler compared to pep425tags as CPython 2.7 didn't seem
-#       to need the fallbacks. This that acceptable?
+#       to need the fallbacks. Is that acceptable?
 def _cpython_abi(py_version):
     soabi = sysconfig.get_config_var("SOABI")
     if soabi:
