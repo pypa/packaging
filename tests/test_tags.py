@@ -504,11 +504,10 @@ def test_have_compatible_glibc(monkeypatch):
         # 1997.
         assert tags._have_compatible_glibc(2, 0)
     else:
-        monkeypatch.setattr(tags, "_glibc_version_string", lambda: None)
-        assert not tags._have_compatible_glibc(2, 4)
-
         monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.4")
         assert tags._have_compatible_glibc(2, 4)
+    monkeypatch.setattr(tags, "_glibc_version_string", lambda: None)
+    assert not tags._have_compatible_glibc(2, 4)
 
 
 def test_linux_platforms_64bit_on_64bit_OS(monkeypatch):
