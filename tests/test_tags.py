@@ -242,6 +242,11 @@ def test_cpython_abi_py2(debug, pymalloc, unicode_width, monkeypatch):
                            "Py_UNICODE_SIZE": unicode_width}
             monkeypatch.setattr(sysconfig, "get_config_var",
                                 config_vars.__getitem__)
+    else:
+        config_vars = {"SOABI": None, "Py_DEBUG": int(debug),
+                       "WITH_PYMALLOC": int(pymalloc),
+                       "Py_UNICODE_SIZE": unicode_width}
+        monkeypatch.setattr(sysconfig, "get_config_var", config_vars.__getitem__)
         options = ""
         if debug:
             options += "d"
@@ -318,6 +323,10 @@ def test_generic_abi(monkeypatch):
     else:
         abi = "none"
     assert abi == tags._generic_abi()
+
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "cpython-37m-darwin")
+    assert tags._generic_abi() == "cpython_37m_darwin"
+
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
     assert tags._generic_abi() == "none"
 
@@ -472,8 +481,9 @@ def test_check_glibc_version_warning(version_str):
 
 @pytest.mark.skipif(not ctypes, reason="requires ctypes")
 @pytest.mark.parametrize("version_str,expected", [
+    # Be very explicit about bytes and Unicode for Python 2 testing.
     (b"2.4", "2.4"),
-    ("2.4", "2.4"),
+    (u"2.4", "2.4"),
 ])
 def test_glibc_version_string(version_str, expected, monkeypatch):
 
@@ -496,6 +506,7 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
 
     del process_namespace.gnu_get_libc_version
     assert tags._glibc_version_string() is None
+
 
 
 def test_have_compatible_glibc(monkeypatch):
