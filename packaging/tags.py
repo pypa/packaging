@@ -121,7 +121,7 @@ def _cpython_interpreter(py_version):
 def _cpython_abi(py_version):
     soabi = sysconfig.get_config_var("SOABI")
     if soabi:
-        _, options, _ = soabi.split("-", 2)
+        options = soabi.split("-", 2)[1]
     else:
         found_options = [str(py_version[0]), str(py_version[1])]
         if sysconfig.get_config_var("Py_DEBUG"):
