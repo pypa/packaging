@@ -209,7 +209,7 @@ def test_cpython_abi_py3(monkeypatch):
         monkeypatch.setattr(
             sysconfig, "get_config_var", lambda key: "'cpython-37m-darwin'"
         )
-    _, soabi, _ = sysconfig.get_config_var("SOABI").split("-", 2)
+    soabi = sysconfig.get_config_var("SOABI").split("-", 2)[1]
     result = tags._cpython_abi(sys.version_info[:2])
     assert result == "cp{soabi}".format(soabi=soabi)
 
