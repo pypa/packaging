@@ -1,9 +1,14 @@
 Changelog
 ---------
 
-18.1 - `master`_
+19.1 - `master`_
 ~~~~~~~~~~~~~~~~
+
 .. note:: This version is not yet released and is under active development.
+
+
+19.0 - 2019-01-20
+~~~~~~~~~~~~~~~~~
 
 * Fix string representation of PEP 508 direct URL requirements with markers.
 
