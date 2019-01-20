@@ -8,7 +8,7 @@ Release Process
 #. Install the latest ``setuptools``, ``wheel`` and ``twine`` packages
    from PyPI::
 
-    $ pip install --update setuptools wheel twine
+    $ pip install --upgrade setuptools wheel twine
 
 #. Ensure no ``dist/`` folder exists and then create the distribution files::
 
