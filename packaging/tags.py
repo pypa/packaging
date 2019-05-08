@@ -5,51 +5,13 @@
 from __future__ import absolute_import
 
 import distutils.util
-import os
-
-try:
-    from os import fspath
-except ImportError:  # pragma: no cover
-    # From PEP 519.
-    def fspath(path):
-        """Return the string representation of the path.
-
-        If str or bytes is passed in, it is returned unchanged. If __fspath__()
-        returns something other than str or bytes then TypeError is raised. If
-        this function is given something that is not str, bytes, or os.PathLike
-        then TypeError is raised.
-        """
-        if isinstance(path, (str, bytes)):
-            return path
-
-        # Work from the object's type to match method resolution of other magic
-        # methods.
-        path_type = type(path)
-        try:
-            path = path_type.__fspath__(path)
-        except AttributeError:
-            if hasattr(path_type, "__fspath__"):
-                raise
-        else:
-            if isinstance(path, (str, bytes)):
-                return path
-            else:
-                raise TypeError(
-                    "expected __fspath__() to return str or bytes,"
-                    " not " + type(path).__name__
-                )
-
-        raise TypeError(
-            "expected str, bytes or os.PathLike object, not " + path_type.__name__
-        )
-
-
-import os.path
 import platform
 import re
 import sys
 import sysconfig
 import warnings
+
+import attr
 
 
 INTERPRETER_SHORT_NAMES = {
@@ -64,34 +26,17 @@ INTERPRETER_SHORT_NAMES = {
 _32_BIT_INTERPRETER = sys.maxsize <= 2 ** 32
 
 
-# A dataclass would be better, but Python 2.7. :(
-class Tag:
-    def __init__(self, interpreter, abi, platform):
-        self._tags = interpreter.lower(), abi.lower(), platform.lower()
-
-    def __eq__(self, other):
-        return self._tags == other._tags
-
-    def __hash__(self):
-        return hash(self._tags)
+@attr.s(frozen=True, repr=False)
+class Tag(object):
+    interpreter = attr.ib(converter=str.lower)
+    abi = attr.ib(converter=str.lower)
+    platform = attr.ib(converter=str.lower)
 
     def __str__(self):
-        return "-".join(self._tags)
+        return "{}-{}-{}".format(self.interpreter, self.abi, self.platform)
 
     def __repr__(self):
         return "<{self} @ {self_id}>".format(self=self, self_id=id(self))
-
-    @property
-    def interpreter(self):
-        return self._tags[0]
-
-    @property
-    def abi(self):
-        return self._tags[1]
-
-    @property
-    def platform(self):
-        return self._tags[2]
 
 
 def parse_tag(tag):
@@ -102,14 +47,6 @@ def parse_tag(tag):
             for platform_ in platforms.split("."):
                 tags.add(Tag(interpreter, abi, platform_))
     return frozenset(tags)
-
-
-def parse_wheel_filename(path):
-    name = os.path.splitext(fspath(path))[0]
-    index = len(name)
-    for _ in range(3):  # interpreter, ABI, platform.
-        index = name.rindex("-", 0, index)
-    return parse_tag(name[index + 1 :])
 
 
 def _normalize_string(string):
