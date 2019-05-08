@@ -9,12 +9,7 @@ try:
 except ImportError:
     ctypes = None
 import distutils.util
-import os.path
 
-try:
-    import pathlib
-except ImportError:
-    pathlib = None
 import platform
 import sys
 import sysconfig
