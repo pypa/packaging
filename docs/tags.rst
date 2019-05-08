@@ -75,19 +75,6 @@ Reference
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
 
 
-.. function:: parse_wheel_filename(path)
-
-    Parse the *path* of a wheel file, returning a set of :class:`Tag` instances.
-
-    A set is returned due to the possibility that the wheel filename represents
-    a `compressed tag set`_. The path does not need to exist. The path may be
-    an :class:`os.PathLike` object.
-
-    :param typing.Union[str,os.PathLike] path: The path to a wheel file,
-                                               e.g. ``"packaging-18.0-py2.py3-none-any.whl"``;
-                                               the file does not need to exist.
-
-
 .. function:: sys_tags()
 
     Create an iterable of tags that the running interpreter supports.
