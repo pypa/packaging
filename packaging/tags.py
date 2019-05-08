@@ -79,7 +79,6 @@ def _cpython_abi(py_version):
 def _cpython_tags(py_version, interpreter, abi, platforms):
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
-    # TODO: Make sure doing this on Windows isn't horrible.
     for tag in (Tag(interpreter, "abi3", platform) for platform in platforms):
         yield tag
     for tag in (Tag(interpreter, "none", platform) for platform in platforms):
@@ -337,7 +336,6 @@ def sys_tags():
     elif platform.system() == "Linux":
         platforms = _linux_platforms()
     else:
-        # TODO: Does Windows care if running under 32-bit Python on 64-bit OS?
         platforms = _generic_platforms()
 
     if interpreter_name == "cp":
