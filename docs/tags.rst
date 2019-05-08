@@ -13,23 +13,21 @@ Usage
 
 .. doctest::
 
-    >>> from packaging.tags import Tag, parse_wheel_filename, sys_tags
+    >>> from packaging.tags import Tag, sys_tags
     >>> import sys
     >>> looking_for = Tag("py{major}".format(major=sys.version_info.major), "none", "any")
     >>> supported_tags = list(sys_tags())
     >>> looking_for in supported_tags
     True
-    >>> really_old = parse_wheel_filename("oldie-3.14-py1-none-any.whl")
-    >>> good_wheel = "current-1.0-{}.whl".format(str(looking_for))
-    >>> current = parse_wheel_filename(good_wheel)
-    >>> wheels = {really_old: "py1-none-any", current: good_wheel}
+    >>> really_old = Tag("py1", "none", "any")
+    >>> wheels = {really_old, looking_for}
     >>> best_wheel = None
     >>> for supported_tag in supported_tags:
-    ...     for wheel_tags, filename in wheels.items():
-    ...         if supported_tag in wheel_tags:
-    ...             best_wheel = filename
+    ...     for wheel_tag in wheels:
+    ...         if supported_tag == wheel_tag:
+    ...             best_wheel = wheel_tag
     ...             break
-    >>> best_wheel == good_wheel
+    >>> best_wheel == looking_for
     True
 
 Reference
