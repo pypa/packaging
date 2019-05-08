@@ -228,7 +228,6 @@ def _is_manylinux_compatible(name, glibc_version):
 
 
 def _glibc_version_string():
-    # type: () -> Optional[str]
     # Returns glibc version string, or None if not using glibc.
     import ctypes
 
@@ -256,7 +255,6 @@ def _glibc_version_string():
 
 # Separated out from have_compatible_glibc for easier unit testing.
 def _check_glibc_version(version_str, required_major, minimum_minor):
-    # type: (str, int, int) -> bool
     # Parse string and check against requested version.
     #
     # We use a regexp instead of str.split because we want to discard any
@@ -278,8 +276,7 @@ def _check_glibc_version(version_str, required_major, minimum_minor):
 
 
 def _have_compatible_glibc(required_major, minimum_minor):
-    # type: (int, int) -> bool
-    version_str = _glibc_version_string()  # type: Optional[str]
+    version_str = _glibc_version_string()
     if version_str is None:
         return False
     return _check_glibc_version(version_str, required_major, minimum_minor)
