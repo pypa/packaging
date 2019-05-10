@@ -11,6 +11,7 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 * Fix string representation of PEP 508 direct URL requirements with markers.
+* Add the `packaging.tags` module.
 
 * Better handling of file URLs
 
