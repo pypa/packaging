@@ -1,17 +1,18 @@
 Changelog
 ---------
 
-19.1 - `master`_
+20.0 - `master`_
 ~~~~~~~~~~~~~~~~
 
 .. note:: This version is not yet released and is under active development.
+
+* Add the `packaging.tags` module.
 
 
 19.0 - 2019-01-20
 ~~~~~~~~~~~~~~~~~
 
 * Fix string representation of PEP 508 direct URL requirements with markers.
-* Add the `packaging.tags` module.
 
 * Better handling of file URLs
 
