@@ -249,6 +249,12 @@ def default_environment():
         iver = "0"
         implementation_name = ""
 
+    python_full_version = platform.python_version()
+
+    # According to documentation, this always starts with 'X.Y.Z', so
+    # we are safe to parse out X.Y by looking for the second dot.
+    python_version = ".".join(python_full_version.split(".", 2)[:2])
+
     return {
         "implementation_name": implementation_name,
         "implementation_version": iver,
@@ -257,9 +263,9 @@ def default_environment():
         "platform_release": platform.release(),
         "platform_system": platform.system(),
         "platform_version": platform.version(),
-        "python_full_version": platform.python_version(),
+        "python_full_version": python_full_version,
         "platform_python_implementation": platform.python_implementation(),
-        "python_version": platform.python_version()[:3],
+        "python_version": python_version,
         "sys_platform": sys.platform,
     }
 
