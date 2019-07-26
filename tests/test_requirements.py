@@ -105,8 +105,8 @@ class TestRequirements:
     def test_invalid_url(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name @ gopher:/foo/com")
-        assert "Invalid URL: " in str(e)
-        assert "gopher:/foo/com" in str(e)
+        assert "Invalid URL: " in str(e.value)
+        assert "gopher:/foo/com" in str(e.value)
 
     def test_file_url(self):
         req = Requirement("name @ file:///absolute/path")
@@ -194,4 +194,4 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-        assert "Expected stringEnd" in str(e)
+        assert "Expected stringEnd" in str(e.value)
