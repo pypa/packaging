@@ -6,7 +6,8 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
-* Add the `packaging.tags` module.
+* Add the ``packaging.tags`` module. (:issue:`156`)
+* Correctly handle two-digit versions in ``python_version`` (:issue:`119`)
 
 
 19.0 - 2019-01-20
