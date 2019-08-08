@@ -513,6 +513,13 @@ def test_linux_platforms_32bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
     assert linux_platform == "linux_i686"
 
 
+def test_linux_platforms_manylinux_unsupported(monkeypatch):
+    monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+    monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
+    linux_platform = tags._linux_platforms(is_32bit=False)
+    assert linux_platform == ["linux_x86_64"]
+
+
 def test_linux_platforms_manylinux1(monkeypatch):
     monkeypatch.setattr(
         tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux1"
