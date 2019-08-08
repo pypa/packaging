@@ -183,6 +183,7 @@ def test_macos_version_detection(monkeypatch):
 def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.14", ("", "", ""), arch))
+        monkeypatch.setattr(tags, "_mac_arch", lambda *args: arch)
     assert tags._mac_platforms((10, 14))[0].endswith(arch)
 
 
