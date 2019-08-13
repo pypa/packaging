@@ -11,6 +11,7 @@ except ImportError:
 import distutils.util
 
 import platform
+import re
 import sys
 import sysconfig
 import types
@@ -24,6 +25,16 @@ from packaging import tags
 @pytest.fixture
 def example_tag():
     return tags.Tag("py3", "none", "any")
+
+
+@pytest.fixture
+def is_x86():
+    return re.match(r"(i\d86|x86_64)", platform.machine()) is not None
+
+
+@pytest.fixture
+def is_64bit_os():
+    return platform.architecture()[0] == "64bit"
 
 
 def test_tag_lowercasing():
@@ -172,6 +183,7 @@ def test_macos_version_detection(monkeypatch):
 def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.14", ("", "", ""), arch))
+        monkeypatch.setattr(tags, "_mac_arch", lambda *args: arch)
     assert tags._mac_platforms((10, 14))[0].endswith(arch)
 
 
@@ -486,22 +498,27 @@ def test_have_compatible_glibc(monkeypatch):
     assert not tags._have_compatible_glibc(2, 4)
 
 
-def test_linux_platforms_64bit_on_64bit_os(monkeypatch):
-    is_64bit_os = distutils.util.get_platform().endswith("_x86_64")
-    if platform.system() != "Linux" or not is_64bit_os:
+def test_linux_platforms_64bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
+    if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
     linux_platform = tags._linux_platforms(is_32bit=False)[-1]
     assert linux_platform == "linux_x86_64"
 
 
-def test_linux_platforms_32bit_on_64bit_os(monkeypatch):
-    is_64bit_os = distutils.util.get_platform().endswith("_x86_64")
-    if platform.system() != "Linux" or not is_64bit_os:
+def test_linux_platforms_32bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
+    if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
     linux_platform = tags._linux_platforms(is_32bit=True)[-1]
     assert linux_platform == "linux_i686"
+
+
+def test_linux_platforms_manylinux_unsupported(monkeypatch):
+    monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+    monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
+    linux_platform = tags._linux_platforms(is_32bit=False)
+    assert linux_platform == ["linux_x86_64"]
 
 
 def test_linux_platforms_manylinux1(monkeypatch):
@@ -511,7 +528,8 @@ def test_linux_platforms_manylinux1(monkeypatch):
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     platforms = tags._linux_platforms(is_32bit=False)
-    assert platforms == ["manylinux1_x86_64", "linux_x86_64"]
+    arch = platform.machine()
+    assert platforms == ["manylinux1_" + arch, "linux_" + arch]
 
 
 def test_linux_platforms_manylinux2010(monkeypatch):
@@ -521,7 +539,8 @@ def test_linux_platforms_manylinux2010(monkeypatch):
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     platforms = tags._linux_platforms(is_32bit=False)
-    expected = ["manylinux2010_x86_64", "manylinux1_x86_64", "linux_x86_64"]
+    arch = platform.machine()
+    expected = ["manylinux2010_" + arch, "manylinux1_" + arch, "linux_" + arch]
     assert platforms == expected
 
 
