@@ -43,6 +43,12 @@ def test_tag_hashing(example_tag):
     assert example_tag in tags
 
 
+def test_tag_hash_equality(example_tag):
+    equal_tag = tags.Tag("py3", "none", "any")
+    assert example_tag == equal_tag
+    assert example_tag.__hash__() == equal_tag.__hash__()
+
+
 def test_tag_str(example_tag):
     assert str(example_tag) == "py3-none-any"
 
