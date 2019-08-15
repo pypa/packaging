@@ -11,8 +11,6 @@ import sys
 import sysconfig
 import warnings
 
-import attr
-
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -26,14 +24,39 @@ INTERPRETER_SHORT_NAMES = {
 _32_BIT_INTERPRETER = sys.maxsize <= 2 ** 32
 
 
-@attr.s(frozen=True, repr=False)
 class Tag(object):
-    interpreter = attr.ib(converter=str.lower)
-    abi = attr.ib(converter=str.lower)
-    platform = attr.ib(converter=str.lower)
+
+    __slots__ = ["_interpreter", "_abi", "_platform"]
+
+    def __init__(self, interpreter, abi, platform):
+        self._interpreter = str.lower(interpreter)
+        self._abi = str.lower(abi)
+        self._platform = str.lower(platform)
+
+    @property
+    def interpreter(self):
+        return self._interpreter
+
+    @property
+    def abi(self):
+        return self._abi
+
+    @property
+    def platform(self):
+        return self._platform
+
+    def __eq__(self, other):
+        return (
+            (self.platform == other.platform)
+            and (self.abi == other.abi)
+            and (self.interpreter == other.interpreter)
+        )
+
+    def __hash__(self):
+        return hash((self._interpreter, self._abi, self._platform))
 
     def __str__(self):
-        return "{}-{}-{}".format(self.interpreter, self.abi, self.platform)
+        return "{}-{}-{}".format(self._interpreter, self._abi, self._platform)
 
     def __repr__(self):
         return "<{self} @ {self_id}>".format(self=self, self_id=id(self))
