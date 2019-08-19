@@ -29,9 +29,9 @@ class Tag(object):
     __slots__ = ["_interpreter", "_abi", "_platform"]
 
     def __init__(self, interpreter, abi, platform):
-        self._interpreter = str.lower(interpreter)
-        self._abi = str.lower(abi)
-        self._platform = str.lower(platform)
+        self._interpreter = interpreter.lower()
+        self._abi = abi.lower()
+        self._platform = platform.lower()
 
     @property
     def interpreter(self):
