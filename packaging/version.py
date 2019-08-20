@@ -3,9 +3,11 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
+import argparse
 import collections
 import itertools
 import re
+import sys
 
 from ._structures import Infinity
 
@@ -418,3 +420,46 @@ def _cmpkey(epoch, release, pre, post, dev, local):
         local = tuple((i, "") if isinstance(i, int) else (-Infinity, i) for i in local)
 
     return epoch, release, pre, post, dev, local
+
+
+def main(args=None):
+    parser = argparse.ArgumentParser()
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--sort",
+        metavar="version",
+        nargs="+",
+        type=Version,
+        help="Return sorted list of versions.",
+    )
+    group.add_argument(
+        "--verify",
+        metavar="version",
+        nargs="+",
+        type=Version,
+        help="Exit with 0 if versions are sorted, or 1 otherwise.",
+    )
+
+    # if args is None, argparse will parse the command line parameters,
+    # this is a neat trick to allow us to unit-test this method
+    args = parser.parse_args(args)
+
+    if args.sort:
+        versions = args.sort
+        sorted_versions = sorted(versions)
+        print(" ".join([str(v) for v in sorted_versions]))
+
+    if args.verify:
+        versions = args.verify
+        sorted_versions = sorted(versions)
+
+        # return with exitcode zero if list was sorted or 1 otherwise
+        if versions == sorted_versions:
+            return 0
+        else:
+            return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

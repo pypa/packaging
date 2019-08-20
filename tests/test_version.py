@@ -10,6 +10,7 @@ import pretend
 import pytest
 
 from packaging.version import Version, LegacyVersion, InvalidVersion, parse
+from packaging.version import main
 
 
 @pytest.mark.parametrize(
@@ -874,3 +875,31 @@ class TestLegacyVersion:
         other = pretend.stub(**{"__{0}__".format(op): lambda other: NotImplemented})
 
         assert getattr(operator, op)(LegacyVersion("1"), other) is expected
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--sort", "0", "1"], "0 1"),
+        (["--sort", "1", "0"], "0 1"),
+        (["--sort", "1.1", "1.0", "0.9"], "0.9 1.0 1.1"),
+    ],
+)
+def test_cli_sort(capsys, args, expected):
+    main(args)
+    captured = capsys.readouterr()
+    assert captured.out.strip() == expected
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--verify", "0", "1"], 0),
+        (["--verify", "1", "0"], 1),
+        (["--verify", "1.1", "1.0", "0.9"], 1),
+    ],
+)
+def test_cli_verify(args, expected):
+    # we return (i.e. sys.exit) 0 if the list was sorted and 1 otherwise
+    res = main(args)
+    assert res == expected
