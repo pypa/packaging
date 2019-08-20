@@ -228,18 +228,12 @@ class Version(_BaseVersion):
             self._version = _Version(
                 epoch=int(match.group("epoch")) if match.group("epoch") else 0,
                 release=tuple(int(i) for i in release_groups),
-                pre=_parse_letter_version(
-                    match.group("pre_l"),
-                    match.group("pre_n")
-                ),
+                pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
                 post=_parse_letter_version(
                     match.group("post_l"),
-                    match.group("post_n1") or match.group("post_n2")
+                    match.group("post_n1") or match.group("post_n2"),
                 ),
-                dev=_parse_letter_version(
-                    match.group("dev_l"),
-                    match.group("dev_n")
-                ),
+                dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
                 local=_parse_local_version(match.group("local")),
             )
 
@@ -413,7 +407,7 @@ class Version(_BaseVersion):
 
         """
         if len(self._version.release) <= level:
-            raise ValueError('Level is bigger than release components.')
+            raise ValueError("Level is bigger than release components.")
 
         release = list(self._version.release)
         release[level] += 1
@@ -424,7 +418,7 @@ class Version(_BaseVersion):
             pre=self.pre,
             post=self.post,
             dev=self.dev,
-            local=self.local
+            local=self.local,
         )
         return Version(version)
 

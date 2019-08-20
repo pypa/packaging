@@ -435,22 +435,22 @@ class TestVersion:
         assert Version(version).release == release
 
     def test_bump_major(self):
-        version = Version('1.1.1')
+        version = Version("1.1.1")
         assert version.bump_major().release[0] == 2
 
     def test_bump_minor(self):
-        version = Version('1.1.1')
+        version = Version("1.1.1")
         assert version.bump_minor().release[1] == 2
 
     def test_bump_patch(self):
-        version = Version('1.1.1')
+        version = Version("1.1.1")
         assert version.bump_patch().release[2] == 2
 
     def test_bump_release(self):
-        version = Version('1.1')
+        version = Version("1.1")
         with pytest.raises(ValueError) as e:
             version.bump_patch()
-        assert 'Level is bigger than release components.' in str(e.value)
+        assert "Level is bigger than release components." in str(e.value)
 
     @pytest.mark.parametrize(
         ("version", "local"),
