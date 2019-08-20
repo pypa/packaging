@@ -1,10 +1,37 @@
 Changelog
 ---------
 
-17.2 - `master`_
+20.0 - `master`_
 ~~~~~~~~~~~~~~~~
 
 .. note:: This version is not yet released and is under active development.
+
+19.1 - 2019-07-30
+~~~~~~~~~~~~~~~~~
+
+* Add the ``packaging.tags`` module. (:issue:`156`)
+
+* Correctly handle two-digit versions in ``python_version`` (:issue:`119`)
+
+
+19.0 - 2019-01-20
+~~~~~~~~~~~~~~~~~
+
+* Fix string representation of PEP 508 direct URL requirements with markers.
+
+* Better handling of file URLs
+
+  This allows for using ``file:///absolute/path``, which was previously
+  prevented due to the missing ``netloc``.
+
+  This allows for all file URLs that ``urlunparse`` turns back into the
+  original URL to be valid.
+
+
+18.0 - 2018-09-26
+~~~~~~~~~~~~~~~~~
+
+* Improve error messages when invalid requirements are given. (:issue:`129`)
 
 
 17.1 - 2017-02-28

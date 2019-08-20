@@ -40,7 +40,6 @@ master_doc = "index"
 
 # General information about the project.
 project = "Packaging"
-copyright = "2014 Donald Stufft"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -53,6 +52,7 @@ with open(os.path.join(base_dir, "packaging", "__about__.py")) as f:
     exec(f.read(), about)
 
 version = release = about["__version__"]
+copyright = about["__copyright__"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -62,8 +62,8 @@ exclude_patterns = ["_build"]
 pygments_style = "sphinx"
 
 extlinks = {
-    'issue': ('https://github.com/pypa/packaging/issues/%s', '#'),
-    'pull': ('https://github.com/pypa/packaging/pull/%s', 'PR #'),
+    "issue": ("https://github.com/pypa/packaging/issues/%s", "#"),
+    "pull": ("https://github.com/pypa/packaging/pull/%s", "PR #"),
 }
 # -- Options for HTML output --------------------------------------------------
 
@@ -87,34 +87,19 @@ htmlhelp_basename = "packagingdoc"
 
 # -- Options for LaTeX output -------------------------------------------------
 
-latex_elements = {
-}
+latex_elements = {}
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual])
 latex_documents = [
-    (
-        "index",
-        "packaging.tex",
-        "Packaging Documentation",
-        "Donald Stufft",
-        "manual",
-    ),
+    ("index", "packaging.tex", "Packaging Documentation", "Donald Stufft", "manual")
 ]
 
 # -- Options for manual page output -------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (
-        "index",
-        "packaging",
-        "Packaging Documentation",
-        ["Donald Stufft"],
-        1,
-    )
-]
+man_pages = [("index", "packaging", "Packaging Documentation", ["Donald Stufft"], 1)]
 
 # -- Options for Texinfo output -----------------------------------------------
 
@@ -130,12 +115,10 @@ texinfo_documents = [
         "packaging",
         "Core utilities for Python packages",
         "Miscellaneous",
-    ),
+    )
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {
-    "https://docs.python.org/": None,
-}
+intersphinx_mapping = {"https://docs.python.org/": None}
 
 epub_theme = "epub"

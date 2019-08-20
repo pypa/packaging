@@ -13,6 +13,7 @@ bug check out `what to put in your bug report`_.
     getting-started
     submitting-patches
     reviewing-patches
+    release-process
 
 .. _`GitHub`: https://github.com/pypa/packaging
 .. _`what to put in your bug report`: http://www.contribution-guide.org/#what-to-put-in-your-bug-report

@@ -13,11 +13,7 @@ from packaging.version import Version, LegacyVersion, InvalidVersion, parse
 
 
 @pytest.mark.parametrize(
-    ("version", "klass"),
-    [
-        ("1.0", Version),
-        ("1-1-1", LegacyVersion),
-    ],
+    ("version", "klass"), [("1.0", Version), ("1-1-1", LegacyVersion)]
 )
 def test_parse(version, klass):
     assert isinstance(parse(version), klass)
@@ -26,26 +22,65 @@ def test_parse(version, klass):
 # This list must be in the correct sorting order
 VERSIONS = [
     # Implicit epoch of 0
-    "1.0.dev456", "1.0a1", "1.0a2.dev456", "1.0a12.dev456", "1.0a12",
-    "1.0b1.dev456", "1.0b2", "1.0b2.post345.dev456", "1.0b2.post345",
-    "1.0b2-346", "1.0c1.dev456", "1.0c1", "1.0rc2", "1.0c3", "1.0",
-    "1.0.post456.dev34", "1.0.post456", "1.1.dev1", "1.2+123abc",
-    "1.2+123abc456", "1.2+abc", "1.2+abc123", "1.2+abc123def", "1.2+1234.abc",
-    "1.2+123456", "1.2.r32+123456", "1.2.rev33+123456",
-
+    "1.0.dev456",
+    "1.0a1",
+    "1.0a2.dev456",
+    "1.0a12.dev456",
+    "1.0a12",
+    "1.0b1.dev456",
+    "1.0b2",
+    "1.0b2.post345.dev456",
+    "1.0b2.post345",
+    "1.0b2-346",
+    "1.0c1.dev456",
+    "1.0c1",
+    "1.0rc2",
+    "1.0c3",
+    "1.0",
+    "1.0.post456.dev34",
+    "1.0.post456",
+    "1.1.dev1",
+    "1.2+123abc",
+    "1.2+123abc456",
+    "1.2+abc",
+    "1.2+abc123",
+    "1.2+abc123def",
+    "1.2+1234.abc",
+    "1.2+123456",
+    "1.2.r32+123456",
+    "1.2.rev33+123456",
     # Explicit epoch of 1
-    "1!1.0.dev456", "1!1.0a1", "1!1.0a2.dev456", "1!1.0a12.dev456", "1!1.0a12",
-    "1!1.0b1.dev456", "1!1.0b2", "1!1.0b2.post345.dev456", "1!1.0b2.post345",
-    "1!1.0b2-346", "1!1.0c1.dev456", "1!1.0c1", "1!1.0rc2", "1!1.0c3", "1!1.0",
-    "1!1.0.post456.dev34", "1!1.0.post456", "1!1.1.dev1", "1!1.2+123abc",
-    "1!1.2+123abc456", "1!1.2+abc", "1!1.2+abc123", "1!1.2+abc123def",
-    "1!1.2+1234.abc", "1!1.2+123456", "1!1.2.r32+123456", "1!1.2.rev33+123456",
-
+    "1!1.0.dev456",
+    "1!1.0a1",
+    "1!1.0a2.dev456",
+    "1!1.0a12.dev456",
+    "1!1.0a12",
+    "1!1.0b1.dev456",
+    "1!1.0b2",
+    "1!1.0b2.post345.dev456",
+    "1!1.0b2.post345",
+    "1!1.0b2-346",
+    "1!1.0c1.dev456",
+    "1!1.0c1",
+    "1!1.0rc2",
+    "1!1.0c3",
+    "1!1.0",
+    "1!1.0.post456.dev34",
+    "1!1.0.post456",
+    "1!1.1.dev1",
+    "1!1.2+123abc",
+    "1!1.2+123abc456",
+    "1!1.2+abc",
+    "1!1.2+abc123",
+    "1!1.2+abc123def",
+    "1!1.2+1234.abc",
+    "1!1.2+123456",
+    "1!1.2.r32+123456",
+    "1!1.2.rev33+123456",
 ]
 
 
 class TestVersion:
-
     @pytest.mark.parametrize("version", VERSIONS)
     def test_valid_versions(self, version):
         Version(version)
@@ -55,14 +90,13 @@ class TestVersion:
         [
             # Non sensical versions should be invalid
             "french toast",
-
             # Versions with invalid local versions
             "1.0+a+",
             "1.0++",
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
-        ]
+        ],
     )
     def test_invalid_versions(self, version):
         with pytest.raises(InvalidVersion):
@@ -85,7 +119,6 @@ class TestVersion:
             ("1.0.DEV1", "1.0.dev1"),
             ("1.0-DEV", "1.0.dev0"),
             ("1.0-DEV1", "1.0.dev1"),
-
             # Various alpha incarnations
             ("1.0a", "1.0a0"),
             ("1.0.a", "1.0a0"),
@@ -107,7 +140,6 @@ class TestVersion:
             ("1.0.ALPHA1", "1.0a1"),
             ("1.0-ALPHA", "1.0a0"),
             ("1.0-ALPHA1", "1.0a1"),
-
             # Various beta incarnations
             ("1.0b", "1.0b0"),
             ("1.0.b", "1.0b0"),
@@ -129,7 +161,6 @@ class TestVersion:
             ("1.0.BETA1", "1.0b1"),
             ("1.0-BETA", "1.0b0"),
             ("1.0-BETA1", "1.0b1"),
-
             # Various release candidate incarnations
             ("1.0c", "1.0rc0"),
             ("1.0.c", "1.0rc0"),
@@ -151,7 +182,6 @@ class TestVersion:
             ("1.0.RC1", "1.0rc1"),
             ("1.0-RC", "1.0rc0"),
             ("1.0-RC1", "1.0rc1"),
-
             # Various post release incarnations
             ("1.0post", "1.0.post0"),
             ("1.0.post", "1.0.post0"),
@@ -173,10 +203,8 @@ class TestVersion:
             ("1.0-5", "1.0.post5"),
             ("1.0-r5", "1.0.post5"),
             ("1.0-rev5", "1.0.post5"),
-
             # Local version case insensitivity
             ("1.0+AbC", "1.0+abc"),
-
             # Integer Normalization
             ("1.01", "1.1"),
             ("1.0a05", "1.0a5"),
@@ -187,7 +215,6 @@ class TestVersion:
             ("1.1.dev09000", "1.1.dev9000"),
             ("00!1.2", "1.2"),
             ("0100!0.0", "100!0.0"),
-
             # Various other normalizations
             ("v1.0", "1.0"),
             ("   v1.0\t\n", "1.0"),
@@ -250,8 +277,7 @@ class TestVersion:
     )
     def test_version_str_repr(self, version, expected):
         assert str(Version(version)) == expected
-        assert (repr(Version(version)) ==
-                "<Version({0})>".format(repr(expected)))
+        assert repr(Version(version)) == "<Version({0})>".format(repr(expected))
 
     def test_version_rc_and_c_equals(self):
         assert Version("1.0rc1") == Version("1.0c1")
@@ -469,31 +495,31 @@ class TestVersion:
             ("1.0", None),
             ("1.0.dev0", None),
             ("1.0.dev6", None),
-            ("1.0a1", ('a', 1)),
-            ("1.0a1.post5", ('a', 1)),
-            ("1.0a1.post5.dev6", ('a', 1)),
-            ("1.0rc4", ('rc', 4)),
+            ("1.0a1", ("a", 1)),
+            ("1.0a1.post5", ("a", 1)),
+            ("1.0a1.post5.dev6", ("a", 1)),
+            ("1.0rc4", ("rc", 4)),
             ("1.0.post5", None),
             ("1!1.0", None),
             ("1!1.0.dev6", None),
-            ("1!1.0a1", ('a', 1)),
-            ("1!1.0a1.post5", ('a', 1)),
-            ("1!1.0a1.post5.dev6", ('a', 1)),
-            ("1!1.0rc4", ('rc', 4)),
+            ("1!1.0a1", ("a", 1)),
+            ("1!1.0a1.post5", ("a", 1)),
+            ("1!1.0a1.post5.dev6", ("a", 1)),
+            ("1!1.0rc4", ("rc", 4)),
             ("1!1.0.post5", None),
             ("1.0+deadbeef", None),
             ("1.0.dev6+deadbeef", None),
-            ("1.0a1+deadbeef", ('a', 1)),
-            ("1.0a1.post5+deadbeef", ('a', 1)),
-            ("1.0a1.post5.dev6+deadbeef", ('a', 1)),
-            ("1.0rc4+deadbeef", ('rc', 4)),
+            ("1.0a1+deadbeef", ("a", 1)),
+            ("1.0a1.post5+deadbeef", ("a", 1)),
+            ("1.0a1.post5.dev6+deadbeef", ("a", 1)),
+            ("1.0rc4+deadbeef", ("rc", 4)),
             ("1.0.post5+deadbeef", None),
             ("1!1.0+deadbeef", None),
             ("1!1.0.dev6+deadbeef", None),
-            ("1!1.0a1+deadbeef", ('a', 1)),
-            ("1!1.0a1.post5+deadbeef", ('a', 1)),
-            ("1!1.0a1.post5.dev6+deadbeef", ('a', 1)),
-            ("1!1.0rc4+deadbeef", ('rc', 4)),
+            ("1!1.0a1+deadbeef", ("a", 1)),
+            ("1!1.0a1.post5+deadbeef", ("a", 1)),
+            ("1!1.0a1.post5.dev6+deadbeef", ("a", 1)),
+            ("1!1.0rc4+deadbeef", ("rc", 4)),
             ("1!1.0.post5+deadbeef", None),
         ],
     )
@@ -648,7 +674,7 @@ class TestVersion:
             ("1.0", False),
             ("1.0+foo", False),
             ("1.0.post1.dev1", True),
-            ("1.0.post1", True)
+            ("1.0.post1", True),
         ],
     )
     def test_version_is_postrelease(self, version, expected):
@@ -662,34 +688,37 @@ class TestVersion:
             *
             # Verify that the less than (<) operator works correctly
             [
-                [(x, y, operator.lt) for y in VERSIONS[i + 1:]]
+                [(x, y, operator.lt) for y in VERSIONS[i + 1 :]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the less than equal (<=) operator works correctly
             [
                 [(x, y, operator.le) for y in VERSIONS[i:]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the equal (==) operator works correctly
-            [
-                [(x, x, operator.eq) for x in VERSIONS]
-            ] +
+            [[(x, x, operator.eq) for x in VERSIONS]]
+            +
             # Verify that the not equal (!=) operator works correctly
             [
                 [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the greater than equal (>=) operator works correctly
             [
-                [(x, y, operator.ge) for y in VERSIONS[:i + 1]]
+                [(x, y, operator.ge) for y in VERSIONS[: i + 1]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the greater than (>) operator works correctly
             [
                 [(x, y, operator.gt) for y in VERSIONS[:i]]
                 for i, x in enumerate(VERSIONS)
             ]
-        )
+        ),
     )
     def test_comparison_true(self, left, right, op):
         assert op(Version(left), Version(right))
@@ -702,43 +731,44 @@ class TestVersion:
             *
             # Verify that the less than (<) operator works correctly
             [
-                [(x, y, operator.lt) for y in VERSIONS[:i + 1]]
+                [(x, y, operator.lt) for y in VERSIONS[: i + 1]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the less than equal (<=) operator works correctly
             [
                 [(x, y, operator.le) for y in VERSIONS[:i]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the equal (==) operator works correctly
             [
                 [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, x, operator.ne) for x in VERSIONS]
-            ] +
+            [[(x, x, operator.ne) for x in VERSIONS]]
+            +
             # Verify that the greater than equal (>=) operator works correctly
             [
-                [(x, y, operator.ge) for y in VERSIONS[i + 1:]]
+                [(x, y, operator.ge) for y in VERSIONS[i + 1 :]]
                 for i, x in enumerate(VERSIONS)
-            ] +
+            ]
+            +
             # Verify that the greater than (>) operator works correctly
             [
                 [(x, y, operator.gt) for y in VERSIONS[i:]]
                 for i, x in enumerate(VERSIONS)
             ]
-        )
+        ),
     )
     def test_comparison_false(self, left, right, op):
         assert not op(Version(left), Version(right))
 
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):
-        other = pretend.stub(
-            **{"__{0}__".format(op): lambda other: NotImplemented}
-        )
+        other = pretend.stub(**{"__{0}__".format(op): lambda other: NotImplemented})
 
         assert getattr(operator, op)(Version("1"), other) is expected
 
@@ -751,7 +781,6 @@ LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 
 
 class TestLegacyVersion:
-
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_valid_legacy_versions(self, version):
         LegacyVersion(version)
@@ -759,8 +788,9 @@ class TestLegacyVersion:
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_str_repr(self, version):
         assert str(LegacyVersion(version)) == version
-        assert (repr(LegacyVersion(version)) ==
-                "<LegacyVersion({0})>".format(repr(version)))
+        assert repr(LegacyVersion(version)) == "<LegacyVersion({0})>".format(
+            repr(version)
+        )
 
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_legacy_version_hash(self, version):
@@ -817,9 +847,8 @@ class TestLegacyVersion:
         itertools.chain(
             *
             # Verify that the equal (==) operator works correctly
-            [
-                [(x, x, operator.eq) for x in VERSIONS + LEGACY_VERSIONS]
-            ] +
+            [[(x, x, operator.eq) for x in VERSIONS + LEGACY_VERSIONS]]
+            +
             # Verify that the not equal (!=) operator works correctly
             [
                 [
@@ -829,7 +858,7 @@ class TestLegacyVersion:
                 ]
                 for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
             ]
-        )
+        ),
     )
     def test_comparison_true(self, left, right, op):
         assert op(LegacyVersion(left), LegacyVersion(right))
@@ -849,20 +878,17 @@ class TestLegacyVersion:
                     if i != j
                 ]
                 for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
-            ] +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, x, operator.ne) for x in VERSIONS + LEGACY_VERSIONS]
             ]
-        )
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [[(x, x, operator.ne) for x in VERSIONS + LEGACY_VERSIONS]]
+        ),
     )
     def test_comparison_false(self, left, right, op):
         assert not op(LegacyVersion(left), LegacyVersion(right))
 
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):
-        other = pretend.stub(
-            **{"__{0}__".format(op): lambda other: NotImplemented}
-        )
+        other = pretend.stub(**{"__{0}__".format(op): lambda other: NotImplemented})
 
         assert getattr(operator, op)(LegacyVersion("1"), other) is expected

@@ -24,6 +24,7 @@ API
     specifiers
     markers
     requirements
+    tags
     utils
 
 

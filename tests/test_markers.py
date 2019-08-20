@@ -13,39 +13,54 @@ import pretend
 import pytest
 
 from packaging.markers import (
-    Node, InvalidMarker, UndefinedComparison, UndefinedEnvironmentName, Marker,
-    default_environment, format_full_version,
+    Node,
+    InvalidMarker,
+    UndefinedComparison,
+    UndefinedEnvironmentName,
+    Marker,
+    default_environment,
+    format_full_version,
 )
 
 
 VARIABLES = [
-    "extra", "implementation_name", "implementation_version", "os_name",
-    "platform_machine", "platform_release", "platform_system",
-    "platform_version", "python_full_version", "python_version",
-    "platform_python_implementation", "sys_platform",
+    "extra",
+    "implementation_name",
+    "implementation_version",
+    "os_name",
+    "platform_machine",
+    "platform_release",
+    "platform_system",
+    "platform_version",
+    "python_full_version",
+    "python_version",
+    "platform_python_implementation",
+    "sys_platform",
 ]
 
 PEP_345_VARIABLES = [
-    "os.name", "sys.platform", "platform.version", "platform.machine",
+    "os.name",
+    "sys.platform",
+    "platform.version",
+    "platform.machine",
     "platform.python_implementation",
 ]
 
-SETUPTOOLS_VARIABLES = [
-    "python_implementation",
-]
+SETUPTOOLS_VARIABLES = ["python_implementation"]
 
-OPERATORS = [
-    "===", "==", ">=", "<=", "!=", "~=", ">", "<", "in", "not in",
-]
+OPERATORS = ["===", "==", ">=", "<=", "!=", "~=", ">", "<", "in", "not in"]
 
 VALUES = [
-    "1.0", "5.6a0", "dog", "freebsd", "literally any string can go here",
+    "1.0",
+    "5.6a0",
+    "dog",
+    "freebsd",
+    "literally any string can go here",
     "things @#4 dsfd (((",
 ]
 
 
 class TestNode:
-
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
     def test_accepts_value(self, value):
         assert Node(value).value == value
@@ -64,12 +79,11 @@ class TestNode:
 
 
 class TestOperatorEvaluation:
-
     def test_prefers_pep440(self):
-        assert Marker('"2.7.9" < "foo"').evaluate(dict(foo='2.7.10'))
+        assert Marker('"2.7.9" < "foo"').evaluate(dict(foo="2.7.10"))
 
     def test_falls_back_to_python(self):
-        assert Marker('"b" > "a"').evaluate(dict(a='a'))
+        assert Marker('"b" > "a"').evaluate(dict(a="a"))
 
     def test_fails_when_undefined(self):
         with pytest.raises(UndefinedComparison):
@@ -77,15 +91,14 @@ class TestOperatorEvaluation:
 
 
 FakeVersionInfo = collections.namedtuple(
-    "FakeVersionInfo",
-    ["major", "minor", "micro", "releaselevel", "serial"],
+    "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
 )
 
 
 class TestDefaultEnvironment:
-
-    @pytest.mark.skipif(hasattr(sys, 'implementation'),
-                        reason='sys.implementation does exist')
+    @pytest.mark.skipif(
+        hasattr(sys, "implementation"), reason="sys.implementation does exist"
+    )
     def test_matches_expected_no_sys_implementation(self):
         environment = default_environment()
 
@@ -99,12 +112,13 @@ class TestDefaultEnvironment:
             "platform_version": platform.version(),
             "python_full_version": platform.python_version(),
             "platform_python_implementation": platform.python_implementation(),
-            "python_version": platform.python_version()[:3],
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
             "sys_platform": sys.platform,
         }
 
-    @pytest.mark.skipif(not hasattr(sys, 'implementation'),
-                        reason='sys.implementation does not exist')
+    @pytest.mark.skipif(
+        not hasattr(sys, "implementation"), reason="sys.implementation does not exist"
+    )
     def test_matches_expected_deleted_sys_implementation(self, monkeypatch):
         monkeypatch.delattr(sys, "implementation")
 
@@ -120,18 +134,17 @@ class TestDefaultEnvironment:
             "platform_version": platform.version(),
             "python_full_version": platform.python_version(),
             "platform_python_implementation": platform.python_implementation(),
-            "python_version": platform.python_version()[:3],
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
             "sys_platform": sys.platform,
         }
 
-    @pytest.mark.skipif(not hasattr(sys, 'implementation'),
-                        reason='sys.implementation does not exist')
+    @pytest.mark.skipif(
+        not hasattr(sys, "implementation"), reason="sys.implementation does not exist"
+    )
     def test_matches_expected(self):
         environment = default_environment()
 
-        iver = "{0.major}.{0.minor}.{0.micro}".format(
-            sys.implementation.version
-        )
+        iver = "{0.major}.{0.minor}.{0.micro}".format(sys.implementation.version)
         if sys.implementation.version.releaselevel != "final":
             iver = "{0}{1[0]}{2}".format(
                 iver,
@@ -149,18 +162,20 @@ class TestDefaultEnvironment:
             "platform_version": platform.version(),
             "python_full_version": platform.python_version(),
             "platform_python_implementation": platform.python_implementation(),
-            "python_version": platform.python_version()[:3],
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
             "sys_platform": sys.platform,
         }
 
-    @pytest.mark.skipif(hasattr(sys, 'implementation'),
-                        reason='sys.implementation does exist')
+    @pytest.mark.skipif(
+        hasattr(sys, "implementation"), reason="sys.implementation does exist"
+    )
     def test_monkeypatch_sys_implementation(self, monkeypatch):
         monkeypatch.setattr(
-            sys, "implementation",
-            pretend.stub(version=FakeVersionInfo(3, 4, 2, "final", 0),
-                         name="linux"),
-            raising=False)
+            sys,
+            "implementation",
+            pretend.stub(version=FakeVersionInfo(3, 4, 2, "final", 0), name="linux"),
+            raising=False,
+        )
 
         environment = default_environment()
         assert environment == {
@@ -173,27 +188,39 @@ class TestDefaultEnvironment:
             "platform_version": platform.version(),
             "python_full_version": platform.python_version(),
             "platform_python_implementation": platform.python_implementation(),
-            "python_version": platform.python_version()[:3],
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
             "sys_platform": sys.platform,
         }
 
+    def test_multidigit_minor_version(self, monkeypatch):
+        version_info = (3, 10, 0, "final", 0)
+        monkeypatch.setattr(sys, "version_info", version_info, raising=False)
+
+        monkeypatch.setattr(platform, "python_version", lambda: "3.10.0", raising=False)
+        monkeypatch.setattr(
+            platform, "python_version_tuple", lambda: ("3", "10", "0"), raising=False
+        )
+
+        environment = default_environment()
+        assert environment["python_version"] == "3.10"
+
     def tests_when_releaselevel_final(self):
         v = FakeVersionInfo(3, 4, 2, "final", 0)
-        assert format_full_version(v) == '3.4.2'
+        assert format_full_version(v) == "3.4.2"
 
     def tests_when_releaselevel_not_final(self):
         v = FakeVersionInfo(3, 4, 2, "beta", 4)
-        assert format_full_version(v) == '3.4.2b4'
+        assert format_full_version(v) == "3.4.2b4"
 
 
 class TestMarker:
-
     @pytest.mark.parametrize(
         "marker_string",
         [
             "{0} {1} {2!r}".format(*i)
             for i in itertools.product(VARIABLES, OPERATORS, VALUES)
-        ] + [
+        ]
+        + [
             "{2!r} {1} {0}".format(*i)
             for i in itertools.product(VARIABLES, OPERATORS, VALUES)
         ],
@@ -220,7 +247,6 @@ class TestMarker:
             # Test the different quoting rules
             ("python_version == '2.7'", 'python_version == "2.7"'),
             ('python_version == "2.7"', 'python_version == "2.7"'),
-
             # Test and/or expressions
             (
                 'python_version == "2.7" and os_name == "linux"',
@@ -236,7 +262,6 @@ class TestMarker:
                 'python_version == "2.7" and os_name == "linux" or '
                 'sys_platform == "win32"',
             ),
-
             # Test nested expressions and grouping with ()
             ('(python_version == "2.7")', 'python_version == "2.7"'),
             (
@@ -293,16 +318,8 @@ class TestMarker:
                 {"os_name": "other", "python_version": "2.7.4"},
                 False,
             ),
-            (
-                "extra == 'security'",
-                {"extra": "quux"},
-                False,
-            ),
-            (
-                "extra == 'security'",
-                {"extra": "security"},
-                True,
-            ),
+            ("extra == 'security'", {"extra": "quux"}, False),
+            ("extra == 'security'", {"extra": "security"}, True),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
@@ -314,7 +331,8 @@ class TestMarker:
         [
             "{0} {1} {2!r}".format(*i)
             for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
-        ] + [
+        ]
+        + [
             "{2!r} {1} {0}".format(*i)
             for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
         ],
@@ -327,16 +345,8 @@ class TestMarker:
         [
             ("os.name == '{0}'".format(os.name), None, True),
             ("sys.platform == 'win32'", {"sys_platform": "linux2"}, False),
-            (
-                "platform.version in 'Ubuntu'",
-                {"platform_version": "#39"},
-                False,
-            ),
-            (
-                "platform.machine=='x86_64'",
-                {"platform_machine": "x86_64"},
-                True,
-            ),
+            ("platform.version in 'Ubuntu'", {"platform_version": "#39"}, False),
+            ("platform.machine=='x86_64'", {"platform_machine": "x86_64"}, True),
             (
                 "platform.python_implementation=='Jython'",
                 {"platform_python_implementation": "CPython"},
@@ -350,8 +360,7 @@ class TestMarker:
             ),
         ],
     )
-    def test_evaluate_pep345_markers(self, marker_string, environment,
-                                     expected):
+    def test_evaluate_pep345_markers(self, marker_string, environment, expected):
         args = [] if environment is None else [environment]
         assert Marker(marker_string).evaluate(*args) == expected
 
@@ -360,7 +369,8 @@ class TestMarker:
         [
             "{0} {1} {2!r}".format(*i)
             for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
-        ] + [
+        ]
+        + [
             "{2!r} {1} {0}".format(*i)
             for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
         ],

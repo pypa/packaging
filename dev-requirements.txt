@@ -1,4 +1,10 @@
 # Install our development requirements
+black; python_version >= '3.6'
+coverage
+flake8
+pep8-naming
+pretend
+pytest
 tox
 
 # Install packaging itself

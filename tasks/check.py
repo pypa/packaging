@@ -47,10 +47,12 @@ def pep440(cached=False):
         bar = progress.bar.ShadyBar("Fetching Versions")
         client = xmlrpc_client.Server("https://pypi.python.org/pypi")
 
-        data = dict([
-            (project, client.package_releases(project, True))
-            for project in bar.iter(client.list_packages())
-        ])
+        data = dict(
+            [
+                (project, client.package_releases(project, True))
+                for project in bar.iter(client.list_packages())
+            ]
+        )
 
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w") as fp:
@@ -62,17 +64,18 @@ def pep440(cached=False):
     # Determine the total number of versions which are compatible with the
     # current routine
     parsed_versions = [
-        _parse_version(v)
-        for v in all_versions
-        if _parse_version(v) is not None
+        _parse_version(v) for v in all_versions if _parse_version(v) is not None
     ]
 
     # Determine a list of projects that sort exactly the same between
     # pkg_resources and PEP 440
     compatible_sorting = [
-        project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version) ==
-            sorted((x for x in versions if _parse_version(x)), key=Version))
+        project
+        for project, versions in data.items()
+        if (
+            sorted(versions, key=pkg_resources.parse_version)
+            == sorted((x for x in versions if _parse_version(x)), key=Version)
+        )
     ]
 
     # Determine a list of projects that sort exactly the same between
@@ -83,25 +86,29 @@ def pep440(cached=False):
             (p, [v for v in vs if _parse_version(v) is not None])
             for p, vs in data.items()
         )
-        if (sorted(versions, key=pkg_resources.parse_version) ==
-            sorted(versions, key=Version))
+        if (
+            sorted(versions, key=pkg_resources.parse_version)
+            == sorted(versions, key=Version)
+        )
     ]
 
     # Determine a list of projects which do not have any versions that are
     # valid with PEP 440 and which have any versions registered
     only_invalid_versions = [
-        project for project, versions in data.items()
-        if (versions and not
-            [v for v in versions if _parse_version(v) is not None])
+        project
+        for project, versions in data.items()
+        if (versions and not [v for v in versions if _parse_version(v) is not None])
     ]
 
     # Determine a list of projects which have matching latest versions between
     # pkg_resources and PEP 440
     differing_latest_versions = [
-        project for project, versions in data.items()
-        if (sorted(versions, key=pkg_resources.parse_version)[-1:] !=
-            sorted(
-                (x for x in versions if _parse_version(x)), key=Version)[-1:])
+        project
+        for project, versions in data.items()
+        if (
+            sorted(versions, key=pkg_resources.parse_version)[-1:]
+            != sorted((x for x in versions if _parse_version(x)), key=Version)[-1:]
+        )
     ]
 
     # Print out our findings
@@ -114,9 +121,7 @@ def pep440(cached=False):
     )
     print(
         "Total Sorting Compatibility (Unfiltered): {}/{} ({:.2%})".format(
-            len(compatible_sorting),
-            len(data),
-            len(compatible_sorting) / len(data),
+            len(compatible_sorting), len(data), len(compatible_sorting) / len(data)
         )
     )
     print(
