@@ -89,12 +89,19 @@ def _cpython_abi(py_version):
         options = soabi.split("-", 2)[1]
     else:
         found_options = [str(py_version[0]), str(py_version[1])]
-        if sysconfig.get_config_var("Py_DEBUG"):
+        debug = sysconfig.get_config_var("Py_DEBUG")
+        if debug or (debug is None and hasattr(sys, "gettotalrefcount")):
             found_options.append("d")
-        if sysconfig.get_config_var("WITH_PYMALLOC"):
-            found_options.append("m")
-        if sysconfig.get_config_var("Py_UNICODE_SIZE") == 4:
-            found_options.append("u")
+        if py_version < (3, 8):
+            with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
+            if with_pymalloc or with_pymalloc is None:
+                found_options.append("m")
+        if py_version < (3, 3):
+            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
+            if unicode_size == 4 or (
+                unicode_size is None and sys.maxunicode == 0x10FFFF
+            ):
+                found_options.append("u")
         options = "".join(found_options)
     return "cp{options}".format(options=options)
 

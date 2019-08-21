@@ -193,60 +193,79 @@ def test_macos_arch_detection(arch, monkeypatch):
     assert tags._mac_platforms((10, 14))[0].endswith(arch)
 
 
-def test_cpython_abi_py3(monkeypatch):
-    has_soabi = bool(sysconfig.get_config_var("SOABI"))
-    if platform.python_implementation() != "CPython" or not has_soabi:
-        monkeypatch.setattr(
-            sysconfig, "get_config_var", lambda key: "'cpython-37m-darwin'"
-        )
-    soabi = sysconfig.get_config_var("SOABI").split("-", 2)[1]
-    result = tags._cpython_abi(sys.version_info[:2])
-    assert result == "cp{soabi}".format(soabi=soabi)
+def test_cpython_abi_soabi(monkeypatch):
+    soabi = sysconfig.get_config_var("SOABI")
+    if not soabi:
+
+        def patched(key):
+            return "cpython-37m-darwin" if key == "SOABI" else None
+
+        monkeypatch.setattr(sysconfig, "get_config_var", patched)
+        assert tags._cpython_abi((3, 7)) == "cp37m"
+    else:
+        expected = "cp{}".format(soabi.split("-")[1])
+        assert tags._cpython_abi(sys.version_info[:2]) == expected
 
 
 @pytest.mark.parametrize(
-    "debug,pymalloc,unicode_width",
+    "py_debug,gettotalrefcount,result",
+    [(1, False, True), (0, False, False), (None, True, True)],
+)
+def test_cpython_abi_debug(py_debug, gettotalrefcount, result, monkeypatch):
+    config = {
+        "SOABI": None,
+        "Py_DEBUG": py_debug,
+        "WITH_PYMALLOC": 0,
+        "Py_UNICODE_SIZE": 2,
+    }
+    monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+    if gettotalrefcount:
+        monkeypatch.setattr(sys, "gettotalrefcount", 1, raising=False)
+    expected = "cp37d" if result else "cp37"
+    assert tags._cpython_abi((3, 7)) == expected
+
+
+@pytest.mark.parametrize(
+    "pymalloc,version,result",
+    [(1, (3, 7), True), (0, (3, 7), False), (None, (3, 7), True), (1, (3, 8), False)],
+)
+def test_cpython_abi_pymalloc(pymalloc, version, result, monkeypatch):
+    config = {
+        "SOABI": None,
+        "Py_DEBUG": 0,
+        "WITH_PYMALLOC": pymalloc,
+        "Py_UNICODE_SIZE": 2,
+    }
+    monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+    base_abi = "cp{}{}".format(version[0], version[1])
+    expected = base_abi + "m" if result else base_abi
+    assert tags._cpython_abi(version) == expected
+
+
+@pytest.mark.parametrize(
+    "unicode_size,maxunicode,version,result",
     [
-        (False, False, 2),
-        (True, False, 2),
-        (False, True, 2),
-        (False, False, 4),
-        (True, True, 2),
-        (False, True, 4),
-        (True, True, 4),
+        (4, 0x10FFFF, (3, 2), True),
+        (2, 0xFFFF, (3, 2), False),
+        (None, 0x10FFFF, (3, 2), True),
+        (None, 0xFFFF, (3, 2), False),
+        (4, 0x10FFFF, (3, 3), False),
     ],
 )
-def test_cpython_abi_py2(debug, pymalloc, unicode_width, monkeypatch):
-    has_soabi = sysconfig.get_config_var("SOABI")
-    if platform.python_implementation() != "CPython" or has_soabi:
-        diff_debug = debug != sysconfig.get_config_var("Py_DEBUG")
-        diff_malloc = pymalloc != sysconfig.get_config_var("WITH_PYMALLOC")
-        unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
-        diff_unicode_size = unicode_size != unicode_width
-        if diff_debug or diff_malloc or diff_unicode_size:
-            config_vars = {
-                "SOABI": None,
-                "Py_DEBUG": int(debug),
-                "WITH_PYMALLOC": int(pymalloc),
-                "Py_UNICODE_SIZE": unicode_width,
-            }
-            monkeypatch.setattr(sysconfig, "get_config_var", config_vars.__getitem__)
-    else:
-        config_vars = {
-            "SOABI": None,
-            "Py_DEBUG": int(debug),
-            "WITH_PYMALLOC": int(pymalloc),
-            "Py_UNICODE_SIZE": unicode_width,
-        }
-        monkeypatch.setattr(sysconfig, "get_config_var", config_vars.__getitem__)
-    options = ""
-    if debug:
-        options += "d"
-    if pymalloc:
-        options += "m"
-    if unicode_width == 4:
-        options += "u"
-    assert "cp33{}".format(options) == tags._cpython_abi((3, 3))
+def test_cpython_abi_wide_unicode(
+    unicode_size, maxunicode, version, result, monkeypatch
+):
+    config = {
+        "SOABI": None,
+        "Py_DEBUG": 0,
+        "WITH_PYMALLOC": 0,
+        "Py_UNICODE_SIZE": unicode_size,
+    }
+    monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+    monkeypatch.setattr(sys, "maxunicode", maxunicode)
+    base_abi = "cp{}{}".format(version[0], version[1])
+    expected = base_abi + "u" if result else base_abi
+    assert tags._cpython_abi(version) == expected
 
 
 def test_independent_tags():
