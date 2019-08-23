@@ -314,9 +314,11 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     linux = _normalize_string(distutils.util.get_platform())
     if linux == "linux_x86_64" and is_32bit:
         linux = "linux_i686"
-    # manylinux1: CentOS 5 w/ glibc 2.5.
-    # manylinux2010: CentOS 6 w/ glibc 2.12.
-    manylinux_support = ("manylinux2010", (2, 12)), ("manylinux1", (2, 5))
+    manylinux_support = (
+        ("manylinux2014", (2, 17)),  # CentOS 7 w/ glibc 2.17 (PEP 599)
+        ("manylinux2010", (2, 12)),  # CentOS 6 w/ glibc 2.12 (PEP 571)
+        ("manylinux1", (2, 5)),  # CentOS 5 w/ glibc 2.5 (PEP 513)
+    )
     manylinux_support_iter = iter(manylinux_support)
     for name, glibc_version in manylinux_support_iter:
         if _is_manylinux_compatible(name, glibc_version):
