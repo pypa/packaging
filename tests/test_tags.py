@@ -569,6 +569,23 @@ def test_linux_platforms_manylinux2010(monkeypatch):
     assert platforms == expected
 
 
+def test_linux_platforms_manylinux2014(monkeypatch):
+    monkeypatch.setattr(
+        tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
+    )
+    if platform.system() != "Linux":
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+    platforms = tags._linux_platforms(is_32bit=False)
+    arch = platform.machine()
+    expected = [
+        "manylinux2014_" + arch,
+        "manylinux2010_" + arch,
+        "manylinux1_" + arch,
+        "linux_" + arch,
+    ]
+    assert platforms == expected
+
+
 def test_sys_tags_linux_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")

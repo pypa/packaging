@@ -6,6 +6,12 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Remove dependency on ``attrs`` (:issue:`178`, :issue:`179`)
+
+* Use appropriate fallbacks for CPython ABI tag (:issue:`181`, :issue:`185`)
+
+* Add manylinux2014 support (:issue:`186`)
+
 19.1 - 2019-07-30
 ~~~~~~~~~~~~~~~~~
 
