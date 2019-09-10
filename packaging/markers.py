@@ -91,7 +91,7 @@ VARIABLE = (
     | L("platform.machine")  # PEP-345
     | L("platform.python_implementation")  # PEP-345
     | L("python_implementation")  # undocumented setuptools legacy
-    | L("extra")
+    | L("extra")  # PEP-508
 )
 ALIASES = {
     "os.name": "os_name",
