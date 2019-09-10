@@ -85,13 +85,13 @@ VARIABLE = (
     | L("python_version")
     | L("sys_platform")
     | L("os_name")
-    | L("os.name")
+    | L("os.name")  # PEP-345
     | L("sys.platform")  # PEP-345
     | L("platform.version")  # PEP-345
     | L("platform.machine")  # PEP-345
     | L("platform.python_implementation")  # PEP-345
-    | L("python_implementation")  # PEP-345
-    | L("extra")  # undocumented setuptools legacy
+    | L("python_implementation")  # undocumented setuptools legacy
+    | L("extra")
 )
 ALIASES = {
     "os.name": "os_name",
