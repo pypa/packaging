@@ -183,38 +183,37 @@ def _independent_tags(interpreter, py_version, platforms):
 
 
 def _mac_arch(arch, is_32bit=_32_BIT_INTERPRETER):
-    if is_32bit:
-        if arch.startswith("ppc"):
-            return "ppc"
-        else:
-            return "i386"
-    else:
+    if not is_32bit:
         return arch
+
+    if arch.startswith("ppc"):
+        return "ppc"
+
+    return "i386"
 
 
 def _mac_binary_formats(version, cpu_arch):
     formats = [cpu_arch]
     if cpu_arch == "x86_64":
-        if version >= (10, 4):
-            formats.extend(["intel", "fat64", "fat32"])
-        else:
+        if version < (10, 4):
             return []
+        formats.extend(["intel", "fat64", "fat32"])
+
     elif cpu_arch == "i386":
-        if version >= (10, 4):
-            formats.extend(["intel", "fat32", "fat"])
-        else:
+        if version < (10, 4):
             return []
+        formats.extend(["intel", "fat32", "fat"])
+
     elif cpu_arch == "ppc64":
         # TODO: Need to care about 32-bit PPC for ppc64 through 10.2?
         if version > (10, 5) or version < (10, 4):
             return []
-        else:
-            formats.append("fat64")
+        formats.append("fat64")
+
     elif cpu_arch == "ppc":
-        if version <= (10, 6):
-            formats.extend(["fat32", "fat"])
-        else:
+        if version > (10, 6):
             return []
+        formats.extend(["fat32", "fat"])
 
     formats.append("universal")
     return formats
