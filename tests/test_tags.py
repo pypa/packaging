@@ -198,11 +198,7 @@ def test_macos_arch_detection(arch, monkeypatch):
     [(1, False, True), (0, False, False), (None, True, True)],
 )
 def test_cpython_abis_debug(py_debug, gettotalrefcount, result, monkeypatch):
-    config = {
-        "Py_DEBUG": py_debug,
-        "WITH_PYMALLOC": 0,
-        "Py_UNICODE_SIZE": 2,
-    }
+    config = {"Py_DEBUG": py_debug, "WITH_PYMALLOC": 0, "Py_UNICODE_SIZE": 2}
     monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
     if gettotalrefcount:
         monkeypatch.setattr(sys, "gettotalrefcount", 1, raising=False)
@@ -219,8 +215,7 @@ def test_cpython_abis_debug_file_extension(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "debug,expected",
-    [(True, ["cp38d", "cp38"]), (False, ["cp38"])]
+    "debug,expected", [(True, ["cp38d", "cp38"]), (False, ["cp38"])]
 )
 def test_cpython_abis_debug_38(debug, expected, monkeypatch):
     config = {"Py_DEBUG": debug}
@@ -233,11 +228,7 @@ def test_cpython_abis_debug_38(debug, expected, monkeypatch):
     [(1, (3, 7), True), (0, (3, 7), False), (None, (3, 7), True), (1, (3, 8), False)],
 )
 def test_cpython_abis_pymalloc(pymalloc, version, result, monkeypatch):
-    config = {
-        "Py_DEBUG": 0,
-        "WITH_PYMALLOC": pymalloc,
-        "Py_UNICODE_SIZE": 2,
-    }
+    config = {"Py_DEBUG": 0, "WITH_PYMALLOC": pymalloc, "Py_UNICODE_SIZE": 2}
     monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
     base_abi = "cp{}{}".format(version[0], version[1])
     expected = [base_abi + "m" if result else base_abi]
@@ -257,11 +248,7 @@ def test_cpython_abis_pymalloc(pymalloc, version, result, monkeypatch):
 def test_cpython_abis_wide_unicode(
     unicode_size, maxunicode, version, result, monkeypatch
 ):
-    config = {
-        "Py_DEBUG": 0,
-        "WITH_PYMALLOC": 0,
-        "Py_UNICODE_SIZE": unicode_size,
-    }
+    config = {"Py_DEBUG": 0, "WITH_PYMALLOC": 0, "Py_UNICODE_SIZE": unicode_size}
     monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
     monkeypatch.setattr(sys, "maxunicode", maxunicode)
     base_abi = "cp{}{}".format(version[0], version[1])
@@ -292,7 +279,9 @@ def test_independent_tags():
 
 
 def test_cpython_tags():
-    result = list(tags._cpython_tags((3, 8), "cp38", ["cp38d", "cp38"], ["plat1", "plat2"]))
+    result = list(
+        tags._cpython_tags((3, 8), "cp38", ["cp38d", "cp38"], ["plat1", "plat2"])
+    )
     assert result == [
         tags.Tag("cp38", "cp38d", "plat1"),
         tags.Tag("cp38", "cp38d", "plat2"),
