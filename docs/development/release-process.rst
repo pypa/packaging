@@ -28,3 +28,5 @@ Release Process
 
 #. Bump the version for development in ``packaging/__about__.py`` and
    ``CHANGELOG.rst``.
+
+#. Notify the other project owners of the release.
