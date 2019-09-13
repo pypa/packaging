@@ -8,7 +8,7 @@ import distutils.util
 
 try:
     from importlib.machinery import EXTENSION_SUFFIXES
-except ImportError:
+except ImportError:  # pragma: no cover
     import imp
 
     EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
