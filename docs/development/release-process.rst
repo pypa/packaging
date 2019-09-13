@@ -22,5 +22,9 @@ Release Process
 
     $ twine upload dist/*
 
+#. Create a
+   `release on GitHub <https://github.com/pypa/packaging/releases>`_ and
+   include the artifacts uploaded to PyPI.
+
 #. Bump the version for development in ``packaging/__about__.py`` and
    ``CHANGELOG.rst``.
