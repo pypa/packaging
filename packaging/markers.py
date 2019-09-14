@@ -192,13 +192,17 @@ def _eval_op(lhs, op, rhs):
     return oper(lhs, rhs)
 
 
-_undefined = object()
+class Undefined(object):
+    pass
+
+
+_undefined = Undefined()
 
 
 def _get_env(environment, name):
     value = environment.get(name, _undefined)
 
-    if value is _undefined:
+    if isinstance(value, Undefined):
         raise UndefinedEnvironmentName(
             "{0!r} does not exist in evaluation environment.".format(name)
         )

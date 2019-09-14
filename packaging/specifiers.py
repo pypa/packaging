@@ -106,7 +106,7 @@ class _IndividualSpecifier(BaseSpecifier):
     def __eq__(self, other):
         if isinstance(other, string_types):
             try:
-                other = self.__class__(other)
+                other = self.__class__(str(other))
             except InvalidSpecifier:
                 return NotImplemented
         elif not isinstance(other, self.__class__):
@@ -117,7 +117,7 @@ class _IndividualSpecifier(BaseSpecifier):
     def __ne__(self, other):
         if isinstance(other, string_types):
             try:
-                other = self.__class__(other)
+                other = self.__class__(str(other))
             except InvalidSpecifier:
                 return NotImplemented
         elif not isinstance(other, self.__class__):
@@ -126,7 +126,10 @@ class _IndividualSpecifier(BaseSpecifier):
         return self._spec != other._spec
 
     def _get_operator(self, op):
-        return getattr(self, "_compare_{0}".format(self._operators[op]))
+        operator_callable = getattr(
+            self, "_compare_{0}".format(self._operators[op])
+        )
+        return operator_callable
 
     def _coerce_version(self, version):
         if not isinstance(version, (LegacyVersion, Version)):
@@ -159,17 +162,20 @@ class _IndividualSpecifier(BaseSpecifier):
 
         # Normalize item to a Version or LegacyVersion, this allows us to have
         # a shortcut for ``"2.0" in Specifier(">=2")
-        item = self._coerce_version(item)
+        normalized_item = self._coerce_version(item)
 
         # Determine if we should be supporting prereleases in this specifier
         # or not, if we do not support prereleases than we can short circuit
         # logic if this version is a prereleases.
-        if item.is_prerelease and not prereleases:
+        if normalized_item.is_prerelease and not prereleases:
             return False
 
         # Actually do the comparison to determine if this item is contained
         # within this Specifier or not.
-        return self._get_operator(self.operator)(item, self.version)
+        operator_callable = self._get_operator(
+            self.operator
+        )
+        return operator_callable(normalized_item, self.version)
 
     def filter(self, iterable, prereleases=None):
         yielded = False
@@ -406,32 +412,36 @@ class Specifier(_IndividualSpecifier):
             prospective = Version(prospective.public)
             # Split the spec out by dots, and pretend that there is an implicit
             # dot in between a release segment and a pre-release segment.
-            spec = _version_split(spec[:-2])  # Remove the trailing .*
+            split_spec = _version_split(spec[:-2])  # Remove the trailing .*
 
             # Split the prospective version out by dots, and pretend that there
             # is an implicit dot in between a release segment and a pre-release
             # segment.
-            prospective = _version_split(str(prospective))
+            split_prospective = _version_split(str(prospective))
 
             # Shorten the prospective version to be the same length as the spec
             # so that we can determine if the specifier is a prefix of the
             # prospective version or not.
-            prospective = prospective[: len(spec)]
+            shortened_prospective = split_prospective[: len(split_spec)]
 
             # Pad out our two sides with zeros so that they both equal the same
             # length.
-            spec, prospective = _pad_version(spec, prospective)
+            padded_spec, padded_prospective = _pad_version(
+                split_spec, shortened_prospective
+            )
+
+            return padded_prospective == padded_spec
         else:
             # Convert our spec string into a Version
-            spec = Version(spec)
+            spec_version = Version(spec)
 
             # If the specifier does not have a local segment, then we want to
             # act as if the prospective version also does not have a local
             # segment.
-            if not spec.local:
+            if not spec_version.local:
                 prospective = Version(prospective.public)
 
-        return prospective == spec
+            return prospective == spec_version
 
     @_require_version_compare
     def _compare_not_equal(self, prospective, spec):
@@ -446,10 +456,10 @@ class Specifier(_IndividualSpecifier):
         return prospective >= Version(spec)
 
     @_require_version_compare
-    def _compare_less_than(self, prospective, spec):
+    def _compare_less_than(self, prospective, spec_str):
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec)
+        spec = Version(spec_str)
 
         # Check to see if the prospective version is less than the spec
         # version. If it's not we can short circuit and just return False now
@@ -471,10 +481,10 @@ class Specifier(_IndividualSpecifier):
         return True
 
     @_require_version_compare
-    def _compare_greater_than(self, prospective, spec):
+    def _compare_greater_than(self, prospective, spec_str):
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec)
+        spec = Version(spec_str)
 
         # Check to see if the prospective version is greater than the spec
         # version. If it's not we can short circuit and just return False now
@@ -569,12 +579,12 @@ class SpecifierSet(BaseSpecifier):
     def __init__(self, specifiers="", prereleases=None):
         # Split on , to break each indidivual specifier into it's own item, and
         # strip each item to remove leading/trailing whitespace.
-        specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
+        split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
         # Parsed each individual specifier, attempting first to make it a
         # Specifier and falling back to a LegacySpecifier.
         parsed = set()
-        for specifier in specifiers:
+        for specifier in split_specifiers:
             try:
                 parsed.add(Specifier(specifier))
             except InvalidSpecifier:
@@ -626,9 +636,7 @@ class SpecifierSet(BaseSpecifier):
         return specifier
 
     def __eq__(self, other):
-        if isinstance(other, string_types):
-            other = SpecifierSet(other)
-        elif isinstance(other, _IndividualSpecifier):
+        if isinstance(other, (string_types, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
@@ -636,9 +644,7 @@ class SpecifierSet(BaseSpecifier):
         return self._specs == other._specs
 
     def __ne__(self, other):
-        if isinstance(other, string_types):
-            other = SpecifierSet(other)
-        elif isinstance(other, _IndividualSpecifier):
+        if isinstance(other, (string_types, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented

@@ -16,17 +16,17 @@ def canonicalize_name(name):
     return _canonicalize_regex.sub("-", name).lower()
 
 
-def canonicalize_version(version):
+def canonicalize_version(_version):
     """
     This is very similar to Version.__str__, but has one subtle differences
     with the way it handles the release segment.
     """
 
     try:
-        version = Version(version)
+        version = Version(_version)
     except InvalidVersion:
         # Legacy versions cannot be normalized
-        return version
+        return _version
 
     parts = []
 

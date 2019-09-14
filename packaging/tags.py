@@ -246,13 +246,17 @@ def _mac_binary_formats(version, cpu_arch):
 def _mac_platforms(version=None, arch=None):
     version_str, _, cpu_arch = platform.mac_ver()
     if version is None:
-        version = tuple(map(int, version_str.split(".")[:2]))
+        _version = tuple(map(int, version_str.split(".")[:2]))
+    else:
+        _version = version
     if arch is None:
-        arch = _mac_arch(cpu_arch)
+        _arch = _mac_arch(cpu_arch)
+    else:
+        _arch = arch
     platforms = []
-    for minor_version in range(version[1], -1, -1):
-        compat_version = version[0], minor_version
-        binary_formats = _mac_binary_formats(compat_version, arch)
+    for minor_version in range(_version[1], -1, -1):
+        compat_version = _version[0], minor_version
+        binary_formats = _mac_binary_formats(compat_version, _arch)
         for binary_format in binary_formats:
             platforms.append(
                 "macosx_{major}_{minor}_{binary_format}".format(

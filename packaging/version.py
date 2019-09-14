@@ -7,7 +7,7 @@ import collections
 import itertools
 import re
 
-from ._structures import Infinity
+from ._structures import Infinity, NegativeInfinity
 
 
 __all__ = ["parse", "Version", "LegacyVersion", "InvalidVersion", "VERSION_PATTERN"]
@@ -37,6 +37,8 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion(object):
+    _key = None
+
     def __hash__(self):
         return hash(self._key)
 
@@ -171,9 +173,8 @@ def _legacy_cmpkey(version):
                 parts.pop()
 
         parts.append(part)
-    parts = tuple(parts)
 
-    return epoch, parts
+    return epoch, tuple(parts)
 
 
 # Deliberately not anchored to the start and end of the string, to make it
@@ -275,15 +276,18 @@ class Version(_BaseVersion):
 
     @property
     def epoch(self):
-        return self._version.epoch
+        _epoch = self._version.epoch
+        return _epoch
 
     @property
     def release(self):
-        return self._version.release
+        _release = self._version.release
+        return _release
 
     @property
     def pre(self):
-        return self._version.pre
+        _pre = self._version.pre
+        return _pre
 
     @property
     def post(self):
@@ -360,6 +364,8 @@ def _parse_letter_version(letter, number):
 
         return letter, int(number)
 
+    return None
+
 
 _local_version_separators = re.compile(r"[\._-]")
 
@@ -373,6 +379,8 @@ def _parse_local_version(local):
             part.lower() if not part.isdigit() else int(part)
             for part in _local_version_separators.split(local)
         )
+    return None
+
 
 
 def _cmpkey(epoch, release, pre, post, dev, local):
@@ -381,7 +389,7 @@ def _cmpkey(epoch, release, pre, post, dev, local):
     # leading zeros until we come to something non zero, then take the rest
     # re-reverse it back into the correct order and make it a tuple and use
     # that for our sorting key.
-    release = tuple(
+    _release = tuple(
         reversed(list(itertools.dropwhile(lambda x: x == 0, reversed(release))))
     )
 
@@ -390,23 +398,31 @@ def _cmpkey(epoch, release, pre, post, dev, local):
     # if there is not a pre or a post segment. If we have one of those then
     # the normal sorting rules will handle this case correctly.
     if pre is None and post is None and dev is not None:
-        pre = -Infinity
+        _pre = NegativeInfinity
     # Versions without a pre-release (except as noted above) should sort after
     # those with one.
     elif pre is None:
-        pre = Infinity
+        _pre = Infinity
+    else:
+        _pre = pre
 
     # Versions without a post segment should sort before those with one.
     if post is None:
-        post = -Infinity
+        _post = NegativeInfinity
+
+    else:
+        _post = post
 
     # Versions without a development segment should sort after those with one.
     if dev is None:
-        dev = Infinity
+        _dev = Infinity
+
+    else:
+        _dev = dev
 
     if local is None:
         # Versions without a local segment should sort before those with one.
-        local = -Infinity
+        _local = NegativeInfinity
     else:
         # Versions with a local segment need that segment parsed to implement
         # the sorting rules in PEP440.
@@ -415,6 +431,9 @@ def _cmpkey(epoch, release, pre, post, dev, local):
         # - Numeric segments sort numerically
         # - Shorter versions sort before longer versions when the prefixes
         #   match exactly
-        local = tuple((i, "") if isinstance(i, int) else (-Infinity, i) for i in local)
+        _local = tuple(
+            (i, "") if isinstance(i, int) else (NegativeInfinity, i)
+            for i in local
+        )
 
-    return epoch, release, pre, post, dev, local
+    return epoch, _release, _pre, _post, _dev, _local

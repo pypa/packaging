@@ -4,7 +4,7 @@
 from __future__ import absolute_import, division, print_function
 
 
-class Infinity(object):
+class InfinityType(object):
     def __repr__(self):
         return "Infinity"
 
@@ -33,10 +33,10 @@ class Infinity(object):
         return NegativeInfinity
 
 
-Infinity = Infinity()
+Infinity = InfinityType()
 
 
-class NegativeInfinity(object):
+class NegativeInfinityType(object):
     def __repr__(self):
         return "-Infinity"
 
@@ -65,4 +65,4 @@ class NegativeInfinity(object):
         return Infinity
 
 
-NegativeInfinity = NegativeInfinity()
+NegativeInfinity = NegativeInfinityType()
