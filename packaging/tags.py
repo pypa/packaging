@@ -54,6 +54,9 @@ class Tag(object):
         return self._platform
 
     def __eq__(self, other):
+        if not isinstance(other, Tag):
+            return NotImplemented
+
         return (
             (self.platform == other.platform)
             and (self.abi == other.abi)
