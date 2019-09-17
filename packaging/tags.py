@@ -22,7 +22,13 @@ import warnings
 from ._typing import MYPY_CHECK_RUNNING
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Dict, FrozenSet, Iterator, List, Optional, Tuple
+    from typing import cast, Dict, FrozenSet, Iterator, List, Optional, Tuple
+else:
+    # typing's cast() is needed at runtime, but we don't want to import typing.
+    # Thus, we use a dummy no-op version, which we tell mypy to ignore.
+    def cast(type_, value):  # type: ignore
+        return value
+
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -275,17 +281,17 @@ def _mac_platforms(
     # type: (...) -> List[str]
     version_str, _, cpu_arch = platform.mac_ver()
     if version is None:
-        _version = tuple(map(int, version_str.split(".")[:2]))
+        version = cast("Tuple[int, int]", tuple(map(int, version_str.split(".")[:2])))
     else:
-        _version = version
+        version = version
     if arch is None:
-        _arch = _mac_arch(cpu_arch)
+        arch = _mac_arch(cpu_arch)
     else:
-        _arch = arch
+        arch = arch
     platforms = []
-    for minor_version in range(_version[1], -1, -1):
-        compat_version = _version[0], minor_version
-        binary_formats = _mac_binary_formats(compat_version, _arch)
+    for minor_version in range(version[1], -1, -1):
+        compat_version = version[0], minor_version
+        binary_formats = _mac_binary_formats(compat_version, arch)
         for binary_format in binary_formats:
             platforms.append(
                 "macosx_{major}_{minor}_{binary_format}".format(
