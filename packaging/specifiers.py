@@ -27,6 +27,7 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
+    CallableOperator = Callable[[ParsedVersion, str], bool]
 
 
 class InvalidSpecifier(ValueError):
@@ -160,10 +161,10 @@ class _IndividualSpecifier(BaseSpecifier):
         return self._spec != other._spec
 
     def _get_operator(self, op):
-        # type: (str) -> Callable[[ParsedVersion, str], bool]
+        # type: (str) -> CallableOperator
         operator_callable = getattr(
             self, "_compare_{0}".format(self._operators[op])
-        )  # type: Callable[[ParsedVersion, str], bool]
+        )  # type: CallableOperator
         return operator_callable
 
     def _coerce_version(self, version):
@@ -215,9 +216,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
         # Actually do the comparison to determine if this item is contained
         # within this Specifier or not.
-        operator_callable = self._get_operator(
-            self.operator
-        )  # type: Callable[[ParsedVersion, str], bool]
+        operator_callable = self._get_operator(self.operator)  # type: CallableOperator
         return operator_callable(normalized_item, self.version)
 
     def filter(self, iterable, prereleases=None):
