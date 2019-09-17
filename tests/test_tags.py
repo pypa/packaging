@@ -304,6 +304,17 @@ def test_cpython_tags():
         tags.Tag("cp32", "abi3", "plat1"),
         tags.Tag("cp32", "abi3", "plat2"),
     ]
+    result = list(tags._cpython_tags((3, 3), "cp33", ["cp33m"], ["plat1", "plat2"]))
+    assert result == [
+        tags.Tag("cp33", "cp33m", "plat1"),
+        tags.Tag("cp33", "cp33m", "plat2"),
+        tags.Tag("cp33", "abi3", "plat1"),
+        tags.Tag("cp33", "abi3", "plat2"),
+        tags.Tag("cp33", "none", "plat1"),
+        tags.Tag("cp33", "none", "plat2"),
+        tags.Tag("cp32", "abi3", "plat1"),
+        tags.Tag("cp32", "abi3", "plat2"),
+    ]
 
 
 def test_sys_tags_on_mac_cpython(monkeypatch):

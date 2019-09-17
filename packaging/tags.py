@@ -97,6 +97,7 @@ def _cpython_abis(py_version):
     has_refcount = hasattr(sys, "gettotalrefcount")
     # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
     # extension modules is the best option.
+    # https://github.com/pypa/pip/issues/3383#issuecomment-173267692
     has_ext = "_d.pyd" in EXTENSION_SUFFIXES
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
@@ -104,19 +105,22 @@ def _cpython_abis(py_version):
         with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
         if with_pymalloc or with_pymalloc is None:
             pymalloc = "m"
-    if py_version < (3, 3):
-        unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
-        if unicode_size == 4 or (unicode_size is None and sys.maxunicode == 0x10FFFF):
-            ucs4 = "u"
-    abis.append(
-        "cp{version}{debug}{pymalloc}{ucs4}".format(
-            version=version, debug=debug, pymalloc=pymalloc, ucs4=ucs4
-        )
-    )
-    if py_version >= (3, 8) and debug:
+        if py_version < (3, 3):
+            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
+            if unicode_size == 4 or (
+                unicode_size is None and sys.maxunicode == 0x10FFFF
+            ):
+                ucs4 = "u"
+    elif debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
         abis.append("cp{version}".format(version=version))
+    abis.insert(
+        0,
+        "cp{version}{debug}{pymalloc}{ucs4}".format(
+            version=version, debug=debug, pymalloc=pymalloc, ucs4=ucs4
+        ),
+    )
     return abis
 
 
