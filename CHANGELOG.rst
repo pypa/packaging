@@ -1,7 +1,7 @@
 Changelog
 ---------
 
-20.0 - `master`_
+20.0 - master_
 ~~~~~~~~~~~~~~~~
 
 .. note:: This version is not yet released and is under active development.
@@ -11,6 +11,12 @@ Changelog
 * Use appropriate fallbacks for CPython ABI tag (:issue:`181`, :issue:`185`)
 
 * Add manylinux2014 support (:issue:`186`)
+
+* Improve ABI detection (:issue:`181`)
+
+* Properly handle debug wheels for Python 3.8 (:issue:`172`)
+
+* Improve detection of debug builds on Windows (:issue:`194`)
 
 19.1 - 2019-07-30
 ~~~~~~~~~~~~~~~~~
