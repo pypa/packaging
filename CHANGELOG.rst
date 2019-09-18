@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+20.0 - master_
+~~~~~~~~~~~~~~~~~
+
+.. note:: This version is not yet released and is under active development.
+
 19.2 - 2019-09-18
 ~~~~~~~~~~~~~~~~~
 
