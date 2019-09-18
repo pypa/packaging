@@ -2,7 +2,8 @@ Release Process
 ===============
 
 #. Checkout the current ``master`` branch, with a clean working directory.
-#. Modify the ``CHANGELOG.rst`` to include changes made since the last release.
+#. Modify the ``CHANGELOG.rst`` to include changes made since the last release
+   and update the section header for the new release.
 #. Bump the version in ``packaging/__about__.py``
 
 #. Install the latest ``setuptools``, ``wheel`` and ``twine`` packages
