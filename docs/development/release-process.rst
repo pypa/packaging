@@ -19,6 +19,8 @@ Release Process
 
     $ twine check dist/*
 
+#. Commit the changes to ``master``.
+
 #. If all goes well, upload the build distribution files::
 
     $ twine upload dist/*
