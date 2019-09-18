@@ -5,6 +5,14 @@
 from __future__ import absolute_import
 
 import distutils.util
+
+try:
+    from importlib.machinery import EXTENSION_SUFFIXES
+except ImportError:  # pragma: no cover
+    import imp
+
+    EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
+    del imp
 import platform
 import re
 import sys
@@ -81,35 +89,48 @@ def _cpython_interpreter(py_version):
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
-def _cpython_abi(py_version):
-    soabi = sysconfig.get_config_var("SOABI")
-    if soabi:
-        options = soabi.split("-", 2)[1]
-    else:
-        found_options = [str(py_version[0]), str(py_version[1])]
-        debug = sysconfig.get_config_var("Py_DEBUG")
-        if debug or (debug is None and hasattr(sys, "gettotalrefcount")):
-            found_options.append("d")
-        if py_version < (3, 8):
-            with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
-            if with_pymalloc or with_pymalloc is None:
-                found_options.append("m")
+def _cpython_abis(py_version):
+    abis = []
+    version = "{}{}".format(*py_version[:2])
+    debug = pymalloc = ucs4 = ""
+    with_debug = sysconfig.get_config_var("Py_DEBUG")
+    has_refcount = hasattr(sys, "gettotalrefcount")
+    # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
+    # extension modules is the best option.
+    # https://github.com/pypa/pip/issues/3383#issuecomment-173267692
+    has_ext = "_d.pyd" in EXTENSION_SUFFIXES
+    if with_debug or (with_debug is None and (has_refcount or has_ext)):
+        debug = "d"
+    if py_version < (3, 8):
+        with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
+        if with_pymalloc or with_pymalloc is None:
+            pymalloc = "m"
         if py_version < (3, 3):
             unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
             if unicode_size == 4 or (
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
-                found_options.append("u")
-        options = "".join(found_options)
-    return "cp{options}".format(options=options)
+                ucs4 = "u"
+    elif debug:
+        # Debug builds can also load "normal" extension modules.
+        # We can also assume no UCS-4 or pymalloc requirement.
+        abis.append("cp{version}".format(version=version))
+    abis.insert(
+        0,
+        "cp{version}{debug}{pymalloc}{ucs4}".format(
+            version=version, debug=debug, pymalloc=pymalloc, ucs4=ucs4
+        ),
+    )
+    return abis
 
 
-def _cpython_tags(py_version, interpreter, abi, platforms):
-    for tag in (Tag(interpreter, abi, platform) for platform in platforms):
+def _cpython_tags(py_version, interpreter, abis, platforms):
+    for abi in abis:
+        for platform_ in platforms:
+            yield Tag(interpreter, abi, platform_)
+    for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
         yield tag
-    for tag in (Tag(interpreter, "abi3", platform) for platform in platforms):
-        yield tag
-    for tag in (Tag(interpreter, "none", platform) for platform in platforms):
+    for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
         yield tag
     # PEP 384 was first implemented in Python 3.2.
     for minor_version in range(py_version[1] - 1, 1, -1):
@@ -366,8 +387,8 @@ def sys_tags():
 
     if interpreter_name == "cp":
         interpreter = _cpython_interpreter(py_version)
-        abi = _cpython_abi(py_version)
-        for tag in _cpython_tags(py_version, interpreter, abi, platforms):
+        abis = _cpython_abis(py_version)
+        for tag in _cpython_tags(py_version, interpreter, abis, platforms):
             yield tag
     elif interpreter_name == "pp":
         interpreter = _pypy_interpreter()
