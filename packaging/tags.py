@@ -279,7 +279,7 @@ def _mac_platforms(
     arch=None,  # type: Optional[str]
 ):
     # type: (...) -> List[str]
-    version_str, _, cpu_arch = platform.mac_ver()
+    version_str, _, cpu_arch = platform.mac_ver()  # type: ignore
     if version is None:
         version = cast("Tuple[int, int]", tuple(map(int, version_str.split(".")[:2])))
     else:
