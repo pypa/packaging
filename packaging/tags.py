@@ -114,7 +114,7 @@ def _cpython_interpreter(py_version):
 
 
 def _cpython_abis(py_version):
-    # type: (Tuple[int, int]) -> str
+    # type: (Tuple[int, int]) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
@@ -150,7 +150,7 @@ def _cpython_abis(py_version):
 
 
 def _cpython_tags(py_version, interpreter, abis, platforms):
-    # type: (Tuple[int, int], str, str, List[str]) -> Iterator[Tag]
+    # type: (Tuple[int, int], str, List[str], List[str]) -> Iterator[Tag]
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
