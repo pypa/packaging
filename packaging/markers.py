@@ -17,7 +17,7 @@ from ._typing import MYPY_CHECK_RUNNING
 from .specifiers import Specifier, InvalidSpecifier
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Any, List, Tuple, Dict, Union, Optional, Callable
+    from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
     Operator = Callable[[str, str], bool]
 
