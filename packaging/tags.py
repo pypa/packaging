@@ -22,7 +22,7 @@ import warnings
 from ._typing import MYPY_CHECK_RUNNING, cast
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Dict, FrozenSet, Iterator, List, Optional, Tuple
+    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
 
     PythonVersion = Tuple[int, int]
     MacVersion = Tuple[int, int]
@@ -149,7 +149,7 @@ def _cpython_abis(py_version):
 
 
 def _cpython_tags(py_version, interpreter, abis, platforms):
-    # type: (PythonVersion, str, List[str], List[str]) -> Iterator[Tag]
+    # type: (PythonVersion, str, Iterable[str], Iterable[str]) -> Iterator[Tag]
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -185,7 +185,7 @@ def _generic_abi():
 
 
 def _pypy_tags(py_version, interpreter, abi, platforms):
-    # type: (PythonVersion, str, str, List[str]) -> Iterator[Tag]
+    # type: (PythonVersion, str, str, Iterable[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     for tag in (Tag(interpreter, "none", platform) for platform in platforms):
@@ -193,7 +193,7 @@ def _pypy_tags(py_version, interpreter, abi, platforms):
 
 
 def _generic_tags(interpreter, py_version, abi, platforms):
-    # type: (str, PythonVersion, str, List[str]) -> Iterator[Tag]
+    # type: (str, PythonVersion, str, Iterable[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     if abi != "none":
@@ -217,7 +217,7 @@ def _py_interpreter_range(py_version):
 
 
 def _independent_tags(interpreter, py_version, platforms):
-    # type: (str, PythonVersion, List[str]) -> Iterator[Tag]
+    # type: (str, PythonVersion, Iterable[str]) -> Iterator[Tag]
     """
     Return the sequence of tags that are consistent across implementations.
 
