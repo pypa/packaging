@@ -24,6 +24,10 @@ from ._typing import MYPY_CHECK_RUNNING, cast
 if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import Dict, FrozenSet, Iterator, List, Optional, Tuple
 
+    PythonVersion = Tuple[int, int]
+    MacVersion = Tuple[int, int]
+    GlibcVersion = Tuple[int, int]
+
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -103,13 +107,13 @@ def _normalize_string(string):
 
 
 def _cpython_interpreter(py_version):
-    # type: (Tuple[int, int]) -> str
+    # type: (PythonVersion) -> str
     # TODO: Is using py_version_nodot for interpreter version critical?
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
 def _cpython_abis(py_version):
-    # type: (Tuple[int, int]) -> List[str]
+    # type: (PythonVersion) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
@@ -145,7 +149,7 @@ def _cpython_abis(py_version):
 
 
 def _cpython_tags(py_version, interpreter, abis, platforms):
-    # type: (Tuple[int, int], str, List[str], List[str]) -> Iterator[Tag]
+    # type: (PythonVersion, str, List[str], List[str]) -> Iterator[Tag]
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -181,7 +185,7 @@ def _generic_abi():
 
 
 def _pypy_tags(py_version, interpreter, abi, platforms):
-    # type: (Tuple[int, int], str, str, List[str]) -> Iterator[Tag]
+    # type: (PythonVersion, str, str, List[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     for tag in (Tag(interpreter, "none", platform) for platform in platforms):
@@ -189,7 +193,7 @@ def _pypy_tags(py_version, interpreter, abi, platforms):
 
 
 def _generic_tags(interpreter, py_version, abi, platforms):
-    # type: (str, Tuple[int, int], str, List[str]) -> Iterator[Tag]
+    # type: (str, PythonVersion, str, List[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     if abi != "none":
@@ -199,7 +203,7 @@ def _generic_tags(interpreter, py_version, abi, platforms):
 
 
 def _py_interpreter_range(py_version):
-    # type: (Tuple[int, int]) -> Iterator[str]
+    # type: (PythonVersion) -> Iterator[str]
     """
     Yield Python versions in descending order.
 
@@ -213,7 +217,7 @@ def _py_interpreter_range(py_version):
 
 
 def _independent_tags(interpreter, py_version, platforms):
-    # type: (str, Tuple[int, int], List[str]) -> Iterator[Tag]
+    # type: (str, PythonVersion, List[str]) -> Iterator[Tag]
     """
     Return the sequence of tags that are consistent across implementations.
 
@@ -242,7 +246,7 @@ def _mac_arch(arch, is_32bit=_32_BIT_INTERPRETER):
 
 
 def _mac_binary_formats(version, cpu_arch):
-    # type: (Tuple[int, int], str) -> List[str]
+    # type: (MacVersion, str) -> List[str]
     formats = [cpu_arch]
     if cpu_arch == "x86_64":
         if version < (10, 4):
@@ -270,13 +274,13 @@ def _mac_binary_formats(version, cpu_arch):
 
 
 def _mac_platforms(
-    version=None,  # type: Optional[Tuple[int, int]]
+    version=None,  # type: Optional[MacVersion]
     arch=None,  # type: Optional[str]
 ):
     # type: (...) -> List[str]
     version_str, _, cpu_arch = platform.mac_ver()  # type: ignore
     if version is None:
-        version = cast("Tuple[int, int]", tuple(map(int, version_str.split(".")[:2])))
+        version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
     else:
         version = version
     if arch is None:
@@ -300,7 +304,7 @@ def _mac_platforms(
 
 # From PEP 513.
 def _is_manylinux_compatible(name, glibc_version):
-    # type: (str, Tuple[int, int]) -> bool
+    # type: (str, GlibcVersion) -> bool
     # Check for presence of _manylinux module.
     try:
         import _manylinux
@@ -409,7 +413,7 @@ def _interpreter_name():
 
 
 def _generic_interpreter(name, py_version):
-    # type: (str, Tuple[int, int]) -> str
+    # type: (str, PythonVersion) -> str
     version = sysconfig.get_config_var("py_version_nodot")
     if not version:
         version = "".join(map(str, py_version[:2]))
