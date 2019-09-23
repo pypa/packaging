@@ -19,15 +19,10 @@ import sys
 import sysconfig
 import warnings
 
-from ._typing import MYPY_CHECK_RUNNING
+from ._typing import MYPY_CHECK_RUNNING, cast
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import cast, Dict, FrozenSet, Iterator, List, Optional, Tuple
-else:
-    # typing's cast() is needed at runtime, but we don't want to import typing.
-    # Thus, we use a dummy no-op version, which we tell mypy to ignore.
-    def cast(type_, value):  # type: ignore
-        return value
+    from typing import Dict, FrozenSet, Iterator, List, Optional, Tuple
 
 
 INTERPRETER_SHORT_NAMES = {
