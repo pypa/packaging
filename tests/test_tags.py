@@ -49,6 +49,10 @@ def test_tag_equality():
     assert tags.Tag(*args) == tags.Tag(*args)
 
 
+def test_tag_equality_fails_with_non_tag():
+    assert not tags.Tag("py3", "none", "any") == "non-tag"
+
+
 def test_tag_hashing(example_tag):
     tags = {example_tag}  # Should not raise TypeError.
     assert example_tag in tags

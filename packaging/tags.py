@@ -19,6 +19,15 @@ import sys
 import sysconfig
 import warnings
 
+from ._typing import MYPY_CHECK_RUNNING, cast
+
+if MYPY_CHECK_RUNNING:  # pragma: no cover
+    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
+
+    PythonVersion = Tuple[int, int]
+    MacVersion = Tuple[int, int]
+    GlibcVersion = Tuple[int, int]
+
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -26,7 +35,7 @@ INTERPRETER_SHORT_NAMES = {
     "pypy": "pp",
     "ironpython": "ip",
     "jython": "jy",
-}
+}  # type: Dict[str, str]
 
 
 _32_BIT_INTERPRETER = sys.maxsize <= 2 ** 32
@@ -37,23 +46,31 @@ class Tag(object):
     __slots__ = ["_interpreter", "_abi", "_platform"]
 
     def __init__(self, interpreter, abi, platform):
+        # type: (str, str, str) -> None
         self._interpreter = interpreter.lower()
         self._abi = abi.lower()
         self._platform = platform.lower()
 
     @property
     def interpreter(self):
+        # type: () -> str
         return self._interpreter
 
     @property
     def abi(self):
+        # type: () -> str
         return self._abi
 
     @property
     def platform(self):
+        # type: () -> str
         return self._platform
 
     def __eq__(self, other):
+        # type: (object) -> bool
+        if not isinstance(other, Tag):
+            return NotImplemented
+
         return (
             (self.platform == other.platform)
             and (self.abi == other.abi)
@@ -61,16 +78,20 @@ class Tag(object):
         )
 
     def __hash__(self):
+        # type: () -> int
         return hash((self._interpreter, self._abi, self._platform))
 
     def __str__(self):
+        # type: () -> str
         return "{}-{}-{}".format(self._interpreter, self._abi, self._platform)
 
     def __repr__(self):
+        # type: () -> str
         return "<{self} @ {self_id}>".format(self=self, self_id=id(self))
 
 
 def parse_tag(tag):
+    # type: (str) -> FrozenSet[Tag]
     tags = set()
     interpreters, abis, platforms = tag.split("-")
     for interpreter in interpreters.split("."):
@@ -81,15 +102,18 @@ def parse_tag(tag):
 
 
 def _normalize_string(string):
+    # type: (str) -> str
     return string.replace(".", "_").replace("-", "_")
 
 
 def _cpython_interpreter(py_version):
+    # type: (PythonVersion) -> str
     # TODO: Is using py_version_nodot for interpreter version critical?
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
 def _cpython_abis(py_version):
+    # type: (PythonVersion) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
@@ -125,6 +149,7 @@ def _cpython_abis(py_version):
 
 
 def _cpython_tags(py_version, interpreter, abis, platforms):
+    # type: (PythonVersion, str, Iterable[str], Iterable[str]) -> Iterator[Tag]
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -142,6 +167,7 @@ def _cpython_tags(py_version, interpreter, abis, platforms):
 
 
 def _pypy_interpreter():
+    # type: () -> str
     return "pp{py_major}{pypy_major}{pypy_minor}".format(
         py_major=sys.version_info[0],
         pypy_major=sys.pypy_version_info.major,
@@ -150,6 +176,7 @@ def _pypy_interpreter():
 
 
 def _generic_abi():
+    # type: () -> str
     abi = sysconfig.get_config_var("SOABI")
     if abi:
         return _normalize_string(abi)
@@ -158,6 +185,7 @@ def _generic_abi():
 
 
 def _pypy_tags(py_version, interpreter, abi, platforms):
+    # type: (PythonVersion, str, str, Iterable[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     for tag in (Tag(interpreter, "none", platform) for platform in platforms):
@@ -165,6 +193,7 @@ def _pypy_tags(py_version, interpreter, abi, platforms):
 
 
 def _generic_tags(interpreter, py_version, abi, platforms):
+    # type: (str, PythonVersion, str, Iterable[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
         yield tag
     if abi != "none":
@@ -174,6 +203,7 @@ def _generic_tags(interpreter, py_version, abi, platforms):
 
 
 def _py_interpreter_range(py_version):
+    # type: (PythonVersion) -> Iterator[str]
     """
     Yield Python versions in descending order.
 
@@ -187,6 +217,7 @@ def _py_interpreter_range(py_version):
 
 
 def _independent_tags(interpreter, py_version, platforms):
+    # type: (str, PythonVersion, Iterable[str]) -> Iterator[Tag]
     """
     Return the sequence of tags that are consistent across implementations.
 
@@ -204,6 +235,7 @@ def _independent_tags(interpreter, py_version, platforms):
 
 
 def _mac_arch(arch, is_32bit=_32_BIT_INTERPRETER):
+    # type: (str, bool) -> str
     if not is_32bit:
         return arch
 
@@ -214,6 +246,7 @@ def _mac_arch(arch, is_32bit=_32_BIT_INTERPRETER):
 
 
 def _mac_binary_formats(version, cpu_arch):
+    # type: (MacVersion, str) -> List[str]
     formats = [cpu_arch]
     if cpu_arch == "x86_64":
         if version < (10, 4):
@@ -240,12 +273,20 @@ def _mac_binary_formats(version, cpu_arch):
     return formats
 
 
-def _mac_platforms(version=None, arch=None):
-    version_str, _, cpu_arch = platform.mac_ver()
+def _mac_platforms(
+    version=None,  # type: Optional[MacVersion]
+    arch=None,  # type: Optional[str]
+):
+    # type: (...) -> List[str]
+    version_str, _, cpu_arch = platform.mac_ver()  # type: ignore
     if version is None:
-        version = tuple(map(int, version_str.split(".")[:2]))
+        version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
+    else:
+        version = version
     if arch is None:
         arch = _mac_arch(cpu_arch)
+    else:
+        arch = arch
     platforms = []
     for minor_version in range(version[1], -1, -1):
         compat_version = version[0], minor_version
@@ -263,6 +304,7 @@ def _mac_platforms(version=None, arch=None):
 
 # From PEP 513.
 def _is_manylinux_compatible(name, glibc_version):
+    # type: (str, GlibcVersion) -> bool
     # Check for presence of _manylinux module.
     try:
         import _manylinux
@@ -276,6 +318,7 @@ def _is_manylinux_compatible(name, glibc_version):
 
 
 def _glibc_version_string():
+    # type: () -> Optional[str]
     # Returns glibc version string, or None if not using glibc.
     import ctypes
 
@@ -283,7 +326,9 @@ def _glibc_version_string():
     # manpage says, "If filename is NULL, then the returned handle is for the
     # main program". This way we can let the linker do the work to figure out
     # which libc our process is actually using.
-    process_namespace = ctypes.CDLL(None)
+    #
+    # Note: typeshed is wrong here so we are ignoring this line.
+    process_namespace = ctypes.CDLL(None)  # type: ignore
     try:
         gnu_get_libc_version = process_namespace.gnu_get_libc_version
     except AttributeError:
@@ -293,7 +338,7 @@ def _glibc_version_string():
 
     # Call gnu_get_libc_version, which returns a string like "2.5"
     gnu_get_libc_version.restype = ctypes.c_char_p
-    version_str = gnu_get_libc_version()
+    version_str = gnu_get_libc_version()  # type: str
     # py2 / py3 compatibility:
     if not isinstance(version_str, str):
         version_str = version_str.decode("ascii")
@@ -303,6 +348,7 @@ def _glibc_version_string():
 
 # Separated out from have_compatible_glibc for easier unit testing.
 def _check_glibc_version(version_str, required_major, minimum_minor):
+    # type: (str, int, int) -> bool
     # Parse string and check against requested version.
     #
     # We use a regexp instead of str.split because we want to discard any
@@ -324,6 +370,7 @@ def _check_glibc_version(version_str, required_major, minimum_minor):
 
 
 def _have_compatible_glibc(required_major, minimum_minor):
+    # type: (int, int) -> bool
     version_str = _glibc_version_string()
     if version_str is None:
         return False
@@ -331,6 +378,7 @@ def _have_compatible_glibc(required_major, minimum_minor):
 
 
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
+    # type: (bool) -> List[str]
     linux = _normalize_string(distutils.util.get_platform())
     if linux == "linux_x86_64" and is_32bit:
         linux = "linux_i686"
@@ -353,16 +401,19 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
 
 
 def _generic_platforms():
+    # type: () -> List[str]
     platform = _normalize_string(distutils.util.get_platform())
     return [platform]
 
 
 def _interpreter_name():
+    # type: () -> str
     name = platform.python_implementation().lower()
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
 def _generic_interpreter(name, py_version):
+    # type: (str, PythonVersion) -> str
     version = sysconfig.get_config_var("py_version_nodot")
     if not version:
         version = "".join(map(str, py_version[:2]))
@@ -370,6 +421,7 @@ def _generic_interpreter(name, py_version):
 
 
 def sys_tags():
+    # type: () -> Iterator[Tag]
     """
     Returns the sequence of tag triples for the running interpreter.
 

@@ -22,6 +22,7 @@ matrix:
     - python: 3.8-dev
       env: TOXENV=py
       dist: xenial
+    - env: TOXENV=mypy
     - env: TOXENV=lint
     - env: TOXENV=docs
     - env: TOXENV=packaging
