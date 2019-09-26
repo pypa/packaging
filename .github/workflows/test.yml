@@ -42,19 +42,20 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         pypy_version: ['pypy', 'pypy3']
         
-      steps:
-      - uses: actions/checkout@v1
-    
-      - uses: actions/setup-python@v1
-        name: Install ${{ matrix.python_version }}
-        with:
-          python-version: ${{ matrix.pypy_version }}
-          architecture: 'x86'
-        
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r dev-requirements.txt
-        
-      - name: Run pytest
-        run: python -m pytest --capture=no --strict
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install ${{ matrix.python_version }}
+      with:
+        python-version: ${{ matrix.pypy_version }}
+        # pypy not available on x64 from actions/setup-python@v1.
+        architecture: 'x86'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r dev-requirements.txt
+
+    - name: Run pytest
+      run: python -m pytest --capture=no --strict
