@@ -11,7 +11,7 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        python-version: [pypy, pypy3, 2.7, 3.4, 3.5, 3.6, 3.7]
+        python-version: [2.7, 3.4, 3.5, 3.6, 3.7]
 
     steps:
     - uses: actions/checkout@v1
@@ -24,10 +24,6 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -r dev-requirements.txt
     - name: Test coverage
-      if: !startsWith(matrix.python-version, "pypy")
       run: |
         python -m coverage run --source packaging/ -m pytest --strict
         python -m coverage report -m --fail-under 100
-    - name: Test ${{ matrix.python-version }}
-      if: startsWith(matrix.python-version, "pypy")
-      run: python -m pytest --capture=no --strict
