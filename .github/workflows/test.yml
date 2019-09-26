@@ -4,28 +4,22 @@ on: [push]
 
 jobs:
   test:
-    name: Test Python ${{ matrix.python_version }} on ${{ matrix.os }} w/ ${{ matrix.architecture }} interpreter
+    name: Test Python ${{ matrix.python_version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         # Python 3.4 is not available from actions/setup-python@v1.
-        python_version: ['pypy3', '2.7', '3.5', '3.6', '3.7']
-        architecture: ['x64']
-        include:
-          - python_version: 'pypy'
-            # pypy on x64 not available from actions/setup-python@v1.
-            architecture: x86
+        python_version: ['2.7', '3.5', '3.6', '3.7']
 
     steps:
     - uses: actions/checkout@v1
     
     - uses: actions/setup-python@v1
-      name: Install Python ${{ matrix.python_version}} (${{ matrix.architecture }})
+      name: Install Python ${{ matrix.python_version }}
       with:
         python-version: ${{ matrix.python_version }}
-        architecture: ${{ matrix.architecture }}
         
     - name: Install dependencies
       run: |
@@ -33,11 +27,6 @@ jobs:
         python -m pip install -r dev-requirements.txt
     
     - name: Test coverage
-      if: matrix.python_version != 'pypy' || matrix.python_version != 'pypy3'
       run: |
         python -m coverage run --source packaging/ -m pytest --strict
         python -m coverage report -m --fail-under 100
-
-    - name: Test pypy with pytest
-      if: startsWith(matrix.python_version, 'pypy')
-      run: python -m pytest --capture=no --strict
