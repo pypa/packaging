@@ -11,13 +11,13 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        # Python 3.4 is not available.
-        python-version: [2.7, 3.5, 3.6, 3.7]
+        # Python 3.4 is not available as part of actions/setup-python@v1.
+        python-version: [pypy, pypy3, 2.7, 3.5, 3.6, 3.7]
 
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python
-      uses: actions/setup-python@v1
+    
+    - uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
         
@@ -27,6 +27,11 @@ jobs:
         python -m pip install -r dev-requirements.txt
     
     - name: Test coverage
+      if: !startsWith(matrix.python-version, "pypy")
       run: |
         python -m coverage run --source packaging/ -m pytest --strict
         python -m coverage report -m --fail-under 100
+
+    - name: Test pypy with pytest
+      if: startsWith(matrix-python-version, "pypy")
+      run: python -m pytest --capture=no --strict
