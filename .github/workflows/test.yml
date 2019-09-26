@@ -14,15 +14,15 @@ jobs:
         python_version: ['pypy3', '2.7', '3.5', '3.6', '3.7']
         architecture: ['x64']
         include:
-          python_version: 'pypy'
-          # pypy on x64 not available from actions/setup-python@v1.
-          architecture: x86
+          - python_version: 'pypy'
+            # pypy on x64 not available from actions/setup-python@v1.
+            architecture: x86
 
     steps:
     - uses: actions/checkout@v1
     
     - uses: actions/setup-python@v1
-      name: Install Python ${{ matrix.python_version}} ${{ matrix.architecture }}
+      name: Install Python ${{ matrix.python_version}} (${{ matrix.architecture }})
       with:
         python-version: ${{ matrix.python_version }}
         architecture: ${{ matrix.architecture }}
