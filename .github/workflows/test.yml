@@ -24,10 +24,10 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -r dev-requirements.txt
     - name: Test coverage
-      if: !startsWith(${{ matrix.python-version }}, "pypy")
+      if: !startsWith(matrix.python-version, "pypy")
       run: |
         python -m coverage run --source packaging/ -m pytest --strict
         python -m coverage report -m --fail-under 100
     - name: Test ${{ matrix.python-version }}
-      if: startsWith(${{ matrix.python-version }}, "pypy")
+      if: startsWith(matrix.python-version, "pypy")
       run: python -m pytest --capture=no --strict
