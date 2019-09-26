@@ -1,0 +1,35 @@
+name: Linting
+
+on:
+  push:
+    paths:
+      - '*.py'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install Python
+      with:
+        python-version: '3.7'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r dev-requirements.txt
+
+    - name: Run flake8
+      run: flake8 .
+
+    - name: Run Black
+      run: black --check .
+
+    - name: Run mypy
+      run: mypy packaging
+
+    - name: Run mypy (Python 2)
+      run: mypy packaging --py2
