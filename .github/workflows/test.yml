@@ -33,5 +33,5 @@ jobs:
         python -m coverage report -m --fail-under 100
 
     - name: Test pypy with pytest
-      if: startsWith(matrix-python-version, "pypy")
+      if: startsWith(matrix.python-version, "pypy")
       run: python -m pytest --capture=no --strict
