@@ -170,8 +170,8 @@ def _pypy_interpreter():
     # type: () -> str
     return "pp{py_major}{pypy_major}{pypy_minor}".format(
         py_major=sys.version_info[0],
-        pypy_major=sys.pypy_version_info.major,
-        pypy_minor=sys.pypy_version_info.minor,
+        pypy_major=sys.pypy_version_info.major,  # type: ignore
+        pypy_minor=sys.pypy_version_info.minor,  # type: ignore
     )
 
 
