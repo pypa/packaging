@@ -27,11 +27,11 @@ jobs:
         python -m pip install -r dev-requirements.txt
     
     - name: Test coverage
-      if: matrix.python_version != "pypy" || matrix.python_version != "pypy3"
+      if: matrix.python_version != 'pypy' || matrix.python_version != 'pypy3'
       run: |
         python -m coverage run --source packaging/ -m pytest --strict
         python -m coverage report -m --fail-under 100
 
     - name: Test pypy with pytest
-      if: startsWith(matrix.python_version, "pypy")
+      if: startsWith(matrix.python_version, 'pypy')
       run: python -m pytest --capture=no --strict
