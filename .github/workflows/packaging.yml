@@ -1,0 +1,26 @@
+name: Packaging
+
+on: [push]
+
+jobs:
+  packaging:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install Python
+      with:
+        python-version: '3.7'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r dev-requirements.txt
+
+    - name: Run check-manifest
+      run: check-manifest
+
+    - name: Run readme_renderer
+      run: python setup.py check --metadata --restructuredtext --strict
