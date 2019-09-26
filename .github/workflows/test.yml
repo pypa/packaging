@@ -11,11 +11,12 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        python-version: [2.7, 3.4, 3.5, 3.6, 3.7]
+        # Python 3.4 is not available.
+        python-version: [2.7, 3.5, 3.6, 3.7]
 
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
