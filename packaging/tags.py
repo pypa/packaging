@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover
     EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
     del imp
 import logging
+import os
 import platform
 import re
 import sys
@@ -335,7 +336,35 @@ def _is_manylinux_compatible(name, glibc_version):
 def _glibc_version_string():
     # type: () -> Optional[str]
     # Returns glibc version string, or None if not using glibc.
-    import ctypes
+    return _glibc_version_string_confstr() or _glibc_version_string_ctypes()
+
+
+def _glibc_version_string_confstr():
+    # type: () -> Optional[str]
+    "Primary implementation of glibc_version_string using os.confstr."
+    # os.confstr is quite a bit faster than ctypes.DLL. It's also less likely
+    # to be broken or missing. This strategy is used in the standard library
+    # platform module:
+    # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
+    try:
+        # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17":
+        version_string = os.confstr("CS_GNU_LIBC_VERSION")
+        assert version_string is not None
+        _, version = version_string.split()
+    except (AssertionError, AttributeError, OSError, ValueError):
+        # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
+        return None
+    return version
+
+
+def _glibc_version_string_ctypes():
+    # type: () -> Optional[str]
+    "Fallback implementation of glibc_version_string using ctypes."
+
+    try:
+        import ctypes
+    except ImportError:
+        return None
 
     # ctypes.CDLL(None) internally calls dlopen(NULL), and as the dlopen
     # manpage says, "If filename is NULL, then the returned handle is for the

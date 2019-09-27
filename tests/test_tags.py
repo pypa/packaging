@@ -10,6 +10,7 @@ except ImportError:
     ctypes = None
 import distutils.util
 
+import os
 import platform
 import re
 import sys
@@ -17,6 +18,7 @@ import sysconfig
 import types
 import warnings
 
+import pretend
 import pytest
 
 from packaging import tags
@@ -528,6 +530,29 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
 
     del process_namespace.gnu_get_libc_version
     assert tags._glibc_version_string() is None
+
+
+def test_glibc_version_string_confstr(monkeypatch):
+    monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+    assert tags._glibc_version_string_confstr() == "2.20"
+
+
+@pytest.mark.parametrize(
+    "failure", [pretend.raiser(ValueError), pretend.raiser(OSError), lambda x: "XXX"]
+)
+def test_glibc_version_string_confstr_fail(monkeypatch, failure):
+    monkeypatch.setattr(os, "confstr", failure, raising=False)
+    assert tags._glibc_version_string_confstr() is None
+
+
+def test_glibc_version_string_confstr_missing(monkeypatch):
+    monkeypatch.delattr(os, "confstr", raising=False)
+    assert tags._glibc_version_string_confstr() is None
+
+
+def test_glibc_version_string_ctypes_missing(monkeypatch):
+    monkeypatch.setitem(sys.modules, "ctypes", None)
+    assert tags._glibc_version_string_ctypes() is None
 
 
 def test_have_compatible_glibc(monkeypatch):
