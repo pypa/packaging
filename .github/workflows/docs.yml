@@ -1,13 +1,13 @@
 name: Documentation
 
-on: [push, pull_request]
-# on:
-#   push:
-#     paths:
-#       - 'docs/*'
+on:
+  push:
+    paths:
+      - 'docs/*'
 
 jobs:
   docs:
+    name: tox -e docs
     runs-on: ubuntu-latest
 
     steps:
