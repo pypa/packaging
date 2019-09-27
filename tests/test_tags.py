@@ -525,6 +525,7 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
 
     process_namespace = ProcessNamespace(LibcVersion(version_str))
     monkeypatch.setattr(ctypes, "CDLL", lambda _: process_namespace)
+    monkeypatch.setattr(tags, "_glibc_version_string_confstr", lambda: False)
 
     assert tags._glibc_version_string() == expected
 
