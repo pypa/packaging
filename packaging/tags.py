@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
 
     EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
     del imp
+import logging
 import platform
 import re
 import sys
@@ -22,12 +23,14 @@ import warnings
 from ._typing import MYPY_CHECK_RUNNING, cast
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
+    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple, Union
 
     PythonVersion = Tuple[int, int]
     MacVersion = Tuple[int, int]
     GlibcVersion = Tuple[int, int]
 
+
+logger = logging.getLogger(__name__)
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -101,6 +104,16 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
+def _get_config_var(name, warn=True):
+    # type: (str, Optional[bool]) -> Union[int, str, None]
+    value = sysconfig.get_config_var(name)
+    if value is None and warn:
+        logger.debug(
+            "Config variable '%s' is unset, Python ABI tag may be incorrect", name
+        )
+    return value
+
+
 def _normalize_string(string):
     # type: (str) -> str
     return string.replace(".", "_").replace("-", "_")
@@ -117,7 +130,7 @@ def _cpython_abis(py_version):
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
-    with_debug = sysconfig.get_config_var("Py_DEBUG")
+    with_debug = _get_config_var("Py_DEBUG")
     has_refcount = hasattr(sys, "gettotalrefcount")
     # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
     # extension modules is the best option.
@@ -126,11 +139,11 @@ def _cpython_abis(py_version):
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
     if py_version < (3, 8):
-        with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
+        with_pymalloc = _get_config_var("WITH_PYMALLOC")
         if with_pymalloc or with_pymalloc is None:
             pymalloc = "m"
         if py_version < (3, 3):
-            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
+            unicode_size = _get_config_var("Py_UNICODE_SIZE")
             if unicode_size == 4 or (
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
@@ -416,7 +429,7 @@ def _interpreter_name():
 
 def _generic_interpreter(name, py_version):
     # type: (str, PythonVersion) -> str
-    version = sysconfig.get_config_var("py_version_nodot")
+    version = _get_config_var("py_version_nodot")
     if not version:
         version = "".join(map(str, py_version[:2]))
     return "{name}{version}".format(name=name, version=version)
