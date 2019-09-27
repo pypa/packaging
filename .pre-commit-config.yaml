@@ -8,11 +8,11 @@ repos:
   rev: ''  # Use the sha / tag you want to point at
   hooks:
   - id: mypy
-    exclude: docs|tasks|tests|setup.py
+    exclude: '^(docs|tasks|tests)|setup\.py'
     args: []
   - id: mypy
     name: mypy for Python 2
-    exclude: docs|tasks|tests|setup.py
+    exclude: '^(docs|tasks|tests)|setup\.py'
     args: ['--py2']
 
 - repo: https://github.com/psf/black
@@ -24,7 +24,6 @@ repos:
   rev: '3.7.8'
   hooks:
   - id: flake8
-    exclude: '\.tox|\.egg'
     additional_dependencies: ['pep8-naming']
     # Ignore all format-related checks as Black takes care of those.
     args: ['--ignore', 'E2,W5', '--select', 'E,W,F,N']
