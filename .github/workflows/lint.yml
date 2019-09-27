@@ -1,9 +1,6 @@
 name: Linting
 
-on:
-  push:
-    paths:
-      - '*.py'
+on: [push, pull_request]
 
 jobs:
   lint:
@@ -20,16 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install -r dev-requirements.txt
+        python -m pip install --upgrade tox
 
-    - name: Run flake8
-      run: flake8 .
-
-    - name: Run Black
-      run: black --check .
-
-    - name: Run mypy
-      run: mypy packaging
-
-    - name: Run mypy (Python 2)
-      run: mypy packaging --py2
+    - name: Run linters
+    - run: python -m tox -e lint
