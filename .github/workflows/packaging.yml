@@ -1,9 +1,10 @@
-name: Packaging
+name: Check package metadata
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   packaging:
+    name: tox -e packaging
     runs-on: ubuntu-latest
 
     steps:
