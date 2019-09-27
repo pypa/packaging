@@ -1,9 +1,13 @@
 name: Linting
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - '*.py'
 
 jobs:
   lint:
+    name: tox -e lint
     runs-on: ubuntu-latest
 
     steps:
