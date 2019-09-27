@@ -268,8 +268,11 @@ def format_full_version(info):
 def default_environment():
     # type: () -> Dict[str, str]
     if hasattr(sys, "implementation"):
-        iver = format_full_version(sys.implementation.version)
-        implementation_name = sys.implementation.name
+        # Ignoring the `sys.implementation` reference for type checking due to
+        # mypy not liking that the attribute doesn't exist in Python 2.7 when
+        # run with the `--py27` flag.
+        iver = format_full_version(sys.implementation.version)  # type: ignore
+        implementation_name = sys.implementation.name  # type: ignore
     else:
         iver = "0"
         implementation_name = ""

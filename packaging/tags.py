@@ -168,10 +168,12 @@ def _cpython_tags(py_version, interpreter, abis, platforms):
 
 def _pypy_interpreter():
     # type: () -> str
+    # Ignoring sys.pypy_version_info for type checking due to typeshed lacking
+    # the reference to the attribute.
     return "pp{py_major}{pypy_major}{pypy_minor}".format(
         py_major=sys.version_info[0],
-        pypy_major=sys.pypy_version_info.major,
-        pypy_minor=sys.pypy_version_info.minor,
+        pypy_major=sys.pypy_version_info.major,  # type: ignore
+        pypy_minor=sys.pypy_version_info.minor,  # type: ignore
     )
 
 
