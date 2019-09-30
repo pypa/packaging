@@ -105,7 +105,7 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
-def _get_config_var(name, warn=True):
+def _get_config_var(name, warn=False):
     # type: (str, Optional[bool]) -> Union[int, str, None]
     value = sysconfig.get_config_var(name)
     if value is None and warn:
