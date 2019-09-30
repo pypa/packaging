@@ -344,7 +344,7 @@ def _glibc_version_string_confstr():
     "Primary implementation of glibc_version_string using os.confstr."
     # os.confstr is quite a bit faster than ctypes.DLL. It's also less likely
     # to be broken or missing. This strategy is used in the standard library
-    # platform module:
+    # platform module.
     # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
     try:
         # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
