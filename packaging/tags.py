@@ -360,7 +360,6 @@ def _glibc_version_string_confstr():
 def _glibc_version_string_ctypes():
     # type: () -> Optional[str]
     "Fallback implementation of glibc_version_string using ctypes."
-
     try:
         import ctypes
     except ImportError:
