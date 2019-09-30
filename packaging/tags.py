@@ -347,7 +347,7 @@ def _glibc_version_string_confstr():
     # platform module:
     # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
     try:
-        # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17":
+        # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
         version_string = os.confstr("CS_GNU_LIBC_VERSION")
         assert version_string is not None
         _, version = version_string.split()
