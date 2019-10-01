@@ -556,6 +556,24 @@ def test_glibc_version_string_ctypes_missing(monkeypatch):
     assert tags._glibc_version_string_ctypes() is None
 
 
+def test_get_config_var_does_not_log(monkeypatch):
+    debug = pretend.call_recorder(lambda *a: None)
+    monkeypatch.setattr(tags.logger, "debug", debug)
+    tags._get_config_var("missing")
+    assert debug.calls == []
+
+
+def test_get_config_var_does_log(monkeypatch):
+    debug = pretend.call_recorder(lambda *a: None)
+    monkeypatch.setattr(tags.logger, "debug", debug)
+    tags._get_config_var("missing", warn=True)
+    assert debug.calls == [
+        pretend.call(
+            "Config variable '%s' is unset, Python ABI tag may be incorrect", "missing"
+        )
+    ]
+
+
 def test_have_compatible_glibc(monkeypatch):
     if platform.system() == "Linux":
         # Assuming no one is running this test with a version of glibc released in
