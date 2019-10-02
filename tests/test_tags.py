@@ -326,7 +326,7 @@ def test_cpython_tags():
 def test_sys_tags_on_mac_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
         monkeypatch.setattr(tags, "_mac_platforms", lambda: ["macosx_10_5_x86_64"])
@@ -439,7 +439,7 @@ def test_generic_tags():
 def test_sys_tags_on_windows_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Windows":
         monkeypatch.setattr(platform, "system", lambda: "Windows")
         monkeypatch.setattr(tags, "_generic_platforms", lambda: ["win_amd64"])
@@ -652,7 +652,7 @@ def test_linux_platforms_manylinux2014(monkeypatch):
 def test_sys_tags_linux_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Linux":
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr(tags, "_linux_platforms", lambda: ["linux_x86_64"])
