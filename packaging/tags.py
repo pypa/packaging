@@ -126,12 +126,12 @@ def _cpython_interpreter(py_version):
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
-def _cpython_abis(py_version):
-    # type: (PythonVersion) -> List[str]
+def _cpython_abis(py_version, warn=False):
+    # type: (PythonVersion, Optional[bool]) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
-    with_debug = _get_config_var("Py_DEBUG")
+    with_debug = _get_config_var("Py_DEBUG", warn)
     has_refcount = hasattr(sys, "gettotalrefcount")
     # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
     # extension modules is the best option.
@@ -140,11 +140,11 @@ def _cpython_abis(py_version):
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
     if py_version < (3, 8):
-        with_pymalloc = _get_config_var("WITH_PYMALLOC")
+        with_pymalloc = _get_config_var("WITH_PYMALLOC", warn)
         if with_pymalloc or with_pymalloc is None:
             pymalloc = "m"
         if py_version < (3, 3):
-            unicode_size = _get_config_var("Py_UNICODE_SIZE")
+            unicode_size = _get_config_var("Py_UNICODE_SIZE", warn)
             if unicode_size == 4 or (
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
@@ -455,16 +455,16 @@ def _interpreter_name():
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
-def _generic_interpreter(name, py_version):
-    # type: (str, PythonVersion) -> str
-    version = _get_config_var("py_version_nodot")
+def _generic_interpreter(name, py_version, warn=False):
+    # type: (str, PythonVersion, Optional[bool]) -> str
+    version = _get_config_var("py_version_nodot", warn)
     if not version:
         version = "".join(map(str, py_version[:2]))
     return "{name}{version}".format(name=name, version=version)
 
 
-def sys_tags():
-    # type: () -> Iterator[Tag]
+def sys_tags(warn=False):
+    # type: (Optional[bool]) -> Iterator[Tag]
     """
     Returns the sequence of tag triples for the running interpreter.
 
@@ -482,7 +482,7 @@ def sys_tags():
 
     if interpreter_name == "cp":
         interpreter = _cpython_interpreter(py_version)
-        abis = _cpython_abis(py_version)
+        abis = _cpython_abis(py_version, warn)
         for tag in _cpython_tags(py_version, interpreter, abis, platforms):
             yield tag
     elif interpreter_name == "pp":
@@ -491,7 +491,7 @@ def sys_tags():
         for tag in _pypy_tags(py_version, interpreter, abi, platforms):
             yield tag
     else:
-        interpreter = _generic_interpreter(interpreter_name, py_version)
+        interpreter = _generic_interpreter(interpreter_name, py_version, warn)
         abi = _generic_abi()
         for tag in _generic_tags(interpreter, py_version, abi, platforms):
             yield tag
