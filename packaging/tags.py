@@ -13,6 +13,8 @@ except ImportError:  # pragma: no cover
 
     EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
     del imp
+import logging
+import os
 import platform
 import re
 import sys
@@ -22,12 +24,14 @@ import warnings
 from ._typing import MYPY_CHECK_RUNNING, cast
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
+    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple, Union
 
     PythonVersion = Tuple[int, int]
     MacVersion = Tuple[int, int]
     GlibcVersion = Tuple[int, int]
 
+
+logger = logging.getLogger(__name__)
 
 INTERPRETER_SHORT_NAMES = {
     "python": "py",  # Generic.
@@ -101,6 +105,16 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
+def _get_config_var(name, warn=False):
+    # type: (str, Optional[bool]) -> Union[int, str, None]
+    value = sysconfig.get_config_var(name)
+    if value is None and warn:
+        logger.debug(
+            "Config variable '%s' is unset, Python ABI tag may be incorrect", name
+        )
+    return value
+
+
 def _normalize_string(string):
     # type: (str) -> str
     return string.replace(".", "_").replace("-", "_")
@@ -112,12 +126,12 @@ def _cpython_interpreter(py_version):
     return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
 
 
-def _cpython_abis(py_version):
-    # type: (PythonVersion) -> List[str]
+def _cpython_abis(py_version, warn=False):
+    # type: (PythonVersion, Optional[bool]) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
-    with_debug = sysconfig.get_config_var("Py_DEBUG")
+    with_debug = _get_config_var("Py_DEBUG", warn)
     has_refcount = hasattr(sys, "gettotalrefcount")
     # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
     # extension modules is the best option.
@@ -126,11 +140,11 @@ def _cpython_abis(py_version):
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
     if py_version < (3, 8):
-        with_pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
+        with_pymalloc = _get_config_var("WITH_PYMALLOC", warn)
         if with_pymalloc or with_pymalloc is None:
             pymalloc = "m"
         if py_version < (3, 3):
-            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
+            unicode_size = _get_config_var("Py_UNICODE_SIZE", warn)
             if unicode_size == 4 or (
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
@@ -322,7 +336,34 @@ def _is_manylinux_compatible(name, glibc_version):
 def _glibc_version_string():
     # type: () -> Optional[str]
     # Returns glibc version string, or None if not using glibc.
-    import ctypes
+    return _glibc_version_string_confstr() or _glibc_version_string_ctypes()
+
+
+def _glibc_version_string_confstr():
+    # type: () -> Optional[str]
+    "Primary implementation of glibc_version_string using os.confstr."
+    # os.confstr is quite a bit faster than ctypes.DLL. It's also less likely
+    # to be broken or missing. This strategy is used in the standard library
+    # platform module.
+    # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
+    try:
+        # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
+        version_string = os.confstr("CS_GNU_LIBC_VERSION")
+        assert version_string is not None
+        _, version = version_string.split()
+    except (AssertionError, AttributeError, OSError, ValueError):
+        # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
+        return None
+    return version
+
+
+def _glibc_version_string_ctypes():
+    # type: () -> Optional[str]
+    "Fallback implementation of glibc_version_string using ctypes."
+    try:
+        import ctypes
+    except ImportError:
+        return None
 
     # ctypes.CDLL(None) internally calls dlopen(NULL), and as the dlopen
     # manpage says, "If filename is NULL, then the returned handle is for the
@@ -414,16 +455,16 @@ def _interpreter_name():
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
-def _generic_interpreter(name, py_version):
-    # type: (str, PythonVersion) -> str
-    version = sysconfig.get_config_var("py_version_nodot")
+def _generic_interpreter(name, py_version, warn=False):
+    # type: (str, PythonVersion, Optional[bool]) -> str
+    version = _get_config_var("py_version_nodot", warn)
     if not version:
         version = "".join(map(str, py_version[:2]))
     return "{name}{version}".format(name=name, version=version)
 
 
-def sys_tags():
-    # type: () -> Iterator[Tag]
+def sys_tags(warn=False):
+    # type: (Optional[bool]) -> Iterator[Tag]
     """
     Returns the sequence of tag triples for the running interpreter.
 
@@ -441,7 +482,7 @@ def sys_tags():
 
     if interpreter_name == "cp":
         interpreter = _cpython_interpreter(py_version)
-        abis = _cpython_abis(py_version)
+        abis = _cpython_abis(py_version, warn)
         for tag in _cpython_tags(py_version, interpreter, abis, platforms):
             yield tag
     elif interpreter_name == "pp":
@@ -450,7 +491,7 @@ def sys_tags():
         for tag in _pypy_tags(py_version, interpreter, abi, platforms):
             yield tag
     else:
-        interpreter = _generic_interpreter(interpreter_name, py_version)
+        interpreter = _generic_interpreter(interpreter_name, py_version, warn)
         abi = _generic_abi()
         for tag in _generic_tags(interpreter, py_version, abi, platforms):
             yield tag

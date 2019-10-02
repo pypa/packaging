@@ -73,7 +73,7 @@ Reference
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
 
 
-.. function:: sys_tags()
+.. function:: sys_tags(warn=False)
 
     Create an iterable of tags that the running interpreter supports.
 
@@ -93,6 +93,8 @@ Reference
     The function returns an iterable in order to allow for the possible
     short-circuiting of tag generation if the entire sequence is not necessary
     and calculating some tags happens to be expensive.
+
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
 
 
 .. _abbreviation codes: https://www.python.org/dev/peps/pep-0425/#python-tag

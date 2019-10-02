@@ -10,6 +10,7 @@ except ImportError:
     ctypes = None
 import distutils.util
 
+import os
 import platform
 import re
 import sys
@@ -17,6 +18,7 @@ import sysconfig
 import types
 import warnings
 
+import pretend
 import pytest
 
 from packaging import tags
@@ -324,7 +326,7 @@ def test_cpython_tags():
 def test_sys_tags_on_mac_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
         monkeypatch.setattr(tags, "_mac_platforms", lambda: ["macosx_10_5_x86_64"])
@@ -437,7 +439,7 @@ def test_generic_tags():
 def test_sys_tags_on_windows_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Windows":
         monkeypatch.setattr(platform, "system", lambda: "Windows")
         monkeypatch.setattr(tags, "_generic_platforms", lambda: ["win_amd64"])
@@ -523,11 +525,53 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
 
     process_namespace = ProcessNamespace(LibcVersion(version_str))
     monkeypatch.setattr(ctypes, "CDLL", lambda _: process_namespace)
+    monkeypatch.setattr(tags, "_glibc_version_string_confstr", lambda: False)
 
     assert tags._glibc_version_string() == expected
 
     del process_namespace.gnu_get_libc_version
     assert tags._glibc_version_string() is None
+
+
+def test_glibc_version_string_confstr(monkeypatch):
+    monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+    assert tags._glibc_version_string_confstr() == "2.20"
+
+
+@pytest.mark.parametrize(
+    "failure", [pretend.raiser(ValueError), pretend.raiser(OSError), lambda x: "XXX"]
+)
+def test_glibc_version_string_confstr_fail(monkeypatch, failure):
+    monkeypatch.setattr(os, "confstr", failure, raising=False)
+    assert tags._glibc_version_string_confstr() is None
+
+
+def test_glibc_version_string_confstr_missing(monkeypatch):
+    monkeypatch.delattr(os, "confstr", raising=False)
+    assert tags._glibc_version_string_confstr() is None
+
+
+def test_glibc_version_string_ctypes_missing(monkeypatch):
+    monkeypatch.setitem(sys.modules, "ctypes", None)
+    assert tags._glibc_version_string_ctypes() is None
+
+
+def test_get_config_var_does_not_log(monkeypatch):
+    debug = pretend.call_recorder(lambda *a: None)
+    monkeypatch.setattr(tags.logger, "debug", debug)
+    tags._get_config_var("missing")
+    assert debug.calls == []
+
+
+def test_get_config_var_does_log(monkeypatch):
+    debug = pretend.call_recorder(lambda *a: None)
+    monkeypatch.setattr(tags.logger, "debug", debug)
+    tags._get_config_var("missing", warn=True)
+    assert debug.calls == [
+        pretend.call(
+            "Config variable '%s' is unset, Python ABI tag may be incorrect", "missing"
+        )
+    ]
 
 
 def test_have_compatible_glibc(monkeypatch):
@@ -608,7 +652,7 @@ def test_linux_platforms_manylinux2014(monkeypatch):
 def test_sys_tags_linux_cpython(monkeypatch):
     if platform.python_implementation() != "CPython":
         monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda py_version: ["cp33m"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Linux":
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr(tags, "_linux_platforms", lambda: ["linux_x86_64"])
