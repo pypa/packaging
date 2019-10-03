@@ -1,0 +1,27 @@
+name: Documentation
+
+on:
+  push:
+    paths:
+      - 'docs/*'
+
+jobs:
+  docs:
+    name: tox -e docs
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install Python
+      with:
+        python-version: '3.7'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade tox
+
+    - name: Build documentation
+      run: python -m tox -e docs
