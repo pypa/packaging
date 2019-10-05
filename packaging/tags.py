@@ -451,7 +451,11 @@ def _generic_platforms():
 
 def _interpreter_name():
     # type: () -> str
-    name = platform.python_implementation().lower()
+    try:
+        name = sys.implementation.name
+    except AttributeError:  # pragma: no cover
+        # Python 2.7 compatibility.
+        name = platform.python_implementation().lower()
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 

@@ -39,6 +39,20 @@ def is_64bit_os():
     return platform.architecture()[0] == "64bit"
 
 
+@pytest.fixture
+def mock_interpreter_name(monkeypatch):
+    def mock(name):
+        if hasattr(sys, "implementation") and sys.implementation.name != name.lower():
+            monkeypatch.setattr(sys.implementation, "name", name.lower())
+            return True
+        elif platform.python_implementation() != name:
+            monkeypatch.setattr(platform, "python_implementation", lambda: name)
+            return True
+        return False
+
+    return mock
+
+
 def test_tag_lowercasing():
     tag = tags.Tag("PY3", "None", "ANY")
     assert tag.interpreter == "py3"
@@ -115,9 +129,8 @@ def test_parse_tag_multi_platform():
     "name,expected",
     [("CPython", "cp"), ("PyPy", "pp"), ("Jython", "jy"), ("IronPython", "ip")],
 )
-def test__interpreter_name_cpython(name, expected, monkeypatch):
-    if platform.python_implementation().lower() != name:
-        monkeypatch.setattr(platform, "python_implementation", lambda: name)
+def test__interpreter_name_cpython(name, expected, mock_interpreter_name):
+    mock_interpreter_name(name)
     assert tags._interpreter_name() == expected
 
 
@@ -323,9 +336,8 @@ def test_cpython_tags():
     ]
 
 
-def test_sys_tags_on_mac_cpython(monkeypatch):
-    if platform.python_implementation() != "CPython":
-        monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
+def test_sys_tags_on_mac_cpython(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("CPython"):
         monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
@@ -372,9 +384,8 @@ def test_pypy_interpreter(monkeypatch):
     assert expected == tags._pypy_interpreter()
 
 
-def test_pypy_tags(monkeypatch):
-    if platform.python_implementation() != "PyPy":
-        monkeypatch.setattr(platform, "python_implementation", lambda: "PyPy")
+def test_pypy_tags(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("PyPy"):
         monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
     interpreter = tags._pypy_interpreter()
     result = list(tags._pypy_tags((3, 3), interpreter, "pypy3_60", ["plat1", "plat2"]))
@@ -386,9 +397,8 @@ def test_pypy_tags(monkeypatch):
     ]
 
 
-def test_sys_tags_on_mac_pypy(monkeypatch):
-    if platform.python_implementation() != "PyPy":
-        monkeypatch.setattr(platform, "python_implementation", lambda: "PyPy")
+def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("PyPy"):
         monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
@@ -436,9 +446,8 @@ def test_generic_tags():
     ]
 
 
-def test_sys_tags_on_windows_cpython(monkeypatch):
-    if platform.python_implementation() != "CPython":
-        monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
+def test_sys_tags_on_windows_cpython(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("CPython"):
         monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Windows":
         monkeypatch.setattr(platform, "system", lambda: "Windows")
@@ -649,9 +658,8 @@ def test_linux_platforms_manylinux2014(monkeypatch):
     assert platforms == expected
 
 
-def test_sys_tags_linux_cpython(monkeypatch):
-    if platform.python_implementation() != "CPython":
-        monkeypatch.setattr(platform, "python_implementation", lambda: "CPython")
+def test_sys_tags_linux_cpython(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("CPython"):
         monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Linux":
         monkeypatch.setattr(platform, "system", lambda: "Linux")
