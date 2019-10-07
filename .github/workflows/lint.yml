@@ -3,7 +3,7 @@ name: Linting
 on:
   push:
     paths:
-      - '*.py'
+      - '**.py'
 
 jobs:
   lint:
