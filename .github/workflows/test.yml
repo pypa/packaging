@@ -3,7 +3,7 @@ name: Test
 on:
   push:
     paths:
-      - '*.py'
+      - '**.py'
 
 jobs:
   test:
