@@ -25,3 +25,25 @@ jobs:
 
     - name: Run `tox -e lint`
       run: python -m tox -e lint
+
+  build:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    # Linting verifies that the project is in an acceptable state to create files
+    # for releasing.
+    # And this action should be run whenever a release is ready to go public as
+    # the version number will be changed by editing __about__.py.
+    needs: lint
+
+    steps:
+    - name: Install dependencies
+      run: python -m pip install --upgrade setuptools wheel
+
+    - name: Build
+      run: python setup.py sdist bdist_wheel
+
+    - name: Archive files
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist
