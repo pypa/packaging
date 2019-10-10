@@ -6,6 +6,14 @@ Changelog
 
 .. note:: This version is not yet released and is under active development.
 
+* Add type hints (:issue:`191`)
+
+* Add proper trove classifiers for PyPy support (:issue:`198`)
+
+* Scale back depending on ``ctypes`` for manylinux support detection (:issue:`171`)
+
+* Use ``sys.implementation.name`` where appropriate for ``packaging.tags`` (:issue:`193`)
+
 19.2 - 2019-09-18
 ~~~~~~~~~~~~~~~~~
 
