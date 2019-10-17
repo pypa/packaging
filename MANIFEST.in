@@ -8,9 +8,12 @@ include tox.ini
 
 recursive-include docs *
 recursive-include tests *.py
+recursive-include tests hello-world-*
 
 exclude .travis.yml
 exclude dev-requirements.txt
+exclude tests/build-hello-world.sh
+exclude tests/hello-world.c
 
 prune docs/_build
 prune tasks
