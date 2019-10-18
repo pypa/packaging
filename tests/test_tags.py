@@ -625,7 +625,7 @@ def test_linux_platforms_manylinux1(monkeypatch):
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     platforms = tags._linux_platforms(is_32bit=False)
-    assert platforms == ["manylinux1_x86_64", "linux_x86_64"]
+    assert platforms == ["linux_x86_64", "manylinux1_x86_64"]
 
 
 def test_linux_platforms_manylinux2010(monkeypatch):
@@ -635,7 +635,7 @@ def test_linux_platforms_manylinux2010(monkeypatch):
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     platforms = tags._linux_platforms(is_32bit=False)
-    expected = ["manylinux2010_x86_64", "manylinux1_x86_64", "linux_x86_64"]
+    expected = ["linux_x86_64", "manylinux2010_x86_64", "manylinux1_x86_64"]
     assert platforms == expected
 
 
@@ -647,10 +647,10 @@ def test_linux_platforms_manylinux2014(monkeypatch):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     platforms = tags._linux_platforms(is_32bit=False)
     expected = [
+        "linux_x86_64",
         "manylinux2014_x86_64",
         "manylinux2010_x86_64",
         "manylinux1_x86_64",
-        "linux_x86_64",
     ]
     assert platforms == expected
 

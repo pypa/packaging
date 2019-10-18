@@ -430,16 +430,14 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
         ("manylinux2010", (2, 12)),  # CentOS 6 w/ glibc 2.12 (PEP 571)
         ("manylinux1", (2, 5)),  # CentOS 5 w/ glibc 2.5 (PEP 513)
     )
+    platforms = [linux]
     manylinux_support_iter = iter(manylinux_support)
     for name, glibc_version in manylinux_support_iter:
         if _is_manylinux_compatible(name, glibc_version):
-            platforms = [linux.replace("linux", name)]
+            platforms += [linux.replace("linux", name)]
             break
-    else:
-        platforms = []
     # Support for a later manylinux implies support for an earlier version.
     platforms += [linux.replace("linux", name) for name, _ in manylinux_support_iter]
-    platforms.append(linux)
     return platforms
 
 
