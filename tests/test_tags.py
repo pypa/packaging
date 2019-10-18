@@ -599,7 +599,7 @@ def test_linux_platforms_64bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
     if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
-    linux_platform = tags._linux_platforms(is_32bit=False)[-1]
+    linux_platform = tags._linux_platforms(is_32bit=False)[0]
     assert linux_platform == "linux_x86_64"
 
 
@@ -607,7 +607,7 @@ def test_linux_platforms_32bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
     if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
-    linux_platform = tags._linux_platforms(is_32bit=True)[-1]
+    linux_platform = tags._linux_platforms(is_32bit=True)[0]
     assert linux_platform == "linux_i686"
 
 
