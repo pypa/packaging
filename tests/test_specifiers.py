@@ -8,6 +8,8 @@ import operator
 
 import pytest
 
+from packaging.markers import Marker
+from packaging.requirements import SpecifierRequirement
 from packaging.specifiers import (
     InvalidSpecifier,
     LegacySpecifier,
@@ -15,9 +17,7 @@ from packaging.specifiers import (
     SpecifierSet,
 )
 from packaging.version import LegacyVersion, Version, parse
-
 from .test_version import VERSIONS, LEGACY_VERSIONS
-
 
 LEGACY_SPECIFIERS = [
     "==2.1.0.3",
@@ -623,6 +623,39 @@ class TestSpecifier:
         spec = SpecifierSet(spec)
         items = set(str(item) for item in spec)
         assert items == set(expected_items)
+
+    @pytest.mark.parametrize(
+        ("spec", "expected_marker", "expected_str"),
+        [
+            ("", None, ""),
+            ("==1.0", None, "==1.0"),
+            (
+                "==1.0;python_version=='2.7'",
+                "python_version=='2.7'",
+                '==1.0;python_version == "2.7"',
+            ),
+        ],
+    )
+    def test_specifier_req_markers(self, spec, expected_marker, expected_str):
+        spec = SpecifierRequirement(spec, markers=True)
+        assert str(spec.marker) == str(
+            Marker(expected_marker) if expected_marker else expected_marker
+        )
+        assert str(spec) == expected_str
+
+    def test_specifier_req_no_markers(self):
+        try:
+            spec = SpecifierRequirement("==1.0;python_version=='2.7'")
+            assert spec is None
+        except InvalidSpecifier:
+            pass
+
+    def test_specifier_req_invalid_spec(self):
+        try:
+            spec = SpecifierRequirement("=!lolwut")
+            assert spec is None
+        except InvalidSpecifier:
+            pass
 
 
 class TestLegacySpecifier:

@@ -3,17 +3,17 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
-import string
 import re
+import string
 
-from pyparsing import stringStart, stringEnd, originalTextFor, ParseException
-from pyparsing import ZeroOrMore, Word, Optional, Regex, Combine
 from pyparsing import Literal as L  # noqa
+from pyparsing import ZeroOrMore, Word, Optional, Regex, Combine
+from pyparsing import stringStart, stringEnd, originalTextFor, ParseException
 from six.moves.urllib import parse as urlparse
 
 from ._typing import MYPY_CHECK_RUNNING
 from .markers import MARKER_EXPR, Marker
-from .specifiers import LegacySpecifier, Specifier, SpecifierSet
+from .specifiers import LegacySpecifier, Specifier, SpecifierSet, InvalidSpecifier
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import List
@@ -73,10 +73,12 @@ URL_AND_MARKER = URL + Optional(MARKER)
 
 NAMED_REQUIREMENT = NAME + Optional(EXTRAS) + (URL_AND_MARKER | VERSION_AND_MARKER)
 
+SPECIFIER_REQ = stringStart + VERSION_AND_MARKER + stringEnd
 REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
 # pyparsing isn't thread safe during initialization, so we do it eagerly, see
 # issue #104
 REQUIREMENT.parseString("x[]")
+SPECIFIER_REQ.parseString("==1.0;python_version=='3.6'")
 
 
 class Requirement(object):
@@ -143,3 +145,33 @@ class Requirement(object):
     def __repr__(self):
         # type: () -> str
         return "<Requirement({0!r})>".format(str(self))
+
+
+class SpecifierRequirement(SpecifierSet):
+    def __init__(self, specifiers="", prereleases=None, markers=None):
+        # type: (str, Optional[bool], Optional[bool]) -> None
+        try:
+            req = SPECIFIER_REQ.parseString(specifiers)
+        except ParseException as e:
+            raise InvalidSpecifier(
+                'Parse error at "{0!r}": {1}'.format(
+                    specifiers[e.loc : e.loc + 8], e.msg
+                )
+            )
+
+        super(SpecifierRequirement, self).__init__(
+            req.specifier, prereleases=prereleases
+        )
+
+        if not markers and req.marker:
+            raise InvalidSpecifier(
+                'Marker not permitted in "{0!r}: {1!r}"'.format(specifiers, req.marker)
+            )
+
+        self.marker = req.marker if req.marker else None
+
+    def __str__(self):
+        # type: () -> str
+        return super(SpecifierRequirement, self).__str__() + (
+            ";" + str(self.marker) if self.marker else ""
+        )
