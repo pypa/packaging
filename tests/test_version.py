@@ -770,6 +770,11 @@ class TestVersion:
         assert Version("2.1").micro == 0
         assert Version("2").micro == 0
 
+    def test_patch_version(self):
+        assert Version("3.2.1").patch == 1
+        assert Version("3.2").patch == 0
+        assert Version("3").patch == 0
+
 
 LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 

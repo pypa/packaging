@@ -416,6 +416,11 @@ class Version(_BaseVersion):
         # type: () -> int
         return self.release[2] if len(self.release) >= 3 else 0
 
+    @property
+    def patch(self):
+        # type: () -> int
+        return self.micro
+
 
 def _parse_letter_version(
     letter,  # type: str
