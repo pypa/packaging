@@ -67,4 +67,5 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     packages=["packaging"],
+    package_data={"packaging": ["py.typed"]},
 )
