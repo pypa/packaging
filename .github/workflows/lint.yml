@@ -1,6 +1,9 @@
 name: Linting
 
 on:
+  pull_request:
+    paths:
+      - '**.py'
   push:
     paths:
       - '**.py'

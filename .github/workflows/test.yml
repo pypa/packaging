@@ -1,6 +1,9 @@
 name: Test
 
 on:
+  pull_request:
+    paths:
+      - '**.py'
   push:
     paths:
       - '**.py'
