@@ -651,7 +651,7 @@ class SpecifierSet(BaseSpecifier):
     def __init__(self, specifiers="", prereleases=None):
         # type: (str, Optional[bool]) -> None
 
-        # Split on , to break each indidivual specifier into it's own item, and
+        # Split on , to break each individual specifier into it's own item, and
         # strip each item to remove leading/trailing whitespace.
         split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
