@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 import collections
 import itertools
 import re
+import string
 
 from ._structures import Infinity, NegativeInfinity
 from ._typing import MYPY_CHECK_RUNNING
@@ -415,6 +416,31 @@ class Version(_BaseVersion):
     def micro(self):
         # type: () -> int
         return self.release[2] if len(self.release) >= 3 else 0
+
+    def format(self, format_string):
+        # type: (str) -> str
+        format_parser = string.Formatter()
+        for (_, field_name, _, _) in format_parser.parse(format_string):
+            if field_name not in _FORMAT_KEYS:
+                raise ValueError('"{}" is not a valid format key'.format(field_name))
+        return format_string.format(**{k: getattr(self, k) for k in _FORMAT_KEYS})
+
+
+_FORMAT_KEYS = set(
+    [
+        "epoch",
+        "release",
+        "pre",
+        "post",
+        "dev",
+        "local",
+        "public",
+        "base_version",
+        "major",
+        "minor",
+        "micro",
+    ]
+)
 
 
 def _parse_letter_version(

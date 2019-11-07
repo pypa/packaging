@@ -770,6 +770,15 @@ class TestVersion:
         assert Version("2.1").micro == 0
         assert Version("2").micro == 0
 
+    def test_version_rejects_invalid_format_strings(self):
+        with pytest.raises(ValueError):
+            Version("2.1.1").format("{major}.{minor}.{foobar}")
+
+    def test_custom_version_formatting(self):
+        assert (
+            Version("2.1.3").format("custom-{major}.{minor}.{micro}") == "custom-2.1.3"
+        )
+
 
 LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 
