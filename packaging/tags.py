@@ -106,7 +106,7 @@ def parse_tag(tag):
 
 
 def _get_config_var(name, warn=False):
-    # type: (str, Optional[bool]) -> Union[int, str, None]
+    # type: (str, bool) -> Union[int, str, None]
     value = sysconfig.get_config_var(name)
     if value is None and warn:
         logger.debug(
@@ -127,7 +127,7 @@ def _cpython_interpreter(py_version):
 
 
 def _cpython_abis(py_version, warn=False):
-    # type: (PythonVersion, Optional[bool]) -> List[str]
+    # type: (PythonVersion, bool) -> List[str]
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
@@ -460,15 +460,14 @@ def _interpreter_name():
 
 
 def _generic_interpreter(name, py_version, warn=False):
-    # type: (str, PythonVersion, Optional[bool]) -> str
+    # type: (str, PythonVersion, bool) -> str
     version = _get_config_var("py_version_nodot", warn)
     if not version:
         version = "".join(map(str, py_version[:2]))
     return "{name}{version}".format(name=name, version=version)
 
 
-def sys_tags(warn=False):
-    # type: (Optional[bool]) -> Iterator[Tag]
+    # type: (bool) -> Iterator[Tag]
     """
     Returns the sequence of tag triples for the running interpreter.
 
