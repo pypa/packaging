@@ -411,39 +411,10 @@ def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):
     assert result[-1] == tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
 
 
-def test_generic_interpreter():
-    version = sysconfig.get_config_var("py_version_nodot")
-    if not version:
-        version = "".join(sys.version_info[:2])
-    result = tags._generic_interpreter("sillywalk", sys.version_info[:2])
-    assert result == "sillywalk{version}".format(version=version)
-
-
-def test_generic_interpreter_no_config_var(monkeypatch):
-    monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
-    assert tags._generic_interpreter("sillywalk", (3, 6)) == "sillywalk36"
-
-
 def test_generic_platforms():
     platform = distutils.util.get_platform().replace("-", "_")
     platform = platform.replace(".", "_")
     assert tags._generic_platforms() == [platform]
-
-
-def test_generic_tags():
-    result = list(tags._generic_tags("sillywalk33", (3, 3), "abi", ["plat1", "plat2"]))
-    assert result == [
-        tags.Tag("sillywalk33", "abi", "plat1"),
-        tags.Tag("sillywalk33", "abi", "plat2"),
-        tags.Tag("sillywalk33", "none", "plat1"),
-        tags.Tag("sillywalk33", "none", "plat2"),
-    ]
-
-    no_abi = tags._generic_tags("sillywalk34", (3, 4), "none", ["plat1", "plat2"])
-    assert list(no_abi) == [
-        tags.Tag("sillywalk34", "none", "plat1"),
-        tags.Tag("sillywalk34", "none", "plat2"),
-    ]
 
 
 def test_sys_tags_on_windows_cpython(mock_interpreter_name, monkeypatch):
@@ -763,4 +734,53 @@ def test_pypy_tags(monkeypatch):
         tags.Tag("pp370", "pp370", "plat1"),
         tags.Tag("pp370", "none", "plat1"),
     ]
+
+
+def test_generic_interpreter(monkeypatch):
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "42")
+    monkeypatch.setattr(tags, "_interpreter_name", lambda: "sillywalk")
+    assert tags._generic_interpreter() == "sillywalk42"
+
+
+def test_generic_interpreter_no_config_var(monkeypatch):
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
+    monkeypatch.setattr(tags, "_interpreter_name", lambda: "sillywalk")
+    assert tags._generic_interpreter() == "sillywalk{}{}".format(*sys.version_info[:2])
+
+
+def test_generic_tags():
+    result = list(tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"]))
+    assert result == [
+        tags.Tag("sillywalk33", "abi", "plat1"),
+        tags.Tag("sillywalk33", "abi", "plat2"),
+        tags.Tag("sillywalk33", "none", "plat1"),
+        tags.Tag("sillywalk33", "none", "plat2"),
+    ]
+
+    no_abi = list(tags.generic_tags("sillywalk34", ["none"], ["plat1", "plat2"]))
+    assert no_abi == [
+        tags.Tag("sillywalk34", "none", "plat1"),
+        tags.Tag("sillywalk34", "none", "plat2"),
+    ]
+
+
+def test_generic_tags_defaults(monkeypatch):
+    # interpreter
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_generic_interpreter", lambda warn: "sillywalk")
+        result = list(tags.generic_tags(abis=["none"], platforms=["any"]))
+    assert result == [tags.Tag("sillywalk", "none", "any")]
+    # abis
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_generic_abi", lambda: "abi")
+        result = list(tags.generic_tags(interpreter="sillywalk", platforms=["any"]))
+    assert result == [
+        tags.Tag("sillywalk", "abi", "any"),
+        tags.Tag("sillywalk", "none", "any"),
+    ]
+    # platforms
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_platforms", lambda: ["plat"])
+        result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
+    assert result == [tags.Tag("sillywalk", "none", "plat")]
 
