@@ -293,6 +293,7 @@ def pypy_tags(interpreter=None, abis=None, platforms=None):
 
 
 def _generic_interpreter(warn=False):
+    # type: (bool) -> str
     version = _get_config_var("py_version_nodot", warn)
     if not version:
         version = "".join(map(str, sys.version_info[:2]))
