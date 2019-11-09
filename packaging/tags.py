@@ -323,7 +323,7 @@ def _is_manylinux_compatible(name, glibc_version):
     # type: (str, GlibcVersion) -> bool
     # Check for presence of _manylinux module.
     try:
-        import _manylinux
+        import _manylinux  # noqa
 
         return bool(getattr(_manylinux, name + "_compatible"))
     except (ImportError, AttributeError):
@@ -456,7 +456,7 @@ def _generic_platforms():
 def _interpreter_name():
     # type: () -> str
     try:
-        name = sys.implementation.name
+        name = sys.implementation.name  # type: ignore
     except AttributeError:  # pragma: no cover
         # Python 2.7 compatibility.
         name = platform.python_implementation().lower()
