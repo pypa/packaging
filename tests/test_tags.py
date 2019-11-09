@@ -384,7 +384,7 @@ def test_pypy_interpreter(monkeypatch):
     assert expected == tags._pypy_interpreter()
 
 
-def test_pypy_tags(mock_interpreter_name, monkeypatch):
+def test__pypy_tags(mock_interpreter_name, monkeypatch):
     if mock_interpreter_name("PyPy"):
         monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
     interpreter = tags._pypy_interpreter()
