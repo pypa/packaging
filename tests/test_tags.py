@@ -806,3 +806,17 @@ def test_compatible_tags():
         tags.Tag("py30", "none", "any"),
     ]
 
+
+@pytest.mark.parametrize(
+    "platform_name,dispatch_func",
+    [
+        ("Darwin", "_mac_platforms"),
+        ("Linux", "_linux_platforms"),
+        ("Generic", "_generic_platforms"),
+    ],
+)
+def test__platforms(platform_name, dispatch_func, monkeypatch):
+    expected = ["sillywalk"]
+    monkeypatch.setattr(platform, "system", lambda: platform_name)
+    monkeypatch.setattr(tags, dispatch_func, lambda: expected)
+    assert tags._platforms() == expected
