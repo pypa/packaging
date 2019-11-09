@@ -105,6 +105,22 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
+def _warn_parameter(func_name, kwargs):
+    # type: (str, Dict[str, bool]) -> bool
+    """
+    Backwards-compatibility with Python 2.7 to allow treating 'warn' as keyword-only.
+    """
+    if not kwargs:
+        return False
+    elif len(kwargs) > 1 or "warn" not in kwargs:
+        kwargs.pop("warn", None)
+        arg = next(iter(kwargs.keys()))
+        raise TypeError(
+            "{}() got an unexpected keyword argument {!r}".format(func_name, arg)
+        )
+    return kwargs["warn"]
+
+
 def _get_config_var(name, warn=False):
     # type: (str, bool) -> Union[int, str, None]
     value = sysconfig.get_config_var(name)
@@ -180,6 +196,58 @@ def _cpython_tags(py_version, interpreter, abis, platforms):
             yield Tag(interpreter, "abi3", platform_)
 
 
+def cpython_tags(
+    python_version=sys.version_info[:2], abis=None, platforms=None, **kwargs
+):
+    # type: (PythonVersion, Optional[Iterable[str]], Optional[Iterable[str]], bool) -> Iterator[Tag]  # noqa
+    """
+    Yield the tags for a CPython interpreter.
+
+    The tags consist of:
+    - cp<python_version>-<abi>-<platform>
+    - cp<python_version>-abi3-<platform>
+    - cp<python_version>-none-<platform>
+    - cp<less than python_version>-abi3-<platform>  # Older Python versions down to 3.2.
+
+    If 'abi3' or 'none' are specified in 'abis' then they will be yielded at
+    their normal position and not at the beginning.
+    """
+    warn = _warn_parameter("cpython_tags", kwargs)
+    interpreter = "cp{}{}".format(*python_version)
+    if not abis:
+        abis = _cpython_abis(python_version, warn)
+    if not platforms:
+        platforms = _platforms()
+    platforms = list(platforms)
+    abis = list(abis)
+    # 'abi3' and 'none' are explicitly handled later.
+    try:
+        abis.remove("abi3")
+    except ValueError:
+        pass
+    try:
+        abis.remove("none")
+    except ValueError:
+        pass
+    for abi in abis:
+        for platform_ in platforms:
+            yield Tag(interpreter, abi, platform_)
+    # Not worrying about the case of Python 3.2 or older being specified and
+    # thus having redundant tags thanks to the abi3 in-fill later on as
+    # 'packaging' doesn't directly support Python that far back.
+    for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
+        yield tag
+    for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
+        yield tag
+    # PEP 384 was first implemented in Python 3.2.
+    for minor_version in range(python_version[1] - 1, 1, -1):
+        for platform_ in platforms:
+            interpreter = "cp{major}{minor}".format(
+                major=python_version[0], minor=minor_version
+            )
+            yield Tag(interpreter, "abi3", platform_)
+
+
 def _pypy_interpreter():
     # type: () -> str
     # Ignoring sys.pypy_version_info for type checking due to typeshed lacking
@@ -208,6 +276,29 @@ def _pypy_tags(py_version, interpreter, abi, platforms):
         yield tag
 
 
+def pypy_tags(interpreter=None, abis=None, platforms=None):
+    # type: (Optional[str], Optional[Iterable[str]], Optional[Iterable[str]]) -> Iterator[Tag]  # noqa
+    """
+    Yield the tags for a PyPy interpreter.
+
+    The tags consist of what is yielded by generic_tags() with a calcuated value
+    for 'interpreter' if it is not specified.
+    """
+    # The 'interpreter' parameter is necessary to allow the user to distinguish
+    # between PyPy and PyPy3 (pp and pp3, respectively).
+    if not interpreter:
+        interpreter = _pypy_interpreter()
+    for tag in generic_tags(interpreter, abis, platforms):
+        yield tag
+
+
+def _generic_interpreter(warn=False):
+    version = _get_config_var("py_version_nodot", warn)
+    if not version:
+        version = "".join(map(str, sys.version_info[:2]))
+    return "{name}{version}".format(name=_interpreter_name(), version=version)
+
+
 def _generic_tags(interpreter, py_version, abi, platforms):
     # type: (str, PythonVersion, str, Iterable[str]) -> Iterator[Tag]
     for tag in (Tag(interpreter, abi, platform) for platform in platforms):
@@ -216,6 +307,34 @@ def _generic_tags(interpreter, py_version, abi, platforms):
         tags = (Tag(interpreter, "none", platform_) for platform_ in platforms)
         for tag in tags:
             yield tag
+
+
+def generic_tags(interpreter=None, abis=None, platforms=None, **kwargs):
+    # type: (Optional[str], Optional[Iterable[str]], Optional[Iterable[str]], bool) -> Iterator[Tag]  # noqa
+    """
+    Yield the tags for a generic interpreter.
+
+    The tags consist of:
+    - <interpreter>-<abi>-<platform>
+    - <intepreter>-none-<platform>  # If 'none' is not specified in 'abis'.
+
+    """
+    warn = _warn_parameter("generic_tags", kwargs)
+    if not interpreter:
+        interpreter = _generic_interpreter(warn=warn)
+    if not abis:
+        abis = [_generic_abi()]
+    if not platforms:
+        platforms = _platforms()
+    else:
+        platforms = list(platforms)
+    abis = list(abis)
+    for abi in abis:
+        for platform_ in platforms:
+            yield Tag(interpreter, abi, platform_)
+    if "none" not in abis:
+        for platform_ in platforms:
+            yield Tag(interpreter, "none", platform_)
 
 
 def _py_interpreter_range(py_version):
@@ -247,6 +366,29 @@ def _independent_tags(interpreter, py_version, platforms):
             yield Tag(version, "none", platform_)
     yield Tag(interpreter, "none", "any")
     for version in _py_interpreter_range(py_version):
+        yield Tag(version, "none", "any")
+
+
+def compatible_tags(
+    python_version=sys.version_info[:2], interpreter=None, platforms=None
+):
+    # type: (PythonVersion, Optional[str], Optional[Iterable[str]]) -> Iterator[Tag]
+    """
+    Yield the sequence of tags that are compatible with a specific version of Python.
+
+    The tags consist of:
+    - py*-none-<platform>
+    - <interpreter>-none-any  # If provided.
+    - py*-none-any
+    """
+    if not platforms:
+        platforms = _platforms()
+    for version in _py_interpreter_range(python_version):
+        for platform_ in platforms:
+            yield Tag(version, "none", platform_)
+    if interpreter:
+        yield Tag(interpreter, "none", "any")
+    for version in _py_interpreter_range(python_version):
         yield Tag(version, "none", "any")
 
 
@@ -453,6 +595,19 @@ def _generic_platforms():
     return [platform]
 
 
+def _platforms():
+    # type: () -> List[str]
+    """
+    Provide the platform tags for this installation.
+    """
+    if platform.system() == "Darwin":
+        return _mac_platforms()
+    elif platform.system() == "Linux":
+        return _linux_platforms()
+    else:
+        return _generic_platforms()
+
+
 def _interpreter_name():
     # type: () -> str
     try:
@@ -463,14 +618,7 @@ def _interpreter_name():
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
-def _generic_interpreter(name, py_version, warn=False):
-    # type: (str, PythonVersion, bool) -> str
-    version = _get_config_var("py_version_nodot", warn)
-    if not version:
-        version = "".join(map(str, py_version[:2]))
-    return "{name}{version}".format(name=name, version=version)
-
-
+def sys_tags(**kwargs):
     # type: (bool) -> Iterator[Tag]
     """
     Return the sequence of tag triples for the running interpreter.
@@ -478,29 +626,18 @@ def _generic_interpreter(name, py_version, warn=False):
     The order of the sequence corresponds to priority order for the
     interpreter, from most to least important.
     """
-    py_version = sys.version_info[:2]
-    interpreter_name = _interpreter_name()
-    if platform.system() == "Darwin":
-        platforms = _mac_platforms()
-    elif platform.system() == "Linux":
-        platforms = _linux_platforms()
-    else:
-        platforms = _generic_platforms()
+    warn = _warn_parameter("sys_tags", kwargs)
 
+    interpreter_name = _interpreter_name()
     if interpreter_name == "cp":
-        interpreter = _cpython_interpreter(py_version)
-        abis = _cpython_abis(py_version, warn)
-        for tag in _cpython_tags(py_version, interpreter, abis, platforms):
+        for tag in cpython_tags(warn=warn):
             yield tag
     elif interpreter_name == "pp":
-        interpreter = _pypy_interpreter()
-        abi = _generic_abi()
-        for tag in _pypy_tags(py_version, interpreter, abi, platforms):
+        for tag in pypy_tags():
             yield tag
     else:
-        interpreter = _generic_interpreter(interpreter_name, py_version, warn)
-        abi = _generic_abi()
-        for tag in _generic_tags(interpreter, py_version, abi, platforms):
+        for tag in generic_tags():
             yield tag
-    for tag in _independent_tags(interpreter, py_version, platforms):
+
+    for tag in compatible_tags():
         yield tag
