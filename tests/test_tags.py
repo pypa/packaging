@@ -680,3 +680,78 @@ def test_generic_sys_tags(monkeypatch):
     result = list(tags.sys_tags())
     expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
     assert result[-1] == expected
+
+
+def test_warn_parameters():
+    assert not tags._warn_parameter("test_warn_parameters", {})
+    assert not tags._warn_parameter("test_warn_parameters", {"warn": False})
+    assert tags._warn_parameter("test_warn_parameters", {"warn": True})
+    message_re = re.compile(r"too_many.+{!r}".format("whatever"))
+    with pytest.raises(TypeError, match=message_re):
+        tags._warn_parameter("too_many", {"warn": True, "whatever": True})
+    message_re = re.compile(r"missing.+{!r}".format("unexpected"))
+    with pytest.raises(TypeError, match=message_re):
+        tags._warn_parameter("missing", {"unexpected": True})
+
+
+def test_cpython_tags_all_args():
+    result = list(tags.cpython_tags((3, 8), ["cp38d", "cp38"], ["plat1", "plat2"]))
+    assert result == [
+        tags.Tag("cp38", "cp38d", "plat1"),
+        tags.Tag("cp38", "cp38d", "plat2"),
+        tags.Tag("cp38", "cp38", "plat1"),
+        tags.Tag("cp38", "cp38", "plat2"),
+        tags.Tag("cp38", "abi3", "plat1"),
+        tags.Tag("cp38", "abi3", "plat2"),
+        tags.Tag("cp38", "none", "plat1"),
+        tags.Tag("cp38", "none", "plat2"),
+        tags.Tag("cp37", "abi3", "plat1"),
+        tags.Tag("cp37", "abi3", "plat2"),
+        tags.Tag("cp36", "abi3", "plat1"),
+        tags.Tag("cp36", "abi3", "plat2"),
+        tags.Tag("cp35", "abi3", "plat1"),
+        tags.Tag("cp35", "abi3", "plat2"),
+        tags.Tag("cp34", "abi3", "plat1"),
+        tags.Tag("cp34", "abi3", "plat2"),
+        tags.Tag("cp33", "abi3", "plat1"),
+        tags.Tag("cp33", "abi3", "plat2"),
+        tags.Tag("cp32", "abi3", "plat1"),
+        tags.Tag("cp32", "abi3", "plat2"),
+    ]
+    result = list(tags.cpython_tags((3, 3), ["cp33m"], ["plat1", "plat2"]))
+    assert result == [
+        tags.Tag("cp33", "cp33m", "plat1"),
+        tags.Tag("cp33", "cp33m", "plat2"),
+        tags.Tag("cp33", "abi3", "plat1"),
+        tags.Tag("cp33", "abi3", "plat2"),
+        tags.Tag("cp33", "none", "plat1"),
+        tags.Tag("cp33", "none", "plat2"),
+        tags.Tag("cp32", "abi3", "plat1"),
+        tags.Tag("cp32", "abi3", "plat2"),
+    ]
+
+
+def test_cpython_tags_defaults(monkeypatch):
+    # python_version
+    tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
+    interpreter = "cp{}{}".format(*sys.version_info[:2])
+    assert tag == tags.Tag(interpreter, "abi3", "any")
+    # abis
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp38"])
+        result = list(tags.cpython_tags((3, 8), platforms=["any"]))
+    assert tags.Tag("cp38", "cp38", "any") in result
+    assert tags.Tag("cp38", "abi3", "any") in result
+    assert tags.Tag("cp38", "none", "any") in result
+    # platforms
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_platforms", lambda: ["plat1"])
+        result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
+    assert tags.Tag("cp38", "whatever", "plat1") in result
+
+
+@pytest.mark.parametrize("abis", [["abi3"], ["none"]])
+def test_cpython_tags_skip_redundant_abis(abis):
+    results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
+    assert results == [tags.Tag("cp30", "abi3", "any"), tags.Tag("cp30", "none", "any")]
+
