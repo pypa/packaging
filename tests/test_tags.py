@@ -755,3 +755,12 @@ def test_cpython_tags_skip_redundant_abis(abis):
     results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
     assert results == [tags.Tag("cp30", "abi3", "any"), tags.Tag("cp30", "none", "any")]
 
+
+def test_pypy_tags(monkeypatch):
+    monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp370")
+    result = list(tags.pypy_tags(abis=["pp370"], platforms=["plat1"]))
+    assert result == [
+        tags.Tag("pp370", "pp370", "plat1"),
+        tags.Tag("pp370", "none", "plat1"),
+    ]
+
