@@ -784,3 +784,25 @@ def test_generic_tags_defaults(monkeypatch):
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
     assert result == [tags.Tag("sillywalk", "none", "plat")]
 
+
+def test_compatible_tags():
+    result = list(tags.compatible_tags((3, 3), "cp33", ["plat1", "plat2"]))
+    assert result == [
+        tags.Tag("py33", "none", "plat1"),
+        tags.Tag("py33", "none", "plat2"),
+        tags.Tag("py3", "none", "plat1"),
+        tags.Tag("py3", "none", "plat2"),
+        tags.Tag("py32", "none", "plat1"),
+        tags.Tag("py32", "none", "plat2"),
+        tags.Tag("py31", "none", "plat1"),
+        tags.Tag("py31", "none", "plat2"),
+        tags.Tag("py30", "none", "plat1"),
+        tags.Tag("py30", "none", "plat2"),
+        tags.Tag("cp33", "none", "any"),
+        tags.Tag("py33", "none", "any"),
+        tags.Tag("py3", "none", "any"),
+        tags.Tag("py32", "none", "any"),
+        tags.Tag("py31", "none", "any"),
+        tags.Tag("py30", "none", "any"),
+    ]
+
