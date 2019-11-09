@@ -275,67 +275,6 @@ def test_cpython_abis_wide_unicode(
     assert tags._cpython_abis(version) == expected
 
 
-def test_independent_tags():
-    result = list(tags._independent_tags("cp33", (3, 3), ["plat1", "plat2"]))
-    assert result == [
-        tags.Tag("py33", "none", "plat1"),
-        tags.Tag("py33", "none", "plat2"),
-        tags.Tag("py3", "none", "plat1"),
-        tags.Tag("py3", "none", "plat2"),
-        tags.Tag("py32", "none", "plat1"),
-        tags.Tag("py32", "none", "plat2"),
-        tags.Tag("py31", "none", "plat1"),
-        tags.Tag("py31", "none", "plat2"),
-        tags.Tag("py30", "none", "plat1"),
-        tags.Tag("py30", "none", "plat2"),
-        tags.Tag("cp33", "none", "any"),
-        tags.Tag("py33", "none", "any"),
-        tags.Tag("py3", "none", "any"),
-        tags.Tag("py32", "none", "any"),
-        tags.Tag("py31", "none", "any"),
-        tags.Tag("py30", "none", "any"),
-    ]
-
-
-def test_cpython_tags():
-    result = list(
-        tags._cpython_tags((3, 8), "cp38", ["cp38d", "cp38"], ["plat1", "plat2"])
-    )
-    assert result == [
-        tags.Tag("cp38", "cp38d", "plat1"),
-        tags.Tag("cp38", "cp38d", "plat2"),
-        tags.Tag("cp38", "cp38", "plat1"),
-        tags.Tag("cp38", "cp38", "plat2"),
-        tags.Tag("cp38", "abi3", "plat1"),
-        tags.Tag("cp38", "abi3", "plat2"),
-        tags.Tag("cp38", "none", "plat1"),
-        tags.Tag("cp38", "none", "plat2"),
-        tags.Tag("cp37", "abi3", "plat1"),
-        tags.Tag("cp37", "abi3", "plat2"),
-        tags.Tag("cp36", "abi3", "plat1"),
-        tags.Tag("cp36", "abi3", "plat2"),
-        tags.Tag("cp35", "abi3", "plat1"),
-        tags.Tag("cp35", "abi3", "plat2"),
-        tags.Tag("cp34", "abi3", "plat1"),
-        tags.Tag("cp34", "abi3", "plat2"),
-        tags.Tag("cp33", "abi3", "plat1"),
-        tags.Tag("cp33", "abi3", "plat2"),
-        tags.Tag("cp32", "abi3", "plat1"),
-        tags.Tag("cp32", "abi3", "plat2"),
-    ]
-    result = list(tags._cpython_tags((3, 3), "cp33", ["cp33m"], ["plat1", "plat2"]))
-    assert result == [
-        tags.Tag("cp33", "cp33m", "plat1"),
-        tags.Tag("cp33", "cp33m", "plat2"),
-        tags.Tag("cp33", "abi3", "plat1"),
-        tags.Tag("cp33", "abi3", "plat2"),
-        tags.Tag("cp33", "none", "plat1"),
-        tags.Tag("cp33", "none", "plat2"),
-        tags.Tag("cp32", "abi3", "plat1"),
-        tags.Tag("cp32", "abi3", "plat2"),
-    ]
-
-
 def test_sys_tags_on_mac_cpython(mock_interpreter_name, monkeypatch):
     if mock_interpreter_name("CPython"):
         monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
@@ -382,19 +321,6 @@ def test_pypy_interpreter(monkeypatch):
         monkeypatch.setattr(sys, "pypy_version_info", pypy_version, raising=False)
     expected = "pp{}{}{}".format(sys.version_info[0], major, minor)
     assert expected == tags._pypy_interpreter()
-
-
-def test__pypy_tags(mock_interpreter_name, monkeypatch):
-    if mock_interpreter_name("PyPy"):
-        monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
-    interpreter = tags._pypy_interpreter()
-    result = list(tags._pypy_tags((3, 3), interpreter, "pypy3_60", ["plat1", "plat2"]))
-    assert result == [
-        tags.Tag(interpreter, "pypy3_60", "plat1"),
-        tags.Tag(interpreter, "pypy3_60", "plat2"),
-        tags.Tag(interpreter, "none", "plat1"),
-        tags.Tag(interpreter, "none", "plat2"),
-    ]
 
 
 def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):

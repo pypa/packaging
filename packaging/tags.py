@@ -136,12 +136,6 @@ def _normalize_string(string):
     return string.replace(".", "_").replace("-", "_")
 
 
-def _cpython_interpreter(py_version):
-    # type: (PythonVersion) -> str
-    # TODO: Is using py_version_nodot for interpreter version critical?
-    return "cp{major}{minor}".format(major=py_version[0], minor=py_version[1])
-
-
 def _cpython_abis(py_version, warn=False):
     # type: (PythonVersion, bool) -> List[str]
     abis = []
@@ -176,24 +170,6 @@ def _cpython_abis(py_version, warn=False):
         ),
     )
     return abis
-
-
-def _cpython_tags(py_version, interpreter, abis, platforms):
-    # type: (PythonVersion, str, Iterable[str], Iterable[str]) -> Iterator[Tag]
-    for abi in abis:
-        for platform_ in platforms:
-            yield Tag(interpreter, abi, platform_)
-    for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
-        yield tag
-    for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
-        yield tag
-    # PEP 384 was first implemented in Python 3.2.
-    for minor_version in range(py_version[1] - 1, 1, -1):
-        for platform_ in platforms:
-            interpreter = "cp{major}{minor}".format(
-                major=py_version[0], minor=minor_version
-            )
-            yield Tag(interpreter, "abi3", platform_)
 
 
 def cpython_tags(
@@ -268,14 +244,6 @@ def _generic_abi():
         return "none"
 
 
-def _pypy_tags(py_version, interpreter, abi, platforms):
-    # type: (PythonVersion, str, str, Iterable[str]) -> Iterator[Tag]
-    for tag in (Tag(interpreter, abi, platform) for platform in platforms):
-        yield tag
-    for tag in (Tag(interpreter, "none", platform) for platform in platforms):
-        yield tag
-
-
 def pypy_tags(interpreter=None, abis=None, platforms=None):
     # type: (Optional[str], Optional[Iterable[str]], Optional[Iterable[str]]) -> Iterator[Tag]  # noqa
     """
@@ -298,16 +266,6 @@ def _generic_interpreter(warn=False):
     if not version:
         version = "".join(map(str, sys.version_info[:2]))
     return "{name}{version}".format(name=_interpreter_name(), version=version)
-
-
-def _generic_tags(interpreter, py_version, abi, platforms):
-    # type: (str, PythonVersion, str, Iterable[str]) -> Iterator[Tag]
-    for tag in (Tag(interpreter, abi, platform) for platform in platforms):
-        yield tag
-    if abi != "none":
-        tags = (Tag(interpreter, "none", platform_) for platform_ in platforms)
-        for tag in tags:
-            yield tag
 
 
 def generic_tags(interpreter=None, abis=None, platforms=None, **kwargs):
@@ -350,24 +308,6 @@ def _py_interpreter_range(py_version):
     yield "py{major}".format(major=py_version[0])
     for minor in range(py_version[1] - 1, -1, -1):
         yield "py{major}{minor}".format(major=py_version[0], minor=minor)
-
-
-def _independent_tags(interpreter, py_version, platforms):
-    # type: (str, PythonVersion, Iterable[str]) -> Iterator[Tag]
-    """
-    Yield the sequence of tags that are consistent across implementations.
-
-    The tags consist of:
-    - py*-none-<platform>
-    - <interpreter>-none-any
-    - py*-none-any
-    """
-    for version in _py_interpreter_range(py_version):
-        for platform_ in platforms:
-            yield Tag(version, "none", platform_)
-    yield Tag(interpreter, "none", "any")
-    for version in _py_interpreter_range(py_version):
-        yield Tag(version, "none", "any")
 
 
 def compatible_tags(
