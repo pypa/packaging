@@ -235,7 +235,7 @@ def _py_interpreter_range(py_version):
 def _independent_tags(interpreter, py_version, platforms):
     # type: (str, PythonVersion, Iterable[str]) -> Iterator[Tag]
     """
-    Return the sequence of tags that are consistent across implementations.
+    Yield the sequence of tags that are consistent across implementations.
 
     The tags consist of:
     - py*-none-<platform>
@@ -341,7 +341,9 @@ def _glibc_version_string():
 
 def _glibc_version_string_confstr():
     # type: () -> Optional[str]
-    "Primary implementation of glibc_version_string using os.confstr."
+    """
+    Primary implementation of glibc_version_string using os.confstr.
+    """
     # os.confstr is quite a bit faster than ctypes.DLL. It's also less likely
     # to be broken or missing. This strategy is used in the standard library
     # platform module.
@@ -359,7 +361,9 @@ def _glibc_version_string_confstr():
 
 def _glibc_version_string_ctypes():
     # type: () -> Optional[str]
-    "Fallback implementation of glibc_version_string using ctypes."
+    """
+    Fallback implementation of glibc_version_string using ctypes.
+    """
     try:
         import ctypes
     except ImportError:
@@ -469,7 +473,7 @@ def _generic_interpreter(name, py_version, warn=False):
 
     # type: (bool) -> Iterator[Tag]
     """
-    Returns the sequence of tag triples for the running interpreter.
+    Return the sequence of tag triples for the running interpreter.
 
     The order of the sequence corresponds to priority order for the
     interpreter, from most to least important.
