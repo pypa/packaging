@@ -302,7 +302,7 @@ def _py_interpreter_range(py_version):
     Yield Python versions in descending order.
 
     After the latest version, the major-only version will be yielded, and then
-    all following versions up to 'end'.
+    all previous versions of that major version.
     """
     yield "py{major}{minor}".format(major=py_version[0], minor=py_version[1])
     yield "py{major}".format(major=py_version[0])
