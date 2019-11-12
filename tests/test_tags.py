@@ -174,7 +174,7 @@ def test_macos_binary_formats(version, arch, expected):
 
 
 def test_mac_platforms():
-    platforms = tags._mac_platforms((10, 5), "x86_64")
+    platforms = list(tags.mac_platforms((10, 5), "x86_64"))
     assert platforms == [
         "macosx_10_5_x86_64",
         "macosx_10_5_intel",
@@ -188,9 +188,9 @@ def test_mac_platforms():
         "macosx_10_4_universal",
     ]
 
-    assert len(tags._mac_platforms((10, 17), "x86_64")) == 14 * 5
+    assert len(list(tags.mac_platforms((10, 17), "x86_64"))) == 14 * 5
 
-    assert not tags._mac_platforms((10, 0), "x86_64")
+    assert not list(tags.mac_platforms((10, 0), "x86_64"))
 
 
 def test_macos_version_detection(monkeypatch):
@@ -200,7 +200,7 @@ def test_macos_version_detection(monkeypatch):
         )
     version = platform.mac_ver()[0].split(".")
     expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
-    platforms = tags._mac_platforms(arch="x86_64")
+    platforms = list(tags.mac_platforms(arch="x86_64"))
     assert platforms[0].startswith(expected)
 
 
@@ -209,7 +209,7 @@ def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.14", ("", "", ""), arch))
         monkeypatch.setattr(tags, "_mac_arch", lambda *args: arch)
-    assert tags._mac_platforms((10, 14))[0].endswith(arch)
+    assert next(tags.mac_platforms((10, 14))).endswith(arch)
 
 
 @pytest.mark.parametrize(
@@ -280,9 +280,9 @@ def test_sys_tags_on_mac_cpython(mock_interpreter_name, monkeypatch):
         monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(tags, "_mac_platforms", lambda: ["macosx_10_5_x86_64"])
+        monkeypatch.setattr(tags, "mac_platforms", lambda: ["macosx_10_5_x86_64"])
     abis = tags._cpython_abis(sys.version_info[:2])
-    platforms = tags._mac_platforms()
+    platforms = list(tags.mac_platforms())
     result = list(tags.sys_tags())
     assert len(abis) == 1
     assert result[0] == tags.Tag(
@@ -328,10 +328,10 @@ def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):
         monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
     if platform.system() != "Darwin":
         monkeypatch.setattr(platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(tags, "_mac_platforms", lambda: ["macosx_10_5_x86_64"])
+        monkeypatch.setattr(tags, "mac_platforms", lambda: ["macosx_10_5_x86_64"])
     interpreter = tags._pypy_interpreter()
     abi = tags._generic_abi()
-    platforms = tags._mac_platforms()
+    platforms = list(tags.mac_platforms())
     result = list(tags.sys_tags())
     assert result[0] == tags.Tag(interpreter, abi, platforms[0])
     assert result[-1] == tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
@@ -340,7 +340,7 @@ def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):
 def test_generic_platforms():
     platform = distutils.util.get_platform().replace("-", "_")
     platform = platform.replace(".", "_")
-    assert tags._generic_platforms() == [platform]
+    assert list(tags._generic_platforms()) == [platform]
 
 
 def test_sys_tags_on_windows_cpython(mock_interpreter_name, monkeypatch):
@@ -496,7 +496,7 @@ def test_linux_platforms_64bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
     if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
-    linux_platform = tags._linux_platforms(is_32bit=False)[-1]
+    linux_platform = list(tags._linux_platforms(is_32bit=False))[-1]
     assert linux_platform == "linux_x86_64"
 
 
@@ -504,14 +504,14 @@ def test_linux_platforms_32bit_on_64bit_os(is_64bit_os, is_x86, monkeypatch):
     if platform.system() != "Linux" or not is_64bit_os or not is_x86:
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
-    linux_platform = tags._linux_platforms(is_32bit=True)[-1]
+    linux_platform = list(tags._linux_platforms(is_32bit=True))[-1]
     assert linux_platform == "linux_i686"
 
 
 def test_linux_platforms_manylinux_unsupported(monkeypatch):
     monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
     monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
-    linux_platform = tags._linux_platforms(is_32bit=False)
+    linux_platform = list(tags._linux_platforms(is_32bit=False))
     assert linux_platform == ["linux_x86_64"]
 
 
@@ -521,7 +521,7 @@ def test_linux_platforms_manylinux1(monkeypatch):
     )
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
-    platforms = tags._linux_platforms(is_32bit=False)
+    platforms = list(tags._linux_platforms(is_32bit=False))
     assert platforms == ["manylinux1_x86_64", "linux_x86_64"]
 
 
@@ -531,7 +531,7 @@ def test_linux_platforms_manylinux2010(monkeypatch):
     )
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
-    platforms = tags._linux_platforms(is_32bit=False)
+    platforms = list(tags._linux_platforms(is_32bit=False))
     expected = ["manylinux2010_x86_64", "manylinux1_x86_64", "linux_x86_64"]
     assert platforms == expected
 
@@ -542,7 +542,7 @@ def test_linux_platforms_manylinux2014(monkeypatch):
     )
     if platform.system() != "Linux":
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
-    platforms = tags._linux_platforms(is_32bit=False)
+    platforms = list(tags._linux_platforms(is_32bit=False))
     expected = [
         "manylinux2014_x86_64",
         "manylinux2010_x86_64",
@@ -736,7 +736,7 @@ def test_compatible_tags():
 @pytest.mark.parametrize(
     "platform_name,dispatch_func",
     [
-        ("Darwin", "_mac_platforms"),
+        ("Darwin", "mac_platforms"),
         ("Linux", "_linux_platforms"),
         ("Generic", "_generic_platforms"),
     ],
