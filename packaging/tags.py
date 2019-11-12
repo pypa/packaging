@@ -180,7 +180,7 @@ def cpython_tags(
 ):
     # type: (...) -> Iterator[Tag]
     """
-    Yield the tags for a CPython interpreter.
+    Yields the tags for a CPython interpreter.
 
     The tags consist of:
     - cp<python_version>-<abi>-<platform>
@@ -252,7 +252,7 @@ def pypy_tags(
 ):
     # type: (...) -> Iterator[Tag]
     """
-    Yield the tags for a PyPy interpreter.
+    Yields the tags for a PyPy interpreter.
 
     The tags consist of what is yielded by generic_tags() with a calcuated value
     for 'interpreter' if it is not specified.
@@ -281,7 +281,7 @@ def generic_tags(
 ):
     # type: (...) -> Iterator[Tag]
     """
-    Yield the tags for a generic interpreter.
+    Yields the tags for a generic interpreter.
 
     The tags consist of:
     - <interpreter>-<abi>-<platform>
@@ -306,7 +306,7 @@ def generic_tags(
 def _py_interpreter_range(py_version):
     # type: (PythonVersion) -> Iterator[str]
     """
-    Yield Python versions in descending order.
+    Yields Python versions in descending order.
 
     After the latest version, the major-only version will be yielded, and then
     all previous versions of that major version.
@@ -322,7 +322,7 @@ def compatible_tags(
 ):
     # type: (PythonVersion, Optional[str], Optional[Iterable[str]]) -> Iterator[Tag]
     """
-    Yield the sequence of tags that are compatible with a specific version of Python.
+    Yields the sequence of tags that are compatible with a specific version of Python.
 
     The tags consist of:
     - py*-none-<platform>
@@ -382,7 +382,7 @@ def _mac_binary_formats(version, cpu_arch):
 def mac_platforms(version=None, arch=None):
     # type: (Optional[MacVersion], Optional[str]) -> Iterator[str]
     """
-    Yield the platform tags for a macOS system.
+    Yields the platform tags for a macOS system.
 
     The *version* parameter is a two-item tuple specifying the macOS version to
     generate platform tags for. The *arch* parameter is the CPU architecture to
@@ -544,7 +544,7 @@ def _generic_platforms():
 def _platforms():
     # type: () -> Iterator[str]
     """
-    Provide the platform tags for this installation.
+    Provides the platform tags for this installation.
     """
     if platform.system() == "Darwin":
         return mac_platforms()
@@ -567,7 +567,7 @@ def _interpreter_name():
 def sys_tags(**kwargs):
     # type: (bool) -> Iterator[Tag]
     """
-    Return the sequence of tag triples for the running interpreter.
+    Returns the sequence of tag triples for the running interpreter.
 
     The order of the sequence corresponds to priority order for the
     interpreter, from most to least important.
