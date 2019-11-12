@@ -403,10 +403,10 @@ def mac_platforms(version=None, arch=None):
         binary_formats = _mac_binary_formats(compat_version, arch)
         for binary_format in binary_formats:
             yield "macosx_{major}_{minor}_{binary_format}".format(
-                    major=compat_version[0],
-                    minor=compat_version[1],
-                    binary_format=binary_format,
-                )
+                major=compat_version[0],
+                minor=compat_version[1],
+                binary_format=binary_format,
+            )
 
 
 # From PEP 513.
