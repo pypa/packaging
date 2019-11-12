@@ -245,8 +245,12 @@ def _generic_abi():
         return "none"
 
 
-def pypy_tags(interpreter=None, abis=None, platforms=None):
-    # type: (Optional[str], Optional[Iterable[str]], Optional[Iterable[str]]) -> Iterator[Tag]  # noqa
+def pypy_tags(
+    interpreter=None,  # type: Optional[str]
+    abis=None,  # type: Optional[Iterable[str]]
+    platforms=None,  # type: Optional[Iterable[str]]
+):
+    # type: (...) -> Iterator[Tag]
     """
     Yield the tags for a PyPy interpreter.
 
@@ -269,8 +273,13 @@ def _generic_interpreter(warn=False):
     return "{name}{version}".format(name=_interpreter_name(), version=version)
 
 
-def generic_tags(interpreter=None, abis=None, platforms=None, **kwargs):
-    # type: (Optional[str], Optional[Iterable[str]], Optional[Iterable[str]], bool) -> Iterator[Tag]  # noqa
+def generic_tags(
+    interpreter=None,  # type: Optional[str]
+    abis=None,  # type: Optional[Iterable[str]]
+    platforms=None,  # type: Optional[Iterable[str]]
+    **kwargs  # type: bool
+):
+    # type: (...) -> Iterator[Tag]
     """
     Yield the tags for a generic interpreter.
 
