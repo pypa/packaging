@@ -173,9 +173,12 @@ def _cpython_abis(py_version, warn=False):
 
 
 def cpython_tags(
-    python_version=sys.version_info[:2], abis=None, platforms=None, **kwargs
+    python_version=sys.version_info[:2],  # type: PythonVersion
+    abis=None,  # type: Optional[Iterable[str]]
+    platforms=None,  # type: Optional[Iterable[str]]
+    **kwargs  # type: bool
 ):
-    # type: (PythonVersion, Optional[Iterable[str]], Optional[Iterable[str]], bool) -> Iterator[Tag]  # noqa
+    # type: (...) -> Iterator[Tag]
     """
     Yield the tags for a CPython interpreter.
 
@@ -192,9 +195,7 @@ def cpython_tags(
     interpreter = "cp{}{}".format(*python_version)
     if not abis:
         abis = _cpython_abis(python_version, warn)
-    if not platforms:
-        platforms = _platforms()
-    platforms = list(platforms)
+    platforms = list(platforms or _platforms())
     abis = list(abis)
     # 'abi3' and 'none' are explicitly handled later.
     try:
@@ -283,10 +284,7 @@ def generic_tags(interpreter=None, abis=None, platforms=None, **kwargs):
         interpreter = _generic_interpreter(warn=warn)
     if not abis:
         abis = [_generic_abi()]
-    if not platforms:
-        platforms = _platforms()
-    else:
-        platforms = list(platforms)
+    platforms = list(platforms or _platforms())
     abis = list(abis)
     for abi in abis:
         for platform_ in platforms:
@@ -372,11 +370,16 @@ def _mac_binary_formats(version, cpu_arch):
     return formats
 
 
-def _mac_platforms(
-    version=None,  # type: Optional[MacVersion]
-    arch=None,  # type: Optional[str]
-):
-    # type: (...) -> List[str]
+def mac_platforms(version=None, arch=None):
+    # type: (Optional[MacVersion], Optional[str]) -> Iterator[str]
+    """
+    Yield the platform tags for a macOS system.
+
+    The *version* parameter is a two-item tuple specifying the macOS version to
+    generate platform tags for. The *arch* parameter is the CPU architecture to
+    generate platform tags for. Both parameters default to the appropriate value
+    for the current system.
+    """
     version_str, _, cpu_arch = platform.mac_ver()  # type: ignore
     if version is None:
         version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
@@ -386,19 +389,15 @@ def _mac_platforms(
         arch = _mac_arch(cpu_arch)
     else:
         arch = arch
-    platforms = []
     for minor_version in range(version[1], -1, -1):
         compat_version = version[0], minor_version
         binary_formats = _mac_binary_formats(compat_version, arch)
         for binary_format in binary_formats:
-            platforms.append(
-                "macosx_{major}_{minor}_{binary_format}".format(
+            yield "macosx_{major}_{minor}_{binary_format}".format(
                     major=compat_version[0],
                     minor=compat_version[1],
                     binary_format=binary_format,
                 )
-            )
-    return platforms
 
 
 # From PEP 513.
@@ -508,7 +507,7 @@ def _have_compatible_glibc(required_major, minimum_minor):
 
 
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
-    # type: (bool) -> List[str]
+    # type: (bool) -> Iterator[str]
     linux = _normalize_string(distutils.util.get_platform())
     if linux == "linux_x86_64" and is_32bit:
         linux = "linux_i686"
@@ -520,29 +519,26 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     manylinux_support_iter = iter(manylinux_support)
     for name, glibc_version in manylinux_support_iter:
         if _is_manylinux_compatible(name, glibc_version):
-            platforms = [linux.replace("linux", name)]
+            yield linux.replace("linux", name)
             break
-    else:
-        platforms = []
     # Support for a later manylinux implies support for an earlier version.
-    platforms += [linux.replace("linux", name) for name, _ in manylinux_support_iter]
-    platforms.append(linux)
-    return platforms
+    for name, _ in manylinux_support_iter:
+        yield linux.replace("linux", name)
+    yield linux
 
 
 def _generic_platforms():
-    # type: () -> List[str]
-    platform = _normalize_string(distutils.util.get_platform())
-    return [platform]
+    # type: () -> Iterator[str]
+    yield _normalize_string(distutils.util.get_platform())
 
 
 def _platforms():
-    # type: () -> List[str]
+    # type: () -> Iterator[str]
     """
     Provide the platform tags for this installation.
     """
     if platform.system() == "Darwin":
-        return _mac_platforms()
+        return mac_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
     else:
