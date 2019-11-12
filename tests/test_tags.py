@@ -558,8 +558,8 @@ def test_sys_tags_linux_cpython(mock_interpreter_name, monkeypatch):
     if platform.system() != "Linux":
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr(tags, "_linux_platforms", lambda: ["linux_x86_64"])
-    abis = tags._cpython_abis(sys.version_info[:2])
-    platforms = tags._linux_platforms()
+    abis = list(tags._cpython_abis(sys.version_info[:2]))
+    platforms = list(tags._linux_platforms())
     result = list(tags.sys_tags())
     expected_interpreter = "cp{major}{minor}".format(
         major=sys.version_info[0], minor=sys.version_info[1]
@@ -654,12 +654,22 @@ def test_cpython_tags_skip_redundant_abis(abis):
 
 
 def test_pypy_tags(monkeypatch):
-    monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp370")
-    result = list(tags.pypy_tags(abis=["pp370"], platforms=["plat1"]))
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_pypy_interpreter", lambda: "pp370")
+        result = list(tags.pypy_tags(abis=["pp370"], platforms=["plat1"]))
     assert result == [
         tags.Tag("pp370", "pp370", "plat1"),
         tags.Tag("pp370", "none", "plat1"),
     ]
+
+    with monkeypatch.context() as m:
+        m.setattr(tags, "_pypy_interpreter", lambda: "pp370")
+        result = list(tags.pypy_tags("pp360", ["pp360"], ["plat1"]))
+    assert result == [
+        tags.Tag("pp360", "pp360", "plat1"),
+        tags.Tag("pp360", "none", "plat1"),
+    ]
+
 
 
 def test_generic_interpreter(monkeypatch):
