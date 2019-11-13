@@ -671,7 +671,6 @@ def test_pypy_tags(monkeypatch):
     ]
 
 
-
 def test_generic_interpreter(monkeypatch):
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "42")
     monkeypatch.setattr(tags, "_interpreter_name", lambda: "sillywalk")
