@@ -38,6 +38,11 @@ def is_x86():
 
 
 @pytest.fixture
+def is_arm():
+    return re.match(r"(armv\d|aarch64)", platform.machine()) is not None
+
+
+@pytest.fixture
 def is_64bit_os():
     return platform.architecture()[0] == "64bit"
 
@@ -428,6 +433,21 @@ class TestManylinuxPlatform:
             monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=True))[-1]
         assert linux_platform == "linux_i686"
+
+    def test_linux_platforms_64bit_on_64bit_os_arm(self, is_64bit_os, is_arm, monkeypatch):
+        if platform.system() != "Linux" or not is_64bit_os or not is_arm:
+            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+            monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
+        linux_platform = tags._linux_platforms(is_32bit=False)[-1]
+        assert linux_platform == "linux_aarch64"
+
+
+    def test_linux_platforms_32bit_on_64bit_os_arm(self, is_64bit_os, is_arm, monkeypatch):
+        if platform.system() != "Linux" or not is_64bit_os or not is_arm:
+            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+            monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
+        linux_platform = tags._linux_platforms(is_32bit=True)[-1]
+        assert linux_platform == "linux_armv7l"
 
     def test_linux_platforms_manylinux_unsupported(self, monkeypatch):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
