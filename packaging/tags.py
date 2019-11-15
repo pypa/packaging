@@ -325,7 +325,7 @@ def compatible_tags(
 
     The tags consist of:
     - py*-none-<platform>
-    - <interpreter>-none-any  # If provided.
+    - <interpreter>-none-any  # If 'interpreter' provided.
     - py*-none-any
     """
     if not platforms:
