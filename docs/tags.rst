@@ -160,7 +160,7 @@ Reference
     The specific tags are those returned by :func:`generic_tags`, but with
     *interpreter* inferred for the current system if not provided.
 
-    :param str interpreter: The name of the interpreter. Defaults the current
+    :param str interpreter: The name of the interpreter. Defaults to the current
                             PyPy interpreter.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
