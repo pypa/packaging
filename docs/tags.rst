@@ -178,7 +178,7 @@ Reference
     The specific tags generated are:
 
     - ``<interpreter>-<abi>-<platform>``
-    - ``<intepreter>-none-<platform>`` if ``"none"`` was not provided as part of
+    - ``<interpreter>-none-<platform>`` if ``"none"`` was not provided as part of
       *abis*
 
     :param str interpreter: The name of the interpreter. Defaults the current
