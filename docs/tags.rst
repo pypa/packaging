@@ -181,7 +181,7 @@ Reference
     - ``<interpreter>-none-<platform>`` if ``"none"`` was not provided as part of
       *abis*
 
-    :param str interpreter: The name of the interpreter. Defaults the current
+    :param str interpreter: The name of the interpreter. Defaults to the current
                             PyPy interpreter.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
