@@ -14,6 +14,7 @@ import re
 import sys
 import sysconfig
 import types
+import typing
 import warnings
 
 import pretend
@@ -271,6 +272,10 @@ def test_cpython_abis_wide_unicode(
     base_abi = "cp{}{}".format(version[0], version[1])
     expected = [base_abi + "u" if result else base_abi]
     assert tags._cpython_abis(version) == expected
+
+
+def test_sys_tags_iterator():
+    assert isinstance(tags.sys_tags(), typing.Iterator)
 
 
 def test_sys_tags_on_mac_cpython(mock_interpreter_name, monkeypatch):
@@ -563,7 +568,9 @@ def test_warn_keyword_parameters():
 
 
 def test_cpython_tags_all_args():
-    result = list(tags.cpython_tags((3, 8), ["cp38d", "cp38"], ["plat1", "plat2"]))
+    result_iterator = tags.cpython_tags((3, 8), ["cp38d", "cp38"], ["plat1", "plat2"])
+    assert isinstance(result_iterator, typing.Iterator)
+    result = list(result_iterator)
     assert result == [
         tags.Tag("cp38", "cp38d", "plat1"),
         tags.Tag("cp38", "cp38d", "plat2"),
@@ -637,7 +644,9 @@ def test_generic_interpreter_no_config_var(monkeypatch):
 
 
 def test_generic_tags():
-    result = list(tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"]))
+    result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])
+    assert isinstance(result_iterator, typing.Iterator)
+    result = list(result_iterator)
     assert result == [
         tags.Tag("sillywalk33", "abi", "plat1"),
         tags.Tag("sillywalk33", "abi", "plat2"),
