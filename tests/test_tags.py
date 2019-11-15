@@ -43,6 +43,15 @@ def is_64bit_os():
 
 
 @pytest.fixture
+def manylinux_module(monkeypatch):
+    monkeypatch.setattr(tags, "_have_compatible_glibc", lambda *args: False)
+    module_name = "_manylinux"
+    module = types.ModuleType(module_name)
+    monkeypatch.setitem(sys.modules, module_name, module)
+    return module
+
+
+@pytest.fixture
 def mock_interpreter_name(monkeypatch):
     def mock(name):
         if hasattr(sys, "implementation") and sys.implementation.name != name.lower():
@@ -76,7 +85,7 @@ class TestTag:
 
     def test_hash_equality(self, example_tag):
         equal_tag = tags.Tag("py3", "none", "any")
-        assert example_tag == equal_tag
+        assert example_tag == equal_tag  # Sanity check.
         assert example_tag.__hash__() == equal_tag.__hash__()
 
     def test_str(self, example_tag):
@@ -93,18 +102,29 @@ class TestTag:
         assert example_tag.platform == "any"
 
 
-def test_warn_keyword_parameters():
-    assert not tags._warn_keyword_parameter("test_warn_keyword_parameters", {})
-    assert not tags._warn_keyword_parameter(
-        "test_warn_keyword_parameters", {"warn": False}
-    )
-    assert tags._warn_keyword_parameter("test_warn_keyword_parameters", {"warn": True})
-    message_re = re.compile(r"too_many.+{!r}".format("whatever"))
-    with pytest.raises(TypeError, match=message_re):
-        tags._warn_keyword_parameter("too_many", {"warn": True, "whatever": True})
-    message_re = re.compile(r"missing.+{!r}".format("unexpected"))
-    with pytest.raises(TypeError, match=message_re):
-        tags._warn_keyword_parameter("missing", {"unexpected": True})
+class TestWarnKeywordOnlyParameter:
+    def test_no_argument(self):
+        assert not tags._warn_keyword_parameter("test_warn_keyword_parameters", {})
+
+    def test_false(self):
+        assert not tags._warn_keyword_parameter(
+            "test_warn_keyword_parameters", {"warn": False}
+        )
+
+    def test_true(self):
+        assert tags._warn_keyword_parameter(
+            "test_warn_keyword_parameters", {"warn": True}
+        )
+
+    def test_too_many_arguments(self):
+        message_re = re.compile(r"too_many.+{!r}".format("whatever"))
+        with pytest.raises(TypeError, match=message_re):
+            tags._warn_keyword_parameter("too_many", {"warn": True, "whatever": True})
+
+    def test_wrong_argument(self):
+        message_re = re.compile(r"missing.+{!r}".format("unexpected"))
+        with pytest.raises(TypeError, match=message_re):
+            tags._warn_keyword_parameter("missing", {"unexpected": True})
 
 
 class TestParseTag:
@@ -213,30 +233,40 @@ class TestMacOSPlatforms:
 
 
 class TestManylinuxPlatform:
-    def test_is_manylinux_compatible_module_support(self, monkeypatch):
-        monkeypatch.setattr(tags, "_have_compatible_glibc", lambda *args: False)
-        module_name = "_manylinux"
-        module = types.ModuleType(module_name)
-        module.manylinux1_compatible = True
-        monkeypatch.setitem(sys.modules, module_name, module)
+    def test_module_declaration_true(self, manylinux_module):
+        manylinux_module.manylinux1_compatible = True
         assert tags._is_manylinux_compatible("manylinux1", (2, 5))
-        module.manylinux1_compatible = False
-        assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
-        del module.manylinux1_compatible
-        assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
-        monkeypatch.setitem(sys.modules, module_name, None)
+
+    def test_module_declaration_false(self, manylinux_module):
+        manylinux_module.manylinux1_compatible = False
         assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
 
-    def test_is_manylinux_compatible_glibc_support(self, monkeypatch):
+    def test_module_declaration_missing_attribute(self, manylinux_module):
+        try:
+            del manylinux_module.manylinux1_compatible
+        except AttributeError:
+            pass
+        assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
+
+    def test_is_manylinux_compatible_module_support(
+        self, manylinux_module, monkeypatch
+    ):
+        monkeypatch.setitem(sys.modules, manylinux_module.__name__, None)
+        assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
+
+    @pytest.mark.parametrize(
+        "version,compatible", (((2, 0), True), ((2, 5), True), ((2, 10), False))
+    )
+    def test_is_manylinux_compatible_glibc_support(
+        self, version, compatible, monkeypatch
+    ):
         monkeypatch.setitem(sys.modules, "_manylinux", None)
         monkeypatch.setattr(
             tags,
             "_have_compatible_glibc",
             lambda major, minor: (major, minor) <= (2, 5),
         )
-        assert tags._is_manylinux_compatible("manylinux1", (2, 0))
-        assert tags._is_manylinux_compatible("manylinux1", (2, 5))
-        assert not tags._is_manylinux_compatible("manylinux1", (2, 10))
+        assert bool(tags._is_manylinux_compatible("manylinux1", version)) == compatible
 
     @pytest.mark.parametrize(
         "version_str,major,minor,expected",
@@ -324,14 +354,17 @@ class TestManylinuxPlatform:
             )
         ]
 
+    @pytest.mark.skipif(platform.system() != "Linux", reason="requires Linux")
+    def test_have_compatible_glibc_linux(self):
+        # Assuming no one is running this test with a version of glibc released in
+        # 1997.
+        assert tags._have_compatible_glibc(2, 0)
+
     def test_have_compatible_glibc(self, monkeypatch):
-        if platform.system() == "Linux":
-            # Assuming no one is running this test with a version of glibc released in
-            # 1997.
-            assert tags._have_compatible_glibc(2, 0)
-        else:
-            monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.4")
-            assert tags._have_compatible_glibc(2, 4)
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.4")
+        assert tags._have_compatible_glibc(2, 4)
+
+    def test_glibc_version_string_none(self, monkeypatch):
         monkeypatch.setattr(tags, "_glibc_version_string", lambda: None)
         assert not tags._have_compatible_glibc(2, 4)
 
@@ -469,11 +502,16 @@ class TestCPythonABI:
 
 
 class TestCPythonTags:
-    def test_cpython_tags_all_args(self):
+    def test_iterator_returned(self):
         result_iterator = tags.cpython_tags(
             (3, 8), ["cp38d", "cp38"], ["plat1", "plat2"]
         )
-        assert isinstance(result_iterator, collections_abc.Iterator)
+        isinstance(result_iterator, collections_abc.Iterator)
+
+    def test_all_args(self):
+        result_iterator = tags.cpython_tags(
+            (3, 8), ["cp38d", "cp38"], ["plat1", "plat2"]
+        )
         result = list(result_iterator)
         assert result == [
             tags.Tag("cp38", "cp38d", "plat1"),
@@ -509,26 +547,25 @@ class TestCPythonTags:
             tags.Tag("cp32", "abi3", "plat2"),
         ]
 
-    def test_cpython_tags_defaults(self, monkeypatch):
-        # python_version
+    def test_python_version_defaults(self):
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
         interpreter = "cp{}{}".format(*sys.version_info[:2])
         assert tag == tags.Tag(interpreter, "abi3", "any")
-        # abis
-        with monkeypatch.context() as m:
-            m.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp38"])
-            result = list(tags.cpython_tags((3, 8), platforms=["any"]))
+
+    def test_abi_defaults(self, monkeypatch):
+        monkeypatch.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp38"])
+        result = list(tags.cpython_tags((3, 8), platforms=["any"]))
         assert tags.Tag("cp38", "cp38", "any") in result
         assert tags.Tag("cp38", "abi3", "any") in result
         assert tags.Tag("cp38", "none", "any") in result
-        # platforms
-        with monkeypatch.context() as m:
-            m.setattr(tags, "_platform_tags", lambda: ["plat1"])
-            result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
+
+    def test_platforms_defaults(self, monkeypatch):
+        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat1"])
+        result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
         assert tags.Tag("cp38", "whatever", "plat1") in result
 
     @pytest.mark.parametrize("abis", [["abi3"], ["none"]])
-    def test_cpython_tags_skip_redundant_abis(self, abis):
+    def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
         assert results == [
             tags.Tag("cp30", "abi3", "any"),
@@ -549,19 +586,20 @@ class TestGenericTags:
             *sys.version_info[:2]
         )
 
-    def test__generic_abi(self, monkeypatch):
-        abi = sysconfig.get_config_var("SOABI")
-        if abi:
-            abi = [abi.replace(".", "_").replace("-", "_")]
-        else:
-            abi = []
-        assert abi == list(tags._generic_abi())
+    @pytest.mark.skipif(
+        not sysconfig.get_config_var("SOABI"), reason="SOABI not defined"
+    )
+    def test__generic_abi_soabi_provided(self):
+        abi = sysconfig.get_config_var("SOABI").replace(".", "_").replace("-", "_")
+        assert [abi] == list(tags._generic_abi())
 
+    def test__generic_abi(self, monkeypatch):
         monkeypatch.setattr(
             sysconfig, "get_config_var", lambda key: "cpython-37m-darwin"
         )
         assert list(tags._generic_abi()) == ["cpython_37m_darwin"]
 
+    def test__generic_abi_no_soabi(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
         assert not list(tags._generic_abi())
 
@@ -570,9 +608,12 @@ class TestGenericTags:
         platform = platform.replace(".", "_")
         assert list(tags._generic_platforms()) == [platform]
 
-    def test_generic_tags(self):
+    def test_iterator_returned(self):
         result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])
         assert isinstance(result_iterator, collections_abc.Iterator)
+
+    def test_all_args(self):
+        result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])
         result = list(result_iterator)
         assert result == [
             tags.Tag("sillywalk33", "abi", "plat1"),
@@ -581,30 +622,29 @@ class TestGenericTags:
             tags.Tag("sillywalk33", "none", "plat2"),
         ]
 
+    def test_none_abi_provided(self):
         no_abi = list(tags.generic_tags("sillywalk34", ["none"], ["plat1", "plat2"]))
         assert no_abi == [
             tags.Tag("sillywalk34", "none", "plat1"),
             tags.Tag("sillywalk34", "none", "plat2"),
         ]
 
-    def test_generic_tags_defaults(self, monkeypatch):
-        # interpreter
-        with monkeypatch.context() as m:
-            m.setattr(tags, "_generic_interpreter", lambda warn: "sillywalk")
-            result = list(tags.generic_tags(abis=["none"], platforms=["any"]))
+    def test_interpreter_default(self, monkeypatch):
+        monkeypatch.setattr(tags, "_generic_interpreter", lambda warn: "sillywalk")
+        result = list(tags.generic_tags(abis=["none"], platforms=["any"]))
         assert result == [tags.Tag("sillywalk", "none", "any")]
-        # abis
-        with monkeypatch.context() as m:
-            m.setattr(tags, "_generic_abi", lambda: iter(["abi"]))
-            result = list(tags.generic_tags(interpreter="sillywalk", platforms=["any"]))
+
+    def test_abis_default(self, monkeypatch):
+        monkeypatch.setattr(tags, "_generic_abi", lambda: iter(["abi"]))
+        result = list(tags.generic_tags(interpreter="sillywalk", platforms=["any"]))
         assert result == [
             tags.Tag("sillywalk", "abi", "any"),
             tags.Tag("sillywalk", "none", "any"),
         ]
-        # platforms
-        with monkeypatch.context() as m:
-            m.setattr(tags, "_platform_tags", lambda: ["plat"])
-            result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
+
+    def test_platforms_default(self, monkeypatch):
+        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat"])
+        result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
 
