@@ -226,12 +226,10 @@ def cpython_tags(
 
 
 def _generic_abi():
-    # type: () -> str
+    # type: () -> Iterator[str]
     abi = sysconfig.get_config_var("SOABI")
     if abi:
-        return _normalize_string(abi)
-    else:
-        return "none"
+        yield _normalize_string(abi)
 
 
 def _generic_interpreter(warn=False):
@@ -261,7 +259,7 @@ def generic_tags(
     if not interpreter:
         interpreter = _generic_interpreter(warn=warn)
     if not abis:
-        abis = [_generic_abi()]
+        abis = _generic_abi()
     platforms = list(platforms or _platform_tags())
     abis = list(abis)
     if "none" not in abis:

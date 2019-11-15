@@ -291,19 +291,19 @@ def test_sys_tags_on_mac_cpython(mock_interpreter_name, monkeypatch):
     assert result[-1] == tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
 
 
-def test_generic_abi(monkeypatch):
+def test__generic_abi(monkeypatch):
     abi = sysconfig.get_config_var("SOABI")
     if abi:
-        abi = abi.replace(".", "_").replace("-", "_")
+        abi = [abi.replace(".", "_").replace("-", "_")]
     else:
-        abi = "none"
-    assert abi == tags._generic_abi()
+        abi = []
+    assert abi == list(tags._generic_abi())
 
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "cpython-37m-darwin")
-    assert tags._generic_abi() == "cpython_37m_darwin"
+    assert list(tags._generic_abi()) == ["cpython_37m_darwin"]
 
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
-    assert tags._generic_abi() == "none"
+    assert not list(tags._generic_abi())
 
 
 def test_generic_platforms():
@@ -660,7 +660,7 @@ def test_generic_tags_defaults(monkeypatch):
     assert result == [tags.Tag("sillywalk", "none", "any")]
     # abis
     with monkeypatch.context() as m:
-        m.setattr(tags, "_generic_abi", lambda: "abi")
+        m.setattr(tags, "_generic_abi", lambda: iter(["abi"]))
         result = list(tags.generic_tags(interpreter="sillywalk", platforms=["any"]))
     assert result == [
         tags.Tag("sillywalk", "abi", "any"),
