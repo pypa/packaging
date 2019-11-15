@@ -65,7 +65,7 @@ Reference
 
 .. function:: parse_tag(tag)
 
-    Parses the provided *tag* into a set of :class:`Tag` instances.
+    Parses the provided ``tag`` into a set of :class:`Tag` instances.
 
     Returning a set is required due to the possibility that the tag is a
     `compressed tag set`_, e.g. ``"py2.py3-none-any"`` which supports both
@@ -119,12 +119,12 @@ Reference
 .. function:: compatible_tags(python_version=sys.version_info[:2], interpreter=None, platforms=None)
 
     Yields the tags for an interpreter compatible with the Python version
-    specified by *python_version*.
+    specified by ``python_version``.
 
     The specific tags generated are:
 
     - ``py*-none-<platform>``
-    - ``<interpreter>-none-any`` if *interpreter* is provided
+    - ``<interpreter>-none-any`` if ``interpreter`` is provided
     - ``py*-none-any``
 
     :param tuple python_version: A two-item tuple representing the compatible
@@ -160,7 +160,7 @@ Reference
     Yields the tags for the PyPy intrepreter.
 
     The specific tags are those returned by :func:`generic_tags`, but with
-    *interpreter* inferred for the current system if not provided.
+    ``interpreter`` inferred for the current system if not provided.
 
     :param str interpreter: The name of the interpreter (if known), e.g.
                             ``"cp38"``.
