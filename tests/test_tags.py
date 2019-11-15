@@ -642,7 +642,7 @@ def test_cpython_tags_defaults(monkeypatch):
     assert tags.Tag("cp38", "none", "any") in result
     # platforms
     with monkeypatch.context() as m:
-        m.setattr(tags, "_platforms", lambda: ["plat1"])
+        m.setattr(tags, "_platform_tags", lambda: ["plat1"])
         result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
     assert tags.Tag("cp38", "whatever", "plat1") in result
 
@@ -715,7 +715,7 @@ def test_generic_tags_defaults(monkeypatch):
     ]
     # platforms
     with monkeypatch.context() as m:
-        m.setattr(tags, "_platforms", lambda: ["plat"])
+        m.setattr(tags, "_platform_tags", lambda: ["plat"])
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
     assert result == [tags.Tag("sillywalk", "none", "plat")]
 
@@ -750,8 +750,8 @@ def test_compatible_tags():
         ("Generic", "_generic_platforms"),
     ],
 )
-def test__platforms(platform_name, dispatch_func, monkeypatch):
+def test__platform_tags(platform_name, dispatch_func, monkeypatch):
     expected = ["sillywalk"]
     monkeypatch.setattr(platform, "system", lambda: platform_name)
     monkeypatch.setattr(tags, dispatch_func, lambda: expected)
-    assert tags._platforms() == expected
+    assert tags._platform_tags() == expected

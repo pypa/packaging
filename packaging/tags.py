@@ -195,7 +195,7 @@ def cpython_tags(
     interpreter = "cp{}{}".format(*python_version)
     if not abis:
         abis = _cpython_abis(python_version, warn)
-    platforms = list(platforms or _platforms())
+    platforms = list(platforms or _platform_tags())
     abis = list(abis)
     # 'abi3' and 'none' are explicitly handled later.
     try:
@@ -293,7 +293,7 @@ def generic_tags(
         interpreter = _generic_interpreter(warn=warn)
     if not abis:
         abis = [_generic_abi()]
-    platforms = list(platforms or _platforms())
+    platforms = list(platforms or _platform_tags())
     abis = list(abis)
     if "none" not in abis:
         abis.append("none")
@@ -329,7 +329,7 @@ def compatible_tags(
     - py*-none-any
     """
     if not platforms:
-        platforms = _platforms()
+        platforms = _platform_tags()
     for version in _py_interpreter_range(python_version):
         for platform_ in platforms:
             yield Tag(version, "none", platform_)
@@ -540,7 +540,7 @@ def _generic_platforms():
     yield _normalize_string(distutils.util.get_platform())
 
 
-def _platforms():
+def _platform_tags():
     # type: () -> Iterator[str]
     """
     Provides the platform tags for this installation.
