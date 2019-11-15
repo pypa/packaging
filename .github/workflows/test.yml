@@ -17,7 +17,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         # Python 3.4 is not available from actions/setup-python@v1.
-        python_version: ['2.7', '3.5', '3.6', '3.7']
+        python_version: ['2.7', '3.5', '3.6', '3.7', '3.8']
 
     steps:
     - uses: actions/checkout@v1
