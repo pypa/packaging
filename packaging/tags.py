@@ -225,17 +225,6 @@ def cpython_tags(
             yield Tag(interpreter, "abi3", platform_)
 
 
-def _pypy_interpreter():
-    # type: () -> str
-    # Ignoring sys.pypy_version_info for type checking due to typeshed lacking
-    # the reference to the attribute.
-    return "pp{py_major}{pypy_major}{pypy_minor}".format(
-        py_major=sys.version_info[0],
-        pypy_major=sys.pypy_version_info.major,  # type: ignore
-        pypy_minor=sys.pypy_version_info.minor,  # type: ignore
-    )
-
-
 def _generic_abi():
     # type: () -> str
     abi = sysconfig.get_config_var("SOABI")
@@ -243,26 +232,6 @@ def _generic_abi():
         return _normalize_string(abi)
     else:
         return "none"
-
-
-def pypy_tags(
-    interpreter=None,  # type: Optional[str]
-    abis=None,  # type: Optional[Iterable[str]]
-    platforms=None,  # type: Optional[Iterable[str]]
-):
-    # type: (...) -> Iterator[Tag]
-    """
-    Yields the tags for a PyPy interpreter.
-
-    The tags consist of what is yielded by generic_tags() with a calcuated value
-    for 'interpreter' if it is not specified.
-    """
-    # The 'interpreter' parameter is necessary to allow the user to distinguish
-    # between PyPy and PyPy3 (pp and pp3, respectively).
-    if not interpreter:
-        interpreter = _pypy_interpreter()
-    for tag in generic_tags(interpreter, abis, platforms):
-        yield tag
 
 
 def _generic_interpreter(warn=False):
@@ -576,9 +545,6 @@ def sys_tags(**kwargs):
     interpreter_name = _interpreter_name()
     if interpreter_name == "cp":
         for tag in cpython_tags(warn=warn):
-            yield tag
-    elif interpreter_name == "pp":
-        for tag in pypy_tags():
             yield tag
     else:
         for tag in generic_tags():

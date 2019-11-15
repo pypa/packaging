@@ -155,23 +155,9 @@ Reference
                                platforms compatible with the current system.
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
 
-.. function:: pypy_tags(interpreter=None, abis=None, platforms=None)
-
-    Yields the tags for the PyPy intrepreter.
-
-    The specific tags are those returned by :func:`generic_tags`, but with
-    ``interpreter`` inferred for the current system if not provided.
-
-    :param str interpreter: The name of the interpreter (if known), e.g.
-                            ``"cp38"``.
-    :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
-                          compatible with the current system.
-    :param Iterable platforms: Iterable of compatible platforms. Defaults to the
-                               platforms compatible with the current system.
-
 .. function:: generic_tags(interpreter=None, abis=None, platforms=None, *, warn=False)
 
-    Yields the tags for an interpreter in a generic fashion.
+    Yields the tags for an interpreter which requires no specialization.
 
     This function should be used if one of the other interpreter-specific
     functions provided by this module is not appropriate (i.e. not calculating

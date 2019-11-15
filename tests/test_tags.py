@@ -2,8 +2,6 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import collections
-
 try:
     import ctypes
 except ImportError:
@@ -129,7 +127,7 @@ def test_parse_tag_multi_platform():
     "name,expected",
     [("CPython", "cp"), ("PyPy", "pp"), ("Jython", "jy"), ("IronPython", "ip")],
 )
-def test__interpreter_name_cpython(name, expected, mock_interpreter_name):
+def test__interpreter_name(name, expected, mock_interpreter_name):
     mock_interpreter_name(name)
     assert tags._interpreter_name() == expected
 
@@ -306,35 +304,6 @@ def test_generic_abi(monkeypatch):
 
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
     assert tags._generic_abi() == "none"
-
-
-def test_pypy_interpreter(monkeypatch):
-    if hasattr(sys, "pypy_version_info"):
-        major, minor = sys.pypy_version_info[:2]
-    else:
-        attributes = ["major", "minor", "micro", "releaselevel", "serial"]
-        PyPyVersion = collections.namedtuple("version_info", attributes)
-        major, minor = 6, 0
-        pypy_version = PyPyVersion(
-            major=major, minor=minor, micro=1, releaselevel="final", serial=0
-        )
-        monkeypatch.setattr(sys, "pypy_version_info", pypy_version, raising=False)
-    expected = "pp{}{}{}".format(sys.version_info[0], major, minor)
-    assert expected == tags._pypy_interpreter()
-
-
-def test_sys_tags_on_mac_pypy(mock_interpreter_name, monkeypatch):
-    if mock_interpreter_name("PyPy"):
-        monkeypatch.setattr(tags, "_pypy_interpreter", lambda: "pp360")
-    if platform.system() != "Darwin":
-        monkeypatch.setattr(platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(tags, "mac_platforms", lambda: ["macosx_10_5_x86_64"])
-    interpreter = tags._pypy_interpreter()
-    abi = tags._generic_abi()
-    platforms = list(tags.mac_platforms())
-    result = list(tags.sys_tags())
-    assert result[0] == tags.Tag(interpreter, abi, platforms[0])
-    assert result[-1] == tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
 
 
 def test_generic_platforms():
@@ -653,24 +622,6 @@ def test_cpython_tags_defaults(monkeypatch):
 def test_cpython_tags_skip_redundant_abis(abis):
     results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
     assert results == [tags.Tag("cp30", "abi3", "any"), tags.Tag("cp30", "none", "any")]
-
-
-def test_pypy_tags(monkeypatch):
-    with monkeypatch.context() as m:
-        m.setattr(tags, "_pypy_interpreter", lambda: "pp370")
-        result = list(tags.pypy_tags(abis=["pp370"], platforms=["plat1"]))
-    assert result == [
-        tags.Tag("pp370", "pp370", "plat1"),
-        tags.Tag("pp370", "none", "plat1"),
-    ]
-
-    with monkeypatch.context() as m:
-        m.setattr(tags, "_pypy_interpreter", lambda: "pp370")
-        result = list(tags.pypy_tags("pp360", ["pp360"], ["plat1"]))
-    assert result == [
-        tags.Tag("pp360", "pp360", "plat1"),
-        tags.Tag("pp360", "none", "plat1"),
-    ]
 
 
 def test_generic_interpreter(monkeypatch):
