@@ -325,7 +325,7 @@ def compatible_tags(
 
     The tags consist of:
     - py*-none-<platform>
-    - <interpreter>-none-any  # If 'interpreter' provided.
+    - <interpreter>-none-any  # ... if `interpreter` is provided.
     - py*-none-any
     """
     if not platforms:
@@ -383,8 +383,8 @@ def mac_platforms(version=None, arch=None):
     """
     Yields the platform tags for a macOS system.
 
-    The *version* parameter is a two-item tuple specifying the macOS version to
-    generate platform tags for. The *arch* parameter is the CPU architecture to
+    The `version` parameter is a two-item tuple specifying the macOS version to
+    generate platform tags for. The `arch` parameter is the CPU architecture to
     generate platform tags for. Both parameters default to the appropriate value
     for the current system.
     """
