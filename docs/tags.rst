@@ -102,17 +102,18 @@ Reference
 
     Yields the platforms tags for macOS.
 
-    Specific support for macOS is provided by this module due to how multiple
-    versions of macOS can be supported by any one version which can be
-    determined statically. For Windows this information is entirely static and
-    thus does not require calculating older version support. For Linux, code
-    must be run on the system itself to determine its compatibility level and
-    thus cannot be calculated statically.
-
     :param tuple version: A two-item tuple presenting the version of macOS.
                           Defaults to the current system's version.
     :param str arch: The CPU architecture. Defaults to the architecture of the
                      current system, e.g. ``"x86_64"``.
+
+    .. note::
+        Equivalent support for the other major platforms is purposefully not
+        provided:
+
+        - On Windows, platform compatibility is statically specified
+        - On Linux, code must be run on the system itself to determine
+          compatibility
 
 
 .. function:: compatible_tags(python_version=sys.version_info[:2], interpreter=None, platforms=None)
