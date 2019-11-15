@@ -173,7 +173,7 @@ Reference
 
     This function should be used if one of the other interpreter-specific
     functions is not appropriate (i.e. not calculating tags for a CPython or
-    PyPy intrepreter).
+    PyPy interpreter).
 
     The specific tags generated are:
 
