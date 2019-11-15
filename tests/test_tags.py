@@ -705,4 +705,3 @@ class TestSysTags:
         result = list(tags.sys_tags())
         expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
         assert result[-1] == expected
-
