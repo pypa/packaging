@@ -295,12 +295,11 @@ def generic_tags(
         abis = [_generic_abi()]
     platforms = list(platforms or _platforms())
     abis = list(abis)
+    if "none" not in abis:
+        abis.append("none")
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
-    if "none" not in abis:
-        for platform_ in platforms:
-            yield Tag(interpreter, "none", platform_)
 
 
 def _py_interpreter_range(py_version):
