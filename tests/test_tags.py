@@ -201,10 +201,11 @@ def test_macos_version_detection(monkeypatch):
     version = platform.mac_ver()[0].split(".")
     expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
     platforms = list(tags.mac_platforms(arch="x86_64"))
-    assert platforms[0].startswith(expected)
+    assert platforms[0].startswi_warn_keyword_parameter @ pytest.mark.parametrize(
+        "arch", ["x86_64", "i386"]
+    )
 
 
-@pytest.mark.parametrize("arch", ["x86_64", "i386"])
 def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.14", ("", "", ""), arch))
@@ -579,16 +580,18 @@ def test_generic_sys_tags(monkeypatch):
     assert result[-1] == expected
 
 
-def test_warn_parameters():
-    assert not tags._warn_parameter("test_warn_parameters", {})
-    assert not tags._warn_parameter("test_warn_parameters", {"warn": False})
-    assert tags._warn_parameter("test_warn_parameters", {"warn": True})
+def test_warn_keyword_parameters():
+    assert not tags._warn_keyword_parameter("test_warn_keyword_parameters", {})
+    assert not tags._warn_keyword_parameter(
+        "test_warn_keyword_parameters", {"warn": False}
+    )
+    assert tags._warn_keyword_parameter("test_warn_keyword_parameters", {"warn": True})
     message_re = re.compile(r"too_many.+{!r}".format("whatever"))
     with pytest.raises(TypeError, match=message_re):
-        tags._warn_parameter("too_many", {"warn": True, "whatever": True})
+        tags._warn_keyword_parameter("too_many", {"warn": True, "whatever": True})
     message_re = re.compile(r"missing.+{!r}".format("unexpected"))
     with pytest.raises(TypeError, match=message_re):
-        tags._warn_parameter("missing", {"unexpected": True})
+        tags._warn_keyword_parameter("missing", {"unexpected": True})
 
 
 def test_cpython_tags_all_args():

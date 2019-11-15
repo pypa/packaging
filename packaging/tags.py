@@ -105,7 +105,7 @@ def parse_tag(tag):
     return frozenset(tags)
 
 
-def _warn_parameter(func_name, kwargs):
+def _warn_keyword_parameter(func_name, kwargs):
     # type: (str, Dict[str, bool]) -> bool
     """
     Backwards-compatibility with Python 2.7 to allow treating 'warn' as keyword-only.
@@ -191,7 +191,7 @@ def cpython_tags(
     If 'abi3' or 'none' are specified in 'abis' then they will be yielded at
     their normal position and not at the beginning.
     """
-    warn = _warn_parameter("cpython_tags", kwargs)
+    warn = _warn_keyword_parameter("cpython_tags", kwargs)
     interpreter = "cp{}{}".format(*python_version)
     if not abis:
         abis = _cpython_abis(python_version, warn)
@@ -288,7 +288,7 @@ def generic_tags(
 
     The "none" ABI will be added if it was not explicitly provided.
     """
-    warn = _warn_parameter("generic_tags", kwargs)
+    warn = _warn_keyword_parameter("generic_tags", kwargs)
     if not interpreter:
         interpreter = _generic_interpreter(warn=warn)
     if not abis:
@@ -571,7 +571,7 @@ def sys_tags(**kwargs):
     The order of the sequence corresponds to priority order for the
     interpreter, from most to least important.
     """
-    warn = _warn_parameter("sys_tags", kwargs)
+    warn = _warn_keyword_parameter("sys_tags", kwargs)
 
     interpreter_name = _interpreter_name()
     if interpreter_name == "cp":
