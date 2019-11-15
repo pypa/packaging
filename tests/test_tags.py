@@ -201,11 +201,10 @@ def test_macos_version_detection(monkeypatch):
     version = platform.mac_ver()[0].split(".")
     expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
     platforms = list(tags.mac_platforms(arch="x86_64"))
-    assert platforms[0].startswi_warn_keyword_parameter @ pytest.mark.parametrize(
-        "arch", ["x86_64", "i386"]
-    )
+    assert platforms[0].startswith(expected)
 
 
+@pytest.mark.parametrize("arch", ["x86_64", "i386"])
 def test_macos_arch_detection(arch, monkeypatch):
     if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.14", ("", "", ""), arch))
