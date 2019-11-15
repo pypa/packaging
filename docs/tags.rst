@@ -179,8 +179,8 @@ Reference
     The specific tags generated are:
 
     - ``<interpreter>-<abi>-<platform>``
-    - ``<interpreter>-none-<platform>`` if ``"none"`` was not provided as part of
-      *abis*
+
+    The ``"none"`` ABI will be added if it was not explicitly provided.
 
     :param str interpreter: The name of the interpreter. Defaults to the current
                             PyPy interpreter.

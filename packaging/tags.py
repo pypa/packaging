@@ -285,8 +285,8 @@ def generic_tags(
 
     The tags consist of:
     - <interpreter>-<abi>-<platform>
-    - <interpreter>-none-<platform>  # If 'none' is not specified in 'abis'.
 
+    The "none" ABI will be added if it was not explicitly provided.
     """
     warn = _warn_parameter("generic_tags", kwargs)
     if not interpreter:
