@@ -129,7 +129,8 @@ Reference
     :param tuple python_version: A two-item tuple representing the compatible
                                  version of Python. Defaults to
                                  ``sys.version_info[:2]``.
-    :param str interpreter: The name of the interpreter (if known).
+    :param str interpreter: The name of the interpreter (if known), e.g.
+                            ``"cp38"``.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
 
@@ -160,8 +161,8 @@ Reference
     The specific tags are those returned by :func:`generic_tags`, but with
     *interpreter* inferred for the current system if not provided.
 
-    :param str interpreter: The name of the interpreter. Defaults to the current
-                            PyPy interpreter.
+    :param str interpreter: The name of the interpreter (if known), e.g.
+                            ``"cp38"``.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
