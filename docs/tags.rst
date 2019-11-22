@@ -38,6 +38,7 @@ Reference
     A dictionary mapping interpreter names to their `abbreviation codes`_
     (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
 
+
 .. class:: Tag(interpreter, abi, platform)
 
     A representation of the tag triple for a wheel. Instances are considered
@@ -100,7 +101,7 @@ Reference
 
 .. function:: mac_platforms(version=None, arch=None)
 
-    Yields the platforms tags for macOS.
+    Yields the :attr:`~Tag.platform` tags for macOS.
 
     :param tuple version: A two-item tuple presenting the version of macOS.
                           Defaults to the current system's version.
@@ -131,7 +132,7 @@ Reference
                                  version of Python. Defaults to
                                  ``sys.version_info[:2]``.
     :param str interpreter: The name of the interpreter (if known), e.g.
-                            ``"cp38"``.
+                            ``"cp38"``. Defaults to the current interpreter.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
 
