@@ -571,6 +571,12 @@ class TestCPythonTags:
             tags.Tag("cp3", "none", "plat"),
         ]
 
+    def test_major_only_python_version_with_default_abis(self):
+        result = list(tags.cpython_tags((3,), platforms=["plat"]))
+        assert result == [
+            tags.Tag("cp3", "none", "plat"),
+        ]
+
     @pytest.mark.parametrize("abis", [[], ["abi3"], ["none"]])
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
