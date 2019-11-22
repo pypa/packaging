@@ -124,7 +124,7 @@ Reference
           compatibility
 
 
-.. function:: compatible_tags(python_version=sys.version_info[:2], interpreter=None, platforms=None)
+.. function:: compatible_tags(python_version=None, interpreter=None, platforms=None)
 
     Yields the tags for an interpreter compatible with the Python version
     specified by ``python_version``.
@@ -143,7 +143,7 @@ Reference
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
 
-.. function:: cpython_tags(python_version=sys.version_info[:2], abis=None, platforms=None, *, warn=False)
+.. function:: cpython_tags(python_version=None, abis=None, platforms=None, *, warn=False)
 
     Yields the tags for the CPython interpreter.
 
@@ -156,7 +156,7 @@ Reference
       minor versions down to Python 3.2 (when ``abi3`` was introduced)
 
     :param tuple python_version: A tuple representing the targetted Python
-                                 version.
+                                 version. Defaults to ``sys.version_info[:2]``.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the

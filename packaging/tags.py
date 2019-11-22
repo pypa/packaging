@@ -173,7 +173,7 @@ def _cpython_abis(py_version, warn=False):
 
 
 def cpython_tags(
-    python_version=sys.version_info[:2],  # type: PythonVersion
+    python_version=None,  # type: Optional[PythonVersion]
     abis=None,  # type: Optional[Iterable[str]]
     platforms=None,  # type: Optional[Iterable[str]]
     **kwargs  # type: bool
@@ -192,6 +192,8 @@ def cpython_tags(
     their normal position and not at the beginning.
     """
     warn = _warn_keyword_parameter("cpython_tags", kwargs)
+    if not python_version:
+        python_version = sys.version_info[:2]
     interpreter = "cp{}{}".format(*python_version)
     if abis is None:
         abis = _cpython_abis(python_version, warn)
@@ -282,9 +284,11 @@ def _py_interpreter_range(py_version):
 
 
 def compatible_tags(
-    python_version=sys.version_info[:2], interpreter=None, platforms=None
+    python_version=None,  # type: Optional[PythonVersion]
+    interpreter=None,  # type: Optional[str]
+    platforms=None,  # type: Optional[str]
 ):
-    # type: (PythonVersion, Optional[str], Optional[Iterable[str]]) -> Iterator[Tag]
+    # type: (...) -> Iterator[Tag]
     """
     Yields the sequence of tags that are compatible with a specific version of Python.
 
@@ -293,6 +297,8 @@ def compatible_tags(
     - <interpreter>-none-any  # ... if `interpreter` is provided.
     - py*-none-any
     """
+    if not python_version:
+        python_version = sys.version_info[:2]
     if not platforms:
         platforms = _platform_tags()
     for version in _py_interpreter_range(python_version):
