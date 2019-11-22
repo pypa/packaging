@@ -656,7 +656,7 @@ class TestGenericTags:
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
 
-class CompatibleTagsTests:
+class TestCompatibleTags:
     def test_all_args(self):
         result = list(tags.compatible_tags((3, 3), "cp33", ["plat1", "plat2"]))
         assert result == [
@@ -682,7 +682,7 @@ class CompatibleTagsTests:
         result = list(tags.compatible_tags((3,), "cp33", ["plat"]))
         assert result == [
             tags.Tag("py3", "none", "plat"),
-            tags.Tag("cp33", "none", "plat"),
+            tags.Tag("cp33", "none", "any"),
             tags.Tag("py3", "none", "any"),
         ]
 
@@ -693,7 +693,9 @@ class CompatibleTagsTests:
             tags.Tag("py31", "none", "plat"),
             tags.Tag("py3", "none", "plat"),
             tags.Tag("py30", "none", "plat"),
-            tags.tag("cp31", "none", "any"),
+            tags.Tag("cp31", "none", "any"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py3", "none", "any"),
             tags.Tag("py30", "none", "any"),
         ]
 
@@ -703,6 +705,8 @@ class CompatibleTagsTests:
             tags.Tag("py31", "none", "plat"),
             tags.Tag("py3", "none", "plat"),
             tags.Tag("py30", "none", "plat"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py3", "none", "any"),
             tags.Tag("py30", "none", "any"),
         ]
 
@@ -713,6 +717,9 @@ class CompatibleTagsTests:
             tags.Tag("py31", "none", "plat"),
             tags.Tag("py3", "none", "plat"),
             tags.Tag("py30", "none", "plat"),
+            tags.Tag("cp31", "none", "any"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py3", "none", "any"),
             tags.Tag("py30", "none", "any"),
         ]
 
