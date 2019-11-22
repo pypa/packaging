@@ -576,12 +576,12 @@ class TestCPythonTags:
 class TestGenericTags:
     def test_generic_interpreter(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "42")
-        monkeypatch.setattr(tags, "_interpreter_name", lambda: "sillywalk")
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
         assert tags._generic_interpreter() == "sillywalk42"
 
     def test_generic_interpreter_no_config_var(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
-        monkeypatch.setattr(tags, "_interpreter_name", lambda: "sillywalk")
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
         assert tags._generic_interpreter() == "sillywalk{}{}".format(
             *sys.version_info[:2]
         )
@@ -675,9 +675,9 @@ class TestSysTags:
         "name,expected",
         [("CPython", "cp"), ("PyPy", "pp"), ("Jython", "jy"), ("IronPython", "ip")],
     )
-    def test__interpreter_name(self, name, expected, mock_interpreter_name):
+    def test_interpreter_name(self, name, expected, mock_interpreter_name):
         mock_interpreter_name(name)
-        assert tags._interpreter_name() == expected
+        assert tags.interpreter_name() == expected
 
     def test_iterator(self):
         assert isinstance(tags.sys_tags(), collections_abc.Iterator)
@@ -740,7 +740,7 @@ class TestSysTags:
 
     def test_generic(self, monkeypatch):
         monkeypatch.setattr(platform, "system", lambda: "Generic")
-        monkeypatch.setattr(tags, "_interpreter_name", lambda: "generic")
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "generic")
 
         result = list(tags.sys_tags())
         expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")

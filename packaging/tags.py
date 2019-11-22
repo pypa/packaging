@@ -237,7 +237,7 @@ def _generic_interpreter(warn=False):
     version = _get_config_var("py_version_nodot", warn)
     if not version:
         version = "".join(map(str, sys.version_info[:2]))
-    return "{name}{version}".format(name=_interpreter_name(), version=version)
+    return "{name}{version}".format(name=interpreter_name(), version=version)
 
 
 def generic_tags(
@@ -520,7 +520,7 @@ def _platform_tags():
         return _generic_platforms()
 
 
-def _interpreter_name():
+def interpreter_name():
     # type: () -> str
     try:
         name = sys.implementation.name  # type: ignore
@@ -540,8 +540,8 @@ def sys_tags(**kwargs):
     """
     warn = _warn_keyword_parameter("sys_tags", kwargs)
 
-    interpreter_name = _interpreter_name()
-    if interpreter_name == "cp":
+    interp_name = interpreter_name()
+    if interp_name == "cp":
         for tag in cpython_tags(warn=warn):
             yield tag
     else:

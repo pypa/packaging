@@ -99,6 +99,13 @@ Reference
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
 
 
+.. function:: interpreter_name()
+
+    Returns the running interpreter's name.
+
+    This typically acts as the prefix to the :attr:`~Tag.interpreter` tag.
+
+
 .. function:: mac_platforms(version=None, arch=None)
 
     Yields the :attr:`~Tag.platform` tags for macOS.
