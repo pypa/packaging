@@ -564,7 +564,7 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
         assert tags.Tag("cp38", "whatever", "plat1") in result
 
-    @pytest.mark.parametrize("abis", [["abi3"], ["none"]])
+    @pytest.mark.parametrize("abis", [[], ["abi3"], ["none"]])
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
         assert results == [
@@ -622,8 +622,9 @@ class TestGenericTags:
             tags.Tag("sillywalk33", "none", "plat2"),
         ]
 
-    def test_none_abi_provided(self):
-        no_abi = list(tags.generic_tags("sillywalk34", ["none"], ["plat1", "plat2"]))
+    @pytest.mark.parametrize("abi", [[], ["none"]])
+    def test_abi_unspecified(self, abi):
+        no_abi = list(tags.generic_tags("sillywalk34", abi, ["plat1", "plat2"]))
         assert no_abi == [
             tags.Tag("sillywalk34", "none", "plat1"),
             tags.Tag("sillywalk34", "none", "plat2"),

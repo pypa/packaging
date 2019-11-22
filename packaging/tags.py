@@ -193,19 +193,17 @@ def cpython_tags(
     """
     warn = _warn_keyword_parameter("cpython_tags", kwargs)
     interpreter = "cp{}{}".format(*python_version)
-    if not abis:
+    if abis is None:
         abis = _cpython_abis(python_version, warn)
     platforms = list(platforms or _platform_tags())
     abis = list(abis)
     # 'abi3' and 'none' are explicitly handled later.
-    try:
-        abis.remove("abi3")
-    except ValueError:
-        pass
-    try:
-        abis.remove("none")
-    except ValueError:
-        pass
+    for explicit_abi in ("abi3", "none"):
+        try:
+            abis.remove(explicit_abi)
+        except ValueError:
+            pass
+
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -258,7 +256,7 @@ def generic_tags(
     warn = _warn_keyword_parameter("generic_tags", kwargs)
     if not interpreter:
         interpreter = _generic_interpreter(warn=warn)
-    if not abis:
+    if abis is None:
         abis = _generic_abi()
     platforms = list(platforms or _platform_tags())
     abis = list(abis)
