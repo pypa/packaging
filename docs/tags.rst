@@ -135,8 +135,8 @@ Reference
     - ``<interpreter>-none-any`` if ``interpreter`` is provided
     - ``py*-none-any``
 
-    :param tuple python_version: A two-item tuple representing the compatible
-                                 version of Python. Defaults to
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 compatible version of Python. Defaults to
                                  ``sys.version_info[:2]``.
     :param str interpreter: The name of the interpreter (if known), e.g.
                             ``"cp38"``. Defaults to the current interpreter.
@@ -155,8 +155,12 @@ Reference
     - ``cp<older version>-abi3-<platform>`` where "older version" is all older
       minor versions down to Python 3.2 (when ``abi3`` was introduced)
 
-    :param tuple python_version: A tuple representing the targetted Python
-                                 version. Defaults to ``sys.version_info[:2]``.
+    If ``python_version`` only provides a major-only version then only
+    user-provided ABIs via ``abis`` and the ``none`` ABI will be used.
+
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 targetted Python version. Defaults to
+                                 ``sys.version_info[:2]``.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the

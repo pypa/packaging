@@ -564,6 +564,13 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
         assert tags.Tag("cp38", "whatever", "plat1") in result
 
+    def test_major_only_python_version(self):
+        result = list(tags.cpython_tags((3,), ["abi"], ["plat"]))
+        assert result == [
+            tags.Tag("cp3", "abi", "plat"),
+            tags.Tag("cp3", "none", "plat"),
+        ]
+
     @pytest.mark.parametrize("abis", [[], ["abi3"], ["none"]])
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
@@ -649,26 +656,65 @@ class TestGenericTags:
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
 
-def test_compatible_tags():
-    result = list(tags.compatible_tags((3, 3), "cp33", ["plat1", "plat2"]))
-    assert result == [
-        tags.Tag("py33", "none", "plat1"),
-        tags.Tag("py33", "none", "plat2"),
-        tags.Tag("py3", "none", "plat1"),
-        tags.Tag("py3", "none", "plat2"),
-        tags.Tag("py32", "none", "plat1"),
-        tags.Tag("py32", "none", "plat2"),
-        tags.Tag("py31", "none", "plat1"),
-        tags.Tag("py31", "none", "plat2"),
-        tags.Tag("py30", "none", "plat1"),
-        tags.Tag("py30", "none", "plat2"),
-        tags.Tag("cp33", "none", "any"),
-        tags.Tag("py33", "none", "any"),
-        tags.Tag("py3", "none", "any"),
-        tags.Tag("py32", "none", "any"),
-        tags.Tag("py31", "none", "any"),
-        tags.Tag("py30", "none", "any"),
-    ]
+class CompatibleTagsTests:
+    def test_all_args(self):
+        result = list(tags.compatible_tags((3, 3), "cp33", ["plat1", "plat2"]))
+        assert result == [
+            tags.Tag("py33", "none", "plat1"),
+            tags.Tag("py33", "none", "plat2"),
+            tags.Tag("py3", "none", "plat1"),
+            tags.Tag("py3", "none", "plat2"),
+            tags.Tag("py32", "none", "plat1"),
+            tags.Tag("py32", "none", "plat2"),
+            tags.Tag("py31", "none", "plat1"),
+            tags.Tag("py31", "none", "plat2"),
+            tags.Tag("py30", "none", "plat1"),
+            tags.Tag("py30", "none", "plat2"),
+            tags.Tag("cp33", "none", "any"),
+            tags.Tag("py33", "none", "any"),
+            tags.Tag("py3", "none", "any"),
+            tags.Tag("py32", "none", "any"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_major_only_python_version(self):
+        result = list(tags.compatible_tags((3,), "cp33", ["plat"]))
+        assert result == [
+            tags.Tag("py3", "none", "plat"),
+            tags.Tag("cp33", "none", "plat"),
+            tags.Tag("py3", "none", "any"),
+        ]
+
+    def test_default_python_version(self, monkeypatch):
+        monkeypatch.setattr(sys, "version_info", (3, 1))
+        result = list(tags.compatible_tags(interpreter="cp31", platforms=["plat"]))
+        assert result == [
+            tags.Tag("py31", "none", "plat"),
+            tags.Tag("py3", "none", "plat"),
+            tags.Tag("py30", "none", "plat"),
+            tags.tag("cp31", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_default_interpreter(self):
+        result = list(tags.compatible_tags((3, 1), platforms=["plat"]))
+        assert result == [
+            tags.Tag("py31", "none", "plat"),
+            tags.Tag("py3", "none", "plat"),
+            tags.Tag("py30", "none", "plat"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_default_platforms(self, monkeypatch):
+        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat"])
+        result = list(tags.compatible_tags((3, 1), "cp31"))
+        assert result == [
+            tags.Tag("py31", "none", "plat"),
+            tags.Tag("py3", "none", "plat"),
+            tags.Tag("py30", "none", "plat"),
+            tags.Tag("py30", "none", "any"),
+        ]
 
 
 class TestSysTags:

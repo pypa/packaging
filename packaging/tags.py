@@ -24,9 +24,19 @@ import warnings
 from ._typing import MYPY_CHECK_RUNNING, cast
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
-    from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple, Union
+    from typing import (
+        Dict,
+        FrozenSet,
+        Iterable,
+        Iterator,
+        List,
+        Optional,
+        Sequence,
+        Tuple,
+        Union,
+    )
 
-    PythonVersion = Tuple[int, int]
+    PythonVersion = Sequence[int]
     MacVersion = Tuple[int, int]
     GlibcVersion = Tuple[int, int]
 
@@ -138,6 +148,7 @@ def _normalize_string(string):
 
 def _cpython_abis(py_version, warn=False):
     # type: (PythonVersion, bool) -> List[str]
+    py_version = tuple(py_version)  # To allow for version comparison.
     abis = []
     version = "{}{}".format(*py_version[:2])
     debug = pymalloc = ucs4 = ""
@@ -188,16 +199,26 @@ def cpython_tags(
     - cp<python_version>-none-<platform>
     - cp<less than python_version>-abi3-<platform>  # Older Python versions down to 3.2.
 
+    If python_version only specifies a major version then user-provided ABIs and
+    the 'none' ABItag will be used.
+
     If 'abi3' or 'none' are specified in 'abis' then they will be yielded at
     their normal position and not at the beginning.
     """
     warn = _warn_keyword_parameter("cpython_tags", kwargs)
     if not python_version:
         python_version = sys.version_info[:2]
-    interpreter = "cp{}{}".format(*python_version)
+
+    if len(python_version) < 2:
+        interpreter = "cp{}".format(python_version[0])
+    else:
+        interpreter = "cp{}{}".format(*python_version[:2])
+
     if abis is None:
-        abis = _cpython_abis(python_version, warn)
-    platforms = list(platforms or _platform_tags())
+        if len(python_version) > 1:
+            abis = _cpython_abis(python_version, warn)
+        else:
+            abis = []
     abis = list(abis)
     # 'abi3' and 'none' are explicitly handled later.
     for explicit_abi in ("abi3", "none"):
@@ -206,23 +227,26 @@ def cpython_tags(
         except ValueError:
             pass
 
+    platforms = list(platforms or _platform_tags())
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
     # Not worrying about the case of Python 3.2 or older being specified and
     # thus having redundant tags thanks to the abi3 in-fill later on as
     # 'packaging' doesn't directly support Python that far back.
-    for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
-        yield tag
+    if len(python_version) > 1:
+        for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
+            yield tag
     for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
         yield tag
     # PEP 384 was first implemented in Python 3.2.
-    for minor_version in range(python_version[1] - 1, 1, -1):
-        for platform_ in platforms:
-            interpreter = "cp{major}{minor}".format(
-                major=python_version[0], minor=minor_version
-            )
-            yield Tag(interpreter, "abi3", platform_)
+    if len(python_version) > 1:
+        for minor_version in range(python_version[1] - 1, 1, -1):
+            for platform_ in platforms:
+                interpreter = "cp{major}{minor}".format(
+                    major=python_version[0], minor=minor_version
+                )
+                yield Tag(interpreter, "abi3", platform_)
 
 
 def _generic_abi():
@@ -277,10 +301,12 @@ def _py_interpreter_range(py_version):
     After the latest version, the major-only version will be yielded, and then
     all previous versions of that major version.
     """
-    yield "py{major}{minor}".format(major=py_version[0], minor=py_version[1])
+    if len(py_version) > 1:
+        yield "py{major}{minor}".format(major=py_version[0], minor=py_version[1])
     yield "py{major}".format(major=py_version[0])
-    for minor in range(py_version[1] - 1, -1, -1):
-        yield "py{major}{minor}".format(major=py_version[0], minor=minor)
+    if len(py_version) > 1:
+        for minor in range(py_version[1] - 1, -1, -1):
+            yield "py{major}{minor}".format(major=py_version[0], minor=minor)
 
 
 def compatible_tags(
