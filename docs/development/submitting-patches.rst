@@ -20,7 +20,7 @@ Code
 
 This project's source is auto-formatted with |black|. You can check if your
 code meets our requirements by running our linters against it with ``tox -e
-lint``.
+lint`` or ``pre-commit run --all-files``.
 
 `Write comments as complete sentences.`_
 
