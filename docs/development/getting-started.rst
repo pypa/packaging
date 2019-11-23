@@ -2,22 +2,13 @@ Getting started
 ===============
 
 Working on packaging requires the installation of a small number of
-development dependencies. These are listed in ``dev-requirements.txt`` and they
-can be installed in a `virtualenv`_ using `pip`_. Once you've installed the
-dependencies, install packaging in ``editable`` mode. For example:
-
-.. code-block:: console
-
-    $ # Create a virtualenv and activate it
-    $ python -m pip install --requirement dev-requirements.txt
-    $ python -m pip install --editable .
-
-You are now ready to run the tests and build the documentation.
+development dependencies. To see what dependencies are required to
+run the tests manually, please look at the ``tox.ini`` file.
 
 Running tests
 ~~~~~~~~~~~~~
 
-packaging unit tests are found in the ``tests/`` directory and are
+The packaging unit tests are found in the ``tests/`` directory and are
 designed to be run using `pytest`_. `pytest`_ will discover the tests
 automatically, so all you have to do is:
 
@@ -27,7 +18,8 @@ automatically, so all you have to do is:
     ...
     62746 passed in 220.43 seconds
 
-This runs the tests with the default Python interpreter.
+This runs the tests with the default Python interpreter. This also allows
+you to run select tests instead of the entire test suite.
 
 You can also verify that the tests pass on other supported Python interpreters.
 For this we use `tox`_, which will automatically create a `virtualenv`_ for
@@ -48,6 +40,8 @@ each supported Python version and run the tests. For example:
 
 You may not have all the required Python versions installed, in which case you
 will see one or more ``InterpreterNotFound`` errors.
+
+If you wish to run just the linting rules, you may use `pre-commit`_.
 
 
 Building documentation
@@ -74,3 +68,4 @@ The HTML documentation index can now be found at
 .. _`pip`: https://pypi.org/project/pip/
 .. _`sphinx`: https://pypi.org/project/Sphinx/
 .. _`reStructured Text`: http://sphinx-doc.org/rest.html
+.. _`pre-commit`: https://pre-commit.com
