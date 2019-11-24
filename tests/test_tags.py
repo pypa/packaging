@@ -157,17 +157,22 @@ class TestParseTag:
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch):
-        monkeypatch.setattr(sys.implementation, "name", "sillywalk")
+        class MockImplementation(object):
+            pass
+
+        mock_implementation = MockImplementation()
+        mock_implementation.name = "sillywalk"
+        monkeypatch.setattr(sys, "implementation", mock_implementation, raising=False)
         assert tags.interpreter_name() == "sillywalk"
 
     def test_platform(self, monkeypatch):
-        monkeypatch.delattr(sys.implementation, "name")
+        monkeypatch.delattr(sys, "implementation", raising=False)
         name = "SillyWalk"
         monkeypatch.setattr(platform, "python_implementation", lambda: name)
         assert tags.interpreter_name() == name.lower()
 
-    def test_interpreter_short_names(self, monkeypatch):
-        monkeypatch.setattr(sys.implementation, "name", "cpython")
+    def test_interpreter_short_names(self, mock_interpreter_name, monkeypatch):
+        mock_interpreter_name("cpython")
         assert tags.interpreter_name() == "cp"
 
 
