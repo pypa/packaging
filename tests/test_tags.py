@@ -173,16 +173,20 @@ class TestInterpreterName:
 
 class TestInterpreterVersion:
     def test_warn(self, monkeypatch):
-        called_with_warn = False
+        class MockConfigVar(object):
 
-        def get_config_var(var, warn):
-            nonlocal called_with_warn
-            called_with_warn = warn
-            return "38"
+            def __init__(self, return_):
+                self.warn = None
+                self._return = return_
 
-        monkeypatch.setattr(tags, "_get_config_var", get_config_var)
+            def __call__(self, name, warn):
+                self.warn = warn
+                return self._return
+
+        mock_config_var = MockConfigVar("38")
+        monkeypatch.setattr(tags, "_get_config_var", mock_config_var)
         tags.interpreter_version(warn=True)
-        assert called_with_warn
+        assert mock_config_var.warn
 
     def test_python_version_nodot(self, monkeypatch):
         monkeypatch.setattr(tags, "_get_config_var", lambda var, warn: "NN")
