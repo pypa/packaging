@@ -256,14 +256,6 @@ def _generic_abi():
         yield _normalize_string(abi)
 
 
-def _generic_interpreter(warn=False):
-    # type: (bool) -> str
-    version = _get_config_var("py_version_nodot", warn)
-    if not version:
-        version = "".join(map(str, sys.version_info[:2]))
-    return "{name}{version}".format(name=interpreter_name(), version=version)
-
-
 def generic_tags(
     interpreter=None,  # type: Optional[str]
     abis=None,  # type: Optional[Iterable[str]]
@@ -281,7 +273,9 @@ def generic_tags(
     """
     warn = _warn_keyword_parameter("generic_tags", kwargs)
     if not interpreter:
-        interpreter = _generic_interpreter(warn=warn)
+        interp_name = interpreter_name()
+        interp_version = interpreter_version(warn=warn)
+        interpreter = "".join([interp_name, interp_version])
     if abis is None:
         abis = _generic_abi()
     platforms = list(platforms or _platform_tags())
@@ -552,12 +546,27 @@ def _platform_tags():
 
 def interpreter_name():
     # type: () -> str
+    """
+    Returns the name of the running interpreter.
+    """
     try:
         name = sys.implementation.name  # type: ignore
     except AttributeError:  # pragma: no cover
         # Python 2.7 compatibility.
         name = platform.python_implementation().lower()
     return INTERPRETER_SHORT_NAMES.get(name) or name
+
+
+def interpreter_version(**kwargs):
+    # type: (bool) -> str
+    """
+    Returns the version of the running interpreter.
+    """
+    warn = _warn_keyword_parameter("interpreter_version", kwargs)
+    version = _get_config_var("py_version_nodot", warn=warn)
+    if not version:
+        version = "".join(map(str, sys.version_info[:2]))
+    return version
 
 
 def sys_tags(**kwargs):

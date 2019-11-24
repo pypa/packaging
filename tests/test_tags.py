@@ -155,6 +155,45 @@ class TestParseTag:
         assert given == expected
 
 
+class TestInterpreterName:
+    def test_sys_implementation_name(self, monkeypatch):
+        monkeypatch.setattr(sys.implementation, "name", "sillywalk")
+        assert tags.interpreter_name() == "sillywalk"
+
+    def test_platform(self, monkeypatch):
+        monkeypatch.delattr(sys.implementation, "name")
+        name = "SillyWalk"
+        monkeypatch.setattr(platform, "python_implementation", lambda: name)
+        assert tags.interpreter_name() == name.lower()
+
+    def test_interpreter_short_names(self, monkeypatch):
+        monkeypatch.setattr(sys.implementation, "name", "cpython")
+        assert tags.interpreter_name() == "cp"
+
+
+class TestInterpreterVersion:
+    def test_warn(self, monkeypatch):
+        called_with_warn = False
+
+        def get_config_var(var, warn):
+            nonlocal called_with_warn
+            called_with_warn = warn
+            return "38"
+
+        monkeypatch.setattr(tags, "_get_config_var", get_config_var)
+        tags.interpreter_version(warn=True)
+        assert called_with_warn
+
+    def test_python_version_nodot(self, monkeypatch):
+        monkeypatch.setattr(tags, "_get_config_var", lambda var, warn: "NN")
+        assert tags.interpreter_version() == "NN"
+
+    def test_sys_version_info(self, monkeypatch):
+        monkeypatch.setattr(tags, "_get_config_var", lambda *args, **kwargs: None)
+        monkeypatch.setattr(sys, "version_info", ("L", "M", "N"))
+        assert tags.interpreter_version() == "LM"
+
+
 class TestMacOSPlatforms:
     @pytest.mark.parametrize(
         "arch, is_32bit, expected",
@@ -585,18 +624,6 @@ class TestCPythonTags:
 
 
 class TestGenericTags:
-    def test_generic_interpreter(self, monkeypatch):
-        monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "42")
-        monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
-        assert tags._generic_interpreter() == "sillywalk42"
-
-    def test_generic_interpreter_no_config_var(self, monkeypatch):
-        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
-        monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
-        assert tags._generic_interpreter() == "sillywalk{}{}".format(
-            *sys.version_info[:2]
-        )
-
     @pytest.mark.skipif(
         not sysconfig.get_config_var("SOABI"), reason="SOABI not defined"
     )
@@ -642,9 +669,10 @@ class TestGenericTags:
         ]
 
     def test_interpreter_default(self, monkeypatch):
-        monkeypatch.setattr(tags, "_generic_interpreter", lambda warn: "sillywalk")
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
+        monkeypatch.setattr(tags, "interpreter_version", lambda warn: "NN")
         result = list(tags.generic_tags(abis=["none"], platforms=["any"]))
-        assert result == [tags.Tag("sillywalk", "none", "any")]
+        assert result == [tags.Tag("sillywalkNN", "none", "any")]
 
     def test_abis_default(self, monkeypatch):
         monkeypatch.setattr(tags, "_generic_abi", lambda: iter(["abi"]))

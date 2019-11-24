@@ -106,6 +106,13 @@ Reference
     This typically acts as the prefix to the :attr:`~Tag.interpreter` tag.
 
 
+.. function:: interpreter_version(*, warn=False)
+
+    Returns the running interpreter's version.
+
+    This typically acts as the suffix to the :attr:`~Tag.interpreter` tag.
+
+
 .. function:: mac_platforms(version=None, arch=None)
 
     Yields the :attr:`~Tag.platform` tags for macOS.
