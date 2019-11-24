@@ -174,7 +174,6 @@ class TestInterpreterName:
 class TestInterpreterVersion:
     def test_warn(self, monkeypatch):
         class MockConfigVar(object):
-
             def __init__(self, return_):
                 self.warn = None
                 self._return = return_
