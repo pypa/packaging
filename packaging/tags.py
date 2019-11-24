@@ -564,7 +564,9 @@ def interpreter_version(**kwargs):
     """
     warn = _warn_keyword_parameter("interpreter_version", kwargs)
     version = _get_config_var("py_version_nodot", warn=warn)
-    if not version:
+    if version:
+        version = str(version)
+    else:
         version = "".join(map(str, sys.version_info[:2]))
     return version
 
