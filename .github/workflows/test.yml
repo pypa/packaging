@@ -59,7 +59,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        
+
     - name: Run pytest
       run: |
         python -m pytest --capture=no --strict
