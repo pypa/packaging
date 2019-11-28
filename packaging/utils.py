@@ -23,7 +23,7 @@ def canonicalize_name(name):
 def canonicalize_version(_version):
     # type: (str) -> Union[Version, str]
     """
-    This is very similar to Version.__str__, but has one subtle differences
+    This is very similar to Version.__str__, but has one subtle difference
     with the way it handles the release segment.
     """
 
