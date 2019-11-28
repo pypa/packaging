@@ -9,8 +9,8 @@ on:
       - '**.py'
 
 jobs:
-  test:
-    name: Test Python ${{ matrix.python_version }} on ${{ matrix.os }}
+  test-cpython:
+    name: Test CPython ${{ matrix.python_version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -34,5 +34,34 @@ jobs:
 
     - name: Test coverage
       run: |
+        python -m coverage run --source packaging/ -m pytest --strict tests
+        python -m coverage report -m --fail-under 100
+
+
+  test-pypy:
+    name: Test ${{ matrix.pypy_version }} on ${{ matrix.os }}
+    runs-on: $ {{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        pypy_version: ['pypy2', 'pypy3']
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install ${{ matrix.pypy_version }}
+      with:
+        pypy-version: ${{ matrix.pypy_version }}
+        architecture: x64
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r dev-requirements.txt
+    - name: Run pytest
+      run: |
+        python -m pytest --capture=no --strict
         python -m coverage run --source packaging/ -m pytest --strict tests
         python -m coverage report -m --fail-under 100
