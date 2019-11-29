@@ -16,6 +16,7 @@ import distutils.util
 import os
 import platform
 import re
+import subprocess
 import sys
 import sysconfig
 import types
@@ -24,7 +25,7 @@ import warnings
 import pretend
 import pytest
 
-from packaging import tags
+from packaging import tags, _AIX_platform
 
 
 @pytest.fixture
@@ -839,3 +840,91 @@ class TestSysTags:
         result = list(tags.sys_tags())
         expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
         assert result[-1] == expected
+
+
+def test_aix_platform_notpep425_ready(monkeypatch):
+    if platform.system() != "AIX":
+        monkeypatch.setattr(
+            subprocess,
+            "check_output",
+            lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
+        )
+    monkeypatch.setattr(distutils.util, "get_platform", lambda: "aix_5_3")
+    monkeypatch.setattr(_AIX_platform, "_sz", 64)
+    result0 = list(tags._aix_platforms())
+    result1 = [_AIX_platform.aix_platform()]
+    assert result0 == result1
+    assert result0[0].startswith("AIX")
+    assert result0[0].endswith("64")
+
+
+def test_aix_platform_no_subprocess(monkeypatch):
+    monkeypatch.setattr(_AIX_platform, "_subprocess_rdy", False)
+    vrmf, bd = _AIX_platform._aix_bosmp64()
+    assert vrmf
+    assert bd == 9898
+
+
+def test_aix_platform_pep425_ready(monkeypatch):
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
+    )
+    monkeypatch.setattr(distutils.util, "get_platform", lambda: "AIX-5307-0747-32")
+    monkeypatch.setattr(_AIX_platform, "_sz", 32)
+    result0 = list(tags._aix_platforms())
+    result1 = [_AIX_platform.aix_platform()]
+    assert result0[0][:4] == result1[0][:4]
+    assert result0[0].startswith("AIX")
+    assert result0[0].endswith("32")
+
+
+def test_sys_tags_aix64_cpython(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("CPython"):
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp36m"])
+    if platform.system() != "xAIX":
+        monkeypatch.setattr(platform, "system", lambda: "AIX")
+    monkeypatch.setattr(tags, "_aix_platforms", lambda: ["AIX_5307_0747_64"])
+    abis = tags._cpython_abis(sys.version_info[:2])
+    platforms = tags._aix_platforms()
+    result = list(tags.sys_tags())
+    expected_interpreter = "cp{major}{minor}".format(
+        major=sys.version_info[0], minor=sys.version_info[1]
+    )
+    assert len(abis) == 1
+    assert result[0] == tags.Tag(expected_interpreter, abis[0], platforms[0])
+    expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
+    assert result[-1] == expected
+
+
+def test_sys_tags_aix32_cpython(mock_interpreter_name, monkeypatch):
+    if mock_interpreter_name("CPython"):
+        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp36m"])
+    if platform.system() != "AIX":
+        monkeypatch.setattr(platform, "system", lambda: "AIX")
+    monkeypatch.setattr(tags, "_aix_platforms", lambda: ["AIX_5307_0747_32"])
+    abis = tags._cpython_abis(sys.version_info[:2])
+    platforms = tags._aix_platforms()
+    result = list(tags.sys_tags())
+    expected_interpreter = "cp{major}{minor}".format(
+        major=sys.version_info[0], minor=sys.version_info[1]
+    )
+    assert len(abis) == 1
+    assert result[0] == tags.Tag(expected_interpreter, abis[0], platforms[0])
+    expected = tags.Tag("py{}0".format(sys.version_info[0]), "none", "any")
+    assert result[-1] == expected
+
+
+def test_aix_buildtag(monkeypatch):
+    monkeypatch.setattr(_AIX_platform, "_bgt", "powerpc-ibm-aix5.3.7.0")
+    assert _AIX_platform._bd == 9898
+    monkeypatch.setattr(_AIX_platform, "_bd", 9797)
+    monkeypatch.setattr(_AIX_platform, "_sz", 64)
+    assert _AIX_platform._bd == 9797
+    result = _AIX_platform.aix_buildtag()
+    assert result == "AIX-5307-9797-64"
+    monkeypatch.setattr(_AIX_platform, "_bd", 747)
+    monkeypatch.setattr(_AIX_platform, "_sz", 32)
+    result = _AIX_platform.aix_buildtag()
+    assert result == "AIX-5307-0747-32"

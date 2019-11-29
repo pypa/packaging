@@ -22,6 +22,7 @@ import sysconfig
 import warnings
 
 from ._typing import MYPY_CHECK_RUNNING, cast
+from ._AIX_platform import aix_platform
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import (
@@ -526,6 +527,15 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     yield linux
 
 
+def _aix_platforms():
+    # type: () -> Iterator[str]
+    # Call support module if CPython returns old tag
+    platform = distutils.util.get_platform()
+    if platform[:3] == "aix":
+        platform = aix_platform()
+    yield platform
+
+
 def _generic_platforms():
     # type: () -> Iterator[str]
     yield _normalize_string(distutils.util.get_platform())
@@ -540,6 +550,8 @@ def _platform_tags():
         return mac_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
+    elif platform.system() == "AIX":
+        return _aix_platforms()
     else:
         return _generic_platforms()
 
