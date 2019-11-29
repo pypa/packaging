@@ -5,7 +5,7 @@ from sysconfig import get_config_var
 
 # subprocess is not available early in the build process, test this
 try:
-    from subprocess import check_output
+    import subprocess
 
     _subprocess_rdy = True
 except ImportError:  # pragma: no cover
@@ -47,7 +47,7 @@ def _aix_bosmp64():
     reflect the current ABI levels of the runtime environment.
     """
     if _subprocess_rdy:
-        out = check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
+        out = subprocess.check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
         out = out.decode("utf-8").strip().split(":")  # type: ignore
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
