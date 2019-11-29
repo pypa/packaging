@@ -859,6 +859,8 @@ def test_aix_platform_notpep425_ready(monkeypatch):
 
 
 def test_aix_platform_no_subprocess(monkeypatch):
+    if (os.name != 'posix'):
+        monkeypatch.setattr(os, "uname", lambda: ('AIX', 'localhost', '2', '5', '00C286454C00'))
     monkeypatch.setattr(_AIX_platform, "_subprocess_rdy", False)
     vrmf, bd = _AIX_platform._aix_bosmp64()
     assert vrmf

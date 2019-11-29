@@ -46,15 +46,15 @@ def _aix_bosmp64():
     The fileset bos.mp64 is the AIX kernel. It's VRMF and builddate
     reflect the current ABI levels of the runtime environment.
     """
+    import os
     if _subprocess_rdy:
         out = subprocess.check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
         out = out.decode("utf-8").strip().split(":")  # type: ignore
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
+    # need additional test to pass monkeypatch tests on Windows
     else:
-        from os import uname
-
-        osname, host, release, version, machine = uname()
+        osname, host, release, version, machine = os.uname()
         return "{}.{}.0.0".format(version, release), 9898
 
 
