@@ -54,7 +54,7 @@ def _aix_bosmp64():
     else:
         # pretend os.uname() => ('AIX', 'localhost', '2', '5', '00C286454C00')
         # osname, host, release, version, machine = os.uname()
-        return "{}.{}.0.0".format('5', '2'), 9898
+        return "{}.{}.0.0".format("5", "2"), 9898
 
 
 def aix_platform():
