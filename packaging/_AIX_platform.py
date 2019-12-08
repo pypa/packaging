@@ -54,7 +54,8 @@ def _aix_bosmp64():
         out = out.decode("utf-8").strip().split(":")  # type: ignore
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
-    else:
+    else:	# pragma: no cover
+        # no cover during Windows coverage test
         from os import uname
 
         osname, host, release, version, machine = uname()
