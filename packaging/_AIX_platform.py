@@ -56,9 +56,13 @@ def _aix_bosmp64():
         return str(out[2]), int(out[-1])
     else:  # pragma: no cover
         # no cover during Windows coverage test
-        from os import uname
+        # This code is only for during the bootstrap phase
+        # Under normal use this will never be reached, so constants are provided
+        # rather than actually calling os.uname()
+        # from os import uname
 
-        osname, host, release, version, machine = uname()
+        # osname, host, release, version, machine = uname()
+        release, version = 2, 7
         return "{}.{}.0.0".format(version, release), 9898
 
 
