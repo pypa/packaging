@@ -529,9 +529,10 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
 
 def _aix_platforms():
     # type: () -> Iterator[str]
-    # Call support module if CPython returns old tag
+    # Starting with Python3 3.9 the platform tag for AIX has additional hyphens ("-")
+    # Call support module if distutils returns old tag, e.g., "aix-7.2"
     platform = distutils.util.get_platform()
-    if platform[:3] == "aix":
+    if platform.count("-") == 1:
         platform = aix_platform()
     yield platform
 

@@ -3,13 +3,19 @@
 import sys
 from sysconfig import get_config_var
 
-# subprocess is not available early in the build process, test this
+# subprocess is not available early in the build process
+# if not available, the config_vars are also not available
+# supply substitutes to bootstrap the build
 try:
     import subprocess
 
     _subprocess_rdy = True
+    _tmp = str(get_config_var("AIX_BUILDDATE"))
+    _bgt = get_config_var("BUILD_GNU_TYPE")
 except ImportError:  # pragma: no cover
     _subprocess_rdy = False
+    _tmp = "None"
+    _bgt = "powerpc-ibm-aix6.1.7.0"
 
 from ._typing import MYPY_CHECK_RUNNING
 
@@ -17,19 +23,16 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import List, Tuple
 
 
-# if var("AIX_BUILDDATE") is unknown, provide a substitute,
+# if get_config_var("AIX_BUILDDATE") was unknown, provide a substitute,
 # impossible builddate to specify 'unknown'
-_tmp = str(get_config_var("AIX_BUILDDATE"))
 _bd = 9898 if (_tmp == "None") else int(_tmp)
-_bgt = get_config_var("BUILD_GNU_TYPE")
 _sz = 32 if sys.maxsize == 2147483647 else 64
 
 
-def _aix_tag(v, bd):
+def _aix_tag(vrtl, bd):
     # type: (List[int], int) -> str
-    # v is used as variable name so line below passes pep8 length test
-    # v[version, release, technology_level]
-    return "AIX-{:1x}{:1d}{:02d}-{:04d}-{}".format(v[0], v[1], v[2], bd, _sz)
+    # vrtl[version, release, technology_level]
+    return "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(vrtl[0], vrtl[1], vrtl[2], bd, _sz)
 
 
 # extract version, release and technology level from a VRMF string
@@ -52,9 +55,10 @@ def _aix_bosmp64():
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
     else:
-        # pretend os.uname() => ('AIX', 'localhost', '2', '5', '00C286454C00')
-        # osname, host, release, version, machine = os.uname()
-        return "{}.{}.0.0".format("5", "2"), 9898
+        from os import uname
+
+        osname, host, release, version, machine = uname()
+        return "{}.{}.0.0".format(version, release), 9898
 
 
 def aix_platform():
@@ -72,9 +76,9 @@ def aix_platform():
     support/knowledgecenter/en/ssw_aix_72/install/binary_compatability.html
 
     For pep425 purposes the AIX platform tag becomes:
-    "AIX-{:1x}{:1d}{:02d}-{:04d}-{}".format(v, r, tl, builddate, bitsize)
-    e.g., "AIX-6107-1415-32" for AIX 6.1 TL7 bd 1415, 32-bit
-    and, "AIX-6107-1415-64" for AIX 6.1 TL7 bd 1415, 64-bit
+    "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(v, r, tl, builddate, bitsize)
+    e.g., "aix-6107-1415-32" for AIX 6.1 TL7 bd 1415, 32-bit
+    and, "aix-6107-1415-64" for AIX 6.1 TL7 bd 1415, 64-bit
     """
     vrmf, bd = _aix_bosmp64()
     return _aix_tag(_aix_vrtl(vrmf), bd)
