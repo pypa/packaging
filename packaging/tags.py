@@ -153,7 +153,7 @@ def _abi3_applies(python_version):
 
     PEP 384 was first implemented in Python 3.2.
     """
-    return len(python_version) > 1 and python_version >= (3, 2)
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2)
 
 
 def _cpython_abis(py_version, warn=False):
@@ -436,15 +436,20 @@ def _glibc_version_string_confstr():
     # to be broken or missing. This strategy is used in the standard library
     # platform module.
     # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
-    try:
-        # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
-        version_string = os.confstr("CS_GNU_LIBC_VERSION")
-        assert version_string is not None
-        _, version = version_string.split()
-    except (AssertionError, AttributeError, OSError, ValueError):
-        # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
-        return None
-    return version
+    # To make mypy happy about os.confstr() not being defined on Windows, we need to
+    # explicitly check we are running under the appropriate OS. And mypy specifically
+    # understands sys.platform.
+    if sys.platform != "win32":
+        try:
+            # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
+            version_string = os.confstr("CS_GNU_LIBC_VERSION")
+            assert version_string is not None
+            _, version = version_string.split()
+        except (AssertionError, OSError, ValueError):
+            # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
+            return None
+        return version
+    return None
 
 
 def _glibc_version_string_ctypes():

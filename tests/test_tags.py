@@ -365,6 +365,7 @@ class TestManylinuxPlatform:
         assert tags._glibc_version_string() is None
 
     def test_glibc_version_string_confstr(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         assert tags._glibc_version_string_confstr() == "2.20"
 
@@ -625,9 +626,7 @@ class TestCPythonTags:
     @pytest.mark.parametrize("abis", [[], ["abi3"], ["none"]])
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
-        assert results == [
-            tags.Tag("cp30", "none", "any"),
-        ]
+        assert results == [tags.Tag("cp30", "none", "any")]
 
     def test_no_abi3_python31(self):
         results = list(tags.cpython_tags((3, 1), abis=["cp31"], platforms=["plat"]))
