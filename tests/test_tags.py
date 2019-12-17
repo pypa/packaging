@@ -626,8 +626,21 @@ class TestCPythonTags:
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
         assert results == [
-            tags.Tag("cp30", "abi3", "any"),
             tags.Tag("cp30", "none", "any"),
+        ]
+
+    def test_no_abi3_python31(self):
+        results = list(tags.cpython_tags((3, 1), abis=["cp31"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp31", "cp31", "plat"),
+            tags.Tag("cp31", "none", "plat"),
+        ]
+
+    def test_no_abi3_python27(self):
+        results = list(tags.cpython_tags((2, 7), abis=["cp27"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp27", "cp27", "plat"),
+            tags.Tag("cp27", "none", "plat"),
         ]
 
 

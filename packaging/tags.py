@@ -146,6 +146,15 @@ def _normalize_string(string):
     return string.replace(".", "_").replace("-", "_")
 
 
+def _abi3_applies(python_version):
+    """
+    Determine if the Python version supports abi3.
+
+    PEP 384 was first implemented in Python 3.2.
+    """
+    return len(python_version) > 1 and python_version >= (3, 2)
+
+
 def _cpython_abis(py_version, warn=False):
     # type: (PythonVersion, bool) -> List[str]
     py_version = tuple(py_version)  # To allow for version comparison.
@@ -231,16 +240,13 @@ def cpython_tags(
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
-    # Not worrying about the case of Python 3.2 or older being specified and
-    # thus having redundant tags thanks to the abi3 in-fill later on as
-    # 'packaging' doesn't directly support Python that far back.
-    if len(python_version) > 1:
+    if _abi3_applies(python_version):
         for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
             yield tag
     for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
         yield tag
-    # PEP 384 was first implemented in Python 3.2.
-    if len(python_version) > 1:
+
+    if _abi3_applies(python_version):
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 interpreter = "cp{major}{minor}".format(
