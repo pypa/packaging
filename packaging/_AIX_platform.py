@@ -4,17 +4,16 @@ import sys
 from sysconfig import get_config_var
 
 # subprocess is not available early in the build process
-# if not available, the config_vars are also not available
-# supply substitutes to bootstrap the build
+# when not available, the get_config_var() values are not available
+# and substitures are necessary for bootstrap and CI coverage tests
 try:
     import subprocess
-
-    _subprocess_rdy = True
-    _tmp = str(get_config_var("AIX_BUILDDATE"))
+    _have_subprocess = True
+    _tmp_bd = get_config_var("AIX_BUILDDATE")
     _bgt = get_config_var("BUILD_GNU_TYPE")
 except ImportError:  # pragma: no cover
-    _subprocess_rdy = False
-    _tmp = "None"
+    _have_subprocess = False
+    _tmp_bd = None
     _bgt = "powerpc-ibm-aix6.1.7.0"
 
 from ._typing import MYPY_CHECK_RUNNING
@@ -25,8 +24,14 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
 
 # if get_config_var("AIX_BUILDDATE") was unknown, provide a substitute,
 # impossible builddate to specify 'unknown'
-_bd = 9898 if (_tmp == "None") else int(_tmp)
-_sz = 32 if sys.maxsize == 2147483647 else 64
+_MISSING_BD = 9898
+try:
+    _bd = int(_tmp_bd)
+except TypeError:
+    _bd = _MISSING_BD
+
+# Infer the ABI bitwidth from maxsize (assuming 64 bit as the default)
+_sz = 32 if sys.maxsize == (2**31-1) else 64
 
 
 def _aix_tag(vrtl, bd):
@@ -49,21 +54,20 @@ def _aix_bosmp64():
     The fileset bos.mp64 is the AIX kernel. It's VRMF and builddate
     reflect the current ABI levels of the runtime environment.
     """
-    if _subprocess_rdy:
+    if _have_subprocess:
+        # We expect all AIX systems to have lslpp installed in this location
         out = subprocess.check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
         out = out.decode("utf-8").strip().split(":")  # type: ignore
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
-    else:  # pragma: no cover
-        # no cover during Windows coverage test
-        # This code is only for during the bootstrap phase
-        # Under normal use this will never be reached, so constants are provided
+    else:
+        # This code is for CPython bootstrap phase (see Lib/_aix_aupport.py)
+        # To pass `pypa/packaging` Windows CI tests mock constants are used
         # rather than actually calling os.uname()
         # from os import uname
-
         # osname, host, release, version, machine = uname()
         release, version = 2, 7
-        return "{}.{}.0.0".format(version, release), 9898
+        return "{}.{}.0.0".format(version, release), _MISSING_BD
 
 
 def aix_platform():
