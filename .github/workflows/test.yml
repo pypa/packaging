@@ -3,9 +3,11 @@ name: Test
 on:
   pull_request:
     paths:
+      - '.github/workflows/test.yml'
       - '**.py'
   push:
     paths:
+      - '.github/workflows/test.yml'
       - '**.py'
 
 jobs:
@@ -14,6 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         # Python 3.4 is not available from actions/setup-python@v1.
@@ -30,12 +33,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install coverage<5.0.0 pretend pytest
+        python -m pip install 'coverage<5.0.0' pretend pytest
+      shell: bash
 
     - name: Test coverage
       run: |
         python -m coverage run --source packaging/ -m pytest --strict tests
         python -m coverage report -m --fail-under 100
+      shell: bash
 
 
   test-pypy:
@@ -43,6 +48,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         pypy_version: ['pypy2', 'pypy3']
@@ -56,13 +62,14 @@ jobs:
         python-version: ${{ matrix.pypy_version }}
 
     - name: Install dependencies
-    # pytest >= 5.0.0 fails with pypy3 https://github.com/pytest-dev/pytest/issues/5807
       run: |
         python -m pip install --upgrade pip
-        python -m pip install coverage<5.0.0 pretend pytest==4.6.5
+        python -m pip install 'coverage<5.0.0' pretend pytest
+      shell: bash
 
     - name: Test coverage
       run: |
         python -m pytest --capture=no --strict
         python -m coverage run --source packaging/ -m pytest --strict tests
         python -m coverage report -m --fail-under 100
+      shell: bash
