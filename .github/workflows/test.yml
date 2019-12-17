@@ -60,10 +60,9 @@ jobs:
         python-version: ${{ matrix.pypy_version }}
 
     - name: Install dependencies
-    # pytest >= 5.0.0 fails with pypy3 https://github.com/pytest-dev/pytest/issues/5807
       run: |
         python -m pip install --upgrade pip
-        python -m pip install 'coverage<5.0.0' pretend pytest==4.6.5
+        python -m pip install 'coverage<5.0.0' pretend pytest
 
     - name: Test coverage
       run: |
