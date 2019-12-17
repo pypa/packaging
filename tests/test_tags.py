@@ -803,8 +803,8 @@ class TestSysTags:
         if platform.system() != "Windows":
             monkeypatch.setattr(platform, "system", lambda: "Windows")
             monkeypatch.setattr(tags, "_generic_platforms", lambda: ["win_amd64"])
-        abis = tags._cpython_abis(sys.version_info[:2])
-        platforms = tags._generic_platforms()
+        abis = list(tags._cpython_abis(sys.version_info[:2]))
+        platforms = list(tags._generic_platforms())
         result = list(tags.sys_tags())
         interpreter = "cp{major}{minor}".format(
             major=sys.version_info[0], minor=sys.version_info[1]
