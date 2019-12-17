@@ -147,6 +147,7 @@ def _normalize_string(string):
 
 
 def _abi3_applies(python_version):
+    # type: (PythonVersion) -> bool
     """
     Determine if the Python version supports abi3.
 
