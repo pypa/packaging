@@ -859,7 +859,7 @@ def test_aix_platform_notpep425_ready(monkeypatch):
 
 
 def test_aix_platform_no_subprocess(monkeypatch):
-    monkeypatch.setattr(_AIX_platform, "_subprocess_rdy", False)
+    monkeypatch.setattr(_AIX_platform, "_have_subprocess", False)
     vrmf, bd = _AIX_platform._aix_bosmp64()
     assert vrmf
     assert bd == 9898

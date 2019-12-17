@@ -8,6 +8,7 @@ from sysconfig import get_config_var
 # and substitures are necessary for bootstrap and CI coverage tests
 try:
     import subprocess
+
     _have_subprocess = True
     _tmp_bd = get_config_var("AIX_BUILDDATE")
     _bgt = get_config_var("BUILD_GNU_TYPE")
@@ -26,12 +27,12 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
 # impossible builddate to specify 'unknown'
 _MISSING_BD = 9898
 try:
-    _bd = int(_tmp_bd)
-except TypeError:
+    _bd = int(str(_tmp_bd))
+except (TypeError, ValueError):
     _bd = _MISSING_BD
 
 # Infer the ABI bitwidth from maxsize (assuming 64 bit as the default)
-_sz = 32 if sys.maxsize == (2**31-1) else 64
+_sz = 32 if sys.maxsize == (2 ** 31 - 1) else 64
 
 
 def _aix_tag(vrtl, bd):
