@@ -365,7 +365,8 @@ class TestManylinuxPlatform:
         assert tags._glibc_version_string() is None
 
     def test_glibc_version_string_confstr(self, monkeypatch):
-        monkeypatch.setattr(sys, "platform", "linux")
+        if sys.platform == "win32":
+            monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         assert tags._glibc_version_string_confstr() == "2.20"
 
@@ -374,6 +375,8 @@ class TestManylinuxPlatform:
         [pretend.raiser(ValueError), pretend.raiser(OSError), lambda x: "XXX"],
     )
     def test_glibc_version_string_confstr_fail(self, monkeypatch, failure):
+        if sys.platform == "win32":
+            monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setattr(os, "confstr", failure, raising=False)
         assert tags._glibc_version_string_confstr() is None
 
