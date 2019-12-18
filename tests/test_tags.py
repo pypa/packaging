@@ -601,7 +601,7 @@ class TestCPythonTags:
     def test_python_version_defaults(self):
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
         interpreter = "cp{}{}".format(*sys.version_info[:2])
-        assert tag == tags.Tag(interpreter, "abi3", "any")
+        assert tag == tags.Tag(interpreter, "none", "any")
 
     def test_abi_defaults(self, monkeypatch):
         monkeypatch.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp38"])
