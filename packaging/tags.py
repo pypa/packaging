@@ -445,7 +445,7 @@ def _glibc_version_string_confstr():
             version_string = os.confstr("CS_GNU_LIBC_VERSION")
             assert version_string is not None
             _, version = version_string.split()
-        except (AssertionError, OSError, ValueError):
+        except (AssertionError, AttributeError, OSError, ValueError):
             # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
             return None
         return version
