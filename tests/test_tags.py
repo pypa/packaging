@@ -384,6 +384,10 @@ class TestManylinuxPlatform:
         monkeypatch.delattr(os, "confstr", raising=False)
         assert tags._glibc_version_string_confstr() is None
 
+    def test_glibc_version_string_confstr_on_windows(self, monkeypatch):
+        monkeypatch(sys, "platform", "win32")
+        assert tags._glibc_version_string_confstr() is None
+
     def test_glibc_version_string_ctypes_missing(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "ctypes", None)
         assert tags._glibc_version_string_ctypes() is None
