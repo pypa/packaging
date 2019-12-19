@@ -627,6 +627,23 @@ class TestCPythonTags:
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
         assert results == [tags.Tag("cp30", "none", "any")]
 
+    def test_abi3_python33(self):
+        results = list(tags.cpython_tags((3, 3), abis=["cp33"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp33", "cp33", "plat"),
+            tags.Tag("cp33", "abi3", "plat"),
+            tags.Tag("cp33", "none", "plat"),
+            tags.Tag("cp32", "abi3", "plat"),
+        ]
+
+    def test_no_excess_abi3_python32(self):
+        results = list(tags.cpython_tags((3, 2), abis=["cp32"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp32", "cp32", "plat"),
+            tags.Tag("cp32", "abi3", "plat"),
+            tags.Tag("cp32", "none", "plat"),
+        ]
+
     def test_no_abi3_python31(self):
         results = list(tags.cpython_tags((3, 1), abis=["cp31"], platforms=["plat"]))
         assert results == [
