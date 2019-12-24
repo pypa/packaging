@@ -176,7 +176,11 @@ class TestInterpreterName:
         assert tags.interpreter_name() == "cp"
 
 
-class TestInterpreterVersion:
+class TestInterpreterVersionNotPyPy:
+    @pytest.fixture(autouse=True)
+    def patch_not_pypy(self, monkeypatch):
+        monkeypatch.delattr(sys, "pypy_version_info", raising=False)
+
     def test_warn(self, monkeypatch):
         class MockConfigVar(object):
             def __init__(self, return_):
@@ -200,6 +204,20 @@ class TestInterpreterVersion:
         monkeypatch.setattr(tags, "_get_config_var", lambda *args, **kwargs: None)
         monkeypatch.setattr(sys, "version_info", ("L", "M", "N"))
         assert tags.interpreter_version() == "LM"
+
+
+class TestInterpreterVersionPyPy:
+    def test_version_info(self, monkeypatch):
+        class PyPyVersionInfo(object):
+            def __init__(self, major, minor):
+                self.major = major
+                self.minor = minor
+
+        monkeypatch.setattr(sys, "version_info", ("L", "M", "N"))
+        monkeypatch.setattr(
+            sys, "pypy_version_info", PyPyVersionInfo("O", "P"), raising=False
+        )
+        assert tags.interpreter_version() == "LOP"
 
 
 class TestMacOSPlatforms:

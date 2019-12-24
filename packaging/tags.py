@@ -571,6 +571,22 @@ def interpreter_version(**kwargs):
     """
     Returns the version of the running interpreter.
     """
+    pypy_version_info = getattr(sys, "pypy_version_info", None)
+    if pypy_version_info:
+        # PyPy is treated differently as per https://github.com/pypa/pip/issues/2882.
+        # PyPy community takes:
+        # + https://mail.python.org/pipermail/pypy-dev/2017-July/015243.html
+        # + https://bitbucket.org/pypy/pypy/issues/2613/fix-the-abi-tag
+        # Prior art:
+        # + https://github.com/pypa/wheel/blob/0.33.6/wheel/pep425tags.py#L49
+        # + https://github.com/pypa/pip/blob/19.3.1/src/pip/_internal/pep425tags.py#L67
+        return "".join(
+            map(
+                str,
+                (sys.version_info[0], pypy_version_info.major, pypy_version_info.minor),
+            )
+        )
+
     warn = _warn_keyword_parameter("interpreter_version", kwargs)
     version = _get_config_var("py_version_nodot", warn=warn)
     if version:
