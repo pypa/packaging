@@ -147,6 +147,16 @@ def _normalize_string(string):
     return string.replace(".", "_").replace("-", "_")
 
 
+def _abi3_applies(python_version):
+    # type: (PythonVersion) -> bool
+    """
+    Determine if the Python version supports abi3.
+
+    PEP 384 was first implemented in Python 3.2.
+    """
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2)
+
+
 def _cpython_abis(py_version, warn=False):
     # type: (PythonVersion, bool) -> List[str]
     py_version = tuple(py_version)  # To allow for version comparison.
@@ -232,16 +242,13 @@ def cpython_tags(
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
-    # Not worrying about the case of Python 3.2 or older being specified and
-    # thus having redundant tags thanks to the abi3 in-fill later on as
-    # 'packaging' doesn't directly support Python that far back.
-    if len(python_version) > 1:
+    if _abi3_applies(python_version):
         for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
             yield tag
     for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
         yield tag
-    # PEP 384 was first implemented in Python 3.2.
-    if len(python_version) > 1:
+
+    if _abi3_applies(python_version):
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 interpreter = "cp{major}{minor}".format(
@@ -432,9 +439,11 @@ def _glibc_version_string_confstr():
     # https://github.com/python/cpython/blob/fcf1d003bf4f0100c9d0921ff3d70e1127ca1b71/Lib/platform.py#L175-L183
     try:
         # os.confstr("CS_GNU_LIBC_VERSION") returns a string like "glibc 2.17".
-        version_string = os.confstr("CS_GNU_LIBC_VERSION")
+        version_string = os.confstr(  # type: ignore[attr-defined] # noqa: F821
+            "CS_GNU_LIBC_VERSION"
+        )
         assert version_string is not None
-        _, version = version_string.split()
+        _, version = version_string.split()  # type: Tuple[str, str]
     except (AssertionError, AttributeError, OSError, ValueError):
         # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
         return None

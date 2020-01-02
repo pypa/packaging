@@ -598,7 +598,7 @@ class TestCPythonTags:
     def test_python_version_defaults(self):
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
         interpreter = "cp{}{}".format(*sys.version_info[:2])
-        assert tag == tags.Tag(interpreter, "abi3", "any")
+        assert interpreter == tag.interpreter
 
     def test_abi_defaults(self, monkeypatch):
         monkeypatch.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp38"])
@@ -626,9 +626,37 @@ class TestCPythonTags:
     @pytest.mark.parametrize("abis", [[], ["abi3"], ["none"]])
     def test_skip_redundant_abis(self, abis):
         results = list(tags.cpython_tags((3, 0), abis=abis, platforms=["any"]))
+        assert results == [tags.Tag("cp30", "none", "any")]
+
+    def test_abi3_python33(self):
+        results = list(tags.cpython_tags((3, 3), abis=["cp33"], platforms=["plat"]))
         assert results == [
-            tags.Tag("cp30", "abi3", "any"),
-            tags.Tag("cp30", "none", "any"),
+            tags.Tag("cp33", "cp33", "plat"),
+            tags.Tag("cp33", "abi3", "plat"),
+            tags.Tag("cp33", "none", "plat"),
+            tags.Tag("cp32", "abi3", "plat"),
+        ]
+
+    def test_no_excess_abi3_python32(self):
+        results = list(tags.cpython_tags((3, 2), abis=["cp32"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp32", "cp32", "plat"),
+            tags.Tag("cp32", "abi3", "plat"),
+            tags.Tag("cp32", "none", "plat"),
+        ]
+
+    def test_no_abi3_python31(self):
+        results = list(tags.cpython_tags((3, 1), abis=["cp31"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp31", "cp31", "plat"),
+            tags.Tag("cp31", "none", "plat"),
+        ]
+
+    def test_no_abi3_python27(self):
+        results = list(tags.cpython_tags((2, 7), abis=["cp27"], platforms=["plat"]))
+        assert results == [
+            tags.Tag("cp27", "cp27", "plat"),
+            tags.Tag("cp27", "none", "plat"),
         ]
 
 
@@ -804,8 +832,8 @@ class TestSysTags:
         if platform.system() != "Windows":
             monkeypatch.setattr(platform, "system", lambda: "Windows")
             monkeypatch.setattr(tags, "_generic_platforms", lambda: ["win_amd64"])
-        abis = tags._cpython_abis(sys.version_info[:2])
-        platforms = tags._generic_platforms()
+        abis = list(tags._cpython_abis(sys.version_info[:2]))
+        platforms = list(tags._generic_platforms())
         result = list(tags.sys_tags())
         interpreter = "cp{major}{minor}".format(
             major=sys.version_info[0], minor=sys.version_info[1]
