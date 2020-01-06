@@ -1,10 +1,8 @@
 Changelog
 ---------
 
-20.0 - master_
+20.0 - 2020-01-06
 ~~~~~~~~~~~~~~~~~
-
-.. note:: This version is not yet released and is under active development.
 
 * Add type hints (:issue:`191`)
 
