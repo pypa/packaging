@@ -923,12 +923,15 @@ class TestCompatibleTags:
         ]
 
     def test_default_platforms(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat"])
+        monkeypatch.setattr(tags, "_platform_tags", lambda: iter(["plat", "plat2"]))
         result = list(tags.compatible_tags((3, 1), "cp31"))
         assert result == [
             tags.Tag("py31", "none", "plat"),
+            tags.Tag("py31", "none", "plat2"),
             tags.Tag("py3", "none", "plat"),
+            tags.Tag("py3", "none", "plat2"),
             tags.Tag("py30", "none", "plat"),
+            tags.Tag("py30", "none", "plat2"),
             tags.Tag("cp31", "none", "any"),
             tags.Tag("py31", "none", "any"),
             tags.Tag("py3", "none", "any"),
