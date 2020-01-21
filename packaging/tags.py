@@ -315,7 +315,7 @@ def _py_interpreter_range(py_version):
 def compatible_tags(
     python_version=None,  # type: Optional[PythonVersion]
     interpreter=None,  # type: Optional[str]
-    platforms=None,  # type: Optional[Iterator[str]]
+    platforms=None,  # type: Optional[Iterable[str]]
 ):
     # type: (...) -> Iterator[Tag]
     """
