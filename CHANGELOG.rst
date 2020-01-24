@@ -1,10 +1,10 @@
 Changelog
 ---------
 
-20.1 - *unreleased*
+20.1 - 2020-01-24
 ~~~~~~~~~~~~~~~~~~~
 
-No changes yet.
+* Fix a bug caused by reuse of an exhausted iterator. (:issue:`257`)
 
 20.0 - 2020-01-06
 ~~~~~~~~~~~~~~~~~
