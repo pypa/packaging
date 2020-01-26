@@ -24,10 +24,11 @@ matrix:
     - env: NOXSESSION=docs
 
 install:
-  - pip install nox
+  - pyenv global 3.7.1
+  - python3.7 -m pip install nox
 
 script:
-  - nox
+  - python3.7 -m nox
 
 notifications:
   irc:
