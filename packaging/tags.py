@@ -411,13 +411,22 @@ def mac_platforms(version=None, arch=None):
 def _is_manylinux_compatible(name, glibc_version):
     # type: (str, GlibcVersion) -> bool
     # Check for presence of _manylinux module.
+    if os.environ.get("PYTHON_NO_MANYLINUX"):
+        return False
     try:
         import _manylinux  # noqa
-
-        return bool(getattr(_manylinux, name + "_compatible"))
-    except (ImportError, AttributeError):
-        # Fall through to heuristic check below.
+    except ImportError:
+        # No _manylinux module, fall through to heuristic check below.
         pass
+    else:
+        # We have _manylinux, try global check first, then version specific
+        # check afterwards.
+        if not getattr(_manylinux, "manylinux_compatible", True):
+            return False
+        try:
+            return bool(getattr(_manylinux, name + "_compatible"))
+        except AttributeError:
+            pass
 
     return _have_compatible_glibc(*glibc_version)
 

@@ -288,6 +288,30 @@ class TestManylinuxPlatform:
         manylinux_module.manylinux1_compatible = False
         assert not tags._is_manylinux_compatible("manylinux1", (2, 5))
 
+    @pytest.mark.parametrize(
+        "tag,version",
+        [
+            ("manylinux2014", (2, 17)),
+            ("manylinux2010", (2, 12)),
+            ("manylinux1", (2, 5)),
+        ],
+    )
+    def test_module_no_manylinux_compatible(self, manylinux_module, tag, version):
+        manylinux_module.manylinux_compatible = False
+        assert not tags._is_manylinux_compatible(tag, version)
+
+    @pytest.mark.parametrize(
+        "tag,version",
+        [
+            ("manylinux2014", (2, 17)),
+            ("manylinux2010", (2, 12)),
+            ("manylinux1", (2, 5)),
+        ],
+    )
+    def test_envvar_no_manylinux_compatible(self, monkeypatch, tag, version):
+        monkeypatch.setenv("PYTHON_NO_MANYLINUX", "1")
+        assert not tags._is_manylinux_compatible(tag, version)
+
     def test_module_declaration_missing_attribute(self, manylinux_module):
         try:
             del manylinux_module.manylinux1_compatible
