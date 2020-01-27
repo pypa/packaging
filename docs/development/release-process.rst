@@ -17,3 +17,10 @@ Release Process
    have any changes since the last release.
 
 #. Notify the other project owners of the release.
+
+.. note::
+   Access needed for making the release are:
+
+   - PyPI maintainer (or owner) access to `packaging`
+   - push directly to the `master` branch on the source repository
+   - push tags directly to the source repository
