@@ -4,12 +4,12 @@ include LICENSE LICENSE.APACHE LICENSE.BSD
 include .coveragerc
 include .flake8
 include .pre-commit-config.yaml
-include tox.ini
 
 recursive-include docs *
 recursive-include tests *.py
 recursive-include tests hello-world-*
 
+exclude noxfile.py
 exclude .travis.yml
 exclude dev-requirements.txt
 exclude tests/build-hello-world.sh
