@@ -142,11 +142,14 @@ class TestRequirements:
             req, "test", "http://example.com", extras=[], marker='os_name == "a"'
         )
 
-    def test_invalid_url(self):
+    @pytest.mark.parametrize(
+        "invalid_url", ["/foo/bar", "/foo", "./foo/bar", "./foo", "foo"]
+    )
+    def test_invalid_url(self, invalid_url):
         with pytest.raises(InvalidRequirement) as e:
-            Requirement("name @ gopher:/foo/com")
+            Requirement("name @ " + invalid_url)
         assert "Invalid URL: " in str(e.value)
-        assert "gopher:/foo/com" in str(e.value)
+        assert invalid_url in str(e.value)
 
     def test_file_url(self):
         req = Requirement("name @ file:///absolute/path")
@@ -159,6 +162,19 @@ class TestRequirements:
             Requirement("name @ file:.")
         with pytest.raises(InvalidRequirement):
             Requirement("name @ file:/.")
+
+    def test_vcs_url(self):
+        req = Requirement("name @ git+https://g.c/u/r.git")
+        self._assert_requirement(req, "name", "git+https://g.c/u/r.git")
+        req = Requirement("name @ git+file:///data/repo")
+        self._assert_requirement(req, "name", "git+file:///data/repo")
+
+    @pytest.mark.parametrize(
+        "url", ["gopher:/foo/com", "mailto:me@example.com", "c:/foo/bar"]
+    )
+    def test_exotic_urls(self, url):
+        req = Requirement("name @ " + url)
+        self._assert_requirement(req, "name", url)
 
     def test_extras_and_url_and_marker(self):
         req = Requirement("name [fred,bar] @ http://foo.com ; python_version=='2.7'")

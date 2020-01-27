@@ -47,9 +47,7 @@ class Requirement:
             if parsed_url.scheme == "file":
                 if urllib.parse.urlunparse(parsed_url) != req.url:
                     raise InvalidRequirement("Invalid URL given")
-            elif not (parsed_url.scheme and parsed_url.netloc) or (
-                not parsed_url.scheme and not parsed_url.netloc
-            ):
+            elif not parsed_url.scheme:
                 raise InvalidRequirement(f"Invalid URL: {req.url}")
             self.url: Optional[str] = req.url
         else:
