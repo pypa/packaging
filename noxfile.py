@@ -36,7 +36,7 @@ def lint(session):
     session.run("pre-commit", "run", "--all-files")
 
     # Check the distribution
-    session.install("setuptools", "readme_renderer", "twine", "wheel")
+    session.install("setuptools", "twine", "wheel")
     session.run("python", "setup.py", "--quiet", "sdist", "bdist_wheel")
     session.run("twine", "check", *glob.glob("dist/*"))
 
