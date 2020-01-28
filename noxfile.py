@@ -21,7 +21,9 @@ def tests(session):
         coverage("report", "-m", "--fail-under", "100")
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
-        session.run("pytest", "--capture=no", "--strict", *session.posargs)
+        session.run(
+            "python", "-m", "pytest", "--capture=no", "--strict", *session.posargs
+        )
 
 
 @nox.session(python="3.8")
