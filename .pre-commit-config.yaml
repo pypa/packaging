@@ -15,7 +15,7 @@ repos:
     args: []
   - id: mypy
     name: mypy for Python 2
-    exclude: '^(docs|tasks|tests)|setup\.py'
+    exclude: '^(docs|tasks|tests)|setup\.py|noxfile\.py'
     args: ['--py2']
 
 - repo: https://github.com/psf/black
