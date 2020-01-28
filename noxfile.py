@@ -76,25 +76,25 @@ def release(session):
     except ValueError as e:
         session.error(f"Invalid arguments: {e}")
 
-    # Check state of working directory and git
+    # Check state of working directory and git.
     _check_working_directory_state(session)
     _check_git_state(session, release_version)
 
-    # Bump to release version
+    # Update to the release version.
     _bump(session, version=release_version, file=version_file, kind="release")
 
-    # Tag the release commit
+    # Tag the release commit.
     session.run("git", "tag", "-s", release_version, external=True)
 
-    # Bump for development
+    # Bump the version for development.
     major, minor = map(int, release_version.split("."))
     next_version = f"{major}.{minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
 
-    # Checkout the git tag
+    # Checkout the git tag.
     session.run("git", "checkout", "-q", release_version, external=True)
 
-    # Build the distribution
+    # Build the distribution.
     session.run("python", "setup.py", "sdist", "bdist_wheel")
 
     # Check what files are in dist/ for upload.
@@ -104,16 +104,16 @@ def release(session):
         f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
     ], f"Got the wrong files: {files}"
 
-    # Get back out into master
+    # Get back out into master.
     session.run("git", "checkout", "-q", "master", external=True)
 
-    # Check and upload distribution files
+    # Check and upload distribution files.
     session.run("twine", "check", *files)
 
-    # Upload the distribution
+    # Upload the distribution.
     session.run("twine", "upload", *files)
 
-    # Push the commits and tag
+    # Push the commits and tag.
     # NOTE: The following fails if pushing to the branch is not allowed. This can
     #       happen on GitHub, if the master branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
@@ -160,7 +160,7 @@ def _check_working_directory_state(session):
 def _check_git_state(session, version_tag):
     """Check state of the git repository, prior to making the release.
     """
-    # Ensure the upstream remote pushes to correct URL
+    # Ensure the upstream remote pushes to the correct URL.
     allowed_upstreams = [
         "git@github.com:pypa/packaging.git",
         "https://github.com/pypa/packaging.git",
