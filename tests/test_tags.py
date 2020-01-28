@@ -438,7 +438,7 @@ class TestManylinuxPlatform:
         self, is_64bit_os, is_arm, monkeypatch
     ):
         if platform.system() != "Linux" or not is_64bit_os or not is_arm:
-            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux-aarch64")
             monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=False))[-1]
         assert linux_platform == "linux_aarch64"
@@ -447,7 +447,7 @@ class TestManylinuxPlatform:
         self, is_64bit_os, is_arm, monkeypatch
     ):
         if platform.system() != "Linux" or not is_64bit_os or not is_arm:
-            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+            monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux-aarch64")
             monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=True))[-1]
         assert linux_platform == "linux_armv7l"
