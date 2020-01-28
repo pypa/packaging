@@ -3,6 +3,7 @@
 import time
 import re
 import os
+import sys
 import glob
 import shutil
 import subprocess
@@ -186,7 +187,7 @@ def _check_git_state(session, version_tag):
         ["git", "status", "--porcelain"], capture_output=True, encoding="utf-8"
     )
     if result.stdout:
-        print(result.stdout, end="")
+        print(result.stdout, end="", file=sys.stderr)
         session.error(f"The working tree has uncommitted changes")
 
     # Ensure this tag doesn't exist already.
