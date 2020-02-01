@@ -697,11 +697,7 @@ class TestCPythonABI:
         config = {"Py_DEBUG": 0, "WITH_PYMALLOC": 0, "Py_UNICODE_SIZE": unicode_size}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         monkeypatch.setattr(sys, "maxunicode", maxunicode)
-        if version[0] >= 10 or version[1] >= 10:
-            sep = "_"
-        else:
-            sep = ""
-        base_abi = "cp{}{}{}".format(version[0], sep, version[1])
+        base_abi = "cp" + tags._version_nodot(version)
         expected = [base_abi + "u" if result else base_abi]
         assert tags._cpython_abis(version) == expected
 
@@ -787,11 +783,7 @@ class TestCPythonTags:
 
     def test_python_version_defaults(self):
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
-        if sys.version_info[0] >= 10 or sys.version_info[1] >= 10:
-            sep = "_"
-        else:
-            sep = ""
-        interpreter = "cp{}{}{}".format(sys.version_info[0], sep, sys.version_info[1])
+        interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
         assert interpreter == tag.interpreter
 
     def test_abi_defaults(self, monkeypatch):
@@ -1101,24 +1093,12 @@ class TestSysTags:
         abis = tags._cpython_abis(sys.version_info[:2])
         platforms = list(tags.mac_platforms())
         result = list(tags.sys_tags())
-        if sys.version_info[0] >= 10 or sys.version_info[1] >= 10:
-            sep = "_"
-        else:
-            sep = ""
         assert len(abis) == 1
         assert result[0] == tags.Tag(
-            "cp{major}{sep}{minor}".format(
-                major=sys.version_info[0], sep=sep, minor=sys.version_info[1]
-            ),
-            abis[0],
-            platforms[0],
+            "cp" + tags._version_nodot(sys.version_info[:2]), abis[0], platforms[0]
         )
         assert result[-1] == tags.Tag(
-            "py{}{}0".format(
-                sys.version_info[0], "_" if sys.version_info[0] >= 10 else ""
-            ),
-            "none",
-            "any",
+            "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
 
     def test_windows_cpython(self, mock_interpreter_name, monkeypatch):
@@ -1130,22 +1110,12 @@ class TestSysTags:
         abis = list(tags._cpython_abis(sys.version_info[:2]))
         platforms = list(tags._generic_platforms())
         result = list(tags.sys_tags())
-        if sys.version_info[0] >= 10 or sys.version_info[1] >= 10:
-            sep = "_"
-        else:
-            sep = ""
-        interpreter = "cp{major}{sep}{minor}".format(
-            major=sys.version_info[0], sep=sep, minor=sys.version_info[1]
-        )
+        interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
         assert len(abis) == 1
         expected = tags.Tag(interpreter, abis[0], platforms[0])
         assert result[0] == expected
         expected = tags.Tag(
-            "py{}{}0".format(
-                sys.version_info[0], "_" if sys.version_info[0] >= 10 else ""
-            ),
-            "none",
-            "any",
+            "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
         assert result[-1] == expected
 
@@ -1158,21 +1128,11 @@ class TestSysTags:
         abis = list(tags._cpython_abis(sys.version_info[:2]))
         platforms = list(tags._linux_platforms())
         result = list(tags.sys_tags())
-        if sys.version_info[0] >= 10 or sys.version_info[1] >= 10:
-            sep = "_"
-        else:
-            sep = ""
-        expected_interpreter = "cp{major}{sep}{minor}".format(
-            major=sys.version_info[0], sep=sep, minor=sys.version_info[1]
-        )
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
         assert len(abis) == 1
         assert result[0] == tags.Tag(expected_interpreter, abis[0], platforms[0])
         expected = tags.Tag(
-            "py{}{}0".format(
-                sys.version_info[0], "_" if sys.version_info[0] >= 10 else ""
-            ),
-            "none",
-            "any",
+            "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
         assert result[-1] == expected
 
@@ -1182,10 +1142,6 @@ class TestSysTags:
 
         result = list(tags.sys_tags())
         expected = tags.Tag(
-            "py{}{}0".format(
-                sys.version_info[0], "_" if sys.version_info[0] >= 10 else ""
-            ),
-            "none",
-            "any",
+            "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
         assert result[-1] == expected
