@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-* Fixa bug that on a 32-bit OS that runs on a 64-bit ARM CPU (ARM-v8,
+* Fix a bug that on caused a 32-bit OS that runs on a 64-bit ARM CPU (e.g. ARM-v8,
   aarch64), _linux_platforms returns the incorrect string.
 
 20.1 - 2020-01-24
