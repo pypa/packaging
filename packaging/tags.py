@@ -17,6 +17,7 @@ import logging
 import os
 import platform
 import re
+import struct
 import sys
 import sysconfig
 import warnings
@@ -28,6 +29,7 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import (
         Dict,
         FrozenSet,
+        IO,
         Iterable,
         Iterator,
         List,
@@ -314,7 +316,7 @@ def _py_interpreter_range(py_version):
 def compatible_tags(
     python_version=None,  # type: Optional[PythonVersion]
     interpreter=None,  # type: Optional[str]
-    platforms=None,  # type: Optional[Iterator[str]]
+    platforms=None,  # type: Optional[Iterable[str]]
 ):
     # type: (...) -> Iterator[Tag]
     """
@@ -327,8 +329,7 @@ def compatible_tags(
     """
     if not python_version:
         python_version = sys.version_info[:2]
-    if not platforms:
-        platforms = _platform_tags()
+    platforms = list(platforms or _platform_tags())
     for version in _py_interpreter_range(python_version):
         for platform_ in platforms:
             yield Tag(version, "none", platform_)
@@ -515,16 +516,143 @@ def _have_compatible_glibc(required_major, minimum_minor):
     return _check_glibc_version(version_str, required_major, minimum_minor)
 
 
+# Python does not provide platform information at sufficient granularity to
+# identify the architecture of the running executable in some cases, so we
+# determine it dynamically by reading the information from the running
+# process. This only applies on Linux, which uses the ELF format.
+class _ELFFileHeader(object):
+    # https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_header
+    class _InvalidELFFileHeader(ValueError):
+        """
+        An invalid ELF file header was found.
+        """
+
+    ELF_MAGIC_NUMBER = 0x7F454C46
+    ELFCLASS32 = 1
+    ELFCLASS64 = 2
+    ELFDATA2LSB = 1
+    ELFDATA2MSB = 2
+    EM_386 = 3
+    EM_S390 = 22
+    EM_ARM = 40
+    EM_X86_64 = 62
+    EF_ARM_ABIMASK = 0xFF000000
+    EF_ARM_ABI_VER5 = 0x05000000
+    EF_ARM_ABI_FLOAT_HARD = 0x00000400
+
+    def __init__(self, file):
+        # type: (IO[bytes]) -> None
+        def unpack(fmt):
+            # type: (str) -> int
+            try:
+                result, = struct.unpack(
+                    fmt, file.read(struct.calcsize(fmt))
+                )  # type: (int, )
+            except struct.error:
+                raise _ELFFileHeader._InvalidELFFileHeader()
+            return result
+
+        self.e_ident_magic = unpack(">I")
+        if self.e_ident_magic != self.ELF_MAGIC_NUMBER:
+            raise _ELFFileHeader._InvalidELFFileHeader()
+        self.e_ident_class = unpack("B")
+        if self.e_ident_class not in {self.ELFCLASS32, self.ELFCLASS64}:
+            raise _ELFFileHeader._InvalidELFFileHeader()
+        self.e_ident_data = unpack("B")
+        if self.e_ident_data not in {self.ELFDATA2LSB, self.ELFDATA2MSB}:
+            raise _ELFFileHeader._InvalidELFFileHeader()
+        self.e_ident_version = unpack("B")
+        self.e_ident_osabi = unpack("B")
+        self.e_ident_abiversion = unpack("B")
+        self.e_ident_pad = file.read(7)
+        format_h = "<H" if self.e_ident_data == self.ELFDATA2LSB else ">H"
+        format_i = "<I" if self.e_ident_data == self.ELFDATA2LSB else ">I"
+        format_q = "<Q" if self.e_ident_data == self.ELFDATA2LSB else ">Q"
+        format_p = format_i if self.e_ident_class == self.ELFCLASS32 else format_q
+        self.e_type = unpack(format_h)
+        self.e_machine = unpack(format_h)
+        self.e_version = unpack(format_i)
+        self.e_entry = unpack(format_p)
+        self.e_phoff = unpack(format_p)
+        self.e_shoff = unpack(format_p)
+        self.e_flags = unpack(format_i)
+        self.e_ehsize = unpack(format_h)
+        self.e_phentsize = unpack(format_h)
+        self.e_phnum = unpack(format_h)
+        self.e_shentsize = unpack(format_h)
+        self.e_shnum = unpack(format_h)
+        self.e_shstrndx = unpack(format_h)
+
+
+def _get_elf_header():
+    # type: () -> Optional[_ELFFileHeader]
+    try:
+        with open(sys.executable, "rb") as f:
+            elf_header = _ELFFileHeader(f)
+    except (IOError, OSError, TypeError, _ELFFileHeader._InvalidELFFileHeader):
+        return None
+    return elf_header
+
+
+def _is_linux_armhf():
+    # type: () -> bool
+    # hard-float ABI can be detected from the ELF header of the running
+    # process
+    # https://static.docs.arm.com/ihi0044/g/aaelf32.pdf
+    elf_header = _get_elf_header()
+    if elf_header is None:
+        return False
+    result = elf_header.e_ident_class == elf_header.ELFCLASS32
+    result &= elf_header.e_ident_data == elf_header.ELFDATA2LSB
+    result &= elf_header.e_machine == elf_header.EM_ARM
+    result &= (
+        elf_header.e_flags & elf_header.EF_ARM_ABIMASK
+    ) == elf_header.EF_ARM_ABI_VER5
+    result &= (
+        elf_header.e_flags & elf_header.EF_ARM_ABI_FLOAT_HARD
+    ) == elf_header.EF_ARM_ABI_FLOAT_HARD
+    return result
+
+
+def _is_linux_i686():
+    # type: () -> bool
+    elf_header = _get_elf_header()
+    if elf_header is None:
+        return False
+    result = elf_header.e_ident_class == elf_header.ELFCLASS32
+    result &= elf_header.e_ident_data == elf_header.ELFDATA2LSB
+    result &= elf_header.e_machine == elf_header.EM_386
+    return result
+
+
+def _have_compatible_manylinux_abi(arch):
+    # type: (str) -> bool
+    if arch == "armv7l":
+        return _is_linux_armhf()
+    if arch == "i686":
+        return _is_linux_i686()
+    return True
+
+
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     # type: (bool) -> Iterator[str]
     linux = _normalize_string(distutils.util.get_platform())
     if linux == "linux_x86_64" and is_32bit:
         linux = "linux_i686"
-    manylinux_support = (
-        ("manylinux2014", (2, 17)),  # CentOS 7 w/ glibc 2.17 (PEP 599)
-        ("manylinux2010", (2, 12)),  # CentOS 6 w/ glibc 2.12 (PEP 571)
-        ("manylinux1", (2, 5)),  # CentOS 5 w/ glibc 2.5 (PEP 513)
-    )
+    manylinux_support = []
+    _, arch = linux.split("_", 1)
+    if _have_compatible_manylinux_abi(arch):
+        if arch in {"x86_64", "i686", "aarch64", "armv7l", "ppc64", "ppc64le", "s390x"}:
+            manylinux_support.append(
+                ("manylinux2014", (2, 17))
+            )  # CentOS 7 w/ glibc 2.17 (PEP 599)
+        if arch in {"x86_64", "i686"}:
+            manylinux_support.append(
+                ("manylinux2010", (2, 12))
+            )  # CentOS 6 w/ glibc 2.12 (PEP 571)
+            manylinux_support.append(
+                ("manylinux1", (2, 5))
+            )  # CentOS 5 w/ glibc 2.5 (PEP 513)
     manylinux_support_iter = iter(manylinux_support)
     for name, glibc_version in manylinux_support_iter:
         if _is_manylinux_compatible(name, glibc_version):

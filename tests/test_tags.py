@@ -470,6 +470,150 @@ class TestManylinuxPlatform:
         ]
         assert platforms == expected
 
+    def test_linux_platforms_manylinux2014_armhf_abi(self, monkeypatch):
+        monkeypatch.setattr(
+            tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
+        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv7l")
+        monkeypatch.setattr(
+            sys,
+            "executable",
+            os.path.join(os.path.dirname(__file__), "hello-world-armv7l-armhf"),
+        )
+        platforms = list(tags._linux_platforms(is_32bit=True))
+        expected = ["manylinux2014_armv7l", "linux_armv7l"]
+        assert platforms == expected
+
+    def test_linux_platforms_manylinux2014_i386_abi(self, monkeypatch):
+        monkeypatch.setattr(
+            tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
+        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(
+            sys,
+            "executable",
+            os.path.join(os.path.dirname(__file__), "hello-world-x86_64-i386"),
+        )
+        platforms = list(tags._linux_platforms(is_32bit=True))
+        expected = [
+            "manylinux2014_i686",
+            "manylinux2010_i686",
+            "manylinux1_i686",
+            "linux_i686",
+        ]
+        assert platforms == expected
+
+    def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch):
+        monkeypatch.setattr(
+            tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
+        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv6l")
+        platforms = list(tags._linux_platforms(is_32bit=True))
+        expected = ["linux_armv6l"]
+        assert platforms == expected
+
+    @pytest.mark.parametrize(
+        "machine, abi, alt_machine",
+        [("x86_64", "x32", "i686"), ("armv7l", "armel", "armv7l")],
+    )
+    def test_linux_platforms_not_manylinux_abi(
+        self, monkeypatch, machine, abi, alt_machine
+    ):
+        monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda name, _: True)
+        monkeypatch.setattr(
+            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
+        )
+        monkeypatch.setattr(
+            sys,
+            "executable",
+            os.path.join(
+                os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
+            ),
+        )
+        platforms = list(tags._linux_platforms(is_32bit=True))
+        expected = ["linux_{}".format(alt_machine)]
+        assert platforms == expected
+
+    @pytest.mark.parametrize(
+        "machine, abi, elf_class, elf_data, elf_machine",
+        [
+            (
+                "x86_64",
+                "x32",
+                tags._ELFFileHeader.ELFCLASS32,
+                tags._ELFFileHeader.ELFDATA2LSB,
+                tags._ELFFileHeader.EM_X86_64,
+            ),
+            (
+                "x86_64",
+                "i386",
+                tags._ELFFileHeader.ELFCLASS32,
+                tags._ELFFileHeader.ELFDATA2LSB,
+                tags._ELFFileHeader.EM_386,
+            ),
+            (
+                "x86_64",
+                "amd64",
+                tags._ELFFileHeader.ELFCLASS64,
+                tags._ELFFileHeader.ELFDATA2LSB,
+                tags._ELFFileHeader.EM_X86_64,
+            ),
+            (
+                "armv7l",
+                "armel",
+                tags._ELFFileHeader.ELFCLASS32,
+                tags._ELFFileHeader.ELFDATA2LSB,
+                tags._ELFFileHeader.EM_ARM,
+            ),
+            (
+                "armv7l",
+                "armhf",
+                tags._ELFFileHeader.ELFCLASS32,
+                tags._ELFFileHeader.ELFDATA2LSB,
+                tags._ELFFileHeader.EM_ARM,
+            ),
+            (
+                "s390x",
+                "s390x",
+                tags._ELFFileHeader.ELFCLASS64,
+                tags._ELFFileHeader.ELFDATA2MSB,
+                tags._ELFFileHeader.EM_S390,
+            ),
+        ],
+    )
+    def test_get_elf_header(
+        self, monkeypatch, machine, abi, elf_class, elf_data, elf_machine
+    ):
+        path = os.path.join(
+            os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
+        )
+        monkeypatch.setattr(sys, "executable", path)
+        elf_header = tags._get_elf_header()
+        assert elf_header.e_ident_class == elf_class
+        assert elf_header.e_ident_data == elf_data
+        assert elf_header.e_machine == elf_machine
+
+    @pytest.mark.parametrize(
+        "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
+    )
+    def test_get_elf_header_bad_excutable(self, monkeypatch, content):
+        if content:
+            path = os.path.join(
+                os.path.dirname(__file__), "hello-world-{}".format(content)
+            )
+        else:
+            path = None
+        monkeypatch.setattr(sys, "executable", path)
+        assert tags._get_elf_header() is None
+
+    def test_is_linux_armhf_not_elf(self, monkeypatch):
+        monkeypatch.setattr(tags, "_get_elf_header", lambda: None)
+        assert not tags._is_linux_armhf()
+
+    def test_is_linux_i686_not_elf(self, monkeypatch):
+        monkeypatch.setattr(tags, "_get_elf_header", lambda: None)
+        assert not tags._is_linux_i686()
+
 
 @pytest.mark.parametrize(
     "platform_name,dispatch_func",
@@ -780,12 +924,15 @@ class TestCompatibleTags:
         ]
 
     def test_default_platforms(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat"])
+        monkeypatch.setattr(tags, "_platform_tags", lambda: iter(["plat", "plat2"]))
         result = list(tags.compatible_tags((3, 1), "cp31"))
         assert result == [
             tags.Tag("py31", "none", "plat"),
+            tags.Tag("py31", "none", "plat2"),
             tags.Tag("py3", "none", "plat"),
+            tags.Tag("py3", "none", "plat2"),
             tags.Tag("py30", "none", "plat"),
+            tags.Tag("py30", "none", "plat2"),
             tags.Tag("cp31", "none", "any"),
             tags.Tag("py31", "none", "any"),
             tags.Tag("py3", "none", "any"),

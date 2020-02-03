@@ -1,10 +1,18 @@
 Changelog
 ---------
 
-20.0 - master_
-~~~~~~~~~~~~~~~~~
+*unreleased*
+~~~~~~~~~~~~
 
-.. note:: This version is not yet released and is under active development.
+No changes yet.
+
+20.1 - 2020-01-24
+~~~~~~~~~~~~~~~~~~~
+
+* Fix a bug caused by reuse of an exhausted iterator. (:issue:`257`)
+
+20.0 - 2020-01-06
+~~~~~~~~~~~~~~~~~
 
 * Add type hints (:issue:`191`)
 
