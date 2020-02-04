@@ -12,46 +12,57 @@ on:
 
 jobs:
   test:
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu, windows, macOS]
-        # Python 3.4 is not available from actions/setup-python@v1.
-        python_version: ['2.7', '3.5', '3.6', '3.7', '3.8', 'pypy2', 'pypy3']
-        exclude:
-          # This is failing due to pip not being in the virtual environment.
-          # https://github.com/pypa/packaging/runs/424785871#step:7:9
-          - os: windows
-            python_version: pypy3
-
     steps:
     - uses: actions/checkout@v1
 
-    - uses: actions/setup-python@v1
-      name: Install Python ${{ matrix.python_version }}
+    # Install *all* Python versions that we want to test against!
+    #
+    # note 1: Python 3.4 is not available from actions/setup-python@v1.
+    # note 2: PyPy3 + Windows is failing due to pip not being in the
+    #         virtual environment created by nox.
+    #         https://github.com/pypa/packaging/runs/424785871#step:7:9
+    - name: Install PyPy2
+      uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python_version }}
-
-    # Set `python` to a recent 3.x version if we're not testing Python 3.6+.
-    #    Why? Nox needs Python 3.5+ and everyone likes f-strings.
-    - uses: actions/setup-python@v1
-      name: Install Python 3.x
+        python-version: pypy2
+    - name: Install PyPy3
+      uses: actions/setup-python@v1
       with:
-        python-version: 3.x
-      if: >
-        (
-          matrix.python_version == '2.7' ||
-          matrix.python_version == 'pypy2' ||
-          matrix.python_version == '3.5'
-        )
+        python-version: pypy3
+      if: runner.os != 'Windows'  # see note 2 above.
+    - name: Install Python 2.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 2.7
+    - name: Install Python 3.5
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.5
+    - name: Install Python 3.6
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.6
+    - name: Install Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
 
     # Workaround https://github.com/theacodes/nox/issues/250
     - name: Workaround for Windows Python 2.7
       # This is in PATH, so nox resolves to it - but then subsequent steps fail.
       run: rm C:/ProgramData/Chocolatey/bin/python2.7.exe
       shell: bash
-      if: runner.os == 'Windows' && matrix.python_version == '2.7'
+      if: runner.os == 'Windows'
 
     - name: Install dependencies
       run: |
@@ -61,5 +72,5 @@ jobs:
 
     - name: Run nox
       run: |
-        python -m nox -s tests-${{ matrix.python_version }}
+        python -m nox -s tests
       shell: bash
