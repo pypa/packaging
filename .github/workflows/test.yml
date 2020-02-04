@@ -28,8 +28,8 @@ jobs:
       with:
         python-version: ${{ matrix.python_version }}
 
-    # Use newer Python, if we're not Python 3.6+
-    #    why? nox requires 3.5+ and @pradyunsg likes f-strings.
+    # Use newer Python, if we're on PyPy or not Python 3.6+
+    #    why? nox needs CPython 3.5+ and @pradyunsg likes f-strings.
     - uses: actions/setup-python@v1
       name: Install Python 3.x
       with:
@@ -37,8 +37,9 @@ jobs:
       if: >
         (
           matrix.python_version == '2.7' ||
+          matrix.python_version == '3.5' ||
           matrix.python_version == 'pypy2' ||
-          matrix.python_version == '3.5'
+          matrix.python_version == 'pypy3'
         )
 
     # Workaround https://github.com/theacodes/nox/issues/250
