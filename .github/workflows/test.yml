@@ -33,11 +33,12 @@ jobs:
       name: Install Python 3.x
       with:
         python-version: 3.x
-      if: (
-        matrix.python_version == '2.7' ||
-        matrix.python_version == 'pypy2' ||
-        matrix.python_version == '3.5'
-      )
+      if: >
+        (
+          matrix.python_version == '2.7' ||
+          matrix.python_version == 'pypy2' ||
+          matrix.python_version == '3.5'
+        )
 
     # Workaround https://github.com/theacodes/nox/issues/250
     - name: Workaround for Windows Python 2.7
