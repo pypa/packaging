@@ -11,7 +11,8 @@ on:
       - '**.py'
 
 jobs:
-  test-cpython:
+  test:
+    name: nox -s tests-${{ matrix.python_version }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
