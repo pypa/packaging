@@ -12,7 +12,6 @@ on:
 
 jobs:
   test:
-    name: nox -s tests-${{ matrix.python_version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
