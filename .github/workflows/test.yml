@@ -28,8 +28,8 @@ jobs:
       with:
         python-version: ${{ matrix.python_version }}
 
-    # Use newer Python, if we're on PyPy or not Python 3.6+
-    #    why? nox needs CPython 3.5+ and @pradyunsg likes f-strings.
+    # Use newer Python, if we're not Python 3.6+
+    #    why? nox needs Python 3.5+ and @pradyunsg likes f-strings.
     - uses: actions/setup-python@v1
       name: Install Python 3.x
       with:
@@ -37,9 +37,8 @@ jobs:
       if: >
         (
           matrix.python_version == '2.7' ||
-          matrix.python_version == '3.5' ||
           matrix.python_version == 'pypy2' ||
-          matrix.python_version == 'pypy3'
+          matrix.python_version == '3.5'
         )
 
     # Workaround https://github.com/theacodes/nox/issues/250
@@ -47,11 +46,7 @@ jobs:
       # This is in PATH, so nox resolves to it - but then subsequent steps fail
       run: rm C:/ProgramData/Chocolatey/bin/python2.7.exe
       shell: bash
-      if: >
-        matrix.os == 'windows-latest' && (
-          matrix.python_version == '2.7' ||
-          matrix.python_version == 'pypy2'
-        )
+      if: matrix.os == 'windows-latest' && matrix.python_version == '2.7'
 
     - name: Install dependencies
       run: |
