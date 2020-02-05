@@ -51,7 +51,7 @@ jobs:
       # This is in PATH, so nox resolves to it - but then subsequent steps fail
       run: rm C:/ProgramData/Chocolatey/bin/python2.7.exe
       shell: bash
-      if: matrix.os == 'windows' && matrix.python_version == '2.7'
+      if: runner.os == 'Windows' && matrix.python_version == '2.7'
 
     - name: Install dependencies
       run: |
