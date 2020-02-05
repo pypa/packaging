@@ -12,17 +12,17 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu, windows, macOS]
         # Python 3.4 is not available from actions/setup-python@v1.
         python_version: ['2.7', '3.5', '3.6', '3.7', '3.8', 'pypy2', 'pypy3']
         exclude:
           # This is failing due to pip not being in the virtual environment.
           # https://github.com/pypa/packaging/runs/424785871#step:7:9
-          - os: windows-latest
+          - os: windows
             python_version: pypy3
 
     steps:
@@ -51,7 +51,7 @@ jobs:
       # This is in PATH, so nox resolves to it - but then subsequent steps fail
       run: rm C:/ProgramData/Chocolatey/bin/python2.7.exe
       shell: bash
-      if: matrix.os == 'windows-latest' && matrix.python_version == '2.7'
+      if: matrix.os == 'windows' && matrix.python_version == '2.7'
 
     - name: Install dependencies
       run: |
