@@ -33,6 +33,11 @@ def example_tag():
 
 
 @pytest.fixture
+def is_x86():
+    return re.match(r"(i\d86|x86_64)", platform.machine()) is not None
+
+
+@pytest.fixture
 def manylinux_module(monkeypatch):
     monkeypatch.setattr(tags, "_have_compatible_glibc", lambda *args: False)
     module_name = "_manylinux"
