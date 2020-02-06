@@ -4,7 +4,8 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No changes yet.
+* Fix a bug that caused a 32-bit OS that runs on a 64-bit ARM CPU (e.g. ARM-v8,
+  aarch64), to report the wrong bitness.
 
 20.1 - 2020-01-24
 ~~~~~~~~~~~~~~~~~~~
