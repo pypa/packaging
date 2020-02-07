@@ -633,8 +633,11 @@ def _have_compatible_manylinux_abi(arch):
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     # type: (bool) -> Iterator[str]
     linux = _normalize_string(distutils.util.get_platform())
-    if linux == "linux_x86_64" and is_32bit:
-        linux = "linux_i686"
+    if is_32bit:
+        if linux == "linux_x86_64":
+            linux = "linux_i686"
+        elif linux == "linux_aarch64":
+            linux = "linux_armv7l"
     manylinux_support = []
     _, arch = linux.split("_", 1)
     if _have_compatible_manylinux_abi(arch):
