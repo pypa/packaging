@@ -536,7 +536,9 @@ def _cmpkey(
 
     return epoch, _release, _pre, _post, _dev, _local
 
+
 def main(args=None):
+    # type: (Optional[List[str]]) -> Union[int, None]
     parser = argparse.ArgumentParser()
 
     group = parser.add_mutually_exclusive_group()
@@ -557,15 +559,15 @@ def main(args=None):
 
     # if args is None, argparse will parse the command line parameters,
     # this is a neat trick to allow us to unit-test this method
-    args = parser.parse_args(args)
+    args_ = parser.parse_args(args)  # type: argparse.Namespace
 
-    if args.sort:
-        versions = args.sort
+    if args_.sort:
+        versions = args_.sort
         sorted_versions = sorted(versions)
         print(" ".join([str(v) for v in sorted_versions]))
 
-    if args.verify:
-        versions = args.verify
+    if args_.verify:
+        versions = args_.verify
         sorted_versions = sorted(versions)
 
         # return with exitcode zero if list was sorted or 1 otherwise
@@ -573,6 +575,7 @@ def main(args=None):
             return 0
         else:
             return 1
+    return None
 
 
 if __name__ == "__main__":  # pragma: no cover
