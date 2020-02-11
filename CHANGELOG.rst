@@ -1,10 +1,50 @@
 Changelog
 ---------
 
-20.0 - `master`_
-~~~~~~~~~~~~~~~~
+*unreleased*
+~~~~~~~~~~~~
 
-.. note:: This version is not yet released and is under active development.
+* Fix a bug that caused a 32-bit OS that runs on a 64-bit ARM CPU (e.g. ARM-v8,
+  aarch64), to report the wrong bitness.
+
+20.1 - 2020-01-24
+~~~~~~~~~~~~~~~~~~~
+
+* Fix a bug caused by reuse of an exhausted iterator. (:issue:`257`)
+
+20.0 - 2020-01-06
+~~~~~~~~~~~~~~~~~
+
+* Add type hints (:issue:`191`)
+
+* Add proper trove classifiers for PyPy support (:issue:`198`)
+
+* Scale back depending on ``ctypes`` for manylinux support detection (:issue:`171`)
+
+* Use ``sys.implementation.name`` where appropriate for ``packaging.tags`` (:issue:`193`)
+
+* Expand upon the API provded by ``packaging.tags``: ``interpreter_name()``, ``mac_platforms()``, ``compatible_tags()``, ``cpython_tags()``, ``generic_tags()`` (:issue:`187`)
+
+* Officially support Python 3.8 (:issue:`232`)
+
+* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`226`)
+
+* Properly mark ``packaging`` has being fully typed by adding a `py.typed` file (:issue:`226`)
+
+19.2 - 2019-09-18
+~~~~~~~~~~~~~~~~~
+
+* Remove dependency on ``attrs`` (:issue:`178`, :issue:`179`)
+
+* Use appropriate fallbacks for CPython ABI tag (:issue:`181`, :issue:`185`)
+
+* Add manylinux2014 support (:issue:`186`)
+
+* Improve ABI detection (:issue:`181`)
+
+* Properly handle debug wheels for Python 3.8 (:issue:`172`)
+
+* Improve detection of debug builds on Windows (:issue:`194`)
 
 19.1 - 2019-07-30
 ~~~~~~~~~~~~~~~~~

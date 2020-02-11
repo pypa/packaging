@@ -2,12 +2,14 @@
 *.egg
 *.py[co]
 
-.tox/
+.[nt]ox/
 .cache/
 .coverage
 .idea
 .venv*
 
+.mypy_cache/
+.pytest_cache/
 __pycache__/
 _build/
 build/

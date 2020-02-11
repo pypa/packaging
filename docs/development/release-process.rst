@@ -1,26 +1,26 @@
 Release Process
 ===============
 
-#. Checkout the current ``master`` branch, with a clean working directory.
-#. Modify the ``CHANGELOG.rst`` to include changes made since the last release.
-#. Bump the version in ``packaging/__about__.py``
+#. Checkout the current ``master`` branch.
+#. Install the latest ``nox``::
 
-#. Install the latest ``setuptools``, ``wheel`` and ``twine`` packages
-   from PyPI::
+    $ pip install nox
 
-    $ pip install --upgrade setuptools wheel twine
+#. Modify the ``CHANGELOG.rst`` to include changes made since the last release
+   and update the section header for the new release.
 
-#. Ensure no ``dist/`` folder exists and then create the distribution files::
+#. Run the release automation with the required version number (YY.N)::
 
-    $ python setup.py sdist bdist_wheel
+    $ nox -s release -- YY.N
 
-#. Check the built distribution files with ``twine``::
+#. Modify the ``CHANGELOG.rst`` to reflect the development version does not
+   have any changes since the last release.
 
-    $ twine check dist/*
+#. Notify the other project owners of the release.
 
-#. If all goes well, upload the build distribution files::
+.. note::
+   Access needed for making the release are:
 
-    $ twine upload dist/*
-
-#. Bump the version for development in ``packaging/__about__.py`` and
-   ``CHANGELOG.rst``.
+   - PyPI maintainer (or owner) access to `packaging`
+   - push directly to the `master` branch on the source repository
+   - push tags directly to the source repository

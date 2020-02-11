@@ -43,6 +43,7 @@ setup(
     version=about["__version__"],
     description=about["__summary__"],
     long_description=long_description,
+    long_description_content_type="text/x-rst",
     license=about["__license__"],
     url=about["__uri__"],
     author=about["__author__"],
@@ -62,6 +63,10 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
     ],
     packages=["packaging"],
+    package_data={"packaging": ["py.typed"]},
 )

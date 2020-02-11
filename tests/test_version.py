@@ -759,6 +759,18 @@ class TestVersion:
         result = sorted([Version("0"), LegacyVersion("1")])
         assert result == [LegacyVersion("1"), Version("0")]
 
+    def test_major_version(self):
+        assert Version("2.1.0").major == 2
+
+    def test_minor_version(self):
+        assert Version("2.1.0").minor == 1
+        assert Version("2").minor == 0
+
+    def test_micro_version(self):
+        assert Version("2.1.3").micro == 3
+        assert Version("2.1").micro == 0
+        assert Version("2").micro == 0
+
 
 LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 

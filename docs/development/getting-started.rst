@@ -2,22 +2,13 @@ Getting started
 ===============
 
 Working on packaging requires the installation of a small number of
-development dependencies. These are listed in ``dev-requirements.txt`` and they
-can be installed in a `virtualenv`_ using `pip`_. Once you've installed the
-dependencies, install packaging in ``editable`` mode. For example:
-
-.. code-block:: console
-
-    $ # Create a virtualenv and activate it
-    $ python -m pip install --requirement dev-requirements.txt
-    $ python -m pip install --editable .
-
-You are now ready to run the tests and build the documentation.
+development dependencies. To see what dependencies are required to
+run the tests manually, please look at the ``noxfile.py`` file.
 
 Running tests
 ~~~~~~~~~~~~~
 
-packaging unit tests are found in the ``tests/`` directory and are
+The packaging unit tests are found in the ``tests/`` directory and are
 designed to be run using `pytest`_. `pytest`_ will discover the tests
 automatically, so all you have to do is:
 
@@ -25,30 +16,43 @@ automatically, so all you have to do is:
 
     $ python -m pytest
     ...
-    62746 passed in 220.43 seconds
+    29204 passed, 4 skipped, 1 xfailed in 83.98 seconds
 
-This runs the tests with the default Python interpreter.
+This runs the tests with the default Python interpreter. This also allows
+you to run select tests instead of the entire test suite.
 
 You can also verify that the tests pass on other supported Python interpreters.
-For this we use `tox`_, which will automatically create a `virtualenv`_ for
+For this we use `nox`_, which will automatically create a `virtualenv`_ for
 each supported Python version and run the tests. For example:
 
 .. code-block:: console
 
-    $ tox
+    $ nox -s tests
     ...
-     py27: commands succeeded
-    ERROR:   pypy: InterpreterNotFound: pypy
-    ERROR:   py34: InterpreterNotFound: python3.4
-    ERROR:   py35: InterpreterNotFound: python3.5
-     py36: commands succeeded
-    ERROR:   py37: InterpreterNotFound: python3.7
-     docs: commands succeeded
-     pep8: commands succeeded
+    nox > Ran multiple sessions:
+    nox > * tests-2.7: success
+    nox > * tests-3.4: skipped
+    nox > * tests-3.5: success
+    nox > * tests-3.6: success
+    nox > * tests-3.7: success
+    nox > * tests-3.8: success
+    nox > * tests-pypy: skipped
+    nox > * tests-pypy3: skipped
 
 You may not have all the required Python versions installed, in which case you
 will see one or more ``InterpreterNotFound`` errors.
 
+Running linters
+~~~~~~~~~~~~~~~
+
+If you wish to run the linting rules, you may use `pre-commit`_ or run
+``nox -s lint``.
+
+.. code-block:: console
+
+    $ nox -s lint
+    ...
+    nox > Session lint was successful.
 
 Building documentation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -56,21 +60,21 @@ Building documentation
 packaging documentation is stored in the ``docs/`` directory. It is
 written in `reStructured Text`_ and rendered using `Sphinx`_.
 
-Use `tox`_ to build the documentation. For example:
+Use `nox`_ to build the documentation. For example:
 
 .. code-block:: console
 
-    $ tox -e docs
+    $ nox -s docs
     ...
-    docs: commands succeeded
-    congratulations :)
+    nox > Session docs was successful.
 
 The HTML documentation index can now be found at
 ``docs/_build/html/index.html``.
 
 .. _`pytest`: https://pypi.org/project/pytest/
-.. _`tox`: https://pypi.org/project/tox/
+.. _`nox`: https://pypi.org/project/nox/
 .. _`virtualenv`: https://pypi.org/project/virtualenv/
 .. _`pip`: https://pypi.org/project/pip/
 .. _`sphinx`: https://pypi.org/project/Sphinx/
 .. _`reStructured Text`: http://sphinx-doc.org/rest.html
+.. _`pre-commit`: https://pre-commit.com
