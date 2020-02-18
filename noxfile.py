@@ -6,6 +6,7 @@ import os
 import sys
 import glob
 import shutil
+import difflib
 import subprocess
 from pathlib import Path
 
@@ -101,11 +102,17 @@ def release(session):
     session.run("python", "setup.py", "sdist", "bdist_wheel")
 
     # Check what files are in dist/ for upload.
-    files = glob.glob(f"dist/*")
-    assert sorted(files) == [
-        f"dist/{package_name}-{release_version}.tag.gz",
+    files = sorted(glob.glob(f"dist/*"))
+    expected = [
         f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
-    ], f"Got the wrong files: {files}"
+        f"dist/{package_name}-{release_version}.tar.gz",
+    ]
+    if files != expected:
+        diff_generator = difflib.context_diff(
+            expected, files, fromfile="expected", tofile="got", lineterm=""
+        )
+        diff = "\n".join(diff_generator)
+        session.error(f"Got the wrong files:\n{diff}")
 
     # Get back out into master.
     session.run("git", "checkout", "-q", "master", external=True)
