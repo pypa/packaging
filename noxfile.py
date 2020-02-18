@@ -7,6 +7,10 @@ import sys
 import glob
 import shutil
 import difflib
+import tempfile
+import textwrap
+import datetime
+import contextlib
 import subprocess
 from pathlib import Path
 
@@ -74,6 +78,7 @@ def docs(session):
 def release(session):
     package_name = "packaging"
     version_file = Path(f"{package_name}/__about__.py")
+    changelog_file = Path(f"CHANGELOG.rst")
 
     try:
         release_version = _get_version_from_arguments(session.posargs)
@@ -84,7 +89,8 @@ def release(session):
     _check_working_directory_state(session)
     _check_git_state(session, release_version)
 
-    # Update to the release version.
+    # Prepare for release.
+    _changelog_update_unreleased_title(release_version, file=changelog_file)
     _bump(session, version=release_version, file=version_file, kind="release")
 
     # Tag the release commit.
@@ -97,7 +103,8 @@ def release(session):
     )
     # fmt: on
 
-    # Bump the version for development.
+    # Prepare for development.
+    _changelog_add_unreleased_title(file=changelog_file)
     major, minor = map(int, release_version.split("."))
     next_version = f"{major}.{minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
@@ -229,3 +236,63 @@ def _bump(session, *, version, file, kind):
     session.log(f"git commit")
     subprocess.run(["git", "add", str(file)])
     subprocess.run(["git", "commit", "-m", f"Bump for {kind}"])
+
+
+@contextlib.contextmanager
+def _replace_file(original_path):
+    # Create a temporary file
+    fh, replacement_path = tempfile.mkstemp()
+
+    try:
+        with os.fdopen(fh, "w") as replacement:
+            with open(original_path) as original:
+                yield original, replacement
+    except Exception:
+        raise
+    else:
+        shutil.copymode(original_path, replacement_path)
+        os.remove(original_path)
+        shutil.move(replacement_path, original_path)
+
+
+def _changelog_update_unreleased_title(version, *, file):
+    """Update an "*unreleased*" heading to "{version} - {date}"
+    """
+    yyyy_mm_dd = datetime.datetime.today().strftime("%Y-%m-%d")
+    title = f"{version} - {yyyy_mm_dd}"
+
+    with _replace_file(file) as (original, replacement):
+        for line in original:
+            if line == "*unreleased*\n":
+                replacement.write(f"{title}\n")
+                replacement.write(len(title) * "~" + "\n")
+                # Skip processing the next line (the heading underline for *unreleased*)
+                # since we already wrote the heading underline.
+                next(original)
+            else:
+                replacement.write(line)
+
+
+def _changelog_add_unreleased_title(*, file):
+    with _replace_file(file) as (original, replacement):
+        # Duplicate first 3 lines from the original file.
+        for _ in range(3):
+            line = next(original)
+            replacement.write(line)
+
+        # Write the heading.
+        replacement.write(
+            textwrap.dedent(
+                """\
+                *unreleased*
+                ~~~~~~~~~~~~
+
+                No unreleased changes.
+
+                """
+            )
+        )
+
+        # Duplicate all the remaining lines.
+        for line in original:
+            replacement.write(line)
