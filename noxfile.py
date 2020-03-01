@@ -240,7 +240,7 @@ def _bump(session, *, version, file, kind):
 
 @contextlib.contextmanager
 def _replace_file(original_path):
-    # Create a temporary file
+    # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 
     try:
