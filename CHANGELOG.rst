@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.3 - 2020-03-05
+~~~~~~~~~~~~~~~~~
 
 * Fix changelog for 20.2.
 
