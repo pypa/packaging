@@ -91,6 +91,7 @@ def release(session):
 
     # Prepare for release.
     _changelog_update_unreleased_title(release_version, file=changelog_file)
+    session.run("git", "add", str(changelog_file), external=True)
     _bump(session, version=release_version, file=version_file, kind="release")
 
     # Tag the release commit.
@@ -105,12 +106,16 @@ def release(session):
 
     # Prepare for development.
     _changelog_add_unreleased_title(file=changelog_file)
+    session.run("git", "add", str(changelog_file), external=True)
+
     major, minor = map(int, release_version.split("."))
     next_version = f"{major}.{minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
 
     # Checkout the git tag.
     session.run("git", "checkout", "-q", release_version, external=True)
+
+    session.install("twine", "setuptools", "wheel")
 
     # Build the distribution.
     session.run("python", "setup.py", "sdist", "bdist_wheel")
