@@ -551,7 +551,7 @@ class _ELFFileHeader(object):
         def unpack(fmt):
             # type: (str) -> int
             try:
-                (result,) = struct.unpack(
+                result, = struct.unpack(
                     fmt, file.read(struct.calcsize(fmt))
                 )  # type: (int, )
             except struct.error:
