@@ -114,7 +114,7 @@ class Tag(object):
 def parse_tag(tag):
     # type: (str) -> FrozenSet[Tag]
     """
-    Parses the provided tag (e.g. `py3-none-any`) into a set of Tag instances.
+    Parses the provided tag (e.g. `py3-none-any`) into a frozenset of Tag instances.
 
     Returning a set is required due to the possibility that the tag is a
     compressed tag set.
