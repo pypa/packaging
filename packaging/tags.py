@@ -60,8 +60,9 @@ _32_BIT_INTERPRETER = sys.maxsize <= 2 ** 32
 class Tag(object):
     """
     A representation of the tag triple for a wheel.
-    
-    Instances are considered immutable and thus are hashable. Equality checking is also supported.
+
+    Instances are considered immutable and thus are hashable. Equality checking
+    is also supported.
     """
 
     __slots__ = ["_interpreter", "_abi", "_platform"]
@@ -552,7 +553,7 @@ class _ELFFileHeader(object):
         def unpack(fmt):
             # type: (str) -> int
             try:
-                result, = struct.unpack(
+                (result,) = struct.unpack(
                     fmt, file.read(struct.calcsize(fmt))
                 )  # type: (int, )
             except struct.error:
