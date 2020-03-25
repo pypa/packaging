@@ -253,6 +253,12 @@ class TestSpecifier:
         assert op(left, Specifier(right))
         assert op(Specifier(left), right)
 
+    @pytest.mark.parametrize(("left", "right"), [("==2.8.0", "==2.8")])
+    def test_comparison_canonicalizes(self, left, right):
+        assert Specifier(left) == Specifier(right)
+        assert left == Specifier(right)
+        assert Specifier(left) == right
+
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain(
@@ -960,6 +966,12 @@ class TestSpecifierSet:
         assert not op(Specifier(left), SpecifierSet(right))
         assert not op(left, SpecifierSet(right))
         assert not op(SpecifierSet(left), right)
+
+    @pytest.mark.parametrize(("left", "right"), [("==2.8.0", "==2.8")])
+    def test_comparison_canonicalizes(self, left, right):
+        assert SpecifierSet(left) == SpecifierSet(right)
+        assert left == SpecifierSet(right)
+        assert SpecifierSet(left) == right
 
     def test_comparison_non_specifier(self):
         assert SpecifierSet("==1.0") != 12
