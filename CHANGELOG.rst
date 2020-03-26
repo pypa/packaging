@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Canonicalize version before comparing specifiers. (:issue:`282`)
 
 20.3 - 2020-03-05
 ~~~~~~~~~~~~~~~~~
