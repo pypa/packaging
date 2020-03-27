@@ -133,10 +133,14 @@ class _IndividualSpecifier(BaseSpecifier):
         # type: () -> str
         return "{0}{1}".format(*self._spec)
 
+    @property
+    def _canonical_spec(self):
+        # type: () -> Tuple[str, Union[Version, str]]
+        return self._spec[0], canonicalize_version(self._spec[1])
+
     def __hash__(self):
         # type: () -> int
-        operator, version = self._spec
-        return hash((operator, canonicalize_version(version)))
+        return hash(self._canonical_spec)
 
     def __eq__(self, other):
         # type: (object) -> bool
@@ -148,7 +152,7 @@ class _IndividualSpecifier(BaseSpecifier):
         elif not isinstance(other, self.__class__):
             return NotImplemented
 
-        return hash(self) == hash(other)
+        return self._canonical_spec == other._canonical_spec
 
     def __ne__(self, other):
         # type: (object) -> bool
