@@ -23,5 +23,5 @@ __version__ = "20.4.dev0"
 __author__ = "Donald Stufft and individual contributors"
 __email__ = "donald@stufft.io"
 
-__license__ = "BSD or Apache License, Version 2.0"
+__license__ = "BSD-2-Clause or Apache-2.0"
 __copyright__ = "Copyright 2014-2019 %s" % __author__
