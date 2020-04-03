@@ -1155,7 +1155,7 @@ class TestSysTags:
 def test_aix_platform_notpep425_ready(monkeypatch):
     if platform.system() != "AIX":
         monkeypatch.setattr(
-            subprocess,
+            _aix_support,
             "check_output",
             lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
         )
@@ -1177,7 +1177,7 @@ def test_aix_platform_no_subprocess(monkeypatch):
 
 def test_aix_platform_pep425_ready(monkeypatch):
     monkeypatch.setattr(
-        subprocess,
+        _aix_support,
         "check_output",
         lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
     )
@@ -1231,7 +1231,7 @@ def test_aix_bgt(monkeypatch):
     result = _aix_support._aix_bgt()
     assert result == [6, 1, 7]
     monkeypatch.setattr(_aix_support, "_have_subprocess", True)
-    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "powerpc-ibm-aix5.3.7.0")
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda k: "powerpc-ibm-aix5.3.7.0")
     result = _aix_support._aix_bgt()
     assert result == [5, 3, 7]
 
