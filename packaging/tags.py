@@ -23,7 +23,7 @@ import sysconfig
 import warnings
 
 from ._typing import MYPY_CHECK_RUNNING, cast
-from ._AIX_platform import aix_platform
+from ._aix_support import aix_platform
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import (
