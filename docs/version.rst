@@ -86,6 +86,18 @@ Reference
         version number, including trailing zeroes but not including the epoch
         or any prerelease/development/postrelease suffixes
 
+    .. attribute:: major
+
+        An integer representing the first item of :attr:`release` or ``0`` if unavailable.
+
+    .. attribute:: minor
+
+        An integer representing the second item of :attr:`release` or ``0`` if unavailable.
+
+    .. attribute:: micro
+
+        An integer representing the third item of :attr:`release` or ``0`` if unavailable.
+
     .. attribute:: local
 
         A string representing the local version portion of this ``Version()``

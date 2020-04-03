@@ -10,6 +10,7 @@ import re
 
 from ._compat import string_types, with_metaclass
 from ._typing import MYPY_CHECK_RUNNING
+from .utils import canonicalize_version
 from .version import Version, LegacyVersion, parse
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
@@ -132,9 +133,14 @@ class _IndividualSpecifier(BaseSpecifier):
         # type: () -> str
         return "{0}{1}".format(*self._spec)
 
+    @property
+    def _canonical_spec(self):
+        # type: () -> Tuple[str, Union[Version, str]]
+        return self._spec[0], canonicalize_version(self._spec[1])
+
     def __hash__(self):
         # type: () -> int
-        return hash(self._spec)
+        return hash(self._canonical_spec)
 
     def __eq__(self, other):
         # type: (object) -> bool
@@ -146,7 +152,7 @@ class _IndividualSpecifier(BaseSpecifier):
         elif not isinstance(other, self.__class__):
             return NotImplemented
 
-        return self._spec == other._spec
+        return self._canonical_spec == other._canonical_spec
 
     def __ne__(self, other):
         # type: (object) -> bool
