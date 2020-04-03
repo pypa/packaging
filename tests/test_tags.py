@@ -25,7 +25,7 @@ import warnings
 import pretend
 import pytest
 
-from packaging import tags, _AIX_platform
+from packaging import tags, _aix_support
 
 
 @pytest.fixture
@@ -1160,17 +1160,17 @@ def test_aix_platform_notpep425_ready(monkeypatch):
             lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
         )
     monkeypatch.setattr(distutils.util, "get_platform", lambda: "aix-7.2")
-    monkeypatch.setattr(_AIX_platform, "_sz", 64)
+    monkeypatch.setattr(sys, "maxsize", 2 ** 63 - 1)
     result0 = list(tags._aix_platforms())
-    result1 = [_AIX_platform.aix_platform()]
+    result1 = [_aix_support.aix_platform()]
     assert result0 == result1
     assert result0[0].startswith("aix")
     assert result0[0].endswith("64")
 
 
 def test_aix_platform_no_subprocess(monkeypatch):
-    monkeypatch.setattr(_AIX_platform, "_have_subprocess", False)
-    vrmf, bd = _AIX_platform._aix_bosmp64()
+    monkeypatch.setattr(_aix_support, "_have_subprocess", False)
+    vrmf, bd = _aix_support._aix_bosmp64()
     assert vrmf
     assert bd == 9898
 
@@ -1182,9 +1182,9 @@ def test_aix_platform_pep425_ready(monkeypatch):
         lambda *a: b"bos.mp64:bos.mp64:5.3.7.0:::C::BOS 64-bit:::::::1:0:/:0747\n",
     )
     monkeypatch.setattr(distutils.util, "get_platform", lambda: "aix-5307-0747-32")
-    monkeypatch.setattr(_AIX_platform, "_sz", 32)
+    monkeypatch.setattr(sys, "maxsize", 2 ** 31 - 1)
     result0 = list(tags._aix_platforms())
-    result1 = [_AIX_platform.aix_platform()]
+    result1 = [_aix_support.aix_platform()]
     assert result0[0][:4] == result1[0][:4]
     assert result0[0].startswith("aix")
     assert result0[0].endswith("32")
@@ -1226,15 +1226,27 @@ def test_sys_tags_aix32_cpython(mock_interpreter_name, monkeypatch):
     assert result[-1] == expected
 
 
-def test_aix_buildtag(monkeypatch):
-    monkeypatch.setattr(_AIX_platform, "_bgt", "powerpc-ibm-aix5.3.7.0")
-    assert _AIX_platform._bd == 9898
-    monkeypatch.setattr(_AIX_platform, "_bd", 9797)
-    monkeypatch.setattr(_AIX_platform, "_sz", 64)
-    assert _AIX_platform._bd == 9797
-    result = _AIX_platform.aix_buildtag()
-    assert result == "aix-5307-9797-64"
-    monkeypatch.setattr(_AIX_platform, "_bd", 747)
-    monkeypatch.setattr(_AIX_platform, "_sz", 32)
-    result = _AIX_platform.aix_buildtag()
-    assert result == "aix-5307-0747-32"
+def test_aix_bgt(monkeypatch):
+    monkeypatch.setattr(_aix_support, "_have_subprocess", False)
+    result = _aix_support._aix_bgt()
+    assert result == [6, 1, 7]
+    monkeypatch.setattr(_aix_support, "_have_subprocess", True)
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "powerpc-ibm-aix5.3.7.0")
+    result = _aix_support._aix_bgt()
+    assert result == [5, 3, 7]
+
+
+# def test_aix_buildtag(monkeypatch):
+    monkeypatch.setattr(_aix_support, "_have_subprocess", False)
+    monkeypatch.setattr(sys, "maxsize", 2 ** 31 - 1)
+    result = _aix_support.aix_buildtag()
+    assert result == "aix-6107-9898-32"
+    monkeypatch.setattr(_aix_support, "_have_subprocess", True)
+    monkeypatch.setattr(_aix_support, "_aix_bgt", lambda: [5, 3, 7])
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
+    result = _aix_support.aix_buildtag()
+    assert result == "aix-5307-9898-32"
+    monkeypatch.setattr(sys, "maxsize", 2 ** 63 - 1)
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "0747")
+    result = _aix_support.aix_buildtag()
+    assert result == "aix-5307-0747-64"

@@ -1,21 +1,16 @@
 """Shared AIX support functions."""
 
 import sys
-from sysconfig import get_config_var
+import sysconfig
 
-# subprocess is not available early in the build process
-# when not available, the get_config_var() values are not available
-# and substitures are necessary for bootstrap and CI coverage tests
 try:
-    import subprocess
+    from subprocess import check_output
 
     _have_subprocess = True
-    _tmp_bd = get_config_var("AIX_BUILDDATE")
-    _bgt = get_config_var("BUILD_GNU_TYPE")
 except ImportError:  # pragma: no cover
+    # subprocess is not available early in the build process
+    # substitures are necessary for bootstrap and CI coverage tests
     _have_subprocess = False
-    _tmp_bd = None
-    _bgt = "powerpc-ibm-aix6.1.7.0"
 
 from ._typing import MYPY_CHECK_RUNNING
 
@@ -23,22 +18,12 @@ if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import List, Tuple
 
 
-# if get_config_var("AIX_BUILDDATE") was unknown, provide a substitute,
-# impossible builddate to specify 'unknown'
-_MISSING_BD = 9898
-try:
-    _bd = int(str(_tmp_bd))
-except (TypeError, ValueError):
-    _bd = _MISSING_BD
-
-# Infer the ABI bitwidth from maxsize (assuming 64 bit as the default)
-_sz = 32 if sys.maxsize == (2 ** 31 - 1) else 64
-
-
 def _aix_tag(vrtl, bd):
     # type: (List[int], int) -> str
+    # Infer the ABI bitwidth from maxsize (assuming 64 bit as the default)
+    sz = 32 if sys.maxsize == (2 ** 31 - 1) else 64
     # vrtl[version, release, technology_level]
-    return "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(vrtl[0], vrtl[1], vrtl[2], bd, _sz)
+    return "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(vrtl[0], vrtl[1], vrtl[2], bd, sz)
 
 
 # extract version, release and technology level from a VRMF string
@@ -57,18 +42,15 @@ def _aix_bosmp64():
     """
     if _have_subprocess:
         # We expect all AIX systems to have lslpp installed in this location
-        out = subprocess.check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
+        out = check_output(["/usr/bin/lslpp", "-Lqc", "bos.mp64"])
         out = out.decode("utf-8").strip().split(":")  # type: ignore
         # Use str() and int() to help mypy see types
         return str(out[2]), int(out[-1])
     else:
-        # This code is for CPython bootstrap phase (see Lib/_aix_aupport.py)
+        # This code was for CPython bootstrap phase (see Lib/_aix_aupport.py)
         # To pass `pypa/packaging` Windows CI tests mock constants are used
-        # rather than actually calling os.uname()
-        # from os import uname
-        # osname, host, release, version, machine = uname()
         release, version = 2, 7
-        return "{}.{}.0.0".format(version, release), _MISSING_BD
+        return "{}.{}.0.0".format(version, release), 9898
 
 
 def aix_platform():
@@ -97,8 +79,11 @@ def aix_platform():
 # extract vrtl from the BUILD_GNU_TYPE as an int
 def _aix_bgt():
     # type: () -> List[int]
-    assert _bgt
-    return _aix_vrtl(vrmf=_bgt)
+    if _have_subprocess:
+        bgt = sysconfig.get_config_var("BUILD_GNU_TYPE")
+    else:
+        bgt = "powerpc-ibm-aix6.1.7.0"
+    return _aix_vrtl(vrmf=bgt)
 
 
 def aix_buildtag():
@@ -106,4 +91,13 @@ def aix_buildtag():
     """
     Return the platform_tag of the system Python was built on.
     """
-    return _aix_tag(_aix_bgt(), _bd)
+    # To permit packaging to be used when the variable "AIX_BUILDDATE"
+    # is not defined - return an impossible value rather than
+    # raise ValueError() as Cpython Lib/_aix_support does
+    bd = sysconfig.get_config_var("AIX_BUILDDATE") if _have_subprocess else "9898"
+    try:
+        bd = int(str(bd))
+    except (TypeError, ValueError):
+        bd = 9898
+
+    return _aix_tag(_aix_bgt(), bd)
