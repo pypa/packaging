@@ -16,7 +16,6 @@ import distutils.util
 import os
 import platform
 import re
-import subprocess
 import sys
 import sysconfig
 import types
