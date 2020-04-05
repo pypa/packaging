@@ -26,14 +26,18 @@ In packaging, all static-typing related imports should be guarded as follows:
 Ref: https://github.com/python/mypy/issues/3216
 """
 
+__all__ = ["MYPY_CHECK_RUNNING", "cast"]
 MYPY_CHECK_RUNNING = False
 
-if MYPY_CHECK_RUNNING:  # pragma: no cover
-    import typing
+if MYPY_CHECK_RUNNING:
+    from typing import TYPE_CHECKING
+else:
+    TYPE_CHECKING = False
 
-    cast = typing.cast
+if TYPE_CHECKING:
+    from typing import cast
 else:
     # typing's cast() is needed at runtime, but we don't want to import typing.
-    # Thus, we use a dummy no-op version, which we tell mypy to ignore.
-    def cast(type_, value):  # type: ignore
+    # Thus, we use a dummy no-op version, which we want mypy to ignore.
+    def cast(type_, value):  # noqa
         return value
