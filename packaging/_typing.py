@@ -30,7 +30,7 @@ __all__ = ["TYPE_CHECKING", "cast"]
 
 # The TYPE_CHECKING constant defined by the typing module is False at runtime
 # but True while type checking.
-if False:
+if False:  # pragma: no cover
     from typing import TYPE_CHECKING
 else:
     TYPE_CHECKING = False
@@ -39,7 +39,7 @@ else:
 # want to import typing at runtime. Here, we inform the type checkers that
 # we're importing `typing.cast` as `cast` and re-implement typing.cast's
 # runtime behavior in a block that is ignored by type checkers.
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     # not executed at runtime
     from typing import cast
 else:
