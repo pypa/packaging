@@ -9,11 +9,11 @@ import itertools
 import re
 
 from ._compat import string_types, with_metaclass
-from ._typing import MYPY_CHECK_RUNNING
+from ._typing import TYPE_CHECKING
 from .utils import canonicalize_version
 from .version import Version, LegacyVersion, parse
 
-if MYPY_CHECK_RUNNING:  # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from typing import (
         List,
         Dict,
