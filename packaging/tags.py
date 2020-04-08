@@ -22,10 +22,10 @@ import sys
 import sysconfig
 import warnings
 
-from ._typing import MYPY_CHECK_RUNNING, cast
 from ._aix_support import aix_platform
+from ._typing import TYPE_CHECKING, cast
 
-if MYPY_CHECK_RUNNING:  # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from typing import (
         Dict,
         FrozenSet,
