@@ -5,7 +5,8 @@ Changelog
 ~~~~~~~~~~~~
 
 * Canonicalize version before comparing specifiers. (:issue:`282`)
-* Change type hint for ``canonicalize_name`` to return a ``NewType(..., str)``.
+* Change type hint for ``canonicalize_name`` to return
+  ``packaging.utils.NormalizedName``.
   This enables the use of static typing tools (like mypy) to detect mixing of
   normalized and un-normalized names.
 
