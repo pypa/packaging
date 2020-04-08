@@ -326,7 +326,7 @@ class TestManylinuxPlatform:
             ("2.4", 2, 4, True),
             ("2.4", 2, 5, False),
             ("2.4", 2, 3, True),
-            ("3.4", 2, 4, False),
+            ("3.4", 2, 4, True),
         ],
     )
     def test_check_glibc_version(self, version_str, major, minor, expected):
@@ -372,6 +372,13 @@ class TestManylinuxPlatform:
     def test_glibc_version_string_confstr(self, monkeypatch):
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         assert tags._glibc_version_string_confstr() == "2.20"
+
+    def test_glibc_version_string_fail(self, monkeypatch):
+        monkeypatch.setattr(os, "confstr", lambda x: None, raising=False)
+        monkeypatch.setitem(sys.modules, "ctypes", None)
+        assert tags._glibc_version_string() is None
+        assert tags._have_compatible_glibc(2, 5) is False
+        assert tags._get_glibc_version() == (-1, -1)
 
     @pytest.mark.parametrize(
         "failure",
@@ -433,12 +440,14 @@ class TestManylinuxPlatform:
         self, arch, is_32bit, expected, monkeypatch
     ):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: arch)
+        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[-1]
         assert linux_platform == expected
 
     def test_linux_platforms_manylinux_unsupported(self, monkeypatch):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=False))
         assert linux_platform == ["linux_x86_64"]
@@ -450,6 +459,7 @@ class TestManylinuxPlatform:
         if platform.system() != "Linux" or not is_x86:
             monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
             monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+            monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
         assert platforms == ["manylinux1_" + arch, "linux_" + arch]
@@ -461,9 +471,21 @@ class TestManylinuxPlatform:
         if platform.system() != "Linux" or not is_x86:
             monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
             monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+            monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
-        expected = ["manylinux2010_" + arch, "manylinux1_" + arch, "linux_" + arch]
+        expected = [
+            "manylinux2010_" + arch,
+            "manylinux_2_11_" + arch,
+            "manylinux_2_10_" + arch,
+            "manylinux_2_9_" + arch,
+            "manylinux_2_8_" + arch,
+            "manylinux_2_7_" + arch,
+            "manylinux_2_6_" + arch,
+            "manylinux_2_5_" + arch,
+            "manylinux1_" + arch,
+            "linux_" + arch,
+        ]
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014(self, is_x86, monkeypatch):
@@ -473,17 +495,31 @@ class TestManylinuxPlatform:
         if platform.system() != "Linux" or not is_x86:
             monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
             monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+            monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
         expected = [
             "manylinux2014_" + arch,
+            "manylinux_2_16_" + arch,
+            "manylinux_2_15_" + arch,
+            "manylinux_2_14_" + arch,
+            "manylinux_2_13_" + arch,
+            "manylinux_2_12_" + arch,
             "manylinux2010_" + arch,
+            "manylinux_2_11_" + arch,
+            "manylinux_2_10_" + arch,
+            "manylinux_2_9_" + arch,
+            "manylinux_2_8_" + arch,
+            "manylinux_2_7_" + arch,
+            "manylinux_2_6_" + arch,
+            "manylinux_2_5_" + arch,
             "manylinux1_" + arch,
             "linux_" + arch,
         ]
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_armhf_abi(self, monkeypatch):
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.30")
         monkeypatch.setattr(
             tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
         )
@@ -498,6 +534,7 @@ class TestManylinuxPlatform:
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(self, monkeypatch):
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.20")
         monkeypatch.setattr(
             tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
         )
@@ -509,11 +546,42 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = [
+            # "manylinux_2_17_i686",  # rejected since it comes before manylinux2014
             "manylinux2014_i686",
+            "manylinux_2_16_i686",
+            "manylinux_2_15_i686",
+            "manylinux_2_14_i686",
+            "manylinux_2_13_i686",
+            "manylinux_2_12_i686",
             "manylinux2010_i686",
+            "manylinux_2_11_i686",
+            "manylinux_2_10_i686",
+            "manylinux_2_9_i686",
+            "manylinux_2_8_i686",
+            "manylinux_2_7_i686",
+            "manylinux_2_6_i686",
+            "manylinux_2_5_i686",
             "manylinux1_i686",
             "linux_i686",
         ]
+        assert platforms == expected
+
+    def test_linux_platforms_manylinux_glibc3(self, monkeypatch):
+        # test for a future glic 3.x version
+        monkeypatch.setattr(tags, "_glibc_version_string", lambda: "3.2")
+        monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda name, _: True)
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+        monkeypatch.setattr(
+            sys,
+            "executable",
+            os.path.join(os.path.dirname(__file__), "hello-world-aarch64"),
+        )
+        platforms = list(tags._linux_platforms())
+        expected = (
+            ["manylinux_3_2_aarch64", "manylinux_3_1_aarch64", "manylinux_3_0_aarch64"]
+            + ["manylinux_2_{}_aarch64".format(i) for i in range(50, 16, -1)]
+            + ["manylinux2014_aarch64", "linux_aarch64"]
+        )
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch):
@@ -521,6 +589,7 @@ class TestManylinuxPlatform:
             tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
         )
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv6l")
+        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = ["linux_armv6l"]
         assert platforms == expected
