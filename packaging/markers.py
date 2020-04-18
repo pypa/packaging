@@ -326,3 +326,9 @@ class Marker(object):
             current_environment.update(environment)
 
         return _evaluate_markers(self._markers, current_environment)
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __ne__(self, other):
+        return not self == other

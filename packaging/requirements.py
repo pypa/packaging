@@ -3,8 +3,14 @@
 # for complete details.
 from __future__ import absolute_import, division, print_function
 
+from collections import defaultdict
 import string
 import re
+
+try:
+    from collections.abc import Set
+except ImportError:
+    from collections import Set
 
 from pyparsing import stringStart, stringEnd, originalTextFor, ParseException
 from pyparsing import ZeroOrMore, Word, Optional, Regex, Combine
@@ -143,3 +149,68 @@ class Requirement(object):
     def __repr__(self):
         # type: () -> str
         return "<Requirement({0!r})>".format(str(self))
+
+    def __eq__(self, other):
+        if self.name != other.name:
+            return False
+        if self.url != other.url:
+            return False
+        if self.extras != other.extras:
+            return False
+        if self.specifier != other.specifier:
+            return False
+        if self.marker != other.marker:
+            return False
+        return True
+
+
+class Requirements(Set):
+    def __init__(self, requirements):
+        self._requirement_map = defaultdict(list)
+        for req in requirements:
+            self.add(req)
+
+    def __iter__(self):
+        for group in self._requirement_map.values():
+            for req in group:
+                yield req
+
+    def __len__(self):
+        return sum(len(group) for group in self._requirement_map.values())
+
+    def __contains__(self, item):
+        if not isinstance(item, Requirement):
+            item = Requirement(item)
+        if item.name not in self._requirement_map:
+            return False
+        for possible_match in self._requirement_map[item.name]:
+            if item.url != possible_match.url:
+                continue
+            if item.marker != possible_match.marker:
+                continue
+            if item.extras > possible_match.extras:
+                continue
+            if item.specifier != possible_match.specifier:
+                continue
+            return True
+        return False
+
+    def add(self, item):
+        if not isinstance(item, Requirement):
+            item = Requirement(item)
+        req_list = self._requirement_map[item.name]
+        if not req_list:
+            req_list.append(item)
+        else:
+            for possible_match in req_list:
+                if item.url != possible_match.url:
+                    continue
+                if item.marker != possible_match.marker:
+                    continue
+                if item.extras > possible_match.extras:
+                    possible_match.extras += item.extras
+                if item.specifier != possible_match.specifier:
+                    possible_match.specifier += item.specifier
+                break
+            else:
+                req_list.append(item)
