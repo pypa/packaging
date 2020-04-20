@@ -1234,8 +1234,7 @@ def test_aix_bgt(monkeypatch):
     result = _aix_support._aix_bgt()
     assert result == [5, 3, 7]
 
-
-# def test_aix_buildtag(monkeypatch):
+    # def test_aix_buildtag(monkeypatch):
     monkeypatch.setattr(_aix_support, "_have_subprocess", False)
     monkeypatch.setattr(sys, "maxsize", 2 ** 31 - 1)
     result = _aix_support.aix_buildtag()

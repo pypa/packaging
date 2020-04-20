@@ -1,7 +1,7 @@
 """Shared AIX support functions."""
 
 import sys
-import sysconfig
+from sysconfig import get_config_var
 
 try:
     from subprocess import check_output
@@ -12,18 +12,18 @@ except ImportError:  # pragma: no cover
     # substitures are necessary for bootstrap and CI coverage tests
     _have_subprocess = False
 
-from ._typing import MYPY_CHECK_RUNNING
+from ._typing import TYPE_CHECKING
 
 if MYPY_CHECK_RUNNING:  # pragma: no cover
     from typing import List, Tuple
 
 
-def _aix_tag(vrtl, bd):
+def _aix_tag(tl, bd):
     # type: (List[int], int) -> str
     # Infer the ABI bitwidth from maxsize (assuming 64 bit as the default)
     sz = 32 if sys.maxsize == (2 ** 31 - 1) else 64
-    # vrtl[version, release, technology_level]
-    return "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(vrtl[0], vrtl[1], vrtl[2], bd, sz)
+    # tl[version, release, technology_level]
+    return "aix-{:1x}{:1d}{:02d}-{:04d}-{}".format(tl[0], tl[1], tl[2], bd, sz)
 
 
 # extract version, release and technology level from a VRMF string
@@ -80,10 +80,10 @@ def aix_platform():
 def _aix_bgt():
     # type: () -> List[int]
     if _have_subprocess:
-        bgt = sysconfig.get_config_var("BUILD_GNU_TYPE")
+        bgt = get_config_var("BUILD_GNU_TYPE")
     else:
         bgt = "powerpc-ibm-aix6.1.7.0"
-    return _aix_vrtl(vrmf=bgt)
+    return _aix_vrtl(vrmf=str(bgt))
 
 
 def aix_buildtag():
@@ -94,10 +94,10 @@ def aix_buildtag():
     # To permit packaging to be used when the variable "AIX_BUILDDATE"
     # is not defined - return an impossible value rather than
     # raise ValueError() as Cpython Lib/_aix_support does
-    bd = sysconfig.get_config_var("AIX_BUILDDATE") if _have_subprocess else "9898"
+    bd = get_config_var("AIX_BUILDDATE") if _have_subprocess else "9898"
     try:
-        bd = int(str(bd))
+        bd = str(bd)
     except (TypeError, ValueError):
-        bd = 9898
+        bd = "9898"
 
-    return _aix_tag(_aix_bgt(), bd)
+    return _aix_tag(_aix_bgt(), int(bd))
