@@ -14,7 +14,7 @@ except ImportError:  # pragma: no cover
 
 from ._typing import TYPE_CHECKING
 
-if MYPY_CHECK_RUNNING:  # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from typing import List, Tuple
 
 
