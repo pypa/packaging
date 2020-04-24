@@ -44,6 +44,52 @@ Usage
     True
 
 
+.. note::
+
+    LegacyVersion instances are always ordered lower than Version instances.
+
+    >>> from packaging.version import Version, LegacyVersion
+    >>> v1 = Version("1.0")
+    >>> v2 = LegacyVersion("1.0")
+    >>> v1 > v2
+    True
+    >>> v3 = LegacyVersion("1.3")
+    >>> v1 > v3
+    True
+
+    Also note that some strings are still valid PEP 440 strings (Version), even if they look very similar to
+    other versions that are not (LegacyVersion). Examples include versions with `Pre-release spelling`_ and
+    `Post-release spelling`_.
+
+    >>> from packaging.version import parse
+    >>> v1 = parse('0.9.8a')
+    >>> v2 = parse('0.9.8beta')
+    >>> v3 = parse('0.9.8r')
+    >>> v4 = parse('0.9.8rev')
+    >>> v5 = parse('0.9.8t')
+    >>> v1
+    <Version('0.9.8a0')>
+    >>> v1.is_prerelease
+    True
+    >>> v2
+    <Version('0.9.8b0')>
+    >>> v2.is_prerelease
+    True
+    >>> v3
+    <Version('0.9.8.post0')>
+    >>> v3.is_postrelease
+    True
+    >>> v4
+    <Version('0.9.8.post0')>
+    >>> v4.is_postrelease
+    True
+    >>> v5
+    <LegacyVersion('0.9.8t')>
+    >>> v5.is_prerelease
+    False
+    >>> v5.is_postrelease
+    False
+
 Reference
 ---------
 
@@ -238,3 +284,5 @@ Reference
 
 
 .. _`PEP 440`: https://www.python.org/dev/peps/pep-0440/
+.. _`Pre-release spelling` : https://www.python.org/dev/peps/pep-0440/#pre-release-spelling
+.. _`Post-release spelling` : https://www.python.org/dev/peps/pep-0440/#post-release-spelling
