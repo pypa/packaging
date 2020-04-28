@@ -12,11 +12,12 @@ on:
 
 jobs:
   test:
+    name: ${{ matrix.os }} / ${{ matrix.python_version }}
     runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, windows, macOS]
+        os: [Ubuntu, Windows, macOS]
         # Python 3.4 is not available from actions/setup-python@v1.
         python_version: ['2.7', '3.5', '3.6', '3.7', '3.8', 'pypy2', 'pypy3']
         exclude:
