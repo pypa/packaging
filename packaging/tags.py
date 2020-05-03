@@ -435,19 +435,35 @@ def mac_platforms(version=None, arch=None):
             )
 
 
-# From PEP 513.
-def _is_manylinux_compatible(name, glibc_version):
-    # type: (str, GlibcVersion) -> bool
+# From PEP 513, PEP 600
+def _is_manylinux_compatible(name, arch, glibc_version):
+    # type: (str, str, GlibcVersion) -> bool
+    sys_glibc = _get_glibc_version()
+    if sys_glibc < glibc_version:
+        return False
     # Check for presence of _manylinux module.
     try:
         import _manylinux  # noqa
-
-        return bool(getattr(_manylinux, name + "_compatible"))
-    except (ImportError, AttributeError):
-        # Fall through to heuristic check below.
+    except ImportError:
         pass
-
-    return _have_compatible_glibc(*glibc_version)
+    else:
+        if hasattr(_manylinux, "manylinux_compatible"):
+            result = _manylinux.manylinux_compatible(
+                glibc_version[0], glibc_version[1], arch
+            )
+            if result is not None:
+                return bool(result)
+        else:
+            if glibc_version == (2, 5):
+                if hasattr(_manylinux, "manylinux1_compatible"):
+                    return bool(_manylinux.manylinux1_compatible)
+            if glibc_version == (2, 12):
+                if hasattr(_manylinux, "manylinux2010_compatible"):
+                    return bool(_manylinux.manylinux2010_compatible)
+            if glibc_version == (2, 17):
+                if hasattr(_manylinux, "manylinux2014_compatible"):
+                    return bool(_manylinux.manylinux2014_compatible)
+    return True
 
 
 def _glibc_version_string():
@@ -512,17 +528,9 @@ def _glibc_version_string_ctypes():
     return version_str
 
 
-# Separated out from have_compatible_glibc for easier unit testing.
-def _check_glibc_version(version_str, tag_major, tag_minor):
-    # type: (str, int, int) -> bool
-    # Check against requested version.
-    sys_major, sys_minor = _parse_glibc_version(version_str)
-    return (sys_major, sys_minor) >= (tag_major, tag_minor)
-
-
 def _parse_glibc_version(version_str):
     # type: (str) -> Tuple[int, int]
-    # Parse glibc version
+    # Parse glibc version.
     #
     # We use a regexp instead of str.split because we want to discard any
     # random junk that might come after the minor version -- this might happen
@@ -539,20 +547,19 @@ def _parse_glibc_version(version_str):
     return (int(m.group("major")), int(m.group("minor")))
 
 
-def _have_compatible_glibc(tag_major, tag_minor):
-    # type: (int, int) -> bool
-    version_str = _glibc_version_string()
-    if version_str is None:
-        return False
-    return _check_glibc_version(version_str, tag_major, tag_minor)
+_glibc_version = []  #  type: List[Tuple[int, int]]
 
 
 def _get_glibc_version():
     # type: () -> Tuple[int, int]
+    if _glibc_version:
+        return _glibc_version[0]
     version_str = _glibc_version_string()
     if version_str is None:
-        return -1, -1
-    return _parse_glibc_version(version_str)
+        _glibc_version.append((-1, -1))
+    else:
+        _glibc_version.append(_parse_glibc_version(version_str))
+    return _glibc_version[0]
 
 
 # Python does not provide platform information at sufficient granularity to
@@ -681,7 +688,6 @@ def _manylinux_tags(linux, arch):
         # On x86/i686 also oldest glibc to be supported is (2, 5).
         too_old_glibc2 = glibcVersion(2, 4)
     current_glibc = glibcVersion(*_get_glibc_version())
-    is_compat = False
     glibc_max_list = [current_glibc]
     # We can assume compatibility across glibc major versions.
     # https://sourceware.org/bugzilla/show_bug.cgi?id=24636
@@ -700,18 +706,12 @@ def _manylinux_tags(linux, arch):
         for glibc_minor in range(glibc_max.minor, min_minor, -1):
             glibc_version = (glibc_max.major, glibc_minor)
             tag = "manylinux_{}_{}".format(*glibc_version)
-            # Once _is_manylinux_compatible() is True, it is True for any
-            # lower manylinux tag for this glibc major version.
-            is_compat = is_compat or _is_manylinux_compatible(tag, glibc_version)
-            if is_compat:
+            if _is_manylinux_compatible(tag, arch, glibc_version):
                 yield linux.replace("linux", tag)
-            # Handle the manylinux1, manylinux2010, manylinux2014 tags.
+            # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.
             if glibc_version in _LEGACY_MANYLINUX_MAP:
                 legacy_tag = _LEGACY_MANYLINUX_MAP[glibc_version]
-                is_compat = is_compat or _is_manylinux_compatible(
-                    legacy_tag, glibc_version
-                )
-                if is_compat:
+                if _is_manylinux_compatible(legacy_tag, arch, glibc_version):
                     yield linux.replace("linux", legacy_tag)
 
 
