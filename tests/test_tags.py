@@ -289,23 +289,27 @@ class TestManylinuxPlatform:
         # Clear the version cache
         tags._glibc_version = []
 
-    def test_module_declaration_true(self, manylinux_module):
-        manylinux_module.manylinux1_compatible = True
-        assert tags._is_manylinux_compatible("manylinux1", "x86_64", (2, 5))
+    @pytest.mark.parametrize("tf", (True, False))
+    @pytest.mark.parametrize(
+        "attribute,glibc", (("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17)))
+    )
+    def test_module_declaration(self, manylinux_module, attribute, glibc, tf):
+        manylinux = "manylinux{}_compatible".format(attribute)
+        setattr(manylinux_module, manylinux, tf)
+        res = tags._is_manylinux_compatible(manylinux, "x86_64", glibc)
+        assert tf is res
+        delattr(manylinux_module, manylinux)
 
-    def test_module_declaration_false(self, manylinux_module):
-        manylinux_module.manylinux1_compatible = False
-        assert not tags._is_manylinux_compatible("manylinux1", "x86_64", (2, 5))
-
-    def test_module_declaration_missing_attribute(self, monkeypatch, manylinux_module):
-        oldval = getattr(manylinux_module, "manylinux1_compatible", None)
-        if oldval:
-            del manylinux_module.manylinux1_compatible
-        try:
-            assert tags._is_manylinux_compatible("manylinux1", "x86_64", (2, 5))
-        finally:
-            if oldval:
-                manylinux_module.manylinux1_compatible = oldval
+    @pytest.mark.parametrize(
+        "attribute,glibc", (("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17)))
+    )
+    def test_module_declaration_missing_attribute(
+        self, monkeypatch, manylinux_module, attribute, glibc
+    ):
+        manylinux = "manylinux{}_compatible".format(attribute)
+        if hasattr(manylinux_module, manylinux):
+            delattr(manylinux_module, manylinux)
+        assert tags._is_manylinux_compatible(manylinux, "x86_64", glibc)
 
     @pytest.mark.parametrize(
         "version,compatible", (((2, 0), True), ((2, 5), True), ((2, 10), False))
