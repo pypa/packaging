@@ -28,7 +28,15 @@ def tests(session):
     session.install("coverage<5.0.0", "pretend", "pytest", "pip>=9.0.2")
 
     if "pypy" not in session.python:
-        coverage("run", "--source", "packaging/", "-m", "pytest", "--strict")
+        coverage(
+            "run",
+            "--source",
+            "packaging/",
+            "-m",
+            "pytest",
+            "--strict",
+            *session.posargs,
+        )
         coverage("report", "-m", "--fail-under", "100")
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
