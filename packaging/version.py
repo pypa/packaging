@@ -71,6 +71,9 @@ class _BaseVersion(object):
         # type: () -> int
         return hash(self._key)
 
+    # Please keep the duplicated `isinstance` check
+    # in the six comparisons hereunder
+    # unless you find a way to avoid adding overhead function calls.
     def __lt__(self, other):
         # type: (_BaseVersion) -> bool
         if not isinstance(other, _BaseVersion):
