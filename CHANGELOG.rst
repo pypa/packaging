@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.4 - 2020-05-19
+~~~~~~~~~~~~~~~~~
 
 * Canonicalize version before comparing specifiers. (:issue:`282`)
 * Change type hint for ``canonicalize_name`` to return
