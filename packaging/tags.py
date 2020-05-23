@@ -682,7 +682,7 @@ def _have_compatible_manylinux_abi(arch):
 
 def _manylinux_tags(linux, arch):
     # type: (str, str) -> Iterator[str]
-    # Oldest glibc to be supported is (2, 17).
+    # Oldest glibc to be supported regardless of architecture is (2, 17).
     too_old_glibc2 = glibcVersion(2, 16)
     if arch in {"x86_64", "i686"}:
         # On x86/i686 also oldest glibc to be supported is (2, 5).
@@ -694,7 +694,7 @@ def _manylinux_tags(linux, arch):
     #
     # Build a list of maximum glibc versions so that we can
     # output the canonical list of all glibc from current_glibc
-    # down to too_old_glibc2, including all intermediary versions
+    # down to too_old_glibc2, including all intermediary versions.
     for glibc_major in range(current_glibc.major - 1, 1, -1):
         glibc_max_list.append(glibcVersion(glibc_major, _LAST_GLIBC_MINOR[glibc_major]))
     for glibc_max in glibc_max_list:
