@@ -293,7 +293,9 @@ class TestManylinuxPlatform:
     @pytest.mark.parametrize(
         "attribute,glibc", (("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17)))
     )
-    def test_module_declaration(self, monkeypatch, manylinux_module, attribute, glibc, tf):
+    def test_module_declaration(
+        self, monkeypatch, manylinux_module, attribute, glibc, tf
+    ):
         manylinux = "manylinux{}_compatible".format(attribute)
         monkeypatch.setattr(manylinux_module, manylinux, tf, raising=False)
         res = tags._is_manylinux_compatible(manylinux, "x86_64", glibc)
@@ -1214,7 +1216,9 @@ class TestSysTags:
     def test_skip_manylinux_2014(self, monkeypatch, manylinux_module):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_ppc64")
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 20))
-        monkeypatch.setattr(manylinux_module, 'manylinux2014_compatible', False, raising=False)
+        monkeypatch.setattr(
+            manylinux_module, "manylinux2014_compatible", False, raising=False
+        )
         expected = [
             "manylinux_2_20_ppc64",
             "manylinux_2_19_ppc64",
@@ -1262,7 +1266,12 @@ class TestSysTags:
         monkeypatch.setattr(
             distutils.util, "get_platform", lambda: "linux_{}".format(machine)
         )
-        monkeypatch.setattr(manylinux_module, 'manylinux_compatible', manylinux_compatible, raising=False)
+        monkeypatch.setattr(
+            manylinux_module,
+            "manylinux_compatible",
+            manylinux_compatible,
+            raising=False,
+        )
         platforms = list(tags._linux_platforms())
         if tf:
             expected = ["manylinux_2_22_{}".format(machine)]
@@ -1279,7 +1288,12 @@ class TestSysTags:
 
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 30))
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
-        monkeypatch.setattr(manylinux_module, 'manylinux_compatible', manylinux_compatible, raising=False)
+        monkeypatch.setattr(
+            manylinux_module,
+            "manylinux_compatible",
+            manylinux_compatible,
+            raising=False,
+        )
         platforms = list(tags._linux_platforms())
         expected = [
             "manylinux_2_30_x86_64",
