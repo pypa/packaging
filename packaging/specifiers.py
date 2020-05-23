@@ -516,12 +516,20 @@ class Specifier(_IndividualSpecifier):
     @_require_version_compare
     def _compare_less_than_equal(self, prospective, spec):
         # type: (ParsedVersion, str) -> bool
-        return prospective <= Version(spec)
+
+        # NB: Local version identifiers are NOT permitted in the version
+        # specifier, so local version labels can be universally removed from
+        # the prospective version.
+        return Version(prospective.public) <= Version(spec)
 
     @_require_version_compare
     def _compare_greater_than_equal(self, prospective, spec):
         # type: (ParsedVersion, str) -> bool
-        return prospective >= Version(spec)
+
+        # NB: Local version identifiers are NOT permitted in the version
+        # specifier, so local version labels can be universally removed from
+        # the prospective version.
+        return Version(prospective.public) >= Version(spec)
 
     @_require_version_compare
     def _compare_less_than(self, prospective, spec_str):
