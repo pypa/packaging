@@ -474,8 +474,20 @@ def _glibc_version_string_ctypes():
     # main program". This way we can let the linker do the work to figure out
     # which libc our process is actually using.
     #
-    # Note: typeshed is wrong here so we are ignoring this line.
-    process_namespace = ctypes.CDLL(None)  # type: ignore
+    # We must also handle the special case where the executable is not a
+    # dynamically linked executable. This can occur when using musl libc,
+    # for example. In this situation, dlopen() will error, leading to an
+    # OSError. Interestingly, at least in the case of musl, there is no
+    # errno set on the OSError. The single string argument used to construct
+    # OSError comes from libc itself and is therefore not portable to
+    # hard code here. In any case, failure to call dlopen() means we
+    # can proceed, so we bail on our attempt.
+    try:
+        # Note: typeshed is wrong here so we are ignoring this line.
+        process_namespace = ctypes.CDLL(None)  # type: ignore
+    except OSError:
+        return None
+
     try:
         gnu_get_libc_version = process_namespace.gnu_get_libc_version
     except AttributeError:

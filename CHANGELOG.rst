@@ -4,7 +4,8 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Handle ``OSError`` on non-dynamic executables when attempting to resolve
+  the glibc version string.
 
 20.4 - 2020-05-19
 ~~~~~~~~~~~~~~~~~

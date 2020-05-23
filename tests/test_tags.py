@@ -389,6 +389,13 @@ class TestManylinuxPlatform:
         monkeypatch.setitem(sys.modules, "ctypes", None)
         assert tags._glibc_version_string_ctypes() is None
 
+    def test_glibc_version_string_ctypes_raise_oserror(self, monkeypatch):
+        def patched_cdll(name):
+            raise OSError("Dynamic loading not supported")
+
+        monkeypatch.setattr(ctypes, "CDLL", patched_cdll)
+        assert tags._glibc_version_string_ctypes() is None
+
     def test_get_config_var_does_not_log(self, monkeypatch):
         debug = pretend.call_recorder(lambda *a: None)
         monkeypatch.setattr(tags.logger, "debug", debug)
