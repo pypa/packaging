@@ -4,6 +4,12 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Handle ``OSError`` on non-dynamic executables when attempting to resolve
+  the glibc version string.
+
+20.4 - 2020-05-19
+~~~~~~~~~~~~~~~~~
+
 * Canonicalize version before comparing specifiers. (:issue:`282`)
 * Change type hint for ``canonicalize_name`` to return
   ``packaging.utils.NormalizedName``.

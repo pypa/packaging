@@ -748,6 +748,11 @@ class TestVersion:
     def test_comparison_false(self, left, right, op):
         assert not op(Version(left), Version(right))
 
+    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
+    def test_dunder_op_returns_notimplemented(self, op):
+        method = getattr(Version, "__{0}__".format(op))
+        assert method(Version("1"), 1) is NotImplemented
+
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):
         other = pretend.stub(**{"__{0}__".format(op): lambda other: NotImplemented})
@@ -880,6 +885,11 @@ class TestLegacyVersion:
     )
     def test_comparison_false(self, left, right, op):
         assert not op(LegacyVersion(left), LegacyVersion(right))
+
+    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
+    def test_dunder_op_returns_notimplemented(self, op):
+        method = getattr(LegacyVersion, "__{0}__".format(op))
+        assert method(LegacyVersion("1"), 1) is NotImplemented
 
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):

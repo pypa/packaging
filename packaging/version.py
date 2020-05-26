@@ -71,36 +71,50 @@ class _BaseVersion(object):
         # type: () -> int
         return hash(self._key)
 
+    # Please keep the duplicated `isinstance` check
+    # in the six comparisons hereunder
+    # unless you find a way to avoid adding overhead function calls.
     def __lt__(self, other):
         # type: (_BaseVersion) -> bool
-        return self._compare(other, lambda s, o: s < o)
-
-    def __le__(self, other):
-        # type: (_BaseVersion) -> bool
-        return self._compare(other, lambda s, o: s <= o)
-
-    def __eq__(self, other):
-        # type: (object) -> bool
-        return self._compare(other, lambda s, o: s == o)
-
-    def __ge__(self, other):
-        # type: (_BaseVersion) -> bool
-        return self._compare(other, lambda s, o: s >= o)
-
-    def __gt__(self, other):
-        # type: (_BaseVersion) -> bool
-        return self._compare(other, lambda s, o: s > o)
-
-    def __ne__(self, other):
-        # type: (object) -> bool
-        return self._compare(other, lambda s, o: s != o)
-
-    def _compare(self, other, method):
-        # type: (object, VersionComparisonMethod) -> Union[bool, NotImplemented]
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
-        return method(self._key, other._key)
+        return self._key < other._key
+
+    def __le__(self, other):
+        # type: (_BaseVersion) -> bool
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return self._key <= other._key
+
+    def __eq__(self, other):
+        # type: (object) -> bool
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return self._key == other._key
+
+    def __ge__(self, other):
+        # type: (_BaseVersion) -> bool
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return self._key >= other._key
+
+    def __gt__(self, other):
+        # type: (_BaseVersion) -> bool
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return self._key > other._key
+
+    def __ne__(self, other):
+        # type: (object) -> bool
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return self._key != other._key
 
 
 class LegacyVersion(_BaseVersion):
