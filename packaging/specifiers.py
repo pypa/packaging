@@ -14,17 +14,7 @@ from .utils import canonicalize_version
 from .version import Version, LegacyVersion, parse
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import (
-        List,
-        Dict,
-        Union,
-        Iterable,
-        Iterator,
-        Optional,
-        Callable,
-        Tuple,
-        FrozenSet,
-    )
+    from typing import List, Dict, Union, Iterable, Iterator, Optional, Callable, Tuple
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
@@ -750,7 +740,7 @@ class SpecifierSet(BaseSpecifier):
         return len(self._specs)
 
     def __iter__(self):
-        # type: () -> Iterator[FrozenSet[_IndividualSpecifier]]
+        # type: () -> Iterator[_IndividualSpecifier]
         return iter(self._specs)
 
     @property
