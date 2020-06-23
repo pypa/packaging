@@ -84,13 +84,19 @@ class Tag(object):
     is also supported.
     """
 
-    __slots__ = ["_interpreter", "_abi", "_platform"]
+    __slots__ = ["_interpreter", "_abi", "_platform", "_hash"]
 
     def __init__(self, interpreter, abi, platform):
         # type: (str, str, str) -> None
         self._interpreter = interpreter.lower()
         self._abi = abi.lower()
         self._platform = platform.lower()
+        # The __hash__ of every single element in a Set[Tag] will be evaluated each time
+        # that set calls its `.disjoint()` method, which may be called hundreds of times
+        # when scanning a page of links for packages with tags matching that
+        # Set[Tag]. Pre-computing the value here produces significant speedups for
+        # downstream consumers.
+        self._hash = hash((self._interpreter, self._abi, self._platform))
 
     @property
     def interpreter(self):
@@ -120,7 +126,7 @@ class Tag(object):
 
     def __hash__(self):
         # type: () -> int
-        return hash((self._interpreter, self._abi, self._platform))
+        return self._hash
 
     def __str__(self):
         # type: () -> str
