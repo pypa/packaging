@@ -92,7 +92,7 @@ class Tag(object):
         self._abi = abi.lower()
         self._platform = platform.lower()
         # The __hash__ of every single element in a Set[Tag] will be evaluated each time
-        # that set calls its `.disjoint()` method, which may be called hundreds of times
+        # that a set calls its `.disjoint()` method, which may be called hundreds of times
         # when scanning a page of links for packages with tags matching that
         # Set[Tag]. Pre-computing the value here produces significant speedups for
         # downstream consumers.
