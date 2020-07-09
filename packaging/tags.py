@@ -389,7 +389,7 @@ def _mac_binary_formats(version, cpu_arch):
     if cpu_arch == "x86_64":
         if version < (10, 4):
             return []
-        formats.extend(["intel", "fat64", "fat32"])
+        formats.extend(["intel", "fat64", "fat32", "universal2"])
 
     elif cpu_arch == "i386":
         if version < (10, 4):
@@ -407,7 +407,12 @@ def _mac_binary_formats(version, cpu_arch):
             return []
         formats.extend(["fat32", "fat"])
 
-    formats.append("universal")
+    elif cpu_arch == "arm64":
+        formats.append("universal2")
+
+    if cpu_arch != "arm64":
+        formats.append("universal")
+
     return formats
 
 
@@ -439,6 +444,16 @@ def mac_platforms(version=None, arch=None):
                 minor=compat_version[1],
                 binary_format=binary_format,
             )
+    if version >= (11, 0) and arch == "x86_64":
+        for minor_version in range(15, 3, -1):
+            compat_version = 10, minor_version
+            binary_formats = _mac_binary_formats(compat_version, arch)
+            for binary_format in binary_formats:
+                yield "macosx_{major}_{minor}_{binary_format}".format(
+                    major=compat_version[0],
+                    minor=compat_version[1],
+                    binary_format=binary_format,
+                )
 
 
 # From PEP 513, PEP 600

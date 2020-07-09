@@ -225,8 +225,16 @@ class TestMacOSPlatforms:
     @pytest.mark.parametrize(
         "version,arch,expected",
         [
-            ((10, 17), "x86_64", ["x86_64", "intel", "fat64", "fat32", "universal"]),
-            ((10, 4), "x86_64", ["x86_64", "intel", "fat64", "fat32", "universal"]),
+            (
+                (10, 17),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
+            (
+                (10, 4),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
             ((10, 3), "x86_64", []),
             ((10, 17), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
             ((10, 4), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
@@ -271,17 +279,30 @@ class TestMacOSPlatforms:
             "macosx_10_5_intel",
             "macosx_10_5_fat64",
             "macosx_10_5_fat32",
+            "macosx_10_5_universal2",
             "macosx_10_5_universal",
             "macosx_10_4_x86_64",
             "macosx_10_4_intel",
             "macosx_10_4_fat64",
             "macosx_10_4_fat32",
+            "macosx_10_4_universal2",
             "macosx_10_4_universal",
         ]
 
-        assert len(list(tags.mac_platforms((10, 17), "x86_64"))) == 14 * 5
+        assert len(list(tags.mac_platforms((10, 17), "x86_64"))) == 14 * 6
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
+
+    def test_macos_11(self):
+        platforms = list(tags.mac_platforms((11, 0), "x86_64"))
+        assert "macosx_10_15_x86_64" in platforms
+        assert "macosx_10_4_x86_64" in platforms
+        assert "macosx_10_3_x86_64" not in platforms
+
+        platforms = list(tags.mac_platforms((11, 0), "arm64"))
+        assert "macosx_10_15_x86_64" not in platforms
+        assert "macosx_10_4_x86_64" not in platforms
+        assert "macosx_10_3_x86_64" not in platforms
 
 
 class TestManylinuxPlatform:
