@@ -14,7 +14,17 @@ from .utils import canonicalize_version
 from .version import Version, LegacyVersion, parse
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import List, Dict, Union, Iterable, Iterator, Optional, Callable, Tuple
+    from typing import (
+        List,
+        Dict,
+        Union,
+        Iterable,
+        Iterator,
+        Optional,
+        Callable,
+        Set,
+        Tuple,
+    )
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
@@ -307,7 +317,7 @@ class LegacySpecifier(_IndividualSpecifier):
 
 
 def _require_version_compare(
-    fn  # type: (Callable[[Specifier, ParsedVersion, str], bool])
+    fn,  # type: (Callable[[Specifier, ParsedVersion, str], bool])
 ):
     # type: (...) -> Callable[[Specifier, ParsedVersion, str], bool]
     @functools.wraps(fn)
@@ -651,25 +661,12 @@ def _pad_version(left, right):
     return (list(itertools.chain(*left_split)), list(itertools.chain(*right_split)))
 
 
-class SpecifierSet(BaseSpecifier):
-    def __init__(self, specifiers="", prereleases=None):
-        # type: (str, Optional[bool]) -> None
-
-        # Split on , to break each individual specifier into it's own item, and
-        # strip each item to remove leading/trailing whitespace.
-        split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
-
-        # Parsed each individual specifier, attempting first to make it a
-        # Specifier and falling back to a LegacySpecifier.
-        parsed = set()
-        for specifier in split_specifiers:
-            try:
-                parsed.add(Specifier(specifier))
-            except InvalidSpecifier:
-                parsed.add(LegacySpecifier(specifier))
+class _BaseSpecifierSet(BaseSpecifier):
+    def __init__(self, parsed_specifiers, prereleases):
+        # type: (Set[Specifier], Optional[bool]) -> None
 
         # Turn our parsed specifiers into a frozen set and save them for later.
-        self._specs = frozenset(parsed)
+        self._specs = frozenset(parsed_specifiers)
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -683,7 +680,7 @@ class SpecifierSet(BaseSpecifier):
             else ""
         )
 
-        return "<SpecifierSet({0!r}{1})>".format(str(self), pre)
+        return "<{0}({1!r}{2})>".format(self.__class__.__name__, str(self), pre)
 
     def __str__(self):
         # type: () -> str
@@ -696,11 +693,13 @@ class SpecifierSet(BaseSpecifier):
     def __and__(self, other):
         # type: (Union[SpecifierSet, str]) -> SpecifierSet
         if isinstance(other, string_types):
-            other = SpecifierSet(other)
-        elif not isinstance(other, SpecifierSet):
+            other = self.__class__(other)  # type: ignore
+        elif not isinstance(other, self.__class__):
+            # Currently, SpecifierSets and LegacySpecifierSets can't be
+            # combined.
             return NotImplemented
 
-        specifier = SpecifierSet()
+        specifier = self.__class__()  # type: ignore
         specifier._specs = frozenset(self._specs | other._specs)
 
         if self._prereleases is None and other._prereleases is not None:
@@ -711,8 +710,8 @@ class SpecifierSet(BaseSpecifier):
             specifier._prereleases = self._prereleases
         else:
             raise ValueError(
-                "Cannot combine SpecifierSets with True and False prerelease "
-                "overrides."
+                "Cannot combine {}s with True and False prerelease "
+                "overrides.".format(self.__class__.__name__)
             )
 
         return specifier
@@ -720,8 +719,8 @@ class SpecifierSet(BaseSpecifier):
     def __eq__(self, other):
         # type: (object) -> bool
         if isinstance(other, (string_types, _IndividualSpecifier)):
-            other = SpecifierSet(str(other))
-        elif not isinstance(other, SpecifierSet):
+            other = self.__class__(str(other))  # type: ignore
+        elif not isinstance(other, _BaseSpecifierSet):
             return NotImplemented
 
         return self._specs == other._specs
@@ -729,8 +728,8 @@ class SpecifierSet(BaseSpecifier):
     def __ne__(self, other):
         # type: (object) -> bool
         if isinstance(other, (string_types, _IndividualSpecifier)):
-            other = SpecifierSet(str(other))
-        elif not isinstance(other, SpecifierSet):
+            other = self.__class__(str(other))  # type: ignore
+        elif not isinstance(other, _BaseSpecifierSet):
             return NotImplemented
 
         return self._specs != other._specs
@@ -775,8 +774,7 @@ class SpecifierSet(BaseSpecifier):
         # type: (Union[ParsedVersion, str], Optional[bool]) -> bool
 
         # Ensure that our item is a Version or LegacyVersion instance.
-        if not isinstance(item, (LegacyVersion, Version)):
-            item = parse(item)
+        parsed_item = self._coerce_version(item)
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
@@ -790,14 +788,16 @@ class SpecifierSet(BaseSpecifier):
         # short circuit that here.
         # Note: This means that 1.0.dev1 would not be contained in something
         #       like >=1.0.devabc however it would be in >=1.0.debabc,>0.0.dev0
-        if not prereleases and item.is_prerelease:
+        if not prereleases and parsed_item.is_prerelease:
             return False
 
         # We simply dispatch to the underlying specs here to make sure that the
         # given version is contained within all of them.
         # Note: This use of all() here means that an empty set of specifiers
         #       will always return True, this is an explicit design decision.
-        return all(s.contains(item, prereleases=prereleases) for s in self._specs)
+        return all(
+            s.contains(parsed_item, prereleases=prereleases) for s in self._specs
+        )
 
     def filter(
         self,
@@ -823,31 +823,93 @@ class SpecifierSet(BaseSpecifier):
         # which will filter out any pre-releases, unless there are no final
         # releases, and which will filter out LegacyVersion in general.
         else:
-            filtered = []  # type: List[Union[ParsedVersion, str]]
-            found_prereleases = []  # type: List[Union[ParsedVersion, str]]
+            return self._filter_prereleases(iterable, prereleases)  # type: ignore
 
-            for item in iterable:
-                # Ensure that we some kind of Version class for this item.
-                if not isinstance(item, (LegacyVersion, Version)):
-                    parsed_version = parse(item)
-                else:
-                    parsed_version = item
 
-                # Filter out any item which is parsed as a LegacyVersion
-                if isinstance(parsed_version, LegacyVersion):
-                    continue
+class LegacySpecifierSet(_BaseSpecifierSet):
+    def __init__(self, specifiers=""):
+        # type: (str) -> None
 
-                # Store any item which is a pre-release for later unless we've
-                # already found a final version or we are accepting prereleases
-                if parsed_version.is_prerelease and not prereleases:
-                    if not filtered:
-                        found_prereleases.append(item)
-                else:
-                    filtered.append(item)
+        # Split on , to break each individual specifier into its own item, and
+        # strip each item to remove leading/trailing whitespace.
+        split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
-            # If we've found no items except for pre-releases, then we'll go
-            # ahead and use the pre-releases
-            if not filtered and found_prereleases and prereleases is None:
-                return found_prereleases
+        # Parsed each individual specifier as a LegacySpecifier.
+        parsed = set(LegacySpecifier(specifier) for specifier in split_specifiers)
 
-            return filtered
+        super(LegacySpecifierSet, self).__init__(parsed, None)
+
+    def _coerce_version(self, version):
+        # type: (UnparsedVersion) -> ParsedVersion
+        if not isinstance(version, (LegacyVersion, Version)):
+            version = LegacyVersion(version)
+        return version
+
+    def _filter_prereleases(
+        self,
+        iterable,  # type: Iterable[Union[ParsedVersion, str]]
+        prereleases,  # type: bool
+    ):
+        # type: (...) -> Iterable[Union[ParsedVersion, str]]
+
+        # Note: We ignore prereleases, since LegacyVersions are never
+        # prereleases, and only have that field for compatibility.
+        return iterable
+
+
+class SpecifierSet(_BaseSpecifierSet):
+    def __init__(self, specifiers="", prereleases=None):
+        # type: (str, Optional[bool]) -> None
+
+        # Split on , to break each individual specifier into its own item, and
+        # strip each item to remove leading/trailing whitespace.
+        split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
+
+        # Parsed each individual specifier, attempting first to make it a
+        # Specifier and falling back to a LegacySpecifier.
+        parsed = set()
+        for specifier in split_specifiers:
+            try:
+                parsed.add(Specifier(specifier))
+            except InvalidSpecifier:
+                parsed.add(LegacySpecifier(specifier))
+
+        super(SpecifierSet, self).__init__(parsed, prereleases)
+
+    def _coerce_version(self, version):
+        # type: (UnparsedVersion) -> ParsedVersion
+        if not isinstance(version, (LegacyVersion, Version)):
+            version = parse(version)
+        return version
+
+    def _filter_prereleases(
+        self,
+        iterable,  # type: Iterable[Union[ParsedVersion, str]]
+        prereleases,  # type: bool
+    ):
+        # type: (...) -> Iterable[Union[ParsedVersion, str]]
+        filtered = []  # type: List[Union[ParsedVersion, str]]
+        found_prereleases = []  # type: List[Union[ParsedVersion, str]]
+
+        for item in iterable:
+            # Ensure that we some kind of Version class for this item.
+            parsed_version = self._coerce_version(item)
+
+            # Filter out any item which is parsed as a LegacyVersion
+            if isinstance(parsed_version, LegacyVersion):
+                continue
+
+            # Store any item which is a pre-release for later unless we've
+            # already found a final version or we are accepting prereleases
+            if parsed_version.is_prerelease and not prereleases:
+                if not filtered:
+                    found_prereleases.append(item)
+            else:
+                filtered.append(item)
+
+        # If we've found no items except for pre-releases, then we'll go
+        # ahead and use the pre-releases
+        if not filtered and found_prereleases and prereleases is None:
+            return found_prereleases
+
+        return filtered

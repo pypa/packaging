@@ -11,6 +11,7 @@ import pytest
 from packaging.specifiers import (
     InvalidSpecifier,
     LegacySpecifier,
+    LegacySpecifierSet,
     Specifier,
     SpecifierSet,
 )
@@ -990,3 +991,129 @@ class TestSpecifierSet:
     )
     def test_comparison_ignores_local(self, version, specifier, expected):
         assert (Version(version) in SpecifierSet(specifier)) == expected
+
+
+class TestLegacySpecifierSet:
+    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    def test_empty_specifier(self, version):
+        spec = LegacySpecifierSet()
+
+        assert version in spec
+        assert spec.contains(version)
+        assert LegacyVersion(version) in spec
+        assert spec.contains(LegacyVersion(version))
+
+    @pytest.mark.parametrize(
+        ("specifier", "prereleases", "input", "expected"),
+        [
+            # General test of the filter method
+            ("", None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0.dev1", None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", None, ["1.0a1"], ["1.0a1"]),
+            ("", None, ["1.0", LegacyVersion("2.0")], ["1.0", LegacyVersion("2.0")]),
+            ("", None, ["2.0dog", "1.0"], ["2.0dog", "1.0"]),
+            # Test overriding with the prereleases parameter on filter
+            ("", False, ["1.0a1"], ["1.0a1"]),
+            (">=1.0.dev1", False, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            ("", True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+        ],
+    )
+    def test_specifier_filter(self, specifier, prereleases, input, expected):
+        spec = LegacySpecifierSet(specifier)
+
+        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+
+        assert list(spec.filter(input, **kwargs)) == expected
+
+    def test_legacy_specifiers_combined(self):
+        spec = LegacySpecifierSet("<3,>1-1-1")
+        assert "2.0" in spec
+
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [
+            # Single item specifiers should just be reflexive
+            ("!=2.0", "!=2.0"),
+            ("<2.0", "<2.0"),
+            ("<=2.0", "<=2.0"),
+            ("==2.0", "==2.0"),
+            (">2.0", ">2.0"),
+            (">=2.0", ">=2.0"),
+            # Spaces should be removed
+            ("< 2", "<2"),
+            # Multiple item specifiers should work
+            ("!=2.0,>1.0", "!=2.0,>1.0"),
+            ("!=2.0 ,>1.0", "!=2.0,>1.0"),
+        ],
+    )
+    def test_specifiers_str_and_repr(self, specifier, expected):
+        spec = LegacySpecifierSet(specifier)
+
+        assert str(spec) == expected
+        assert repr(spec) == "<LegacySpecifierSet({0})>".format(repr(expected))
+
+    @pytest.mark.parametrize("specifier", LEGACY_SPECIFIERS)
+    def test_specifiers_hash(self, specifier):
+        assert hash(LegacySpecifierSet(specifier)) == hash(
+            LegacySpecifierSet(specifier)
+        )
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"), [(">2.0", "<5.0", ">2.0,<5.0")]
+    )
+    def test_specifiers_combine(self, left, right, expected):
+        result = LegacySpecifierSet(left) & LegacySpecifierSet(right)
+        assert result == LegacySpecifierSet(expected)
+
+        result = LegacySpecifierSet(left) & right
+        assert result == LegacySpecifierSet(expected)
+
+    def test_specifiers_combine_not_implemented(self):
+        with pytest.raises(TypeError):
+            SpecifierSet() & 12
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the equal (==) operator works correctly
+            [[(x, x, operator.eq) for x in LEGACY_SPECIFIERS]]
+            +
+            # Verify that the not equal (!=) operator works correctly
+            [
+                [(x, y, operator.ne) for j, y in enumerate(LEGACY_SPECIFIERS) if i != j]
+                for i, x in enumerate(LEGACY_SPECIFIERS)
+            ]
+        ),
+    )
+    def test_comparison_true(self, left, right, op):
+        assert op(LegacySpecifierSet(left), LegacySpecifierSet(right))
+        assert op(LegacySpecifierSet(left), LegacySpecifier(right))
+        assert op(LegacySpecifier(left), LegacySpecifierSet(right))
+        assert op(left, LegacySpecifierSet(right))
+        assert op(LegacySpecifierSet(left), right)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "op"),
+        itertools.chain(
+            *
+            # Verify that the not equal (!=) operator works correctly
+            [[(x, x, operator.ne) for x in LEGACY_SPECIFIERS]]
+            +
+            # Verify that the equal (==) operator works correctly
+            [
+                [(x, y, operator.eq) for j, y in enumerate(LEGACY_SPECIFIERS) if i != j]
+                for i, x in enumerate(LEGACY_SPECIFIERS)
+            ]
+        ),
+    )
+    def test_comparison_false(self, left, right, op):
+        assert not op(LegacySpecifierSet(left), LegacySpecifierSet(right))
+        assert not op(LegacySpecifierSet(left), LegacySpecifier(right))
+        assert not op(LegacySpecifier(left), LegacySpecifierSet(right))
+        assert not op(left, LegacySpecifierSet(right))
+        assert not op(LegacySpecifierSet(left), right)
+
+    def test_comparison_non_specifier(self):
+        assert LegacySpecifierSet("==1.0") != 12
+        assert not LegacySpecifierSet("==1.0") == 12

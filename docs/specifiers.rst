@@ -53,7 +53,7 @@ Reference
     This class abstracts handling specifying the dependencies of a project. It
     can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all. Each individual
-    specifier be attempted to be parsed as a PEP 440 specifier
+    specifier will be attempted to be parsed as a PEP 440 specifier
     (:class:`Specifier`) or as a legacy, setuptools style specifier
     (:class:`LegacySpecifier`). You may combine :class:`SpecifierSet` instances
     using the ``&`` operator (``SpecifierSet(">2") & SpecifierSet("<4")``).
@@ -126,6 +126,50 @@ Reference
         specifier, the ``Specifier().prereleases`` value, and the PEP 440
         rules. Otherwise it will act as a boolean which will enable or disable
         all prerelease versions from being included.
+
+
+.. class:: LegacySpecifierSet(specifier)
+
+    This class abstracts the handling of a set of legacy, setuptools style
+    specifiers.  It can be passed a single specifier (``>=3.0``), a
+    comma-separated list of specifiers (``>=3.0,!=3.1``), or no specifier at
+    all. Each individual specifier will be parsed as a
+    (:class:`LegacySpecifier`). You may combine :class:`LegacySpecifierSet`
+    instances using the ``&`` operator
+    (``LegacySpecifierSet(">2") & LegacySpecifierSet("<4")``).
+
+    Both the membership tests and the combination support using raw strings
+    in place of already instantiated objects.
+
+    :param str specifiers: The string representation of a specifier or a
+                           comma-separated list of specifiers which will
+                           be parsed and normalized before use.
+    :raises InvalidSpecifier: If the given ``specifiers`` are not parseable
+                              than this exception will be raised.
+
+    .. attribute:: prereleases
+
+        See :attr:`SpecifierSet.prereleases`.
+
+    .. method:: __contains__(version)
+
+        See :meth:`SpecifierSet.__contains__()`.
+
+    .. method:: contains(version, prereleases=None)
+
+        See :meth:`SpecifierSet.contains()`.
+
+    .. method:: __len__()
+
+        See :meth:`SpecifierSet.__len__()`.
+
+   .. method:: __iter__()
+
+        See :meth:`SpecifierSet.__iter__()`.
+
+    .. method:: filter(iterable, prereleases=None)
+
+        See :meth:`SpecifierSet.filter()`.
 
 
 .. class:: Specifier(specifier, prereleases=None)
