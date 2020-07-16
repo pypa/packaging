@@ -4,7 +4,7 @@ Tags
 .. currentmodule:: packaging.tags
 
 Wheels encode the Python interpreter, ABI, and platform that they support in
-their filenames using *`platform compatibility tags`_*. This module provides
+their filenames using `platform compatibility tags`_. This module provides
 support for both parsing these tags as well as discovering what tags the
 running Python interpreter supports.
 
