@@ -110,8 +110,8 @@ Reference
 
     .. method:: filter(iterable, prereleases=None)
 
-        Takes an iterable that can contain version strings, :class:`Version`,
-        and :class:`LegacyVersion` instances and will then filter it, returning
+        Takes an iterable that can contain version strings, :class:`~.Version`,
+        and :class:`~.LegacyVersion` instances and will then filter it, returning
         an iterable that contains only items which match the rules of this
         specifier object.
 
