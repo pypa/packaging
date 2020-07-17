@@ -3,7 +3,7 @@ Specifiers
 
 .. currentmodule:: packaging.specifiers
 
-A core requirement of dealing with dependency is the ability to specify what
+A core requirement of dealing with dependencies is the ability to specify what
 versions of a dependency are acceptable for you. `PEP 440`_ defines the
 standard specifier scheme which has been implemented by this module.
 
