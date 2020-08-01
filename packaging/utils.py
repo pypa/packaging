@@ -24,7 +24,7 @@ def canonicalize_name(name):
 
 
 def canonicalize_version(version):
-    # type: (Union[Version, str]) -> str
+    # type: (Union[Version, str]) -> Union[Version, str]
     """
     This is very similar to Version.__str__, but has one subtle difference
     with the way it handles the release segment.
@@ -34,7 +34,7 @@ def canonicalize_version(version):
             version = Version(version)
         except InvalidVersion:
             # Legacy versions cannot be normalized
-            return _version
+            return version
 
     parts = []
 
