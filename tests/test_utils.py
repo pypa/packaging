@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 import pytest
 
 from packaging.utils import canonicalize_name, canonicalize_version
+from packaging.version import Version
 
 
 @pytest.mark.parametrize(
@@ -30,6 +31,7 @@ def test_canonicalize_name(name, expected):
 @pytest.mark.parametrize(
     ("version", "expected"),
     [
+        (Version("1.4.0"), "1.4"),
         ("1.4.0", "1.4"),
         ("1.40.0", "1.40"),
         ("1.4.0.0.00.000.0000", "1.4"),
