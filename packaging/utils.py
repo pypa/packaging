@@ -12,6 +12,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from typing import NewType, Union
 
     NormalizedName = NewType("NormalizedName", str)
+else:
+    NormalizedName = str
 
 _canonicalize_regex = re.compile(r"[-_.]+")
 
