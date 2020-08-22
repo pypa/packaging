@@ -26,7 +26,8 @@ def tests(session):
         session.run("python", "-m", "coverage", *args)
 
     session.install("coverage<5.0.0", "pretend", "pytest", "pip>=9.0.2")
-
+    session.install("typing_extensions")
+    
     if "pypy" not in session.python:
         coverage(
             "run",

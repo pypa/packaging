@@ -8,6 +8,7 @@ include .pre-commit-config.yaml
 recursive-include docs *
 recursive-include tests *.py
 recursive-include tests hello-world-*
+recursive-include packaging *.py
 
 exclude noxfile.py
 exclude .travis.yml
