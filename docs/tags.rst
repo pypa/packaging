@@ -33,11 +33,11 @@ Usage
 Reference
 ---------
 
-.. attribute:: INTERPRETER_SHORT_NAMES
+High Level Interface
+''''''''''''''''''''
 
-    A dictionary mapping interpreter names to their `abbreviation codes`_
-    (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
-
+The following functions are the main interface to the library, and are typically the only
+items that applications should need to reference, in order to parse and check tags.
 
 .. class:: Tag(interpreter, abi, platform)
 
@@ -97,6 +97,25 @@ Reference
     and tag calculation happens to be expensive.
 
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+
+Low Level Interface
+'''''''''''''''''''
+
+The following functions are low-level implementation details. They should typically not
+be needed in application code, unless the application has specialised requirements (for
+example, constructing sets of supported tags for environments other than the running
+interpreter).
+
+These functions capture the precise details of which environments support which tags. That
+information is not defined in the compatibility tag standards but is noted as being up
+to the implementation to provide.
+
+
+.. attribute:: INTERPRETER_SHORT_NAMES
+
+    A dictionary mapping interpreter names to their `abbreviation codes`_
+    (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
 
 
 .. function:: interpreter_name()
