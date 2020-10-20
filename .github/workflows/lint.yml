@@ -19,7 +19,7 @@ jobs:
     - uses: actions/setup-python@v1
       name: Install Python
       with:
-        python-version: '3.8'
+        python-version: '3.9'
 
     - name: Install dependencies
       run: |
@@ -44,7 +44,7 @@ jobs:
     - uses: actions/setup-python@v1
       name: Install Python
       with:
-        python-version: '3.8'
+        python-version: '3.9'
 
     - name: Install dependencies
       run: python -m pip install --upgrade setuptools wheel
