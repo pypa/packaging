@@ -51,7 +51,7 @@ Reference
 
     This function takes a version string and will parse it as a
     :class:`Version` if the version is a valid PEP 440 version, otherwise it
-    will parse it as a :class:`LegacyVersion`.
+    will parse it as a deprecated :class:`LegacyVersion`.
 
 
 .. class:: Version(version)
@@ -139,6 +139,10 @@ Reference
 
 
 .. class:: LegacyVersion(version)
+
+    .. deprecated:: 20.5
+
+        Use :class:`Version` instead.
 
     This class abstracts handling of a project's versions if they are not
     compatible with the scheme defined in `PEP 440`_. It implements a similar

@@ -7,6 +7,7 @@ import abc
 import functools
 import itertools
 import re
+import warnings
 
 from ._compat import string_types, with_metaclass
 from ._typing import TYPE_CHECKING
@@ -275,6 +276,16 @@ class LegacySpecifier(_IndividualSpecifier):
         ">": "greater_than",
     }
 
+    def __init__(self, spec="", prereleases=None):
+        # type: (str, Optional[bool]) -> None
+        super(LegacySpecifier, self).__init__(spec, prereleases)
+
+        warnings.warn(
+            "Creating a LegacyVersion has been deprecated and will be "
+            "removed in the next major release",
+            DeprecationWarning,
+        )
+
     def _coerce_version(self, version):
         # type: (Union[ParsedVersion, str]) -> LegacyVersion
         if not isinstance(version, LegacyVersion):
@@ -307,7 +318,7 @@ class LegacySpecifier(_IndividualSpecifier):
 
 
 def _require_version_compare(
-    fn  # type: (Callable[[Specifier, ParsedVersion, str], bool])
+    fn,  # type: (Callable[[Specifier, ParsedVersion, str], bool])
 ):
     # type: (...) -> Callable[[Specifier, ParsedVersion, str], bool]
     @functools.wraps(fn)

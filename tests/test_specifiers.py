@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
+import warnings
 
 import pytest
 
@@ -632,6 +633,12 @@ class TestSpecifier:
 
 
 class TestLegacySpecifier:
+    def test_legacy_specifier_is_deprecated(self):
+        with warnings.catch_warnings(record=True) as w:
+            LegacySpecifier(">=some-legacy-version")
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+
     @pytest.mark.parametrize(
         ("version", "spec", "expected"),
         [
