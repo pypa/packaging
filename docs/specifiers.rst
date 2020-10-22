@@ -53,10 +53,11 @@ Reference
     This class abstracts handling specifying the dependencies of a project. It
     can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all. Each individual
-    specifier be attempted to be parsed as a PEP 440 specifier
+    specifier will be attempted to be parsed as a PEP 440 specifier
     (:class:`Specifier`) or as a legacy, setuptools style specifier
-    (:class:`LegacySpecifier`). You may combine :class:`SpecifierSet` instances
-    using the ``&`` operator (``SpecifierSet(">2") & SpecifierSet("<4")``).
+    (deprecated :class:`LegacySpecifier`). You may combine
+    :class:`SpecifierSet` instances using the ``&`` operator
+    (``SpecifierSet(">2") & SpecifierSet("<4")``).
 
     Both the membership tests and the combination support using raw strings
     in place of already instantiated objects.
@@ -90,8 +91,8 @@ Reference
     .. method:: contains(version, prereleases=None)
 
         Determines if ``version``, which can be either a version string, a
-        :class:`Version`, or a :class:`LegacyVersion` object, is contained
-        within this set of specifiers.
+        :class:`Version`, or a deprecated :class:`LegacyVersion` object, is
+        contained within this set of specifiers.
 
         This will either match or not match prereleases based on the
         ``prereleases`` parameter. When ``prereleases`` is set to ``None``
@@ -105,15 +106,15 @@ Reference
 
     .. method:: __iter__()
 
-        Returns an iterator over all the underlying :class:`Specifier`
-        (or :class:`LegacySpecifier`) instances in this specifier set.
+        Returns an iterator over all the underlying :class:`Specifier` (or
+        deprecated :class:`LegacySpecifier`) instances in this specifier set.
 
     .. method:: filter(iterable, prereleases=None)
 
         Takes an iterable that can contain version strings, :class:`~.Version`,
-        and :class:`~.LegacyVersion` instances and will then filter it, returning
-        an iterable that contains only items which match the rules of this
-        specifier object.
+        and deprecated :class:`~.LegacyVersion` instances and will then filter
+        it, returning an iterable that contains only items which match the
+        rules of this specifier object.
 
         This method is smarter than just
         ``filter(Specifier().contains, [...])`` because it implements the rule
@@ -169,6 +170,10 @@ Reference
 
 
 .. class:: LegacySpecifier(specifier, prereleases=None)
+
+    .. deprecated:: 20.5
+
+        Use :class:`Specifier` instead.
 
     This class abstracts the handling of a single legacy, setuptools style
     specifier. It is generally not required to instantiate this manually,

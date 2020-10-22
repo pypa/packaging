@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 import collections
 import itertools
 import re
+import warnings
 
 from ._structures import Infinity, NegativeInfinity
 from ._typing import TYPE_CHECKING
@@ -122,6 +123,12 @@ class LegacyVersion(_BaseVersion):
         # type: (str) -> None
         self._version = str(version)
         self._key = _legacy_cmpkey(self._version)
+
+        warnings.warn(
+            "Creating a LegacyVersion has been deprecated and will be "
+            "removed in the next major release",
+            DeprecationWarning,
+        )
 
     def __str__(self):
         # type: () -> str

@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
+import warnings
 
 import pretend
 import pytest
@@ -780,6 +781,12 @@ LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 
 
 class TestLegacyVersion:
+    def test_legacy_version_is_deprecated(self):
+        with warnings.catch_warnings(record=True) as w:
+            LegacyVersion("some-legacy-version")
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_valid_legacy_versions(self, version):
         LegacyVersion(version)
