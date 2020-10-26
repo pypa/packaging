@@ -247,7 +247,13 @@ class TestMacOSPlatforms:
             ((10, 7), "ppc", []),
             ((10, 6), "ppc", ["ppc", "fat32", "fat", "universal"]),
             ((10, 0), "ppc", ["ppc", "fat32", "fat", "universal"]),
-            ((11, 0), "riscv", ["riscv", "universal"]),
+            ((11, 0), "riscv", ["riscv"]),
+            (
+                (11, 0),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
+            ((11, 0), "arm64", ["arm64", "universal2"]),
         ],
     )
     def test_binary_formats(self, version, arch, expected):

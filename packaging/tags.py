@@ -410,7 +410,7 @@ def _mac_binary_formats(version, cpu_arch):
     elif cpu_arch == "arm64":
         formats.append("universal2")
 
-    if cpu_arch != "arm64":
+    if cpu_arch in {"x86_64", "i386", "ppc64", "ppc"}:
         formats.append("universal")
 
     return formats
