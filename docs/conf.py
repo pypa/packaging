@@ -53,9 +53,6 @@ copyright = about["__copyright__"]
 # directories to ignore when looking for source files.
 exclude_patterns = ["_build"]
 
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
-
 extlinks = {
     "issue": ("https://github.com/pypa/packaging/issues/%s", "#"),
     "pull": ("https://github.com/pypa/packaging/pull/%s", "PR #"),
