@@ -10,7 +10,6 @@ sphinx:
 python:
   version: 3.8
   install:
-    - method: pip
-      path: furo
+    - requirements: docs/requirements.txt
     - method: pip
       path: .
