@@ -10,6 +10,7 @@ recursive-include tests *.py
 recursive-include tests hello-world-*
 
 exclude noxfile.py
+exclude .readthedocs.yml
 exclude .travis.yml
 exclude dev-requirements.txt
 exclude tests/build-hello-world.sh
