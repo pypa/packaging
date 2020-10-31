@@ -1,7 +1,16 @@
 packaging
 =========
 
-Core utilities for Python packages.
+.. start-intro
+
+Reusable core utilities for various Python Packaging
+`interoperability specifications <https://packaging.python.org/specifications/>`_.
+
+This library provides utilities that implement the interoperability
+specifications which have clearly one correct behaviour (eg: :pep:`440`)
+or benefit greatly from having a single shared implementation (eg: :pep:`425`).
+
+.. end-intro
 
 The ``packaging`` project includes the following: version handling, specifiers,
 markers, requirements, tags, utilities.

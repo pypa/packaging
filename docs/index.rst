@@ -1,7 +1,9 @@
 Welcome to packaging
 ====================
 
-Core utilities for Python packages
+.. include:: ../README.rst
+   :start-after: start-intro
+   :end-before: end-intro
 
 
 Installation
