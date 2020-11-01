@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
+import warnings
 
 import pretend
 import pytest
@@ -748,6 +749,11 @@ class TestVersion:
     def test_comparison_false(self, left, right, op):
         assert not op(Version(left), Version(right))
 
+    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
+    def test_dunder_op_returns_notimplemented(self, op):
+        method = getattr(Version, "__{0}__".format(op))
+        assert method(Version("1"), 1) is NotImplemented
+
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):
         other = pretend.stub(**{"__{0}__".format(op): lambda other: NotImplemented})
@@ -775,6 +781,12 @@ LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
 
 
 class TestLegacyVersion:
+    def test_legacy_version_is_deprecated(self):
+        with warnings.catch_warnings(record=True) as w:
+            LegacyVersion("some-legacy-version")
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+
     @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
     def test_valid_legacy_versions(self, version):
         LegacyVersion(version)
@@ -880,6 +892,11 @@ class TestLegacyVersion:
     )
     def test_comparison_false(self, left, right, op):
         assert not op(LegacyVersion(left), LegacyVersion(right))
+
+    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
+    def test_dunder_op_returns_notimplemented(self, op):
+        method = getattr(LegacyVersion, "__{0}__".format(op))
+        assert method(LegacyVersion("1"), 1) is NotImplemented
 
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
     def test_compare_other(self, op, expected):

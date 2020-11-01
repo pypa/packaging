@@ -75,11 +75,11 @@ Reference
 
     .. attribute:: specifier
 
-      A :class:`SpecifierSet` of the version specified by the requirement.
+      A :class:`~.SpecifierSet` of the version specified by the requirement.
 
     .. attribute:: marker
 
-      A :class:`Marker` of the marker for the requirement. Can be None.
+      A :class:`~.Marker` of the marker for the requirement. Can be None.
 
 .. exception:: InvalidRequirement
 

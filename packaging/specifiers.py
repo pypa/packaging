@@ -7,6 +7,7 @@ import abc
 import functools
 import itertools
 import re
+import warnings
 
 from ._compat import string_types, with_metaclass
 from ._typing import TYPE_CHECKING
@@ -14,17 +15,7 @@ from .utils import canonicalize_version
 from .version import Version, LegacyVersion, parse
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import (
-        List,
-        Dict,
-        Union,
-        Iterable,
-        Iterator,
-        Optional,
-        Callable,
-        Tuple,
-        FrozenSet,
-    )
+    from typing import List, Dict, Union, Iterable, Iterator, Optional, Callable, Tuple
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
@@ -285,6 +276,16 @@ class LegacySpecifier(_IndividualSpecifier):
         ">": "greater_than",
     }
 
+    def __init__(self, spec="", prereleases=None):
+        # type: (str, Optional[bool]) -> None
+        super(LegacySpecifier, self).__init__(spec, prereleases)
+
+        warnings.warn(
+            "Creating a LegacyVersion has been deprecated and will be "
+            "removed in the next major release",
+            DeprecationWarning,
+        )
+
     def _coerce_version(self, version):
         # type: (Union[ParsedVersion, str]) -> LegacyVersion
         if not isinstance(version, LegacyVersion):
@@ -317,7 +318,7 @@ class LegacySpecifier(_IndividualSpecifier):
 
 
 def _require_version_compare(
-    fn  # type: (Callable[[Specifier, ParsedVersion, str], bool])
+    fn,  # type: (Callable[[Specifier, ParsedVersion, str], bool])
 ):
     # type: (...) -> Callable[[Specifier, ParsedVersion, str], bool]
     @functools.wraps(fn)
@@ -516,12 +517,20 @@ class Specifier(_IndividualSpecifier):
     @_require_version_compare
     def _compare_less_than_equal(self, prospective, spec):
         # type: (ParsedVersion, str) -> bool
-        return prospective <= Version(spec)
+
+        # NB: Local version identifiers are NOT permitted in the version
+        # specifier, so local version labels can be universally removed from
+        # the prospective version.
+        return Version(prospective.public) <= Version(spec)
 
     @_require_version_compare
     def _compare_greater_than_equal(self, prospective, spec):
         # type: (ParsedVersion, str) -> bool
-        return prospective >= Version(spec)
+
+        # NB: Local version identifiers are NOT permitted in the version
+        # specifier, so local version labels can be universally removed from
+        # the prospective version.
+        return Version(prospective.public) >= Version(spec)
 
     @_require_version_compare
     def _compare_less_than(self, prospective, spec_str):
@@ -742,7 +751,7 @@ class SpecifierSet(BaseSpecifier):
         return len(self._specs)
 
     def __iter__(self):
-        # type: () -> Iterator[FrozenSet[_IndividualSpecifier]]
+        # type: () -> Iterator[_IndividualSpecifier]
         return iter(self._specs)
 
     @property
