@@ -1213,6 +1213,7 @@ class TestSysTags:
         )
         assert result[-1] == expected
         
+
 def test_aix_platform_notpep425_ready(monkeypatch):
     if platform.system() != "AIX":
         monkeypatch.setattr(
@@ -1310,103 +1311,3 @@ def test_aix_bgt(monkeypatch):
     monkeypatch.setattr(sysconfig, "get_config_var", lambda key: "0747")
     result = _aix_support.aix_buildtag()
     assert result == "aix-5307-0747-64"
-=======
-    def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch, manylinux_module):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv6l")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
-        platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["linux_armv6l"]
-        assert platforms == expected
-
-    def test_skip_manylinux_2014(self, monkeypatch, manylinux_module):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_ppc64")
-        monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 20))
-        monkeypatch.setattr(
-            manylinux_module, "manylinux2014_compatible", False, raising=False
-        )
-        expected = [
-            "manylinux_2_20_ppc64",
-            "manylinux_2_19_ppc64",
-            "manylinux_2_18_ppc64",
-            # "manylinux2014_ppc64",  # this one is skipped
-            # "manylinux_2_17_ppc64", # this one is also skipped
-            "linux_ppc64",
-        ]
-        platforms = list(tags._linux_platforms())
-        assert platforms == expected
-
-    @pytest.mark.parametrize(
-        "machine, abi, alt_machine",
-        [("x86_64", "x32", "i686"), ("armv7l", "armel", "armv7l")],
-    )
-    def test_linux_platforms_not_manylinux_abi(
-        self, monkeypatch, manylinux_module, machine, abi, alt_machine
-    ):
-        monkeypatch.setattr(
-            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
-        )
-        monkeypatch.setattr(
-            sys,
-            "executable",
-            os.path.join(
-                os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
-            ),
-        )
-        platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["linux_{}".format(alt_machine)]
-        assert platforms == expected
-
-    @pytest.mark.parametrize(
-        "machine, major, minor, tf", [("x86_64", 2, 20, False), ("s390x", 2, 22, True)]
-    )
-    def test_linux_use_manylinux_compatible(
-        self, monkeypatch, manylinux_module, machine, major, minor, tf
-    ):
-        def manylinux_compatible(tag_major, tag_minor, tag_arch):
-            if tag_major == 2 and tag_minor == 22:
-                return tag_arch == "s390x"
-            return False
-
-        monkeypatch.setattr(tags, "_get_glibc_version", lambda: (major, minor))
-        monkeypatch.setattr(
-            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
-        )
-        monkeypatch.setattr(
-            manylinux_module,
-            "manylinux_compatible",
-            manylinux_compatible,
-            raising=False,
-        )
-        platforms = list(tags._linux_platforms())
-        if tf:
-            expected = ["manylinux_2_22_{}".format(machine)]
-        else:
-            expected = []
-        expected.append("linux_{}".format(machine))
-        assert platforms == expected
-
-    def test_linux_use_manylinux_compatible_none(self, monkeypatch, manylinux_module):
-        def manylinux_compatible(tag_major, tag_minor, tag_arch):
-            if tag_major == 2 and tag_minor < 25:
-                return False
-            return None
-
-        monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 30))
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
-        monkeypatch.setattr(
-            manylinux_module,
-            "manylinux_compatible",
-            manylinux_compatible,
-            raising=False,
-        )
-        platforms = list(tags._linux_platforms())
-        expected = [
-            "manylinux_2_30_x86_64",
-            "manylinux_2_29_x86_64",
-            "manylinux_2_28_x86_64",
-            "manylinux_2_27_x86_64",
-            "manylinux_2_26_x86_64",
-            "manylinux_2_25_x86_64",
-            "linux_x86_64",
-        ]
-        assert platforms == expected
