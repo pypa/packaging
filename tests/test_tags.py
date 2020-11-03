@@ -1212,7 +1212,7 @@ class TestSysTags:
             "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
         assert result[-1] == expected
-        
+
 
 def test_aix_platform_notpep425_ready(monkeypatch):
     if platform.system() != "AIX":
