@@ -779,12 +779,13 @@ def _manylinux_tags(linux, arch):
 
 def _get_host_platform():
     # type: () -> str
-    """Return a string that identifies the current platform.  This is used mainly to
-    distinguish platform-specific build directories and platform-specific built
-    distributions.  Typically includes the OS name and version and the
-    architecture (as supplied by 'os.uname()'), although the exact information
-    included depends on the OS; eg. on Linux, the kernel version isn't
-    particularly important.
+    """Return a string that identifies the current platform.
+
+    This is used mainly to distinguish platform-specific build directories and
+    platform-specific built distributions. Typically includes the OS name and
+    version and the architecture (as supplied by 'os.uname()'), although the
+    exact information included depends on the OS; eg. on Linux, the kernel
+    version isn't particularly important.
 
     Examples of returned values:
        linux-i586
@@ -796,22 +797,21 @@ def _get_host_platform():
        win32 (all others - specifically, sys.platform is returned)
 
     For other non-POSIX platforms, currently just returns 'sys.platform'.
-
     """
-    if os.name == 'nt':
-        if 'amd64' in sys.version.lower():
-            return 'win-amd64'
-        if '(arm)' in sys.version.lower():
-            return 'win-arm32'
-        if '(arm64)' in sys.version.lower():
-            return 'win-arm64'
+    if os.name == "nt":
+        if "amd64" in sys.version.lower():
+            return "win-amd64"
+        if "(arm)" in sys.version.lower():
+            return "win-arm32"
+        if "(arm64)" in sys.version.lower():
+            return "win-arm64"
         return sys.platform
 
     # Set for cross builds explicitly
     if "_PYTHON_HOST_PLATFORM" in os.environ:
         return os.environ["_PYTHON_HOST_PLATFORM"]
 
-    if os.name != "posix" or not hasattr(os, 'uname'):
+    if os.name != "posix" or not hasattr(os, "uname"):
         # XXX what about the architecture? NT is Intel or Alpha,
         # Mac OS is M68k or PPC, etc.
         return sys.platform
@@ -822,43 +822,43 @@ def _get_host_platform():
 
     # Convert the OS name to lowercase, remove '/' characters, and translate
     # spaces (for "Power Macintosh")
-    osname = osname.lower().replace('/', '')
-    machine = machine.replace(' ', '_')
-    machine = machine.replace('/', '-')
+    osname = osname.lower().replace("/", "")
+    machine = machine.replace(" ", "_")
+    machine = machine.replace("/", "-")
 
     if osname[:5] == "linux":
-        # At least on Linux/Intel, 'machine' is the processor --
-        # i386, etc.
+        # At least on Linux/Intel, 'machine' is the processor -- i386, etc.
         # XXX what about Alpha, SPARC, etc?
-        return "%s-%s" % (osname, machine)
+        return "{}-{}".format(osname, machine)
     elif osname[:5] == "sunos":
-        if release[0] >= "5":           # SunOS 5 == Solaris 2
+        if release[0] >= "5":  # SunOS 5 == Solaris 2
             osname = "solaris"
-            release = "%d.%s" % (int(release[0]) - 3, release[2:])
+            release = "{}.{}".format(int(release[0]) - 3, release[2:])
             # We can't use "platform.architecture()[0]" because a
             # bootstrap problem. We use a dict to get an error
             # if some suspicious happens.
             bitness = {2147483647: "32bit", 9223372036854775807: "64bit"}
-            machine += ".%s" % bitness[sys.maxsize]
+            machine += ".{}".format(bitness[sys.maxsize])
         # fall through to standard osname-release-machine representation
     elif osname[:3] == "aix":
         from _aix_support import aix_platform
+
         return cast(str, aix_platform())
     elif osname[:6] == "cygwin":
         osname = "cygwin"
-        rel_re = re.compile(r'[\d.]+', re.ASCII)
+        rel_re = re.compile(r"[\d.]+", re.ASCII)
         m = rel_re.match(release)
         if m:
             release = m.group()
     elif osname[:6] == "darwin":
         import sysconfig
         import _osx_support
+
         osname, release, machine = _osx_support.get_platform_osx(
-            sysconfig.get_config_vars(),
-            osname, release, machine,
+            sysconfig.get_config_vars(), osname, release, machine
         )
 
-    return "%s-%s-%s" % (osname, release, machine)
+    return "{}-{}-{}".format(osname, release, machine)
 
 
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
