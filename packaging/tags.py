@@ -21,6 +21,7 @@ import sys
 import sysconfig
 import warnings
 
+from ._compat import PY2
 from ._typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -846,7 +847,10 @@ def _get_host_platform():
         return cast(str, aix_platform())
     elif osname[:6] == "cygwin":
         osname = "cygwin"
-        rel_re = re.compile(r"[\d.]+", re.ASCII)
+        if PY2:  # Python 2 does not have re.ASCII.
+            rel_re = re.compile(r"[\d.]+")
+        else:
+            rel_re = re.compile(r"[\d.]+", re.ASCII)
         m = rel_re.match(release)
         if m:
             release = m.group()
