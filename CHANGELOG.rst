@@ -4,6 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Officially support Python 3.9 (:issue:`343`)
 * Deprecate the ``LegacyVersion`` and ``LegacySpecifier`` classes (:issue:`321`)
 * Handle ``OSError`` on non-dynamic executables when attempting to resolve
   the glibc version string.
