@@ -299,16 +299,48 @@ class TestMacOSPlatforms:
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
 
-    def test_macos_11(self):
-        platforms = list(tags.mac_platforms((11, 0), "x86_64"))
+    def _test_macos_11(self, major, minor):
+        platforms = list(tags.mac_platforms((major, minor), "x86_64"))
+        assert "macosx_11_0_arm64" not in platforms
+        assert "macosx_11_0_x86_64" in platforms
+        assert "macosx_11_3_x86_64" not in platforms
+        assert "macosx_11_0_universal" in platforms
+        assert "macosx_11_0_universal2" in platforms
+        # Mac OS "10.16" is the version number that binaries compiled against an old
+        # (pre 11.0) SDK will see.   It can also be enabled explicitly for a process
+        # with the environment variable SYSTEM_VERSION_COMPAT=1
+        assert "macosx_10_16_x86_64" in platforms
         assert "macosx_10_15_x86_64" in platforms
         assert "macosx_10_4_x86_64" in platforms
         assert "macosx_10_3_x86_64" not in platforms
+        if major >= 12:
+            assert "macosx_12_0_x86_64" in platforms
+            assert "macosx_12_0_universal" in platforms
+            assert "macosx_12_0_universal2" in platforms
 
-        platforms = list(tags.mac_platforms((11, 0), "arm64"))
+        platforms = list(tags.mac_platforms((major, minor), "arm64"))
+        assert "macosx_11_0_arm64" in platforms
+        assert "macosx_11_3_arm64" not in platforms
+        assert "macosx_11_0_universal" not in platforms
+        assert "macosx_11_0_universal2" in platforms
         assert "macosx_10_15_x86_64" not in platforms
         assert "macosx_10_4_x86_64" not in platforms
         assert "macosx_10_3_x86_64" not in platforms
+        if major >= 12:
+            assert "macosx_12_0_arm64" in platforms
+            assert "macosx_12_0_universal2" in platforms
+
+    def test_macos_11(self):
+        self._test_macos_11(11, 0)
+
+    def test_macos_11_3(self):
+        self._test_macos_11(11, 3)
+
+    def test_macos_12(self):
+        self._test_macos_11(12, 0)
+
+    def test_macos_12_3(self):
+        self._test_macos_11(12, 3)
 
 
 class TestManylinuxPlatform:
