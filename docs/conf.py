@@ -48,11 +48,11 @@ project = "Packaging"
 
 base_dir = os.path.join(os.path.dirname(__file__), os.pardir)
 about = {}
-with open(os.path.join(base_dir, "packaging", "__about__.py")) as f:
+with open(os.path.join(base_dir, "packaging", "__init__.py")) as f:
     exec(f.read(), about)
 
 version = release = about["__version__"]
-copyright = about["__copyright__"]
+copyright = "Copyright 2014-2019 Donald Stufft and individual contributors"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
