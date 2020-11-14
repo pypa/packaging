@@ -65,11 +65,11 @@ jobs:
         run: |
           python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         shell: bash
-        if: matrix.python_version != "pypy2"
+        if: matrix.python_version != 'pypy2'
 
       # Binary is named 'pypy', but setup-python specifies it as 'pypy2'.
       - name: Run nox for pypy2
         run: |
           python -m nox --error-on-missing-interpreters -s tests-pypy
         shell: bash
-        if: matrix.python_version == "pypy2"
+        if: matrix.python_version == 'pypy2'
