@@ -86,7 +86,7 @@ def docs(session):
 def release(session):
     package_name = "packaging"
     version_file = Path(f"{package_name}/__about__.py")
-    changelog_file = Path(f"CHANGELOG.rst")
+    changelog_file = Path("CHANGELOG.rst")
 
     try:
         release_version = _get_version_from_arguments(session.posargs)
@@ -129,7 +129,7 @@ def release(session):
     session.run("python", "setup.py", "sdist", "bdist_wheel")
 
     # Check what files are in dist/ for upload.
-    files = sorted(glob.glob(f"dist/*"))
+    files = sorted(glob.glob("dist/*"))
     expected = [
         f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
@@ -222,7 +222,7 @@ def _check_git_state(session, version_tag):
     )
     if result.stdout:
         print(result.stdout, end="", file=sys.stderr)
-        session.error(f"The working tree has uncommitted changes")
+        session.error("The working tree has uncommitted changes")
 
     # Ensure this tag doesn't exist already.
     result = subprocess.run(
@@ -244,7 +244,7 @@ def _bump(session, *, version, file, kind):
     )
     file.write_text(new_contents)
 
-    session.log(f"git commit")
+    session.log("git commit")
     subprocess.run(["git", "add", str(file)])
     subprocess.run(["git", "commit", "-m", f"Bump for {kind}"])
 
