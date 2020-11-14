@@ -26,10 +26,6 @@ jobs:
           # https://github.com/pypa/packaging/runs/424785871#step:7:9
           - os: windows
             python_version: pypy3
-          # Symlinking not supported on Windows and it's required to make
-          # setup-python and nox happy (issue #348).
-          - os: windows
-            python_version: pypy2
 
     steps:
       - uses: actions/checkout@v1
@@ -59,11 +55,6 @@ jobs:
         shell: bash
         if: runner.os == 'Windows' && matrix.python_version == '2.7'
 
-      - name: alias pypy to pypy2
-        run: ln -s ${{ env.pythonLocation }}/pypy ${{ env.pythonLocation }}/pypy2
-        shell: bash
-        if: matrix.python_version == 'pypy2'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -74,3 +65,11 @@ jobs:
         run: |
           python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         shell: bash
+        if: matrix.python_version != "pypy2"
+
+      # Binary is named 'pypy', but setup-python specifies it as 'pypy2'.
+      - name: Run nox for pypy2
+        run: |
+          python -m nox --error-on-missing-interpreters -s tests-pypy
+        shell: bash
+        if: matrix.python_version == "pypy2"

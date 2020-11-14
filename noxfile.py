@@ -20,7 +20,7 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "pypy2", "pypy3"])
+@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "pypy", "pypy3"])
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
@@ -185,8 +185,7 @@ def _get_version_from_arguments(arguments):
 
 
 def _check_working_directory_state(session):
-    """Check state of the working directory, prior to making the release.
-    """
+    """Check state of the working directory, prior to making the release."""
     should_not_exist = ["build/", "dist/"]
 
     bad_existing_paths = list(filter(os.path.exists, should_not_exist))
@@ -195,8 +194,7 @@ def _check_working_directory_state(session):
 
 
 def _check_git_state(session, version_tag):
-    """Check state of the git repository, prior to making the release.
-    """
+    """Check state of the git repository, prior to making the release."""
     # Ensure the upstream remote pushes to the correct URL.
     allowed_upstreams = [
         "git@github.com:pypa/packaging.git",
@@ -269,8 +267,7 @@ def _replace_file(original_path):
 
 
 def _changelog_update_unreleased_title(version, *, file):
-    """Update an "*unreleased*" heading to "{version} - {date}"
-    """
+    """Update an "*unreleased*" heading to "{version} - {date}" """
     yyyy_mm_dd = datetime.datetime.today().strftime("%Y-%m-%d")
     title = f"{version} - {yyyy_mm_dd}"
 
