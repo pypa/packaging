@@ -20,7 +20,7 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "pypy2", "pypy3"])
+@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "pypy2", "pypy3"])
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
@@ -45,7 +45,7 @@ def tests(session):
         )
 
 
-@nox.session(python="3.8")
+@nox.session(python="3.9")
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
@@ -57,7 +57,7 @@ def lint(session):
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.8")
+@nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("furo")
