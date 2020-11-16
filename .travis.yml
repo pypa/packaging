@@ -7,7 +7,7 @@ matrix:
     - python: 2.7
       env: NOXSESSION=tests-2.7
     - python: pypy
-      env: NOXSESSION=tests-pypy2
+      env: NOXSESSION=tests-pypy
     - python: pypy3
       env: NOXSESSION=tests-pypy3
     - python: 3.4
