@@ -28,3 +28,7 @@ classifiers = [
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
 ]
+
+[tool.flit.metadata.urls]
+Documentation = "https://packaging.pypa.io/"
+Changelog = "https://packaging.pypa.io/en/latest/changelog.html"
