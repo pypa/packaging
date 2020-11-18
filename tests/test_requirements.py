@@ -75,6 +75,16 @@ class TestRequirements:
         req = Requirement("name (==4)")
         self._assert_requirement(req, "name", specifier="==4")
 
+    def test_version_with_parens_and_arbitrary_equal(self):
+        req = Requirement("name (===1.1.1)")
+        self._assert_requirement(req, "name", specifier="===1.1.1")
+
+    def test_version_arbitrary_equal_and_marker(self):
+        req = Requirement("name===1.1.1;python_version=='2.6'")
+        self._assert_requirement(
+            req, "name", specifier="===1.1.1", marker='python_version == "2.6"'
+        )
+
     def test_name_with_multiple_versions(self):
         req = Requirement("name>=3,<2")
         self._assert_requirement(req, "name", specifier="<2,>=3")

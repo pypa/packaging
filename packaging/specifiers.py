@@ -344,8 +344,9 @@ class Specifier(_IndividualSpecifier):
                 # but included entirely as an escape hatch.
                 (?<====)  # Only match for the identity operator
                 \s*
-                [^\s]*    # We just match everything, except for whitespace
-                          # since we are only testing for strict identity.
+                [^;\s)]*  # Match everything, except for whitespace,
+                          # a semi-colon for marker support and closing paren
+                          # since versions can be enclosed in them.
             )
             |
             (?:
