@@ -25,6 +25,7 @@ def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
+    # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
     session.install("coverage<5.0.0", "pretend", "pytest", "pip>=9.0.2")
 
     if "pypy" not in session.python:
@@ -52,8 +53,8 @@ def lint(session):
     session.run("pre-commit", "run", "--all-files")
 
     # Check the distribution
-    session.install("setuptools", "twine", "wheel")
-    session.run("python", "setup.py", "--quiet", "sdist", "bdist_wheel")
+    session.install("build", "twine")
+    session.run("python", "-m", "build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
@@ -123,10 +124,10 @@ def release(session):
     # Checkout the git tag.
     session.run("git", "checkout", "-q", release_version, external=True)
 
-    session.install("twine", "setuptools", "wheel")
+    session.install("build", "twine")
 
     # Build the distribution.
-    session.run("python", "setup.py", "sdist", "bdist_wheel")
+    session.run("python", "-m", "build")
 
     # Check what files are in dist/ for upload.
     files = sorted(glob.glob("dist/*"))
