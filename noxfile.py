@@ -61,7 +61,7 @@ def lint(session):
 @nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install("sphinx", "sphinx-rtd-theme")
+    session.install("furo")
 
     variants = [
         # (builder, dest)
