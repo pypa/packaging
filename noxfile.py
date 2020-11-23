@@ -20,11 +20,12 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "pypy2", "pypy3"])
+@nox.session(python=["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "pypy", "pypy3"])
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
+    # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
     session.install("coverage<5.0.0", "pretend", "pytest", "pip>=9.0.2")
 
     if "pypy" not in session.python:
@@ -52,15 +53,15 @@ def lint(session):
     session.run("pre-commit", "run", "--all-files")
 
     # Check the distribution
-    session.install("setuptools", "twine", "wheel")
-    session.run("python", "setup.py", "--quiet", "sdist", "bdist_wheel")
+    session.install("build", "twine")
+    session.run("python", "-m", "build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
 @nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install("sphinx", "sphinx-rtd-theme")
+    session.install("furo")
 
     variants = [
         # (builder, dest)
@@ -86,7 +87,7 @@ def docs(session):
 def release(session):
     package_name = "packaging"
     version_file = Path(f"{package_name}/__about__.py")
-    changelog_file = Path(f"CHANGELOG.rst")
+    changelog_file = Path("CHANGELOG.rst")
 
     try:
         release_version = _get_version_from_arguments(session.posargs)
@@ -123,13 +124,13 @@ def release(session):
     # Checkout the git tag.
     session.run("git", "checkout", "-q", release_version, external=True)
 
-    session.install("twine", "setuptools", "wheel")
+    session.install("build", "twine")
 
     # Build the distribution.
-    session.run("python", "setup.py", "sdist", "bdist_wheel")
+    session.run("python", "-m", "build")
 
     # Check what files are in dist/ for upload.
-    files = sorted(glob.glob(f"dist/*"))
+    files = sorted(glob.glob("dist/*"))
     expected = [
         f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
@@ -185,8 +186,7 @@ def _get_version_from_arguments(arguments):
 
 
 def _check_working_directory_state(session):
-    """Check state of the working directory, prior to making the release.
-    """
+    """Check state of the working directory, prior to making the release."""
     should_not_exist = ["build/", "dist/"]
 
     bad_existing_paths = list(filter(os.path.exists, should_not_exist))
@@ -195,8 +195,7 @@ def _check_working_directory_state(session):
 
 
 def _check_git_state(session, version_tag):
-    """Check state of the git repository, prior to making the release.
-    """
+    """Check state of the git repository, prior to making the release."""
     # Ensure the upstream remote pushes to the correct URL.
     allowed_upstreams = [
         "git@github.com:pypa/packaging.git",
@@ -224,7 +223,7 @@ def _check_git_state(session, version_tag):
     )
     if result.stdout:
         print(result.stdout, end="", file=sys.stderr)
-        session.error(f"The working tree has uncommitted changes")
+        session.error("The working tree has uncommitted changes")
 
     # Ensure this tag doesn't exist already.
     result = subprocess.run(
@@ -246,7 +245,7 @@ def _bump(session, *, version, file, kind):
     )
     file.write_text(new_contents)
 
-    session.log(f"git commit")
+    session.log("git commit")
     subprocess.run(["git", "add", str(file)])
     subprocess.run(["git", "commit", "-m", f"Bump for {kind}"])
 
@@ -269,8 +268,7 @@ def _replace_file(original_path):
 
 
 def _changelog_update_unreleased_title(version, *, file):
-    """Update an "*unreleased*" heading to "{version} - {date}"
-    """
+    """Update an "*unreleased*" heading to "{version} - {date}" """
     yyyy_mm_dd = datetime.datetime.today().strftime("%Y-%m-%d")
     title = f"{version} - {yyyy_mm_dd}"
 

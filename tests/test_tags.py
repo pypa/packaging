@@ -625,7 +625,7 @@ class TestManylinuxPlatform:
             "executable",
             os.path.join(os.path.dirname(__file__), "hello-world-aarch64"),
         )
-        platforms = list(tags._linux_platforms())
+        platforms = list(tags._linux_platforms(is_32bit=False))
         expected = (
             ["manylinux_3_2_aarch64", "manylinux_3_1_aarch64", "manylinux_3_0_aarch64"]
             + ["manylinux_2_{}_aarch64".format(i) for i in range(50, 16, -1)]
@@ -1338,7 +1338,7 @@ class TestSysTags:
             manylinux_compatible,
             raising=False,
         )
-        platforms = list(tags._linux_platforms())
+        platforms = list(tags._linux_platforms(is_32bit=False))
         if tf:
             expected = ["manylinux_2_22_{}".format(machine)]
         else:
@@ -1360,7 +1360,7 @@ class TestSysTags:
             manylinux_compatible,
             raising=False,
         )
-        platforms = list(tags._linux_platforms())
+        platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
             "manylinux_2_30_x86_64",
             "manylinux_2_29_x86_64",

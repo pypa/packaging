@@ -7,11 +7,6 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 
-try:
-    import sphinx_rtd_theme
-except ImportError:
-    sphinx_rtd_theme = None
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -48,18 +43,15 @@ project = "Packaging"
 
 base_dir = os.path.join(os.path.dirname(__file__), os.pardir)
 about = {}
-with open(os.path.join(base_dir, "packaging", "__about__.py")) as f:
+with open(os.path.join(base_dir, "packaging", "__init__.py")) as f:
     exec(f.read(), about)
 
 version = release = about["__version__"]
-copyright = about["__copyright__"]
+copyright = "2014-2019 Donald Stufft and individual contributors"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 exclude_patterns = ["_build"]
-
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
 
 extlinks = {
     "issue": ("https://github.com/pypa/packaging/issues/%s", "#"),
@@ -70,11 +62,8 @@ extlinks = {
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-if sphinx_rtd_theme:
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-else:
-    html_theme = "default"
+html_theme = "furo"
+html_title = "packaging"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
