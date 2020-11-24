@@ -309,7 +309,7 @@ class TestMacOSPlatforms:
         assert "macosx_11_0_universal2" in platforms
         # Mac OS "10.16" is the version number that binaries compiled against an old
         # (pre 11.0) SDK will see.   It can also be enabled explicitly for a process
-        # with the environment variable SYSTEM_VERSION_COMPAT=1
+        # with the environment variable SYSTEM_VERSION_COMPAT=1.
         assert "macosx_10_16_x86_64" in platforms
         assert "macosx_10_15_x86_64" in platforms
         assert "macosx_10_4_x86_64" in platforms
