@@ -460,7 +460,7 @@ def mac_platforms(version=None, arch=None):
 
     if version >= (11, 0) and arch == "x86_64":
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
-        # Arm64 support was introduced in 11.0, so no arm binaries from previous
+        # Arm64 support was introduced in 11.0, so no Arm binaries from previous
         # releases exist.
         for minor_version in range(16, 3, -1):
             compat_version = 10, minor_version
