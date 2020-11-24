@@ -225,21 +225,37 @@ class TestMacOSPlatforms:
     @pytest.mark.parametrize(
         "version,arch,expected",
         [
-            ((10, 17), "x86_64", ["x86_64", "intel", "fat64", "fat32", "universal"]),
-            ((10, 4), "x86_64", ["x86_64", "intel", "fat64", "fat32", "universal"]),
+            (
+                (10, 15),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
+            (
+                (10, 4),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
             ((10, 3), "x86_64", []),
-            ((10, 17), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
+            ((10, 15), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
             ((10, 4), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
             ((10, 3), "i386", []),
-            ((10, 17), "ppc64", []),
+            ((10, 15), "ppc64", []),
             ((10, 6), "ppc64", []),
             ((10, 5), "ppc64", ["ppc64", "fat64", "universal"]),
             ((10, 3), "ppc64", []),
-            ((10, 17), "ppc", []),
+            ((10, 15), "ppc", []),
             ((10, 7), "ppc", []),
             ((10, 6), "ppc", ["ppc", "fat32", "fat", "universal"]),
             ((10, 0), "ppc", ["ppc", "fat32", "fat", "universal"]),
-            ((11, 0), "riscv", ["riscv", "universal"]),
+            ((11, 0), "riscv", ["riscv"]),
+            (
+                (11, 0),
+                "x86_64",
+                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+            ),
+            ((11, 0), "arm64", ["arm64", "universal2"]),
+            ((11, 1), "arm64", ["arm64", "universal2"]),
+            ((12, 0), "arm64", ["arm64", "universal2"]),
         ],
     )
     def test_binary_formats(self, version, arch, expected):
@@ -271,17 +287,51 @@ class TestMacOSPlatforms:
             "macosx_10_5_intel",
             "macosx_10_5_fat64",
             "macosx_10_5_fat32",
+            "macosx_10_5_universal2",
             "macosx_10_5_universal",
             "macosx_10_4_x86_64",
             "macosx_10_4_intel",
             "macosx_10_4_fat64",
             "macosx_10_4_fat32",
+            "macosx_10_4_universal2",
             "macosx_10_4_universal",
         ]
 
-        assert len(list(tags.mac_platforms((10, 17), "x86_64"))) == 14 * 5
+        assert len(list(tags.mac_platforms((10, 17), "x86_64"))) == 14 * 6
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
+
+    @pytest.mark.parametrize("major,minor", [(11, 0), (11, 3), (12, 0), (12, 3)])
+    def test_macos_11(self, major, minor):
+        platforms = list(tags.mac_platforms((major, minor), "x86_64"))
+        assert "macosx_11_0_arm64" not in platforms
+        assert "macosx_11_0_x86_64" in platforms
+        assert "macosx_11_3_x86_64" not in platforms
+        assert "macosx_11_0_universal" in platforms
+        assert "macosx_11_0_universal2" in platforms
+        # Mac OS "10.16" is the version number that binaries compiled against an old
+        # (pre 11.0) SDK will see.   It can also be enabled explicitly for a process
+        # with the environment variable SYSTEM_VERSION_COMPAT=1.
+        assert "macosx_10_16_x86_64" in platforms
+        assert "macosx_10_15_x86_64" in platforms
+        assert "macosx_10_4_x86_64" in platforms
+        assert "macosx_10_3_x86_64" not in platforms
+        if major >= 12:
+            assert "macosx_12_0_x86_64" in platforms
+            assert "macosx_12_0_universal" in platforms
+            assert "macosx_12_0_universal2" in platforms
+
+        platforms = list(tags.mac_platforms((major, minor), "arm64"))
+        assert "macosx_11_0_arm64" in platforms
+        assert "macosx_11_3_arm64" not in platforms
+        assert "macosx_11_0_universal" not in platforms
+        assert "macosx_11_0_universal2" in platforms
+        assert "macosx_10_15_x86_64" not in platforms
+        assert "macosx_10_4_x86_64" not in platforms
+        assert "macosx_10_3_x86_64" not in platforms
+        if major >= 12:
+            assert "macosx_12_0_arm64" in platforms
+            assert "macosx_12_0_universal2" in platforms
 
 
 class TestManylinuxPlatform:

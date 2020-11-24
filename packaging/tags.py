@@ -407,7 +407,12 @@ def _mac_binary_formats(version, cpu_arch):
             return []
         formats.extend(["fat32", "fat"])
 
-    formats.append("universal")
+    if cpu_arch in {"arm64", "x86_64"}:
+        formats.append("universal2")
+
+    if cpu_arch in {"x86_64", "i386", "ppc64", "ppc"}:
+        formats.append("universal")
+
     return formats
 
 
@@ -430,15 +435,42 @@ def mac_platforms(version=None, arch=None):
         arch = _mac_arch(cpu_arch)
     else:
         arch = arch
-    for minor_version in range(version[1], -1, -1):
-        compat_version = version[0], minor_version
-        binary_formats = _mac_binary_formats(compat_version, arch)
-        for binary_format in binary_formats:
-            yield "macosx_{major}_{minor}_{binary_format}".format(
-                major=compat_version[0],
-                minor=compat_version[1],
-                binary_format=binary_format,
-            )
+
+    if (10, 0) <= version and version < (11, 0):
+        # Prior to Mac OS 11, each yearly release of Mac OS bumped the
+        # "minor" version number.  The major version was always 10.
+        for minor_version in range(version[1], -1, -1):
+            compat_version = 10, minor_version
+            binary_formats = _mac_binary_formats(compat_version, arch)
+            for binary_format in binary_formats:
+                yield "macosx_{major}_{minor}_{binary_format}".format(
+                    major=10, minor=minor_version, binary_format=binary_format
+                )
+
+    if version >= (11, 0):
+        # Starting with Mac OS 11, each yearly release bumps the major version
+        # number.   The minor versions are now the midyear updates.
+        for major_version in range(version[0], 10, -1):
+            compat_version = major_version, 0
+            binary_formats = _mac_binary_formats(compat_version, arch)
+            for binary_format in binary_formats:
+                yield "macosx_{major}_{minor}_{binary_format}".format(
+                    major=major_version, minor=0, binary_format=binary_format
+                )
+
+    if version >= (11, 0) and arch == "x86_64":
+        # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
+        # Arm64 support was introduced in 11.0, so no Arm binaries from previous
+        # releases exist.
+        for minor_version in range(16, 3, -1):
+            compat_version = 10, minor_version
+            binary_formats = _mac_binary_formats(compat_version, arch)
+            for binary_format in binary_formats:
+                yield "macosx_{major}_{minor}_{binary_format}".format(
+                    major=compat_version[0],
+                    minor=compat_version[1],
+                    binary_format=binary_format,
+                )
 
 
 # From PEP 513, PEP 600
