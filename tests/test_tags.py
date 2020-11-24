@@ -299,7 +299,8 @@ class TestMacOSPlatforms:
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
 
-    def _test_macos_11(self, major, minor):
+    @pytest.mark.parametrize("major,minor", [(11, 0), (11, 3), (12, 0), (12, 3)])
+    def test_macos_11(self, major, minor):
         platforms = list(tags.mac_platforms((major, minor), "x86_64"))
         assert "macosx_11_0_arm64" not in platforms
         assert "macosx_11_0_x86_64" in platforms
@@ -329,18 +330,6 @@ class TestMacOSPlatforms:
         if major >= 12:
             assert "macosx_12_0_arm64" in platforms
             assert "macosx_12_0_universal2" in platforms
-
-    def test_macos_11(self):
-        self._test_macos_11(11, 0)
-
-    def test_macos_11_3(self):
-        self._test_macos_11(11, 3)
-
-    def test_macos_12(self):
-        self._test_macos_11(12, 0)
-
-    def test_macos_12_3(self):
-        self._test_macos_11(12, 3)
 
 
 class TestManylinuxPlatform:
