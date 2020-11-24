@@ -782,14 +782,13 @@ def interpreter_name():
 def interpreter_version(**kwargs):
     # type: (bool) -> str
     """
-    Returns the version of the running interpreter.
+    Returns the version of the running interpreter for the wheel tag.
+
+    See https://www.python.org/dev/peps/pep-0641/
     """
-    warn = _warn_keyword_parameter("interpreter_version", kwargs)
-    version = _get_config_var("py_version_nodot", warn=warn)
-    if version:
-        version = str(version)
-    else:
-        version = _version_nodot(sys.version_info[:2])
+    # warn kw only parameter is unused, kept for backwards compatibility
+    _warn_keyword_parameter("interpreter_version", kwargs)
+    version = _version_nodot(sys.version_info[:2])
     return version
 
 

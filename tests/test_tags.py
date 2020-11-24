@@ -172,24 +172,13 @@ class TestInterpreterName:
 
 
 class TestInterpreterVersion:
-    def test_warn(self, monkeypatch):
-        class MockConfigVar(object):
-            def __init__(self, return_):
-                self.warn = None
-                self._return = return_
+    def test_python_version_nodot_underscore(self, monkeypatch):
+        monkeypatch.setattr(sys, "version_info", (3, 20, 12))
+        assert tags.interpreter_version() == "3_20"
 
-            def __call__(self, name, warn):
-                self.warn = warn
-                return self._return
-
-        mock_config_var = MockConfigVar("38")
-        monkeypatch.setattr(tags, "_get_config_var", mock_config_var)
-        tags.interpreter_version(warn=True)
-        assert mock_config_var.warn
-
-    def test_python_version_nodot(self, monkeypatch):
-        monkeypatch.setattr(tags, "_get_config_var", lambda var, warn: "NN")
-        assert tags.interpreter_version() == "NN"
+    def test_python_version_nodot_no_underscore(self, monkeypatch):
+        monkeypatch.setattr(sys, "version_info", (3, 9, 12))
+        assert tags.interpreter_version() == "39"
 
     @pytest.mark.parametrize(
         "version_info,version_str",
