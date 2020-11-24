@@ -254,6 +254,8 @@ class TestMacOSPlatforms:
                 ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
             ),
             ((11, 0), "arm64", ["arm64", "universal2"]),
+            ((11, 1), "arm64", ["arm64", "universal2"]),
+            ((12, 0), "arm64", ["arm64", "universal2"]),
         ],
     )
     def test_binary_formats(self, version, arch, expected):
