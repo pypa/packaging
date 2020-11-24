@@ -827,11 +827,7 @@ def interpreter_version(**kwargs):
 
 def _version_nodot(version):
     # type: (PythonVersion) -> str
-    if any(v >= 10 for v in version):
-        sep = "_"
-    else:
-        sep = ""
-    return sep.join(map(str, version))
+    return "".join(map(str, version))
 
 
 def sys_tags(**kwargs):
