@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.5 - 2020-11-27
+~~~~~~~~~~~~~~~~~
 
 * Officially support Python 3.9 (:issue:`343`)
 * Deprecate the ``LegacyVersion`` and ``LegacySpecifier`` classes (:issue:`321`)
