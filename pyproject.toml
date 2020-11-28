@@ -32,3 +32,6 @@ requires = ["pyparsing>=2.0.2"]
 [tool.flit.metadata.urls]
 Documentation = "https://packaging.pypa.io/"
 Changelog = "https://packaging.pypa.io/en/latest/changelog.html"
+
+[tool.flit.sdist]
+include = ["LICENSE", "LICENSE.BSD", "LICENSE.APACHE"]
