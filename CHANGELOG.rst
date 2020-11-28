@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.7 - 2020-11-28
+~~~~~~~~~~~~~~~~~
 
 No unreleased changes.
 
