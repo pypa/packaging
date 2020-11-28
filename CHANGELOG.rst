@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Fix flit configuration, to include LICENSE files (:issue:`357`)
 
 20.5 - 2020-11-27
 ~~~~~~~~~~~~~~~~~
