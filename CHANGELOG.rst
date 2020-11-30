@@ -14,6 +14,8 @@ No unreleased changes.
 20.6 - 2020-11-28
 ~~~~~~~~~~~~~~~~~
 
+.. note:: This release was subsequently yanked, and these changes were included in 20.7.
+
 * Fix flit configuration, to include LICENSE files (:issue:`357`)
 
 20.5 - 2020-11-27
