@@ -25,6 +25,7 @@ def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
+    # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
     session.install("coverage<5.0.0", "pretend", "pytest", "pip>=9.0.2")
 
     if "pypy" not in session.python:
@@ -52,8 +53,8 @@ def lint(session):
     session.run("pre-commit", "run", "--all-files")
 
     # Check the distribution
-    session.install("setuptools", "twine", "wheel")
-    session.run("python", "setup.py", "--quiet", "sdist", "bdist_wheel")
+    session.install("build", "twine")
+    session.run("python", "-m", "build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
@@ -85,7 +86,7 @@ def docs(session):
 @nox.session
 def release(session):
     package_name = "packaging"
-    version_file = Path(f"{package_name}/__about__.py")
+    version_file = Path(f"{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
 
     try:
@@ -123,10 +124,10 @@ def release(session):
     # Checkout the git tag.
     session.run("git", "checkout", "-q", release_version, external=True)
 
-    session.install("twine", "setuptools", "wheel")
+    session.install("build", "twine")
 
     # Build the distribution.
-    session.run("python", "setup.py", "sdist", "bdist_wheel")
+    session.run("python", "-m", "build")
 
     # Check what files are in dist/ for upload.
     files = sorted(glob.glob("dist/*"))
@@ -147,14 +148,14 @@ def release(session):
     # Check and upload distribution files.
     session.run("twine", "check", *files)
 
-    # Upload the distribution.
-    session.run("twine", "upload", *files)
-
     # Push the commits and tag.
     # NOTE: The following fails if pushing to the branch is not allowed. This can
     #       happen on GitHub, if the master branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
     session.run("git", "push", "upstream", "master", release_version, external=True)
+
+    # Upload the distribution.
+    session.run("twine", "upload", *files)
 
 
 # -----------------------------------------------------------------------------

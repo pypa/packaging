@@ -4,6 +4,23 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+No unreleased changes.
+
+20.7 - 2020-11-28
+~~~~~~~~~~~~~~~~~
+
+No unreleased changes.
+
+20.6 - 2020-11-28
+~~~~~~~~~~~~~~~~~
+
+.. note:: This release was subsequently yanked, and these changes were included in 20.7.
+
+* Fix flit configuration, to include LICENSE files (:issue:`357`)
+
+20.5 - 2020-11-27
+~~~~~~~~~~~~~~~~~
+
 * Officially support Python 3.9 (:issue:`343`)
 * Deprecate the ``LegacyVersion`` and ``LegacySpecifier`` classes (:issue:`321`)
 * Handle ``OSError`` on non-dynamic executables when attempting to resolve
