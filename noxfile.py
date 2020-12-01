@@ -148,14 +148,14 @@ def release(session):
     # Check and upload distribution files.
     session.run("twine", "check", *files)
 
-    # Upload the distribution.
-    session.run("twine", "upload", *files)
-
     # Push the commits and tag.
     # NOTE: The following fails if pushing to the branch is not allowed. This can
     #       happen on GitHub, if the master branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
     session.run("git", "push", "upstream", "master", release_version, external=True)
+
+    # Upload the distribution.
+    session.run("twine", "upload", *files)
 
 
 # -----------------------------------------------------------------------------
