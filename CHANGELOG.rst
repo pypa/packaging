@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Revert back to setuptools for compatibility purposes for some Linux distros (:issue:`363`)
 
 20.7 - 2020-11-28
 ~~~~~~~~~~~~~~~~~
