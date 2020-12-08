@@ -17,6 +17,8 @@ No unreleased changes.
 .. note:: This release was subsequently yanked, and these changes were included in 20.7.
 
 * Fix flit configuration, to include LICENSE files (:issue:`357`)
+* Make `intel` a recognized CPU architecture for the `universal` macOS platform tag (:issue:`361`)
+* Add some missing type hints to `packaging.requirements` (issue:`350`)
 
 20.5 - 2020-11-27
 ~~~~~~~~~~~~~~~~~
