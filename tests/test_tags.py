@@ -190,9 +190,9 @@ class TestInterpreterVersion:
         "version_info,version_str",
         [
             ((1, 2, 3), "12"),
-            ((1, 12, 3), "1_12"),
-            ((11, 2, 3), "11_2"),
-            ((11, 12, 3), "11_12"),
+            ((1, 12, 3), "112"),
+            ((11, 2, 3), "112"),
+            ((11, 12, 3), "1112"),
             ((1, 2, 13), "12"),
         ],
     )
@@ -822,20 +822,20 @@ class TestCPythonTags:
 
     def test_all_args(self):
         result_iterator = tags.cpython_tags(
-            (3, 11), ["cp3_11d", "cp3_11"], ["plat1", "plat2"]
+            (3, 11), ["cp311d", "cp311"], ["plat1", "plat2"]
         )
         result = list(result_iterator)
         assert result == [
-            tags.Tag("cp3_11", "cp3_11d", "plat1"),
-            tags.Tag("cp3_11", "cp3_11d", "plat2"),
-            tags.Tag("cp3_11", "cp3_11", "plat1"),
-            tags.Tag("cp3_11", "cp3_11", "plat2"),
-            tags.Tag("cp3_11", "abi3", "plat1"),
-            tags.Tag("cp3_11", "abi3", "plat2"),
-            tags.Tag("cp3_11", "none", "plat1"),
-            tags.Tag("cp3_11", "none", "plat2"),
-            tags.Tag("cp3_10", "abi3", "plat1"),
-            tags.Tag("cp3_10", "abi3", "plat2"),
+            tags.Tag("cp311", "cp311d", "plat1"),
+            tags.Tag("cp311", "cp311d", "plat2"),
+            tags.Tag("cp311", "cp311", "plat1"),
+            tags.Tag("cp311", "cp311", "plat2"),
+            tags.Tag("cp311", "abi3", "plat1"),
+            tags.Tag("cp311", "abi3", "plat2"),
+            tags.Tag("cp311", "none", "plat1"),
+            tags.Tag("cp311", "none", "plat2"),
+            tags.Tag("cp310", "abi3", "plat1"),
+            tags.Tag("cp310", "abi3", "plat2"),
             tags.Tag("cp39", "abi3", "plat1"),
             tags.Tag("cp39", "abi3", "plat2"),
             tags.Tag("cp38", "abi3", "plat1"),
@@ -905,11 +905,11 @@ class TestCPythonTags:
         assert tags.Tag("cp38", "none", "any") in result
 
     def test_abi_defaults_needs_underscore(self, monkeypatch):
-        monkeypatch.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp3_11"])
+        monkeypatch.setattr(tags, "_cpython_abis", lambda _1, _2: ["cp311"])
         result = list(tags.cpython_tags((3, 11), platforms=["any"]))
-        assert tags.Tag("cp3_11", "cp3_11", "any") in result
-        assert tags.Tag("cp3_11", "abi3", "any") in result
-        assert tags.Tag("cp3_11", "none", "any") in result
+        assert tags.Tag("cp311", "cp311", "any") in result
+        assert tags.Tag("cp311", "abi3", "any") in result
+        assert tags.Tag("cp311", "none", "any") in result
 
     def test_platforms_defaults(self, monkeypatch):
         monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat1"])
@@ -919,7 +919,7 @@ class TestCPythonTags:
     def test_platforms_defaults_needs_underscore(self, monkeypatch):
         monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat1"])
         result = list(tags.cpython_tags((3, 11), abis=["whatever"]))
-        assert tags.Tag("cp3_11", "whatever", "plat1") in result
+        assert tags.Tag("cp311", "whatever", "plat1") in result
 
     def test_major_only_python_version(self):
         result = list(tags.cpython_tags((3,), ["abi"], ["plat"]))
@@ -1057,14 +1057,14 @@ class TestCompatibleTags:
         ]
 
     def test_all_args_needs_underscore(self):
-        result = list(tags.compatible_tags((3, 11), "cp3_11", ["plat1", "plat2"]))
+        result = list(tags.compatible_tags((3, 11), "cp311", ["plat1", "plat2"]))
         assert result == [
-            tags.Tag("py3_11", "none", "plat1"),
-            tags.Tag("py3_11", "none", "plat2"),
+            tags.Tag("py311", "none", "plat1"),
+            tags.Tag("py311", "none", "plat2"),
             tags.Tag("py3", "none", "plat1"),
             tags.Tag("py3", "none", "plat2"),
-            tags.Tag("py3_10", "none", "plat1"),
-            tags.Tag("py3_10", "none", "plat2"),
+            tags.Tag("py310", "none", "plat1"),
+            tags.Tag("py310", "none", "plat2"),
             tags.Tag("py39", "none", "plat1"),
             tags.Tag("py39", "none", "plat2"),
             tags.Tag("py38", "none", "plat1"),
@@ -1085,10 +1085,10 @@ class TestCompatibleTags:
             tags.Tag("py31", "none", "plat2"),
             tags.Tag("py30", "none", "plat1"),
             tags.Tag("py30", "none", "plat2"),
-            tags.Tag("cp3_11", "none", "any"),
-            tags.Tag("py3_11", "none", "any"),
+            tags.Tag("cp311", "none", "any"),
+            tags.Tag("py311", "none", "any"),
             tags.Tag("py3", "none", "any"),
-            tags.Tag("py3_10", "none", "any"),
+            tags.Tag("py310", "none", "any"),
             tags.Tag("py39", "none", "any"),
             tags.Tag("py38", "none", "any"),
             tags.Tag("py37", "none", "any"),
@@ -1124,11 +1124,11 @@ class TestCompatibleTags:
 
     def test_default_python_version_needs_underscore(self, monkeypatch):
         monkeypatch.setattr(sys, "version_info", (3, 11))
-        result = list(tags.compatible_tags(interpreter="cp3_11", platforms=["plat"]))
+        result = list(tags.compatible_tags(interpreter="cp311", platforms=["plat"]))
         assert result == [
-            tags.Tag("py3_11", "none", "plat"),
+            tags.Tag("py311", "none", "plat"),
             tags.Tag("py3", "none", "plat"),
-            tags.Tag("py3_10", "none", "plat"),
+            tags.Tag("py310", "none", "plat"),
             tags.Tag("py39", "none", "plat"),
             tags.Tag("py38", "none", "plat"),
             tags.Tag("py37", "none", "plat"),
@@ -1139,10 +1139,10 @@ class TestCompatibleTags:
             tags.Tag("py32", "none", "plat"),
             tags.Tag("py31", "none", "plat"),
             tags.Tag("py30", "none", "plat"),
-            tags.Tag("cp3_11", "none", "any"),
-            tags.Tag("py3_11", "none", "any"),
+            tags.Tag("cp311", "none", "any"),
+            tags.Tag("py311", "none", "any"),
             tags.Tag("py3", "none", "any"),
-            tags.Tag("py3_10", "none", "any"),
+            tags.Tag("py310", "none", "any"),
             tags.Tag("py39", "none", "any"),
             tags.Tag("py38", "none", "any"),
             tags.Tag("py37", "none", "any"),
