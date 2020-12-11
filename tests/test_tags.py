@@ -33,11 +33,6 @@ def example_tag():
 
 
 @pytest.fixture
-def is_x86():
-    return re.match(r"(i\d86|x86_64)", platform.machine()) is not None
-
-
-@pytest.fixture
 def manylinux_module(monkeypatch):
     monkeypatch.setattr(tags, "_get_glibc_version", lambda *args: (2, 20))
     module_name = "_manylinux"
@@ -503,7 +498,7 @@ class TestManylinuxPlatform:
         linux_platform = list(tags._linux_platforms(is_32bit=False))
         assert linux_platform == ["linux_x86_64"]
 
-    def test_linux_platforms_manylinux1(self, is_x86, monkeypatch):
+    def test_linux_platforms_manylinux1(self, monkeypatch):
         monkeypatch.setattr(
             tags, "_is_manylinux_compatible", lambda name, *args: name == "manylinux1"
         )
@@ -514,7 +509,7 @@ class TestManylinuxPlatform:
         arch = platform.machine()
         assert platforms == ["manylinux1_" + arch, "linux_" + arch]
 
-    def test_linux_platforms_manylinux2010(self, is_x86, monkeypatch):
+    def test_linux_platforms_manylinux2010(self, monkeypatch):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.12", raising=False)
@@ -535,7 +530,7 @@ class TestManylinuxPlatform:
         ]
         assert platforms == expected
 
-    def test_linux_platforms_manylinux2014(self, is_x86, monkeypatch):
+    def test_linux_platforms_manylinux2014(self, monkeypatch):
         monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.17", raising=False)
