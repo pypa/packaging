@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.8 - 2020-12-11
+~~~~~~~~~~~~~~~~~
 
 * Revert back to setuptools for compatibility purposes for some Linux distros (:issue:`363`)
 * Do not insert an underscore in wheel tags when the interpreter version number
