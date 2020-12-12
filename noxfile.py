@@ -86,13 +86,14 @@ def docs(session):
 @nox.session
 def release(session):
     package_name = "packaging"
-    version_file = Path(f"{package_name}/__init__.py")
+    version_file = Path(f"{package_name}/__about__.py")
     changelog_file = Path("CHANGELOG.rst")
 
     try:
         release_version = _get_version_from_arguments(session.posargs)
     except ValueError as e:
         session.error(f"Invalid arguments: {e}")
+        return
 
     # Check state of working directory and git.
     _check_working_directory_state(session)
