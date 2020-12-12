@@ -5,6 +5,8 @@ Changelog
 ~~~~~~~~~~~~
 
 * Revert back to setuptools for compatibility purposes for some Linux distros (:issue:`363`)
+* Do not insert an underscore in wheel tags when the interpreter version number
+  is more than 2 digits (:issue:`372`)
 
 20.7 - 2020-11-28
 ~~~~~~~~~~~~~~~~~
