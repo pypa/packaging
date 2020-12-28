@@ -19,7 +19,6 @@ from pyparsing import (  # noqa: N817
     stringStart,
 )
 
-from ._compat import string_types
 from ._typing import TYPE_CHECKING
 from .specifiers import InvalidSpecifier, Specifier
 
@@ -161,7 +160,7 @@ def _coerce_parse_result(results):
 def _format_marker(marker, first=True):
     # type: (Union[List[str], Tuple[Node, ...], str], Optional[bool]) -> str
 
-    assert isinstance(marker, (list, tuple, string_types))
+    assert isinstance(marker, (list, tuple, str))
 
     # Sometimes we have a structure like [[...]] which is a single item list
     # where the single item is itself it's own list. In that case we want skip
@@ -240,7 +239,7 @@ def _evaluate_markers(markers, environment):
     groups = [[]]  # type: List[List[bool]]
 
     for marker in markers:
-        assert isinstance(marker, (list, tuple, string_types))
+        assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
             groups[-1].append(_evaluate_markers(marker, environment))

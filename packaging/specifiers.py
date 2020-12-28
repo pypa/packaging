@@ -8,13 +8,22 @@ import itertools
 import re
 import warnings
 
-from ._compat import string_types, with_metaclass
 from ._typing import TYPE_CHECKING
 from .utils import canonicalize_version
 from .version import LegacyVersion, Version, parse
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+    from typing import (
+        Callable,
+        Dict,
+        Iterable,
+        Iterator,
+        List,
+        Optional,
+        Set,
+        Tuple,
+        Union,
+    )
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
@@ -27,7 +36,7 @@ class InvalidSpecifier(ValueError):
     """
 
 
-class BaseSpecifier(with_metaclass(abc.ABCMeta, object)):  # type: ignore
+class BaseSpecifier(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __str__(self):
         # type: () -> str
@@ -94,6 +103,7 @@ class BaseSpecifier(with_metaclass(abc.ABCMeta, object)):  # type: ignore
 class _IndividualSpecifier(BaseSpecifier):
 
     _operators = {}  # type: Dict[str, str]
+    _regex = None  # type: re.Pattern[str]
 
     def __init__(self, spec="", prereleases=None):
         # type: (str, Optional[bool]) -> None
@@ -134,7 +144,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
     def __eq__(self, other):
         # type: (object) -> bool
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             try:
                 other = self.__class__(str(other))
             except InvalidSpecifier:
@@ -146,7 +156,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
     def __ne__(self, other):
         # type: (object) -> bool
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             try:
                 other = self.__class__(str(other))
             except InvalidSpecifier:
@@ -671,7 +681,7 @@ class SpecifierSet(BaseSpecifier):
 
         # Parsed each individual specifier, attempting first to make it a
         # Specifier and falling back to a LegacySpecifier.
-        parsed = set()
+        parsed = set()  # type: Set[_IndividualSpecifier]
         for specifier in split_specifiers:
             try:
                 parsed.add(Specifier(specifier))
@@ -705,7 +715,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __and__(self, other):
         # type: (Union[SpecifierSet, str]) -> SpecifierSet
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             other = SpecifierSet(other)
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
@@ -729,7 +739,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __eq__(self, other):
         # type: (object) -> bool
-        if isinstance(other, (string_types, _IndividualSpecifier)):
+        if isinstance(other, (str, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
@@ -738,7 +748,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __ne__(self, other):
         # type: (object) -> bool
-        if isinstance(other, (string_types, _IndividualSpecifier)):
+        if isinstance(other, (str, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
