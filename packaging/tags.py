@@ -74,7 +74,7 @@ _LAST_GLIBC_MINOR = collections.defaultdict(lambda: 50)  # type: Dict[int, int]
 glibcVersion = collections.namedtuple("Version", ["major", "minor"])
 
 
-class Tag(object):
+class Tag:
     """
     A representation of the tag triple for a wheel.
 
@@ -628,7 +628,7 @@ def _get_glibc_version():
 # identify the architecture of the running executable in some cases, so we
 # determine it dynamically by reading the information from the running
 # process. This only applies on Linux, which uses the ELF format.
-class _ELFFileHeader(object):
+class _ELFFileHeader:
     # https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_header
     class _InvalidELFFileHeader(ValueError):
         """

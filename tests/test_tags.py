@@ -146,7 +146,7 @@ class TestParseTag:
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch):
-        class MockImplementation(object):
+        class MockImplementation:
             pass
 
         mock_implementation = MockImplementation()
@@ -167,7 +167,7 @@ class TestInterpreterName:
 
 class TestInterpreterVersion:
     def test_warn(self, monkeypatch):
-        class MockConfigVar(object):
+        class MockConfigVar:
             def __init__(self, return_):
                 self.warn = None
                 self._return = return_

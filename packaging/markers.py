@@ -57,7 +57,7 @@ class UndefinedEnvironmentName(ValueError):
     """
 
 
-class Node(object):
+class Node:
     def __init__(self, value):
         # type: (Any) -> None
         self.value = value
@@ -216,7 +216,7 @@ def _eval_op(lhs, op, rhs):
     return oper(lhs, rhs)
 
 
-class Undefined(object):
+class Undefined:
     pass
 
 
@@ -299,7 +299,7 @@ def default_environment():
     }
 
 
-class Marker(object):
+class Marker:
     def __init__(self, marker):
         # type: (str) -> None
         try:

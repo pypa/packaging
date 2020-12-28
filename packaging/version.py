@@ -64,7 +64,7 @@ class InvalidVersion(ValueError):
     """
 
 
-class _BaseVersion(object):
+class _BaseVersion:
     _key = None  # type: Union[CmpKey, LegacyCmpKey]
 
     def __hash__(self):
