@@ -2,16 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import distutils.util
-
-try:
-    from importlib.machinery import EXTENSION_SUFFIXES
-except ImportError:  # pragma: no cover
-    import imp
-
-    EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
-    del imp
 import collections
+import distutils.util
 import logging
 import os
 import platform
@@ -20,6 +12,7 @@ import struct
 import sys
 import sysconfig
 import warnings
+from importlib.machinery import EXTENSION_SUFFIXES
 
 from ._typing import TYPE_CHECKING, cast
 

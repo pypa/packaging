@@ -2,10 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-try:
-    import collections.abc as collections_abc
-except ImportError:
-    import collections as collections_abc
+
+import collections.abc
 
 try:
     import ctypes
@@ -825,7 +823,7 @@ class TestCPythonTags:
         result_iterator = tags.cpython_tags(
             (3, 8), ["cp38d", "cp38"], ["plat1", "plat2"]
         )
-        assert isinstance(result_iterator, collections_abc.Iterator)
+        assert isinstance(result_iterator, collections.abc.Iterator)
 
     def test_all_args(self):
         result_iterator = tags.cpython_tags(
@@ -1001,7 +999,7 @@ class TestGenericTags:
 
     def test_iterator_returned(self):
         result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])
-        assert isinstance(result_iterator, collections_abc.Iterator)
+        assert isinstance(result_iterator, collections.abc.Iterator)
 
     def test_all_args(self):
         result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])
@@ -1204,7 +1202,7 @@ class TestSysTags:
         assert tags.interpreter_name() == expected
 
     def test_iterator(self):
-        assert isinstance(tags.sys_tags(), collections_abc.Iterator)
+        assert isinstance(tags.sys_tags(), collections.abc.Iterator)
 
     def test_mac_cpython(self, mock_interpreter_name, monkeypatch):
         if mock_interpreter_name("CPython"):
