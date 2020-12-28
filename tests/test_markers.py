@@ -13,15 +13,14 @@ import pretend
 import pytest
 
 from packaging.markers import (
-    Node,
     InvalidMarker,
+    Marker,
+    Node,
     UndefinedComparison,
     UndefinedEnvironmentName,
-    Marker,
     default_environment,
     format_full_version,
 )
-
 
 VARIABLES = [
     "extra",
