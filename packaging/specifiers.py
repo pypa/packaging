@@ -277,7 +277,7 @@ class LegacySpecifier(_IndividualSpecifier):
 
     def __init__(self, spec="", prereleases=None):
         # type: (str, Optional[bool]) -> None
-        super(LegacySpecifier, self).__init__(spec, prereleases)
+        super().__init__(spec, prereleases)
 
         warnings.warn(
             "Creating a LegacyVersion has been deprecated and will be "
