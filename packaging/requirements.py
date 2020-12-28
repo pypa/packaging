@@ -4,9 +4,9 @@
 
 import re
 import string
-import sys
+import urllib.parse
 
-from pyparsing import (  # noqa: N817
+from pyparsing import (  # noqa
     Combine,
     Literal as L,
     Optional,
@@ -22,12 +22,6 @@ from pyparsing import (  # noqa: N817
 from ._typing import TYPE_CHECKING
 from .markers import MARKER_EXPR, Marker
 from .specifiers import LegacySpecifier, Specifier, SpecifierSet
-
-if sys.version_info[0] >= 3:
-    from urllib import parse as urlparse  # pragma: no cover
-else:  # pragma: no cover
-    import urlparse
-
 
 if TYPE_CHECKING:  # pragma: no cover
     from typing import List, Optional as TOptional, Set
@@ -119,9 +113,9 @@ class Requirement:
 
         self.name = req.name  # type: str
         if req.url:
-            parsed_url = urlparse.urlparse(req.url)
+            parsed_url = urllib.parse.urlparse(req.url)
             if parsed_url.scheme == "file":
-                if urlparse.urlunparse(parsed_url) != req.url:
+                if urllib.parse.urlunparse(parsed_url) != req.url:
                     raise InvalidRequirement("Invalid URL given")
             elif not (parsed_url.scheme and parsed_url.netloc) or (
                 not parsed_url.scheme and not parsed_url.netloc
