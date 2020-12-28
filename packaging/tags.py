@@ -808,11 +808,7 @@ def interpreter_name():
     """
     Returns the name of the running interpreter.
     """
-    try:
-        name = sys.implementation.name  # type: ignore
-    except AttributeError:  # pragma: no cover
-        # Python 2.7 compatibility.
-        name = platform.python_implementation().lower()
+    name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 

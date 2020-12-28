@@ -8,7 +8,6 @@ import os
 import platform
 import sys
 
-import pretend
 import pytest
 
 from packaging.markers import (
@@ -94,51 +93,6 @@ FakeVersionInfo = collections.namedtuple(
 
 
 class TestDefaultEnvironment:
-    @pytest.mark.skipif(
-        hasattr(sys, "implementation"), reason="sys.implementation does exist"
-    )
-    def test_matches_expected_no_sys_implementation(self):
-        environment = default_environment()
-
-        assert environment == {
-            "implementation_name": "",
-            "implementation_version": "0",
-            "os_name": os.name,
-            "platform_machine": platform.machine(),
-            "platform_release": platform.release(),
-            "platform_system": platform.system(),
-            "platform_version": platform.version(),
-            "python_full_version": platform.python_version(),
-            "platform_python_implementation": platform.python_implementation(),
-            "python_version": ".".join(platform.python_version_tuple()[:2]),
-            "sys_platform": sys.platform,
-        }
-
-    @pytest.mark.skipif(
-        not hasattr(sys, "implementation"), reason="sys.implementation does not exist"
-    )
-    def test_matches_expected_deleted_sys_implementation(self, monkeypatch):
-        monkeypatch.delattr(sys, "implementation")
-
-        environment = default_environment()
-
-        assert environment == {
-            "implementation_name": "",
-            "implementation_version": "0",
-            "os_name": os.name,
-            "platform_machine": platform.machine(),
-            "platform_release": platform.release(),
-            "platform_system": platform.system(),
-            "platform_version": platform.version(),
-            "python_full_version": platform.python_version(),
-            "platform_python_implementation": platform.python_implementation(),
-            "python_version": ".".join(platform.python_version_tuple()[:2]),
-            "sys_platform": sys.platform,
-        }
-
-    @pytest.mark.skipif(
-        not hasattr(sys, "implementation"), reason="sys.implementation does not exist"
-    )
     def test_matches_expected(self):
         environment = default_environment()
 
@@ -153,32 +107,6 @@ class TestDefaultEnvironment:
         assert environment == {
             "implementation_name": sys.implementation.name,
             "implementation_version": iver,
-            "os_name": os.name,
-            "platform_machine": platform.machine(),
-            "platform_release": platform.release(),
-            "platform_system": platform.system(),
-            "platform_version": platform.version(),
-            "python_full_version": platform.python_version(),
-            "platform_python_implementation": platform.python_implementation(),
-            "python_version": ".".join(platform.python_version_tuple()[:2]),
-            "sys_platform": sys.platform,
-        }
-
-    @pytest.mark.skipif(
-        hasattr(sys, "implementation"), reason="sys.implementation does exist"
-    )
-    def test_monkeypatch_sys_implementation(self, monkeypatch):
-        monkeypatch.setattr(
-            sys,
-            "implementation",
-            pretend.stub(version=FakeVersionInfo(3, 4, 2, "final", 0), name="linux"),
-            raising=False,
-        )
-
-        environment = default_environment()
-        assert environment == {
-            "implementation_name": "linux",
-            "implementation_version": "3.4.2",
             "os_name": os.name,
             "platform_machine": platform.machine(),
             "platform_release": platform.release(),
