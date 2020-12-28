@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Drop support for python 2.7, 3.4, and 3.5.
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~
