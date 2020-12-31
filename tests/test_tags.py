@@ -316,6 +316,7 @@ class TestMacOSPlatforms:
         # with the environment variable SYSTEM_VERSION_COMPAT=1.
         assert "macosx_10_16_x86_64" in platforms
         assert "macosx_10_15_x86_64" in platforms
+        assert "macosx_10_15_universal2" in platforms
         assert "macosx_10_4_x86_64" in platforms
         assert "macosx_10_3_x86_64" not in platforms
         if major >= 12:
@@ -328,6 +329,7 @@ class TestMacOSPlatforms:
         assert "macosx_11_3_arm64" not in platforms
         assert "macosx_11_0_universal" not in platforms
         assert "macosx_11_0_universal2" in platforms
+        assert "macosx_10_15_universal2" in platforms
         assert "macosx_10_15_x86_64" not in platforms
         assert "macosx_10_4_x86_64" not in platforms
         assert "macosx_10_3_x86_64" not in platforms
