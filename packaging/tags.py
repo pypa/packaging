@@ -461,12 +461,12 @@ def mac_platforms(version=None, arch=None):
     if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
         # Arm64 support was introduced in 11.0, so no Arm binaries from previous
-        # releases exist. 
+        # releases exist.
         #
         # However, the "universal2" binary format can have a
         # macOS version earlier than 11.0 when the x86_64 part of the binary supports
         # that version of macOS.
-        if arch == 'x86_64':
+        if arch == "x86_64":
             for minor_version in range(16, 3, -1):
                 compat_version = 10, minor_version
                 binary_formats = _mac_binary_formats(compat_version, arch)
@@ -479,14 +479,12 @@ def mac_platforms(version=None, arch=None):
         else:
             for minor_version in range(16, 3, -1):
                 compat_version = 10, minor_version
-                binary_format='universal2'
+                binary_format = "universal2"
                 yield "macosx_{major}_{minor}_{binary_format}".format(
                     major=compat_version[0],
                     minor=compat_version[1],
                     binary_format=binary_format,
                 )
-
-
 
 
 # From PEP 513, PEP 600

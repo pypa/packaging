@@ -266,7 +266,9 @@ class TestMacOSPlatforms:
             )
         version = platform.mac_ver()[0].split(".")
         if version[0] == 10:
-            expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
+            expected = "macosx_{major}_{minor}".format(
+                major=version[0], minor=version[1]
+            )
         else:
             expected = "macosx_{major}_{minor}".format(major=version[0], minor=0)
         platforms = list(tags.mac_platforms(arch="x86_64"))
