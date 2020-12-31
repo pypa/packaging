@@ -265,8 +265,12 @@ class TestMacOSPlatforms:
                 platform, "mac_ver", lambda: ("10.14", ("", "", ""), "x86_64")
             )
         version = platform.mac_ver()[0].split(".")
-        expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
+        if version[0] == 10:
+            expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
+        else:
+            expected = "macosx_{major}_{minor}".format(major=version[0], minor=0)
         platforms = list(tags.mac_platforms(arch="x86_64"))
+        print(platforms, expected)
         assert platforms[0].startswith(expected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
