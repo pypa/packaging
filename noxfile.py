@@ -1,17 +1,17 @@
 # mypy: disallow-untyped-defs=False, disallow-untyped-calls=False
 
-import time
-import re
-import os
-import sys
-import glob
-import shutil
+import contextlib
+import datetime
 import difflib
+import glob
+import os
+import re
+import shutil
+import subprocess
+import sys
 import tempfile
 import textwrap
-import datetime
-import contextlib
-import subprocess
+import time
 from pathlib import Path
 
 import nox
