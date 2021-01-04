@@ -264,8 +264,14 @@ class TestMacOSPlatforms:
                 platform, "mac_ver", lambda: ("10.14", ("", "", ""), "x86_64")
             )
         version = platform.mac_ver()[0].split(".")
-        expected = "macosx_{major}_{minor}".format(major=version[0], minor=version[1])
+        if version[0] == "10":
+            expected = "macosx_{major}_{minor}".format(
+                major=version[0], minor=version[1]
+            )
+        else:
+            expected = "macosx_{major}_{minor}".format(major=version[0], minor=0)
         platforms = list(tags.mac_platforms(arch="x86_64"))
+        print(platforms, expected)
         assert platforms[0].startswith(expected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
@@ -311,6 +317,7 @@ class TestMacOSPlatforms:
         # with the environment variable SYSTEM_VERSION_COMPAT=1.
         assert "macosx_10_16_x86_64" in platforms
         assert "macosx_10_15_x86_64" in platforms
+        assert "macosx_10_15_universal2" in platforms
         assert "macosx_10_4_x86_64" in platforms
         assert "macosx_10_3_x86_64" not in platforms
         if major >= 12:
@@ -323,6 +330,7 @@ class TestMacOSPlatforms:
         assert "macosx_11_3_arm64" not in platforms
         assert "macosx_11_0_universal" not in platforms
         assert "macosx_11_0_universal2" in platforms
+        assert "macosx_10_15_universal2" in platforms
         assert "macosx_10_15_x86_64" not in platforms
         assert "macosx_10_4_x86_64" not in platforms
         assert "macosx_10_3_x86_64" not in platforms
