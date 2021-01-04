@@ -2,8 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import json
 import itertools
+import json
 import os.path
 
 try:

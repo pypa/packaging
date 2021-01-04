@@ -27,9 +27,9 @@ from ._typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:  # pragma: no cover
     from typing import (
+        IO,
         Dict,
         FrozenSet,
-        IO,
         Iterable,
         Iterator,
         List,

@@ -17,8 +17,7 @@ from packaging.specifiers import (
 )
 from packaging.version import LegacyVersion, Version, parse
 
-from .test_version import VERSIONS, LEGACY_VERSIONS
-
+from .test_version import LEGACY_VERSIONS, VERSIONS
 
 LEGACY_SPECIFIERS = [
     "==2.1.0.3",

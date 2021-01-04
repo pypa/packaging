@@ -12,7 +12,6 @@ try:
 except ImportError:
     ctypes = None
 import distutils.util
-
 import os
 import platform
 import re
