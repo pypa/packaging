@@ -41,7 +41,11 @@ def manylinux_module(monkeypatch):
 @pytest.fixture
 def mock_interpreter_name(monkeypatch):
     def mock(name):
-        monkeypatch.setattr(sys.implementation, "name", name.lower())
+        name = name.lower()
+        if sys.implementation.name != name:
+            monkeypatch.setattr(sys.implementation, "name", name)
+            return True
+        return False
 
     return mock
 
@@ -1193,8 +1197,8 @@ class TestSysTags:
         assert isinstance(tags.sys_tags(), collections.abc.Iterator)
 
     def test_mac_cpython(self, mock_interpreter_name, monkeypatch):
-        mock_interpreter_name("CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
         if platform.system() != "Darwin":
             monkeypatch.setattr(platform, "system", lambda: "Darwin")
             monkeypatch.setattr(tags, "mac_platforms", lambda: ["macosx_10_5_x86_64"])
@@ -1210,8 +1214,8 @@ class TestSysTags:
         )
 
     def test_windows_cpython(self, mock_interpreter_name, monkeypatch):
-        mock_interpreter_name("CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
         if platform.system() != "Windows":
             monkeypatch.setattr(platform, "system", lambda: "Windows")
             monkeypatch.setattr(tags, "_generic_platforms", lambda: ["win_amd64"])
@@ -1228,8 +1232,8 @@ class TestSysTags:
         assert result[-1] == expected
 
     def test_linux_cpython(self, mock_interpreter_name, monkeypatch):
-        mock_interpreter_name("CPython")
-        monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
         if platform.system() != "Linux":
             monkeypatch.setattr(platform, "system", lambda: "Linux")
             monkeypatch.setattr(tags, "_linux_platforms", lambda: ["linux_x86_64"])
