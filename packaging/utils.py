@@ -25,7 +25,7 @@ class InvalidWheelFilename(ValueError):
 
 class InvalidSdistFilename(ValueError):
     """
-    An invalid sdist filename was found, users should refer to PEP 517.
+    An invalid sdist filename was found, users should refer to the packaging user guide.
     """
 
 

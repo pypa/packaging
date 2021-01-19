@@ -66,7 +66,8 @@ Reference
 .. function:: parse_sdist_filename(filename)
 
     This function takes the filename of a sdist file (as specified
-    in PEP 517), and parses it, returning a tuple of name and version.
+    in the `Source distribution format`_ documentation), and parses
+    it, returning a tuple of name and version.
 
     :param str filename: The name of the sdist file.
 
@@ -78,3 +79,5 @@ Reference
         'foo'
         >>> ver
         <Version('1.0')>
+
+.. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
