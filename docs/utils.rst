@@ -60,7 +60,7 @@ Reference
         <Version('1.0')>
         >>> tags == {Tag("py3", "none", "any")}
         True
-        >> build is None
+        >>> build is None
         True
 
 .. function:: parse_sdist_filename(filename)
