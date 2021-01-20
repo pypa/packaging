@@ -62,6 +62,7 @@ def lint(session):
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("furo")
+    session.install("-e", ".")
 
     variants = [
         # (builder, dest)
