@@ -74,6 +74,13 @@ def test_canonicalize_version(version, expected):
             "1000",
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo_bár-1.0-py3-none-any.whl",
+            "foo-bár",
+            Version("1.0"),
+            None,
+            {Tag("py3", "none", "any")},
+        ),
     ],
 )
 def test_parse_wheel_filename(filename, name, version, build, tags):
@@ -84,6 +91,8 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
     ("filename"),
     [
         ("foo-1.0.wheel"),
+        ("foo__bar-1.0-py3-none-any.whl"),
+        ("foo#bar-1.0-py3-none-any.whl"),
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),
     ],
