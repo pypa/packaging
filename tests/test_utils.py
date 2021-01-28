@@ -92,11 +92,11 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
     [
         ("foo-1.0.whl"),  # Missing tags
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
-        ("foo__bar-1.0-py3-none-any.whl"),  # Multiple underscores in name (`__`)
-        ("foo#bar-1.0-py3-none-any.whl"),  # Octothorpe (`#`)
-        # Build tag doesn't start with a digit (`abc`)
+        ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
+        ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
+        # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
-        ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (e.g. `-junk`)
+        ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
     ],
 )
 def test_parse_wheel_invalid_filename(filename):
