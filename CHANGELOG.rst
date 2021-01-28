@@ -5,7 +5,7 @@ Changelog
 ~~~~~~~~~~~~
 
 * Run [isort](https://pypi.org/project/isort/) over the code base (:issue:`377`)
-* Add support for the ``macosx_10_9_universal2`` platform tag (:issue:`379`)
+* Add support for the ``macosx_10_*_universal2`` platform tags (:issue:`379`)
 * Introduce ``packaging.utils.parse_wheel_filename()`` and ``parse_sdist_filename()``
   (:issue:`387` and :issue:`389`)
 
