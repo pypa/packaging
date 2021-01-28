@@ -4,7 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Run [isort](https://pypi.org/project/isort/) over the code base (:issue:`377`)
+* Add support for the ``macosx_10_9_universal2`` platform tag (:issue:`379`)
+* Introduce ``packaging.utils.parse_wheel_filename()`` and ``parse_sdist_filename()``
+  (:issue:`387` and :issue:`389`)
 
 20.8 - 2020-12-11
 ~~~~~~~~~~~~~~~~~
