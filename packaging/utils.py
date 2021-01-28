@@ -10,10 +10,12 @@ from .tags import Tag, parse_tag
 from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import FrozenSet, NewType, Optional, Tuple, Union
+    from typing import FrozenSet, NewType, Tuple, Union
 
+    BuildTag = Union[Tuple[()], Tuple[int, str]]
     NormalizedName = NewType("NormalizedName", str)
 else:
+    BuildTag = tuple
     NormalizedName = str
 
 
@@ -30,13 +32,15 @@ class InvalidSdistFilename(ValueError):
 
 
 _canonicalize_regex = re.compile(r"[-_.]+")
+# PEP 427: The build number must start with a digit.
+_build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
 def canonicalize_name(name):
     # type: (str) -> NormalizedName
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
-    return cast("NormalizedName", value)
+    return cast(NormalizedName, value)
 
 
 def canonicalize_version(version):
@@ -82,7 +86,7 @@ def canonicalize_version(version):
 
 
 def parse_wheel_filename(filename):
-    # type: (str) -> Tuple[NormalizedName, Version, Optional[str], FrozenSet[Tag]]
+    # type: (str) -> Tuple[NormalizedName, Version, BuildTag, FrozenSet[Tag]]
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
             "Invalid wheel filename (extension must be '.whl'): {0}".format(filename)
@@ -103,15 +107,15 @@ def parse_wheel_filename(filename):
     name = canonicalize_name(name_part)
     version = Version(parts[1])
     if dashes == 5:
-        # Build number must start with a digit
         build_part = parts[2]
-        if not build_part[0].isdigit():
+        build_match = _build_tag_regex.match(build_part)
+        if build_match is None:
             raise InvalidWheelFilename(
                 "Invalid build number: {0} in '{1}'".format(build_part, filename)
             )
-        build = build_part  # type: Optional[str]
+        build = cast(BuildTag, (int(build_match.group(1)), build_match.group(2)))
     else:
-        build = None
+        build = ()
     tags = parse_tag(parts[-1])
     return (name, version, build, tags)
 
