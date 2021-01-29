@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+20.9 - 2021-01-29
+~~~~~~~~~~~~~~~~~
 
 * Run [isort](https://pypi.org/project/isort/) over the code base (:issue:`377`)
 * Add support for the ``macosx_10_*_universal2`` platform tags (:issue:`379`)
