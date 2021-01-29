@@ -144,17 +144,17 @@ def release(session):
         diff = "\n".join(diff_generator)
         session.error(f"Got the wrong files:\n{diff}")
 
-    # Get back out into master.
-    session.run("git", "checkout", "-q", "master", external=True)
+    # Get back out into main.
+    session.run("git", "checkout", "-q", "main", external=True)
 
     # Check and upload distribution files.
     session.run("twine", "check", *files)
 
     # Push the commits and tag.
     # NOTE: The following fails if pushing to the branch is not allowed. This can
-    #       happen on GitHub, if the master branch is protected, there are required
+    #       happen on GitHub, if the main branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
-    session.run("git", "push", "upstream", "master", release_version, external=True)
+    session.run("git", "push", "upstream", "main", release_version, external=True)
 
     # Upload the distribution.
     session.run("twine", "upload", *files)
@@ -210,14 +210,14 @@ def _check_git_state(session, version_tag):
     )
     if result.stdout.rstrip() not in allowed_upstreams:
         session.error(f"git remote `upstream` is not one of {allowed_upstreams}")
-    # Ensure we're on master branch for cutting a release.
+    # Ensure we're on main branch for cutting a release.
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         capture_output=True,
         encoding="utf-8",
     )
-    if result.stdout != "master\n":
-        session.error(f"Not on master branch: {result.stdout!r}")
+    if result.stdout != "main\n":
+        session.error(f"Not on main branch: {result.stdout!r}")
 
     # Ensure there are no uncommitted changes.
     result = subprocess.run(
