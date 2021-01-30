@@ -12,8 +12,8 @@ import sys
 import tempfile
 import textwrap
 import time
-from pathlib import Path
 import webbrowser
+from pathlib import Path
 
 import nox
 
