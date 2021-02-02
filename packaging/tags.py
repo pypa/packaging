@@ -121,7 +121,7 @@ class Tag:
 
     def __str__(self):
         # type: () -> str
-        return "{}-{}-{}".format(self._interpreter, self._abi, self._platform)
+        return f"{self._interpreter}-{self._abi}-{self._platform}"
 
     def __repr__(self):
         # type: () -> str
@@ -155,9 +155,7 @@ def _warn_keyword_parameter(func_name, kwargs):
     elif len(kwargs) > 1 or "warn" not in kwargs:
         kwargs.pop("warn", None)
         arg = next(iter(kwargs.keys()))
-        raise TypeError(
-            "{}() got an unexpected keyword argument {!r}".format(func_name, arg)
-        )
+        raise TypeError(f"{func_name}() got an unexpected keyword argument {arg!r}")
     return kwargs["warn"]
 
 
@@ -213,7 +211,7 @@ def _cpython_abis(py_version, warn=False):
     elif debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
-        abis.append("cp{version}".format(version=version))
+        abis.append(f"cp{version}")
     abis.insert(
         0,
         "cp{version}{debug}{pymalloc}{ucs4}".format(
@@ -227,7 +225,7 @@ def cpython_tags(
     python_version=None,  # type: Optional[PythonVersion]
     abis=None,  # type: Optional[Iterable[str]]
     platforms=None,  # type: Optional[Iterable[str]]
-    **kwargs  # type: bool
+    **kwargs,  # type: bool
 ):
     # type: (...) -> Iterator[Tag]
     """
@@ -269,10 +267,8 @@ def cpython_tags(
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
     if _abi3_applies(python_version):
-        for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
-            yield tag
-    for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
-        yield tag
+        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
+    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
 
     if _abi3_applies(python_version):
         for minor_version in range(python_version[1] - 1, 1, -1):
@@ -294,7 +290,7 @@ def generic_tags(
     interpreter=None,  # type: Optional[str]
     abis=None,  # type: Optional[Iterable[str]]
     platforms=None,  # type: Optional[Iterable[str]]
-    **kwargs  # type: bool
+    **kwargs,  # type: bool
 ):
     # type: (...) -> Iterator[Tag]
     """
@@ -690,7 +686,7 @@ def _get_elf_header():
     try:
         with open(sys.executable, "rb") as f:
             elf_header = _ELFFileHeader(f)
-    except (IOError, OSError, TypeError, _ELFFileHeader._InvalidELFFileHeader):
+    except (OSError, TypeError, _ELFFileHeader._InvalidELFFileHeader):
         return None
     return elf_header
 
@@ -780,8 +776,7 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
             linux = "linux_armv7l"
     _, arch = linux.split("_", 1)
     if _have_compatible_manylinux_abi(arch):
-        for tag in _manylinux_tags(linux, arch):
-            yield tag
+        yield from _manylinux_tags(linux, arch)
     yield linux
 
 
@@ -843,11 +838,8 @@ def sys_tags(**kwargs):
 
     interp_name = interpreter_name()
     if interp_name == "cp":
-        for tag in cpython_tags(warn=warn):
-            yield tag
+        yield from cpython_tags(warn=warn)
     else:
-        for tag in generic_tags():
-            yield tag
+        yield from generic_tags()
 
-    for tag in compatible_tags():
-        yield tag
+    yield from compatible_tags()

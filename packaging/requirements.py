@@ -63,7 +63,7 @@ VERSION_ONE = VERSION_PEP440 ^ VERSION_LEGACY
 VERSION_MANY = Combine(
     VERSION_ONE + ZeroOrMore(COMMA + VERSION_ONE), joinString=",", adjacent=False
 )("_raw_spec")
-_VERSION_SPEC = Optional(((LPAREN + VERSION_MANY + RPAREN) | VERSION_MANY))
+_VERSION_SPEC = Optional((LPAREN + VERSION_MANY + RPAREN) | VERSION_MANY)
 _VERSION_SPEC.setParseAction(lambda s, l, t: t._raw_spec or "")
 
 VERSION_SPEC = originalTextFor(_VERSION_SPEC)("specifier")
@@ -106,7 +106,7 @@ class Requirement:
             req = REQUIREMENT.parseString(requirement_string)
         except ParseException as e:
             raise InvalidRequirement(
-                'Parse error at "{0!r}": {1}'.format(
+                'Parse error at "{!r}": {}'.format(
                     requirement_string[e.loc : e.loc + 8], e.msg
                 )
             )
@@ -120,7 +120,7 @@ class Requirement:
             elif not (parsed_url.scheme and parsed_url.netloc) or (
                 not parsed_url.scheme and not parsed_url.netloc
             ):
-                raise InvalidRequirement("Invalid URL: {0}".format(req.url))
+                raise InvalidRequirement(f"Invalid URL: {req.url}")
             self.url = req.url  # type: TOptional[str]
         else:
             self.url = None
@@ -133,21 +133,21 @@ class Requirement:
         parts = [self.name]  # type: List[str]
 
         if self.extras:
-            parts.append("[{0}]".format(",".join(sorted(self.extras))))
+            parts.append("[{}]".format(",".join(sorted(self.extras))))
 
         if self.specifier:
             parts.append(str(self.specifier))
 
         if self.url:
-            parts.append("@ {0}".format(self.url))
+            parts.append(f"@ {self.url}")
             if self.marker:
                 parts.append(" ")
 
         if self.marker:
-            parts.append("; {0}".format(self.marker))
+            parts.append(f"; {self.marker}")
 
         return "".join(parts)
 
     def __repr__(self):
         # type: () -> str
-        return "<Requirement({0!r})>".format(str(self))
+        return "<Requirement({!r})>".format(str(self))

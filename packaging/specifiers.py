@@ -109,7 +109,7 @@ class _IndividualSpecifier(BaseSpecifier):
         # type: (str, Optional[bool]) -> None
         match = self._regex.search(spec)
         if not match:
-            raise InvalidSpecifier("Invalid specifier: '{0}'".format(spec))
+            raise InvalidSpecifier(f"Invalid specifier: '{spec}'")
 
         self._spec = (
             match.group("operator").strip(),
@@ -122,16 +122,16 @@ class _IndividualSpecifier(BaseSpecifier):
     def __repr__(self):
         # type: () -> str
         pre = (
-            ", prereleases={0!r}".format(self.prereleases)
+            f", prereleases={self.prereleases!r}"
             if self._prereleases is not None
             else ""
         )
 
-        return "<{0}({1!r}{2})>".format(self.__class__.__name__, str(self), pre)
+        return "<{}({!r}{})>".format(self.__class__.__name__, str(self), pre)
 
     def __str__(self):
         # type: () -> str
-        return "{0}{1}".format(*self._spec)
+        return "{}{}".format(*self._spec)
 
     @property
     def _canonical_spec(self):
@@ -169,7 +169,7 @@ class _IndividualSpecifier(BaseSpecifier):
     def _get_operator(self, op):
         # type: (str) -> CallableOperator
         operator_callable = getattr(
-            self, "_compare_{0}".format(self._operators[op])
+            self, "_compare_{}".format(self._operators[op])
         )  # type: CallableOperator
         return operator_callable
 
@@ -698,12 +698,12 @@ class SpecifierSet(BaseSpecifier):
     def __repr__(self):
         # type: () -> str
         pre = (
-            ", prereleases={0!r}".format(self.prereleases)
+            f", prereleases={self.prereleases!r}"
             if self._prereleases is not None
             else ""
         )
 
-        return "<SpecifierSet({0!r}{1})>".format(str(self), pre)
+        return "<SpecifierSet({!r}{})>".format(str(self), pre)
 
     def __str__(self):
         # type: () -> str

@@ -67,7 +67,7 @@ class Node:
 
     def __repr__(self):
         # type: () -> str
-        return "<{0}({1!r})>".format(self.__class__.__name__, str(self))
+        return "<{}({!r})>".format(self.__class__.__name__, str(self))
 
     def serialize(self):
         # type: () -> str
@@ -83,7 +83,7 @@ class Variable(Node):
 class Value(Node):
     def serialize(self):
         # type: () -> str
-        return '"{0}"'.format(self)
+        return f'"{self}"'
 
 
 class Op(Node):
@@ -208,9 +208,7 @@ def _eval_op(lhs, op, rhs):
 
     oper = _operators.get(op.serialize())  # type: Optional[Operator]
     if oper is None:
-        raise UndefinedComparison(
-            "Undefined {0!r} on {1!r} and {2!r}.".format(op, lhs, rhs)
-        )
+        raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
 
     return oper(lhs, rhs)
 
@@ -228,7 +226,7 @@ def _get_env(environment, name):
 
     if isinstance(value, Undefined):
         raise UndefinedEnvironmentName(
-            "{0!r} does not exist in evaluation environment.".format(name)
+            f"{name!r} does not exist in evaluation environment."
         )
 
     return value
@@ -296,7 +294,7 @@ class Marker:
         try:
             self._markers = _coerce_parse_result(MARKER.parseString(marker))
         except ParseException as e:
-            err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
+            err_str = "Invalid marker: {!r}, parse error at {!r}".format(
                 marker, marker[e.loc : e.loc + 8]
             )
             raise InvalidMarker(err_str)
@@ -307,7 +305,7 @@ class Marker:
 
     def __repr__(self):
         # type: () -> str
-        return "<Marker({0!r})>".format(str(self))
+        return "<Marker({!r})>".format(str(self))
 
     def evaluate(self, environment=None):
         # type: (Optional[Dict[str, str]]) -> bool

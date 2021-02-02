@@ -341,7 +341,7 @@ class TestManylinuxPlatform:
     def test_module_declaration(
         self, monkeypatch, manylinux_module, attribute, glibc, tf
     ):
-        manylinux = "manylinux{}_compatible".format(attribute)
+        manylinux = f"manylinux{attribute}_compatible"
         monkeypatch.setattr(manylinux_module, manylinux, tf, raising=False)
         res = tags._is_manylinux_compatible(manylinux, "x86_64", glibc)
         assert tf is res
@@ -352,7 +352,7 @@ class TestManylinuxPlatform:
     def test_module_declaration_missing_attribute(
         self, monkeypatch, manylinux_module, attribute, glibc
     ):
-        manylinux = "manylinux{}_compatible".format(attribute)
+        manylinux = f"manylinux{attribute}_compatible"
         monkeypatch.delattr(manylinux_module, manylinux, raising=False)
         assert tags._is_manylinux_compatible(manylinux, "x86_64", glibc)
 
@@ -382,7 +382,7 @@ class TestManylinuxPlatform:
         [
             # Be very explicit about bytes and Unicode for Python 2 testing.
             (b"2.4", "2.4"),
-            (u"2.4", "2.4"),
+            ("2.4", "2.4"),
         ],
     )
     def test_glibc_version_string(self, version_str, expected, monkeypatch):
@@ -614,7 +614,7 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = (
             ["manylinux_3_2_aarch64", "manylinux_3_1_aarch64", "manylinux_3_0_aarch64"]
-            + ["manylinux_2_{}_aarch64".format(i) for i in range(50, 16, -1)]
+            + [f"manylinux_2_{i}_aarch64" for i in range(50, 16, -1)]
             + ["manylinux2014_aarch64", "linux_aarch64"]
         )
         assert platforms == expected
@@ -637,18 +637,14 @@ class TestManylinuxPlatform:
         self, monkeypatch, machine, abi, alt_machine
     ):
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda name, _: False)
-        monkeypatch.setattr(
-            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
-        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             sys,
             "executable",
-            os.path.join(
-                os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
-            ),
+            os.path.join(os.path.dirname(__file__), f"hello-world-{machine}-{abi}"),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["linux_{}".format(alt_machine)]
+        expected = [f"linux_{alt_machine}"]
         assert platforms == expected
 
     @pytest.mark.parametrize(
@@ -701,9 +697,7 @@ class TestManylinuxPlatform:
     def test_get_elf_header(
         self, monkeypatch, machine, abi, elf_class, elf_data, elf_machine
     ):
-        path = os.path.join(
-            os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
-        )
+        path = os.path.join(os.path.dirname(__file__), f"hello-world-{machine}-{abi}")
         monkeypatch.setattr(sys, "executable", path)
         elf_header = tags._get_elf_header()
         assert elf_header.e_ident_class == elf_class
@@ -715,9 +709,7 @@ class TestManylinuxPlatform:
     )
     def test_get_elf_header_bad_excutable(self, monkeypatch, content):
         if content:
-            path = os.path.join(
-                os.path.dirname(__file__), "hello-world-{}".format(content)
-            )
+            path = os.path.join(os.path.dirname(__file__), f"hello-world-{content}")
         else:
             path = None
         monkeypatch.setattr(sys, "executable", path)
@@ -1289,18 +1281,14 @@ class TestSysTags:
     def test_linux_platforms_not_manylinux_abi(
         self, monkeypatch, manylinux_module, machine, abi, alt_machine
     ):
-        monkeypatch.setattr(
-            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
-        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             sys,
             "executable",
-            os.path.join(
-                os.path.dirname(__file__), "hello-world-{}-{}".format(machine, abi)
-            ),
+            os.path.join(os.path.dirname(__file__), f"hello-world-{machine}-{abi}"),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["linux_{}".format(alt_machine)]
+        expected = [f"linux_{alt_machine}"]
         assert platforms == expected
 
     @pytest.mark.parametrize(
@@ -1315,9 +1303,7 @@ class TestSysTags:
             return False
 
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (major, minor))
-        monkeypatch.setattr(
-            distutils.util, "get_platform", lambda: "linux_{}".format(machine)
-        )
+        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             manylinux_module,
             "manylinux_compatible",
@@ -1326,10 +1312,10 @@ class TestSysTags:
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
         if tf:
-            expected = ["manylinux_2_22_{}".format(machine)]
+            expected = [f"manylinux_2_22_{machine}"]
         else:
             expected = []
-        expected.append("linux_{}".format(machine))
+        expected.append(f"linux_{machine}")
         assert platforms == expected
 
     def test_linux_use_manylinux_compatible_none(self, monkeypatch, manylinux_module):

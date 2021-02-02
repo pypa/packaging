@@ -31,7 +31,7 @@ def pep440(cached=False):
     # possible
     if cached:
         try:
-            with open(cache_path, "r") as fp:
+            with open(cache_path) as fp:
                 data = json.load(fp)
         except Exception:
             data = None
@@ -43,12 +43,10 @@ def pep440(cached=False):
         bar = progress.bar.ShadyBar("Fetching Versions")
         client = xmlrpc.client.Server("https://pypi.python.org/pypi")
 
-        data = dict(
-            [
-                (project, client.package_releases(project, True))
-                for project in bar.iter(client.list_packages())
-            ]
-        )
+        data = {
+            project: client.package_releases(project, True)
+            for project in bar.iter(client.list_packages())
+        }
 
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w") as fp:

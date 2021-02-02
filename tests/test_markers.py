@@ -68,7 +68,7 @@ class TestNode:
 
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
     def test_repr(self, value):
-        assert repr(Node(value)) == "<Node({0!r})>".format(str(value))
+        assert repr(Node(value)) == "<Node({!r})>".format(str(value))
 
     def test_base_class(self):
         with pytest.raises(NotImplementedError):
@@ -143,7 +143,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         "marker_string",
         [
-            "{0} {1} {2!r}".format(*i)
+            "{} {} {!r}".format(*i)
             for i in itertools.product(VARIABLES, OPERATORS, VALUES)
         ]
         + [
@@ -205,7 +205,7 @@ class TestMarker:
     def test_str_and_repr(self, marker_string, expected):
         m = Marker(marker_string)
         assert str(m) == expected
-        assert repr(m) == "<Marker({0!r})>".format(str(m))
+        assert repr(m) == "<Marker({!r})>".format(str(m))
 
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
@@ -216,7 +216,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
-            ("os_name == '{0}'".format(os.name), None, True),
+            (f"os_name == '{os.name}'", None, True),
             ("os_name == 'foo'", {"os_name": "foo"}, True),
             ("os_name == 'foo'", {"os_name": "bar"}, False),
             ("'2.7' in python_version", {"python_version": "2.7.5"}, True),
@@ -255,7 +255,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         "marker_string",
         [
-            "{0} {1} {2!r}".format(*i)
+            "{} {} {!r}".format(*i)
             for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
         ]
         + [
@@ -269,7 +269,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
-            ("os.name == '{0}'".format(os.name), None, True),
+            (f"os.name == '{os.name}'", None, True),
             ("sys.platform == 'win32'", {"sys_platform": "linux2"}, False),
             ("platform.version in 'Ubuntu'", {"platform_version": "#39"}, False),
             ("platform.machine=='x86_64'", {"platform_machine": "x86_64"}, True),
@@ -293,7 +293,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         "marker_string",
         [
-            "{0} {1} {2!r}".format(*i)
+            "{} {} {!r}".format(*i)
             for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
         ]
         + [
