@@ -277,7 +277,7 @@ class TestVersion:
     )
     def test_version_str_repr(self, version, expected):
         assert str(Version(version)) == expected
-        assert repr(Version(version)) == "<Version({})>".format(repr(expected))
+        assert repr(Version(version)) == "<Version({!r})>".format(expected)
 
     def test_version_rc_and_c_equals(self):
         assert Version("1.0rc1") == Version("1.0c1")

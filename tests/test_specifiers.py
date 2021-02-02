@@ -227,7 +227,7 @@ class TestSpecifier:
         spec = Specifier(specifier)
 
         assert str(spec) == expected
-        assert repr(spec) == "<Specifier({})>".format(repr(expected))
+        assert repr(spec) == "<Specifier({!r})>".format(expected)
 
     @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_hash(self, specifier):
@@ -872,7 +872,7 @@ class TestSpecifierSet:
         spec = SpecifierSet(specifier)
 
         assert str(spec) == expected
-        assert repr(spec) == "<SpecifierSet({})>".format(repr(expected))
+        assert repr(spec) == "<SpecifierSet({!r})>".format(expected)
 
     @pytest.mark.parametrize("specifier", SPECIFIERS + LEGACY_SPECIFIERS)
     def test_specifiers_hash(self, specifier):
