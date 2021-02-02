@@ -9,7 +9,7 @@ No unreleased changes.
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~
 
-* Run [isort](https://pypi.org/project/isort/) over the code base (:issue:`377`)
+* Run `isort <https://pypi.org/project/isort/>`_ over the code base (:issue:`377`)
 * Add support for the ``macosx_10_*_universal2`` platform tags (:issue:`379`)
 * Introduce ``packaging.utils.parse_wheel_filename()`` and ``parse_sdist_filename()``
   (:issue:`387` and :issue:`389`)
