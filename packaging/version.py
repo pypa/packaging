@@ -372,12 +372,12 @@ class Version(_BaseVersion):
 
     @property
     def post(self):
-        # type: () -> Optional[Tuple[str, int]]
+        # type: () -> Optional[int]
         return self._version.post[1] if self._version.post else None
 
     @property
     def dev(self):
-        # type: () -> Optional[Tuple[str, int]]
+        # type: () -> Optional[int]
         return self._version.dev[1] if self._version.dev else None
 
     @property
