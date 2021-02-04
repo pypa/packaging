@@ -842,9 +842,7 @@ def _get_host_platform():
             machine += ".{}".format(bitness[sys.maxsize])
         # fall through to standard osname-release-machine representation
     elif osname[:3] == "aix":
-        from _aix_support import aix_platform
-
-        return cast(str, aix_platform())
+        return sysconfig.get_platform()
     elif osname[:6] == "cygwin":
         osname = "cygwin"
         if PY2:  # Python 2 does not have re.ASCII.
@@ -855,12 +853,7 @@ def _get_host_platform():
         if m:
             release = m.group()
     elif osname[:6] == "darwin":
-        import sysconfig
-        import _osx_support
-
-        osname, release, machine = _osx_support.get_platform_osx(
-            sysconfig.get_config_vars(), osname, release, machine
-        )
+        return sysconfig.get_platform()
 
     return "{}-{}-{}".format(osname, release, machine)
 
