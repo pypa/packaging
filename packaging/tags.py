@@ -3,7 +3,6 @@
 # for complete details.
 
 import collections
-import distutils.util
 import logging
 import os
 import platform
@@ -598,7 +597,7 @@ def _parse_glibc_version(version_str):
     return (int(m.group("major")), int(m.group("minor")))
 
 
-_glibc_version = []  #  type: List[Tuple[int, int]]
+_glibc_version = []  # type: List[Tuple[int, int]]
 
 
 def _get_glibc_version():
@@ -768,7 +767,7 @@ def _manylinux_tags(linux, arch):
 
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     # type: (bool) -> Iterator[str]
-    linux = _normalize_string(distutils.util.get_platform())
+    linux = _normalize_string(sysconfig.get_platform())
     if is_32bit:
         if linux == "linux_x86_64":
             linux = "linux_i686"
@@ -782,7 +781,7 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
 
 def _generic_platforms():
     # type: () -> Iterator[str]
-    yield _normalize_string(distutils.util.get_platform())
+    yield _normalize_string(sysconfig.get_platform())
 
 
 def _platform_tags():
