@@ -13,15 +13,16 @@ repos:
       - id: mypy
         exclude: '^(docs|tasks|tests)|setup\.py'
         args: []
-      - id: mypy
-        name: mypy for Python 2
-        exclude: '^(docs|tasks|tests)|setup\.py|noxfile\.py'
-        args: ["--py2"]
 
   - repo: https://github.com/psf/black
     rev: 19.3b0
     hooks:
       - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.6.4
+    hooks:
+      - id: isort
 
   - repo: https://gitlab.com/PyCQA/flake8
     rev: "3.7.8"

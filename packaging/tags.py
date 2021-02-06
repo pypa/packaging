@@ -2,18 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from __future__ import absolute_import
-
-import distutils.util
-
-try:
-    from importlib.machinery import EXTENSION_SUFFIXES
-except ImportError:  # pragma: no cover
-    import imp
-
-    EXTENSION_SUFFIXES = [x[0] for x in imp.get_suffixes()]
-    del imp
 import collections
+import distutils.util
 import logging
 import os
 import platform
@@ -22,14 +12,15 @@ import struct
 import sys
 import sysconfig
 import warnings
+from importlib.machinery import EXTENSION_SUFFIXES
 
 from ._typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:  # pragma: no cover
     from typing import (
+        IO,
         Dict,
         FrozenSet,
-        IO,
         Iterable,
         Iterator,
         List,
@@ -76,7 +67,7 @@ _LAST_GLIBC_MINOR = collections.defaultdict(lambda: 50)  # type: Dict[int, int]
 glibcVersion = collections.namedtuple("Version", ["major", "minor"])
 
 
-class Tag(object):
+class Tag:
     """
     A representation of the tag triple for a wheel.
 
@@ -130,7 +121,7 @@ class Tag(object):
 
     def __str__(self):
         # type: () -> str
-        return "{}-{}-{}".format(self._interpreter, self._abi, self._platform)
+        return f"{self._interpreter}-{self._abi}-{self._platform}"
 
     def __repr__(self):
         # type: () -> str
@@ -164,9 +155,7 @@ def _warn_keyword_parameter(func_name, kwargs):
     elif len(kwargs) > 1 or "warn" not in kwargs:
         kwargs.pop("warn", None)
         arg = next(iter(kwargs.keys()))
-        raise TypeError(
-            "{}() got an unexpected keyword argument {!r}".format(func_name, arg)
-        )
+        raise TypeError(f"{func_name}() got an unexpected keyword argument {arg!r}")
     return kwargs["warn"]
 
 
@@ -222,7 +211,7 @@ def _cpython_abis(py_version, warn=False):
     elif debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
-        abis.append("cp{version}".format(version=version))
+        abis.append(f"cp{version}")
     abis.insert(
         0,
         "cp{version}{debug}{pymalloc}{ucs4}".format(
@@ -236,7 +225,7 @@ def cpython_tags(
     python_version=None,  # type: Optional[PythonVersion]
     abis=None,  # type: Optional[Iterable[str]]
     platforms=None,  # type: Optional[Iterable[str]]
-    **kwargs  # type: bool
+    **kwargs,  # type: bool
 ):
     # type: (...) -> Iterator[Tag]
     """
@@ -278,10 +267,8 @@ def cpython_tags(
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
     if _abi3_applies(python_version):
-        for tag in (Tag(interpreter, "abi3", platform_) for platform_ in platforms):
-            yield tag
-    for tag in (Tag(interpreter, "none", platform_) for platform_ in platforms):
-        yield tag
+        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
+    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
 
     if _abi3_applies(python_version):
         for minor_version in range(python_version[1] - 1, 1, -1):
@@ -303,7 +290,7 @@ def generic_tags(
     interpreter=None,  # type: Optional[str]
     abis=None,  # type: Optional[Iterable[str]]
     platforms=None,  # type: Optional[Iterable[str]]
-    **kwargs  # type: bool
+    **kwargs,  # type: bool
 ):
     # type: (...) -> Iterator[Tag]
     """
@@ -458,14 +445,28 @@ def mac_platforms(version=None, arch=None):
                     major=major_version, minor=0, binary_format=binary_format
                 )
 
-    if version >= (11, 0) and arch == "x86_64":
+    if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
         # Arm64 support was introduced in 11.0, so no Arm binaries from previous
         # releases exist.
-        for minor_version in range(16, 3, -1):
-            compat_version = 10, minor_version
-            binary_formats = _mac_binary_formats(compat_version, arch)
-            for binary_format in binary_formats:
+        #
+        # However, the "universal2" binary format can have a
+        # macOS version earlier than 11.0 when the x86_64 part of the binary supports
+        # that version of macOS.
+        if arch == "x86_64":
+            for minor_version in range(16, 3, -1):
+                compat_version = 10, minor_version
+                binary_formats = _mac_binary_formats(compat_version, arch)
+                for binary_format in binary_formats:
+                    yield "macosx_{major}_{minor}_{binary_format}".format(
+                        major=compat_version[0],
+                        minor=compat_version[1],
+                        binary_format=binary_format,
+                    )
+        else:
+            for minor_version in range(16, 3, -1):
+                compat_version = 10, minor_version
+                binary_format = "universal2"
                 yield "macosx_{major}_{minor}_{binary_format}".format(
                     major=compat_version[0],
                     minor=compat_version[1],
@@ -616,7 +617,7 @@ def _get_glibc_version():
 # identify the architecture of the running executable in some cases, so we
 # determine it dynamically by reading the information from the running
 # process. This only applies on Linux, which uses the ELF format.
-class _ELFFileHeader(object):
+class _ELFFileHeader:
     # https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_header
     class _InvalidELFFileHeader(ValueError):
         """
@@ -685,7 +686,7 @@ def _get_elf_header():
     try:
         with open(sys.executable, "rb") as f:
             elf_header = _ELFFileHeader(f)
-    except (IOError, OSError, TypeError, _ELFFileHeader._InvalidELFFileHeader):
+    except (OSError, TypeError, _ELFFileHeader._InvalidELFFileHeader):
         return None
     return elf_header
 
@@ -775,8 +776,7 @@ def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
             linux = "linux_armv7l"
     _, arch = linux.split("_", 1)
     if _have_compatible_manylinux_abi(arch):
-        for tag in _manylinux_tags(linux, arch):
-            yield tag
+        yield from _manylinux_tags(linux, arch)
     yield linux
 
 
@@ -803,11 +803,7 @@ def interpreter_name():
     """
     Returns the name of the running interpreter.
     """
-    try:
-        name = sys.implementation.name  # type: ignore
-    except AttributeError:  # pragma: no cover
-        # Python 2.7 compatibility.
-        name = platform.python_implementation().lower()
+    name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
@@ -827,11 +823,7 @@ def interpreter_version(**kwargs):
 
 def _version_nodot(version):
     # type: (PythonVersion) -> str
-    if any(v >= 10 for v in version):
-        sep = "_"
-    else:
-        sep = ""
-    return sep.join(map(str, version))
+    return "".join(map(str, version))
 
 
 def sys_tags(**kwargs):
@@ -846,11 +838,8 @@ def sys_tags(**kwargs):
 
     interp_name = interpreter_name()
     if interp_name == "cp":
-        for tag in cpython_tags(warn=warn):
-            yield tag
+        yield from cpython_tags(warn=warn)
     else:
-        for tag in generic_tags():
-            yield tag
+        yield from generic_tags()
 
-    for tag in compatible_tags():
-        yield tag
+    yield from compatible_tags()

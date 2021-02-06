@@ -1,7 +1,6 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import collections
 import itertools
@@ -65,7 +64,7 @@ class InvalidVersion(ValueError):
     """
 
 
-class _BaseVersion(object):
+class _BaseVersion:
     _key = None  # type: Union[CmpKey, LegacyCmpKey]
 
     def __hash__(self):
@@ -136,7 +135,7 @@ class LegacyVersion(_BaseVersion):
 
     def __repr__(self):
         # type: () -> str
-        return "<LegacyVersion({0})>".format(repr(str(self)))
+        return f"<LegacyVersion('{self}')>"
 
     @property
     def public(self):
@@ -295,7 +294,7 @@ class Version(_BaseVersion):
         # Validate the version and parse it into pieces
         match = self._regex.search(version)
         if not match:
-            raise InvalidVersion("Invalid version: '{0}'".format(version))
+            raise InvalidVersion(f"Invalid version: '{version}'")
 
         # Store the parsed out pieces of the version
         self._version = _Version(
@@ -321,7 +320,7 @@ class Version(_BaseVersion):
 
     def __repr__(self):
         # type: () -> str
-        return "<Version({0})>".format(repr(str(self)))
+        return f"<Version('{self}')>"
 
     def __str__(self):
         # type: () -> str
@@ -329,7 +328,7 @@ class Version(_BaseVersion):
 
         # Epoch
         if self.epoch != 0:
-            parts.append("{0}!".format(self.epoch))
+            parts.append(f"{self.epoch}!")
 
         # Release segment
         parts.append(".".join(str(x) for x in self.release))
@@ -340,15 +339,15 @@ class Version(_BaseVersion):
 
         # Post-release
         if self.post is not None:
-            parts.append(".post{0}".format(self.post))
+            parts.append(f".post{self.post}")
 
         # Development release
         if self.dev is not None:
-            parts.append(".dev{0}".format(self.dev))
+            parts.append(f".dev{self.dev}")
 
         # Local version segment
         if self.local is not None:
-            parts.append("+{0}".format(self.local))
+            parts.append(f"+{self.local}")
 
         return "".join(parts)
 
@@ -372,12 +371,12 @@ class Version(_BaseVersion):
 
     @property
     def post(self):
-        # type: () -> Optional[Tuple[str, int]]
+        # type: () -> Optional[int]
         return self._version.post[1] if self._version.post else None
 
     @property
     def dev(self):
-        # type: () -> Optional[Tuple[str, int]]
+        # type: () -> Optional[int]
         return self._version.dev[1] if self._version.dev else None
 
     @property
@@ -400,7 +399,7 @@ class Version(_BaseVersion):
 
         # Epoch
         if self.epoch != 0:
-            parts.append("{0}!".format(self.epoch))
+            parts.append(f"{self.epoch}!")
 
         # Release segment
         parts.append(".".join(str(x) for x in self.release))

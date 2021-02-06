@@ -4,7 +4,22 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* `packaging` is now only compatible with Python 3.6 and above.
+
+20.9 - 2021-01-29
+~~~~~~~~~~~~~~~~~
+
+* Run `isort <https://pypi.org/project/isort/>`_ over the code base (:issue:`377`)
+* Add support for the ``macosx_10_*_universal2`` platform tags (:issue:`379`)
+* Introduce ``packaging.utils.parse_wheel_filename()`` and ``parse_sdist_filename()``
+  (:issue:`387` and :issue:`389`)
+
+20.8 - 2020-12-11
+~~~~~~~~~~~~~~~~~
+
+* Revert back to setuptools for compatibility purposes for some Linux distros (:issue:`363`)
+* Do not insert an underscore in wheel tags when the interpreter version number
+  is more than 2 digits (:issue:`372`)
 
 20.7 - 2020-11-28
 ~~~~~~~~~~~~~~~~~
@@ -17,6 +32,8 @@ No unreleased changes.
 .. note:: This release was subsequently yanked, and these changes were included in 20.7.
 
 * Fix flit configuration, to include LICENSE files (:issue:`357`)
+* Make `intel` a recognized CPU architecture for the `universal` macOS platform tag (:issue:`361`)
+* Add some missing type hints to `packaging.requirements` (issue:`350`)
 
 20.5 - 2020-11-27
 ~~~~~~~~~~~~~~~~~

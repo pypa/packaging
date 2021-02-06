@@ -2,17 +2,6 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from .__about__ import (
-    __author__,
-    __copyright__,
-    __email__,
-    __license__,
-    __summary__,
-    __title__,
-    __uri__,
-    __version__,
-)
-
 __all__ = [
     "__title__",
     "__summary__",
@@ -23,3 +12,15 @@ __all__ = [
     "__license__",
     "__copyright__",
 ]
+
+__title__ = "packaging"
+__summary__ = "Core utilities for Python packages"
+__uri__ = "https://github.com/pypa/packaging"
+
+__version__ = "20.10.dev0"
+
+__author__ = "Donald Stufft and individual contributors"
+__email__ = "donald@stufft.io"
+
+__license__ = "BSD-2-Clause or Apache-2.0"
+__copyright__ = "2014-2019 %s" % __author__

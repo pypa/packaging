@@ -1,13 +1,11 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import pytest
 
 from packaging.markers import Marker
-from packaging.requirements import InvalidRequirement, Requirement, URL
-from packaging.requirements import URL_AND_MARKER
+from packaging.requirements import URL, URL_AND_MARKER, InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 
 

@@ -1,7 +1,6 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import itertools
 import operator
@@ -17,8 +16,7 @@ from packaging.specifiers import (
 )
 from packaging.version import LegacyVersion, Version, parse
 
-from .test_version import VERSIONS, LEGACY_VERSIONS
-
+from .test_version import LEGACY_VERSIONS, VERSIONS
 
 LEGACY_SPECIFIERS = [
     "==2.1.0.3",
@@ -229,7 +227,7 @@ class TestSpecifier:
         spec = Specifier(specifier)
 
         assert str(spec) == expected
-        assert repr(spec) == "<Specifier({0})>".format(repr(expected))
+        assert repr(spec) == "<Specifier({!r})>".format(expected)
 
     @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_hash(self, specifier):
@@ -629,7 +627,7 @@ class TestSpecifier:
     )
     def test_iteration(self, spec, expected_items):
         spec = SpecifierSet(spec)
-        items = set(str(item) for item in spec)
+        items = {str(item) for item in spec}
         assert items == set(expected_items)
 
 
@@ -875,7 +873,7 @@ class TestSpecifierSet:
         spec = SpecifierSet(specifier)
 
         assert str(spec) == expected
-        assert repr(spec) == "<SpecifierSet({0})>".format(repr(expected))
+        assert repr(spec) == "<SpecifierSet({!r})>".format(expected)
 
     @pytest.mark.parametrize("specifier", SPECIFIERS + LEGACY_SPECIFIERS)
     def test_specifiers_hash(self, specifier):
