@@ -1,7 +1,6 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import abc
 import functools
@@ -9,13 +8,22 @@ import itertools
 import re
 import warnings
 
-from ._compat import string_types, with_metaclass
 from ._typing import TYPE_CHECKING
 from .utils import canonicalize_version
 from .version import LegacyVersion, Version, parse
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+    from typing import (
+        Callable,
+        Dict,
+        Iterable,
+        Iterator,
+        List,
+        Optional,
+        Set,
+        Tuple,
+        Union,
+    )
 
     ParsedVersion = Union[Version, LegacyVersion]
     UnparsedVersion = Union[Version, LegacyVersion, str]
@@ -28,7 +36,7 @@ class InvalidSpecifier(ValueError):
     """
 
 
-class BaseSpecifier(with_metaclass(abc.ABCMeta, object)):  # type: ignore
+class BaseSpecifier(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __str__(self):
         # type: () -> str
@@ -95,12 +103,13 @@ class BaseSpecifier(with_metaclass(abc.ABCMeta, object)):  # type: ignore
 class _IndividualSpecifier(BaseSpecifier):
 
     _operators = {}  # type: Dict[str, str]
+    _regex = None  # type: re.Pattern[str]
 
     def __init__(self, spec="", prereleases=None):
         # type: (str, Optional[bool]) -> None
         match = self._regex.search(spec)
         if not match:
-            raise InvalidSpecifier("Invalid specifier: '{0}'".format(spec))
+            raise InvalidSpecifier(f"Invalid specifier: '{spec}'")
 
         self._spec = (
             match.group("operator").strip(),
@@ -113,16 +122,16 @@ class _IndividualSpecifier(BaseSpecifier):
     def __repr__(self):
         # type: () -> str
         pre = (
-            ", prereleases={0!r}".format(self.prereleases)
+            f", prereleases={self.prereleases!r}"
             if self._prereleases is not None
             else ""
         )
 
-        return "<{0}({1!r}{2})>".format(self.__class__.__name__, str(self), pre)
+        return "<{}({!r}{})>".format(self.__class__.__name__, str(self), pre)
 
     def __str__(self):
         # type: () -> str
-        return "{0}{1}".format(*self._spec)
+        return "{}{}".format(*self._spec)
 
     @property
     def _canonical_spec(self):
@@ -135,7 +144,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
     def __eq__(self, other):
         # type: (object) -> bool
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             try:
                 other = self.__class__(str(other))
             except InvalidSpecifier:
@@ -147,7 +156,7 @@ class _IndividualSpecifier(BaseSpecifier):
 
     def __ne__(self, other):
         # type: (object) -> bool
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             try:
                 other = self.__class__(str(other))
             except InvalidSpecifier:
@@ -160,7 +169,7 @@ class _IndividualSpecifier(BaseSpecifier):
     def _get_operator(self, op):
         # type: (str) -> CallableOperator
         operator_callable = getattr(
-            self, "_compare_{0}".format(self._operators[op])
+            self, f"_compare_{self._operators[op]}"
         )  # type: CallableOperator
         return operator_callable
 
@@ -278,7 +287,7 @@ class LegacySpecifier(_IndividualSpecifier):
 
     def __init__(self, spec="", prereleases=None):
         # type: (str, Optional[bool]) -> None
-        super(LegacySpecifier, self).__init__(spec, prereleases)
+        super().__init__(spec, prereleases)
 
         warnings.warn(
             "Creating a LegacyVersion has been deprecated and will be "
@@ -672,7 +681,7 @@ class SpecifierSet(BaseSpecifier):
 
         # Parsed each individual specifier, attempting first to make it a
         # Specifier and falling back to a LegacySpecifier.
-        parsed = set()
+        parsed = set()  # type: Set[_IndividualSpecifier]
         for specifier in split_specifiers:
             try:
                 parsed.add(Specifier(specifier))
@@ -689,12 +698,12 @@ class SpecifierSet(BaseSpecifier):
     def __repr__(self):
         # type: () -> str
         pre = (
-            ", prereleases={0!r}".format(self.prereleases)
+            f", prereleases={self.prereleases!r}"
             if self._prereleases is not None
             else ""
         )
 
-        return "<SpecifierSet({0!r}{1})>".format(str(self), pre)
+        return "<SpecifierSet({!r}{})>".format(str(self), pre)
 
     def __str__(self):
         # type: () -> str
@@ -706,7 +715,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __and__(self, other):
         # type: (Union[SpecifierSet, str]) -> SpecifierSet
-        if isinstance(other, string_types):
+        if isinstance(other, str):
             other = SpecifierSet(other)
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
@@ -730,7 +739,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __eq__(self, other):
         # type: (object) -> bool
-        if isinstance(other, (string_types, _IndividualSpecifier)):
+        if isinstance(other, (str, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
@@ -739,7 +748,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __ne__(self, other):
         # type: (object) -> bool
-        if isinstance(other, (string_types, _IndividualSpecifier)):
+        if isinstance(other, (str, _IndividualSpecifier)):
             other = SpecifierSet(str(other))
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
