@@ -67,7 +67,7 @@ class Node:
 
     def __repr__(self):
         # type: () -> str
-        return "<{}({!r})>".format(self.__class__.__name__, str(self))
+        return f"<{self.__class__.__name__}('{self}')>"
 
     def serialize(self):
         # type: () -> str
@@ -294,10 +294,10 @@ class Marker:
         try:
             self._markers = _coerce_parse_result(MARKER.parseString(marker))
         except ParseException as e:
-            err_str = "Invalid marker: {!r}, parse error at {!r}".format(
-                marker, marker[e.loc : e.loc + 8]
+            raise InvalidMarker(
+                f"Invalid marker: {marker!r}, parse error at "
+                f"{marker[e.loc : e.loc + 8]!r}"
             )
-            raise InvalidMarker(err_str)
 
     def __str__(self):
         # type: () -> str
@@ -305,7 +305,7 @@ class Marker:
 
     def __repr__(self):
         # type: () -> str
-        return "<Marker({!r})>".format(str(self))
+        return f"<Marker('{self}')>"
 
     def evaluate(self, environment=None):
         # type: (Optional[Dict[str, str]]) -> bool

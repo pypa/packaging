@@ -106,9 +106,7 @@ class Requirement:
             req = REQUIREMENT.parseString(requirement_string)
         except ParseException as e:
             raise InvalidRequirement(
-                'Parse error at "{!r}": {}'.format(
-                    requirement_string[e.loc : e.loc + 8], e.msg
-                )
+                f'Parse error at "{ requirement_string[e.loc : e.loc + 8]!r}": {e.msg}'
             )
 
         self.name = req.name  # type: str
@@ -133,7 +131,8 @@ class Requirement:
         parts = [self.name]  # type: List[str]
 
         if self.extras:
-            parts.append("[{}]".format(",".join(sorted(self.extras))))
+            formatted_extras = ",".join(sorted(self.extras))
+            parts.append(f"[{formatted_extras}]")
 
         if self.specifier:
             parts.append(str(self.specifier))
@@ -150,4 +149,4 @@ class Requirement:
 
     def __repr__(self):
         # type: () -> str
-        return "<Requirement({!r})>".format(str(self))
+        return f"<Requirement('{self}')>"

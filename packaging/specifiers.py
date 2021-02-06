@@ -169,7 +169,7 @@ class _IndividualSpecifier(BaseSpecifier):
     def _get_operator(self, op):
         # type: (str) -> CallableOperator
         operator_callable = getattr(
-            self, "_compare_{}".format(self._operators[op])
+            self, f"_compare_{self._operators[op]}"
         )  # type: CallableOperator
         return operator_callable
 

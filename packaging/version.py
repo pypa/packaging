@@ -135,7 +135,7 @@ class LegacyVersion(_BaseVersion):
 
     def __repr__(self):
         # type: () -> str
-        return "<LegacyVersion({!r})>".format(str(self))
+        return f"<LegacyVersion('{self}')>"
 
     @property
     def public(self):
@@ -320,7 +320,7 @@ class Version(_BaseVersion):
 
     def __repr__(self):
         # type: () -> str
-        return "<Version({!r})>".format(str(self))
+        return "<Version('{self}')>"
 
     def __str__(self):
         # type: () -> str
