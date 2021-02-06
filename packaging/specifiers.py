@@ -459,15 +459,9 @@ class Specifier(_IndividualSpecifier):
         # the other specifiers.
 
         # We want everything but the last item in the version, but we want to
-        # ignore post and dev releases and we want to treat the pre-release as
-        # it's own separate segment.
+        # ignore suffix segments.
         prefix = ".".join(
-            list(
-                itertools.takewhile(
-                    lambda x: (not x.startswith("post") and not x.startswith("dev")),
-                    _version_split(spec),
-                )
-            )[:-1]
+            list(itertools.takewhile(_is_not_suffix, _version_split(spec)))[:-1]
         )
 
         # Add the prefix notation to the end of our string
@@ -650,6 +644,13 @@ def _version_split(version):
         else:
             result.append(item)
     return result
+
+
+def _is_not_suffix(segment):
+    # type: (str) -> bool
+    return not any(
+        segment.startswith(prefix) for prefix in ("dev", "a", "b", "rc", "post")
+    )
 
 
 def _pad_version(left, right):
