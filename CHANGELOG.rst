@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* `packaging` is now only compatible with Python 3.6 and above.
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~

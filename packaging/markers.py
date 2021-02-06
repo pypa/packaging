@@ -1,7 +1,6 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import operator
 import os
@@ -20,7 +19,6 @@ from pyparsing import (  # noqa: N817
     stringStart,
 )
 
-from ._compat import string_types
 from ._typing import TYPE_CHECKING
 from .specifiers import InvalidSpecifier, Specifier
 
@@ -58,7 +56,7 @@ class UndefinedEnvironmentName(ValueError):
     """
 
 
-class Node(object):
+class Node:
     def __init__(self, value):
         # type: (Any) -> None
         self.value = value
@@ -69,7 +67,7 @@ class Node(object):
 
     def __repr__(self):
         # type: () -> str
-        return "<{0}({1!r})>".format(self.__class__.__name__, str(self))
+        return f"<{self.__class__.__name__}('{self}')>"
 
     def serialize(self):
         # type: () -> str
@@ -85,7 +83,7 @@ class Variable(Node):
 class Value(Node):
     def serialize(self):
         # type: () -> str
-        return '"{0}"'.format(self)
+        return f'"{self}"'
 
 
 class Op(Node):
@@ -162,7 +160,7 @@ def _coerce_parse_result(results):
 def _format_marker(marker, first=True):
     # type: (Union[List[str], Tuple[Node, ...], str], Optional[bool]) -> str
 
-    assert isinstance(marker, (list, tuple, string_types))
+    assert isinstance(marker, (list, tuple, str))
 
     # Sometimes we have a structure like [[...]] which is a single item list
     # where the single item is itself it's own list. In that case we want skip
@@ -210,14 +208,12 @@ def _eval_op(lhs, op, rhs):
 
     oper = _operators.get(op.serialize())  # type: Optional[Operator]
     if oper is None:
-        raise UndefinedComparison(
-            "Undefined {0!r} on {1!r} and {2!r}.".format(op, lhs, rhs)
-        )
+        raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
 
     return oper(lhs, rhs)
 
 
-class Undefined(object):
+class Undefined:
     pass
 
 
@@ -230,7 +226,7 @@ def _get_env(environment, name):
 
     if isinstance(value, Undefined):
         raise UndefinedEnvironmentName(
-            "{0!r} does not exist in evaluation environment.".format(name)
+            f"{name!r} does not exist in evaluation environment."
         )
 
     return value
@@ -241,7 +237,7 @@ def _evaluate_markers(markers, environment):
     groups = [[]]  # type: List[List[bool]]
 
     for marker in markers:
-        assert isinstance(marker, (list, tuple, string_types))
+        assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
             groups[-1].append(_evaluate_markers(marker, environment))
@@ -275,16 +271,8 @@ def format_full_version(info):
 
 def default_environment():
     # type: () -> Dict[str, str]
-    if hasattr(sys, "implementation"):
-        # Ignoring the `sys.implementation` reference for type checking due to
-        # mypy not liking that the attribute doesn't exist in Python 2.7 when
-        # run with the `--py27` flag.
-        iver = format_full_version(sys.implementation.version)  # type: ignore
-        implementation_name = sys.implementation.name  # type: ignore
-    else:
-        iver = "0"
-        implementation_name = ""
-
+    iver = format_full_version(sys.implementation.version)
+    implementation_name = sys.implementation.name
     return {
         "implementation_name": implementation_name,
         "implementation_version": iver,
@@ -300,16 +288,16 @@ def default_environment():
     }
 
 
-class Marker(object):
+class Marker:
     def __init__(self, marker):
         # type: (str) -> None
         try:
             self._markers = _coerce_parse_result(MARKER.parseString(marker))
         except ParseException as e:
-            err_str = "Invalid marker: {0!r}, parse error at {1!r}".format(
-                marker, marker[e.loc : e.loc + 8]
+            raise InvalidMarker(
+                f"Invalid marker: {marker!r}, parse error at "
+                f"{marker[e.loc : e.loc + 8]!r}"
             )
-            raise InvalidMarker(err_str)
 
     def __str__(self):
         # type: () -> str
@@ -317,7 +305,7 @@ class Marker(object):
 
     def __repr__(self):
         # type: () -> str
-        return "<Marker({0!r})>".format(str(self))
+        return f"<Marker('{self}')>"
 
     def evaluate(self, environment=None):
         # type: (Optional[Dict[str, str]]) -> bool
