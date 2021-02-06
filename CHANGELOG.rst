@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-* Drop support for python 2.7, 3.4, and 3.5.
+* `packaging` is now only compatible with Python 3.6 and above.
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~
