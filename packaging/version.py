@@ -320,7 +320,7 @@ class Version(_BaseVersion):
 
     def __repr__(self):
         # type: () -> str
-        return "<Version('{self}')>"
+        return f"<Version('{self}')>"
 
     def __str__(self):
         # type: () -> str
