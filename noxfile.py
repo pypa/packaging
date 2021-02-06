@@ -12,6 +12,7 @@ import sys
 import tempfile
 import textwrap
 import time
+import webbrowser
 from pathlib import Path
 
 import nox
@@ -158,6 +159,9 @@ def release(session):
 
     # Upload the distribution.
     session.run("twine", "upload", *files)
+
+    # Open up the GitHub release page.
+    webbrowser.open("https://github.com/pypa/packaging/releases")
 
 
 # -----------------------------------------------------------------------------
