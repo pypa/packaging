@@ -35,43 +35,45 @@ def canonicalize_name(name: str) -> NormalizedName:
     return cast(NormalizedName, value)
 
 
-def canonicalize_version(version: Union[Version, str]) -> Union[Version, str]:
+def canonicalize_version(version: Union[Version, str]) -> str:
     """
     This is very similar to Version.__str__, but has one subtle difference
     with the way it handles the release segment.
     """
-    if not isinstance(version, Version):
+    if isinstance(version, str):
         try:
-            version = Version(version)
+            parsed = Version(version)
         except InvalidVersion:
             # Legacy versions cannot be normalized
             return version
+    else:
+        parsed = version
 
     parts = []
 
     # Epoch
-    if version.epoch != 0:
-        parts.append(f"{version.epoch}!")
+    if parsed.epoch != 0:
+        parts.append(f"{parsed.epoch}!")
 
     # Release segment
     # NB: This strips trailing '.0's to normalize
-    parts.append(re.sub(r"(\.0)+$", "", ".".join(str(x) for x in version.release)))
+    parts.append(re.sub(r"(\.0)+$", "", ".".join(str(x) for x in parsed.release)))
 
     # Pre-release
-    if version.pre is not None:
-        parts.append("".join(str(x) for x in version.pre))
+    if parsed.pre is not None:
+        parts.append("".join(str(x) for x in parsed.pre))
 
     # Post-release
-    if version.post is not None:
-        parts.append(f".post{version.post}")
+    if parsed.post is not None:
+        parts.append(f".post{parsed.post}")
 
     # Development release
-    if version.dev is not None:
-        parts.append(f".dev{version.dev}")
+    if parsed.dev is not None:
+        parts.append(f".dev{parsed.dev}")
 
     # Local version segment
-    if version.local is not None:
-        parts.append(f"+{version.local}")
+    if parsed.local is not None:
+        parts.append(f"+{parsed.local}")
 
     return "".join(parts)
 
