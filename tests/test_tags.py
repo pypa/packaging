@@ -12,7 +12,6 @@ except ImportError:
 import distutils.util
 import os
 import platform
-import re
 import sys
 import sysconfig
 import types
@@ -85,31 +84,6 @@ class TestTag:
         assert example_tag.interpreter == "py3"
         assert example_tag.abi == "none"
         assert example_tag.platform == "any"
-
-
-class TestWarnKeywordOnlyParameter:
-    def test_no_argument(self):
-        assert not tags._warn_keyword_parameter("test_warn_keyword_parameters", {})
-
-    def test_false(self):
-        assert not tags._warn_keyword_parameter(
-            "test_warn_keyword_parameters", {"warn": False}
-        )
-
-    def test_true(self):
-        assert tags._warn_keyword_parameter(
-            "test_warn_keyword_parameters", {"warn": True}
-        )
-
-    def test_too_many_arguments(self):
-        message_re = re.compile(r"too_many.+{!r}".format("whatever"))
-        with pytest.raises(TypeError, match=message_re):
-            tags._warn_keyword_parameter("too_many", {"warn": True, "whatever": True})
-
-    def test_wrong_argument(self):
-        message_re = re.compile(r"missing.+{!r}".format("unexpected"))
-        with pytest.raises(TypeError, match=message_re):
-            tags._warn_keyword_parameter("missing", {"unexpected": True})
 
 
 class TestParseTag:
