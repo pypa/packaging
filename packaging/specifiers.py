@@ -21,11 +21,10 @@ from typing import (
 )
 
 from .utils import canonicalize_version
-from .version import LegacyVersion, Version, parse
+from .version import BaseVersion, LegacyVersion, Version, parse
 
-ParsedVersion = Union[Version, LegacyVersion]
-UnparsedVersion = Union[Version, LegacyVersion, str]
-CallableOperator = Callable[[ParsedVersion, str], bool]
+UnparsedVersion = Union[BaseVersion, str]
+CallableOperator = Callable[[BaseVersion, str], bool]
 
 
 class InvalidSpecifier(ValueError):
@@ -157,8 +156,8 @@ class _IndividualSpecifier(BaseSpecifier):
         )
         return operator_callable
 
-    def _coerce_version(self, version: UnparsedVersion) -> ParsedVersion:
-        if not isinstance(version, (LegacyVersion, Version)):
+    def _coerce_version(self, version: UnparsedVersion) -> BaseVersion:
+        if isinstance(version, str):
             version = parse(version)
         return version
 
@@ -301,10 +300,10 @@ class LegacySpecifier(_IndividualSpecifier):
 
 
 def _require_version_compare(
-    fn: Callable[["Specifier", ParsedVersion, str], bool]
-) -> Callable[["Specifier", ParsedVersion, str], bool]:
+    fn: Callable[["Specifier", BaseVersion, str], bool]
+) -> Callable[["Specifier", BaseVersion, str], bool]:
     @functools.wraps(fn)
-    def wrapped(self: "Specifier", prospective: ParsedVersion, spec: str) -> bool:
+    def wrapped(self: "Specifier", prospective: BaseVersion, spec: str) -> bool:
         if not isinstance(prospective, Version):
             return False
         return fn(self, prospective, spec)
@@ -421,7 +420,7 @@ class Specifier(_IndividualSpecifier):
     }
 
     @_require_version_compare
-    def _compare_compatible(self, prospective: ParsedVersion, spec: str) -> bool:
+    def _compare_compatible(self, prospective: BaseVersion, spec: str) -> bool:
 
         # Compatible releases have an equivalent combination of >= and ==. That
         # is that ~=2.2 is equivalent to >=2.2,==2.*. This allows us to
@@ -443,7 +442,7 @@ class Specifier(_IndividualSpecifier):
         )
 
     @_require_version_compare
-    def _compare_equal(self, prospective: ParsedVersion, spec: str) -> bool:
+    def _compare_equal(self, prospective: BaseVersion, spec: str) -> bool:
 
         # We need special logic to handle prefix matching
         if spec.endswith(".*"):
@@ -483,11 +482,11 @@ class Specifier(_IndividualSpecifier):
             return prospective == spec_version
 
     @_require_version_compare
-    def _compare_not_equal(self, prospective: ParsedVersion, spec: str) -> bool:
+    def _compare_not_equal(self, prospective: BaseVersion, spec: str) -> bool:
         return not self._compare_equal(prospective, spec)
 
     @_require_version_compare
-    def _compare_less_than_equal(self, prospective: ParsedVersion, spec: str) -> bool:
+    def _compare_less_than_equal(self, prospective: BaseVersion, spec: str) -> bool:
 
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
@@ -495,9 +494,7 @@ class Specifier(_IndividualSpecifier):
         return Version(prospective.public) <= Version(spec)
 
     @_require_version_compare
-    def _compare_greater_than_equal(
-        self, prospective: ParsedVersion, spec: str
-    ) -> bool:
+    def _compare_greater_than_equal(self, prospective: BaseVersion, spec: str) -> bool:
 
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
@@ -505,7 +502,7 @@ class Specifier(_IndividualSpecifier):
         return Version(prospective.public) >= Version(spec)
 
     @_require_version_compare
-    def _compare_less_than(self, prospective: ParsedVersion, spec_str: str) -> bool:
+    def _compare_less_than(self, prospective: BaseVersion, spec_str: str) -> bool:
 
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
@@ -531,7 +528,7 @@ class Specifier(_IndividualSpecifier):
         return True
 
     @_require_version_compare
-    def _compare_greater_than(self, prospective: ParsedVersion, spec_str: str) -> bool:
+    def _compare_greater_than(self, prospective: BaseVersion, spec_str: str) -> bool:
 
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
@@ -748,7 +745,7 @@ class SpecifierSet(BaseSpecifier):
     ) -> bool:
 
         # Ensure that our item is a Version or LegacyVersion instance.
-        if not isinstance(item, (LegacyVersion, Version)):
+        if isinstance(item, str):
             item = parse(item)
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
@@ -798,7 +795,7 @@ class SpecifierSet(BaseSpecifier):
 
             for item in iterable:
                 # Ensure that we some kind of Version class for this item.
-                if not isinstance(item, (LegacyVersion, Version)):
+                if isinstance(item, str):
                     parsed_version = parse(item)
                 else:
                     parsed_version = item

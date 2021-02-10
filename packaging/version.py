@@ -6,7 +6,17 @@ import collections
 import itertools
 import re
 import warnings
-from typing import Callable, Iterator, List, Optional, SupportsInt, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    List,
+    Optional,
+    SupportsInt,
+    Tuple,
+    Union,
+)
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
@@ -38,8 +48,57 @@ _Version = collections.namedtuple(
     "_Version", ["epoch", "release", "dev", "pre", "post", "local"]
 )
 
+# TODO: Remove TYPE_CHECKING guard after dropping Python 3.7 support.
+if TYPE_CHECKING:
+    from typing import Protocol
 
-def parse(version: str) -> Union["LegacyVersion", "Version"]:
+    class BaseVersion(Protocol):
+        @property
+        def public(self) -> str:
+            ...
+
+        @property
+        def base_version(self) -> str:
+            ...
+
+        @property
+        def epoch(self) -> int:
+            ...
+
+        @property
+        def pre(self) -> Optional[Tuple[str, int]]:
+            ...
+
+        @property
+        def post(self) -> Optional[int]:
+            ...
+
+        @property
+        def dev(self) -> Optional[int]:
+            ...
+
+        @property
+        def local(self) -> Optional[str]:
+            ...
+
+        @property
+        def is_prerelease(self) -> bool:
+            ...
+
+        @property
+        def is_postrelease(self) -> bool:
+            ...
+
+        @property
+        def is_devrelease(self) -> bool:
+            ...
+
+
+else:
+    BaseVersion = Any
+
+
+def parse(version: str) -> BaseVersion:
     """
     Parse the given version string and return either a :class:`Version` object
     or a :class:`LegacyVersion` object depending on if the given version is
@@ -66,13 +125,13 @@ class _BaseVersion:
     # Please keep the duplicated `isinstance` check
     # in the six comparisons hereunder
     # unless you find a way to avoid adding overhead function calls.
-    def __lt__(self, other: "_BaseVersion") -> bool:
+    def __lt__(self, other: BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key < other._key
 
-    def __le__(self, other: "_BaseVersion") -> bool:
+    def __le__(self, other: BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -84,13 +143,13 @@ class _BaseVersion:
 
         return self._key == other._key
 
-    def __ge__(self, other: "_BaseVersion") -> bool:
+    def __ge__(self, other: BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key >= other._key
 
-    def __gt__(self, other: "_BaseVersion") -> bool:
+    def __gt__(self, other: BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -141,15 +200,15 @@ class LegacyVersion(_BaseVersion):
         return None
 
     @property
-    def post(self) -> None:
+    def post(self) -> Optional[int]:
         return None
 
     @property
-    def dev(self) -> None:
+    def dev(self) -> Optional[int]:
         return None
 
     @property
-    def local(self) -> None:
+    def local(self) -> Optional[str]:
         return None
 
     @property
