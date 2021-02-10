@@ -123,7 +123,7 @@ class _IndividualSpecifier(BaseSpecifier):
         return "{}{}".format(*self._spec)
 
     @property
-    def _canonical_spec(self) -> Tuple[str, Union[Version, str]]:
+    def _canonical_spec(self) -> Tuple[str, str]:
         return self._spec[0], canonicalize_version(self._spec[1])
 
     def __hash__(self) -> int:
