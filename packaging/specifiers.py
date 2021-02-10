@@ -274,7 +274,7 @@ class LegacySpecifier(_IndividualSpecifier):
             DeprecationWarning,
         )
 
-    def _coerce_version(self, version: Union[ParsedVersion, str]) -> LegacyVersion:
+    def _coerce_version(self, version: UnparsedVersion) -> LegacyVersion:
         if not isinstance(version, LegacyVersion):
             version = LegacyVersion(str(version))
         return version
@@ -740,11 +740,11 @@ class SpecifierSet(BaseSpecifier):
     def prereleases(self, value: bool) -> None:
         self._prereleases = value
 
-    def __contains__(self, item: Union[ParsedVersion, str]) -> bool:
+    def __contains__(self, item: UnparsedVersion) -> bool:
         return self.contains(item)
 
     def contains(
-        self, item: Union[ParsedVersion, str], prereleases: Optional[bool] = None
+        self, item: UnparsedVersion, prereleases: Optional[bool] = None
     ) -> bool:
 
         # Ensure that our item is a Version or LegacyVersion instance.
@@ -773,10 +773,8 @@ class SpecifierSet(BaseSpecifier):
         return all(s.contains(item, prereleases=prereleases) for s in self._specs)
 
     def filter(
-        self,
-        iterable: Iterable[Union[ParsedVersion, str]],
-        prereleases: Optional[bool] = None,
-    ) -> Iterable[Union[ParsedVersion, str]]:
+        self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
+    ) -> Iterable[UnparsedVersion]:
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
@@ -795,8 +793,8 @@ class SpecifierSet(BaseSpecifier):
         # which will filter out any pre-releases, unless there are no final
         # releases, and which will filter out LegacyVersion in general.
         else:
-            filtered: List[Union[ParsedVersion, str]] = []
-            found_prereleases: List[Union[ParsedVersion, str]] = []
+            filtered: List[UnparsedVersion] = []
+            found_prereleases: List[UnparsedVersion] = []
 
             for item in iterable:
                 # Ensure that we some kind of Version class for this item.
