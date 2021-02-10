@@ -132,19 +132,6 @@ def parse_tag(tag: str) -> FrozenSet[Tag]:
     return frozenset(tags)
 
 
-def _warn_keyword_parameter(func_name: str, kwargs: Dict[str, bool]) -> bool:
-    """
-    Backwards-compatibility with Python 2.7 to allow treating 'warn' as keyword-only.
-    """
-    if not kwargs:
-        return False
-    elif len(kwargs) > 1 or "warn" not in kwargs:
-        kwargs.pop("warn", None)
-        arg = next(iter(kwargs.keys()))
-        raise TypeError(f"{func_name}() got an unexpected keyword argument {arg!r}")
-    return kwargs["warn"]
-
-
 def _get_config_var(name: str, warn: bool = False) -> Union[int, str, None]:
     value = sysconfig.get_config_var(name)
     if value is None and warn:
@@ -207,7 +194,8 @@ def cpython_tags(
     python_version: Optional[PythonVersion] = None,
     abis: Optional[Iterable[str]] = None,
     platforms: Optional[Iterable[str]] = None,
-    **kwargs: bool,
+    *,
+    warn: bool = False,
 ) -> Iterator[Tag]:
     """
     Yields the tags for a CPython interpreter.
@@ -224,7 +212,6 @@ def cpython_tags(
     If 'abi3' or 'none' are specified in 'abis' then they will be yielded at
     their normal position and not at the beginning.
     """
-    warn = _warn_keyword_parameter("cpython_tags", kwargs)
     if not python_version:
         python_version = sys.version_info[:2]
 
@@ -270,7 +257,8 @@ def generic_tags(
     interpreter: Optional[str] = None,
     abis: Optional[Iterable[str]] = None,
     platforms: Optional[Iterable[str]] = None,
-    **kwargs: bool,
+    *,
+    warn: bool = False,
 ) -> Iterator[Tag]:
     """
     Yields the tags for a generic interpreter.
@@ -280,7 +268,6 @@ def generic_tags(
 
     The "none" ABI will be added if it was not explicitly provided.
     """
-    warn = _warn_keyword_parameter("generic_tags", kwargs)
     if not interpreter:
         interp_name = interpreter_name()
         interp_version = interpreter_version(warn=warn)
@@ -763,11 +750,10 @@ def interpreter_name() -> str:
     return INTERPRETER_SHORT_NAMES.get(name) or name
 
 
-def interpreter_version(**kwargs: bool) -> str:
+def interpreter_version(*, warn: bool = False) -> str:
     """
     Returns the version of the running interpreter.
     """
-    warn = _warn_keyword_parameter("interpreter_version", kwargs)
     version = _get_config_var("py_version_nodot", warn=warn)
     if version:
         version = str(version)
@@ -780,14 +766,13 @@ def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
 
 
-def sys_tags(**kwargs: bool) -> Iterator[Tag]:
+def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     """
     Returns the sequence of tag triples for the running interpreter.
 
     The order of the sequence corresponds to priority order for the
     interpreter, from most to least important.
     """
-    warn = _warn_keyword_parameter("sys_tags", kwargs)
 
     interp_name = interpreter_name()
     if interp_name == "cp":
