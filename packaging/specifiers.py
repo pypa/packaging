@@ -73,18 +73,6 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         """
 
 
-def _require_version_compare(
-    fn: Callable[["Specifier", Version, str], bool]
-) -> Callable[["Specifier", Version, str], bool]:
-    @functools.wraps(fn)
-    def wrapped(self: "Specifier", prospective: Version, spec: str) -> bool:
-        if not isinstance(prospective, Version):
-            return False
-        return fn(self, prospective, spec)
-
-    return wrapped
-
-
 class Specifier(BaseSpecifier):
 
     _regex_str = r"""
@@ -251,7 +239,6 @@ class Specifier(BaseSpecifier):
             version = parse(version)
         return version
 
-    @_require_version_compare
     def _compare_compatible(self, prospective: Version, spec: str) -> bool:
 
         # Compatible releases have an equivalent combination of >= and ==. That
@@ -273,7 +260,6 @@ class Specifier(BaseSpecifier):
             prospective, prefix
         )
 
-    @_require_version_compare
     def _compare_equal(self, prospective: Version, spec: str) -> bool:
 
         # We need special logic to handle prefix matching
@@ -313,11 +299,9 @@ class Specifier(BaseSpecifier):
 
             return prospective == spec_version
 
-    @_require_version_compare
     def _compare_not_equal(self, prospective: Version, spec: str) -> bool:
         return not self._compare_equal(prospective, spec)
 
-    @_require_version_compare
     def _compare_less_than_equal(self, prospective: Version, spec: str) -> bool:
 
         # NB: Local version identifiers are NOT permitted in the version
@@ -325,7 +309,6 @@ class Specifier(BaseSpecifier):
         # the prospective version.
         return Version(prospective.public) <= Version(spec)
 
-    @_require_version_compare
     def _compare_greater_than_equal(self, prospective: Version, spec: str) -> bool:
 
         # NB: Local version identifiers are NOT permitted in the version
@@ -333,7 +316,6 @@ class Specifier(BaseSpecifier):
         # the prospective version.
         return Version(prospective.public) >= Version(spec)
 
-    @_require_version_compare
     def _compare_less_than(self, prospective: Version, spec_str: str) -> bool:
 
         # Convert our spec to a Version instance, since we'll want to work with
@@ -359,7 +341,6 @@ class Specifier(BaseSpecifier):
         # version in the spec.
         return True
 
-    @_require_version_compare
     def _compare_greater_than(self, prospective: Version, spec_str: str) -> bool:
 
         # Convert our spec to a Version instance, since we'll want to work with
