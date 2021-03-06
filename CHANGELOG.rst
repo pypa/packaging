@@ -5,6 +5,7 @@ Changelog
 ~~~~~~~~~~~~
 
 * `packaging` is now only compatible with Python 3.6 and above.
+* Added ``packaging.utils.create_wheel_filename()`` and ``create_sdist_filename()`` (:issue:`408`)
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~

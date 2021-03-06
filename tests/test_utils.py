@@ -10,6 +10,8 @@ from packaging.utils import (
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
+    create_sdist_filename,
+    create_wheel_filename,
     parse_sdist_filename,
     parse_wheel_filename,
 )
@@ -80,6 +82,43 @@ def test_canonicalize_version(version, expected):
             (1000, "abc"),
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo_bar-1.0-42-py2.py3-none-any.whl",
+            "foo-bar",
+            Version("1.0"),
+            (42, ""),
+            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+        ),
+    ],
+)
+def test_create_wheel_filename(filename, name, version, build, tags):
+    assert create_wheel_filename(name, version, build, tags) == filename
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version", "build", "tags"),
+    [
+        (
+            "foo-1.0-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000abc-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, "abc"),
+            {Tag("py3", "none", "any")},
+        ),
     ],
 )
 def test_parse_wheel_filename(filename, name, version, build, tags):
@@ -101,6 +140,17 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
 def test_parse_wheel_invalid_filename(filename):
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version"),
+    [
+        ("foo-1.0.tar.gz", "foo", Version("1.0")),
+        ("foo_bar-1.0.tar.gz", "foo-bar", Version("1.0")),
+    ],
+)
+def test_create_sdist_filename(filename, name, version):
+    assert create_sdist_filename(name, version) == filename
 
 
 @pytest.mark.parametrize(
