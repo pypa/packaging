@@ -5,10 +5,13 @@
 from __future__ import annotations
 
 import re
-from typing import NewType, cast
+from typing import TYPE_CHECKING, NewType, cast
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
+
+if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
 
 __all__ = [
     "BuildTag",
@@ -18,6 +21,8 @@ __all__ = [
     "NormalizedName",
     "canonicalize_name",
     "canonicalize_version",
+    "create_sdist_filename",
+    "create_wheel_filename",
     "is_normalized_name",
     "parse_sdist_filename",
     "parse_wheel_filename",
@@ -77,6 +82,7 @@ _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
+_distribution_regex = re.compile(r"[^\w\d.]+", re.ASCII)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -197,6 +203,56 @@ def canonicalize_version(
     return str(_TrimmedRelease(version) if strip_trailing_zero else version)
 
 
+def _join_tag_attr(tags: AbstractSet[Tag], field: str) -> str:
+    return ".".join(sorted({getattr(tag, field) for tag in tags}))
+
+
+def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
+    return "-".join(_join_tag_attr(tags, x) for x in ("interpreter", "abi", "platform"))
+
+
+def create_wheel_filename(
+    name: str, version: Version, build: BuildTag | None, tags: AbstractSet[Tag]
+) -> str:
+    """
+    Combines a project name, version, build tag, and tag set
+    to make a properly formatted wheel filename.
+
+    The project name is normalized such that the non-alphanumeric
+    characters are replaced with ``_``. The version is an instance of
+    :class:`~packaging.version.Version`. The build tag can be None,
+    an empty tuple or a two-item tuple of an integer and a string.
+    The tags is set of tags that will be compressed into a wheel
+    tag string.
+
+    :param name: The project name
+    :param version: The project version
+    :param build: An optional two-item tuple of an integer and string
+    :param tags: The set of tags that apply to the wheel
+
+    >>> from packaging.utils import create_wheel_filename
+    >>> from packaging.tags import Tag
+    >>> from packaging.version import Version
+    >>> version = Version("1.0")
+    >>> tags = {Tag("py3", "none", "any")}
+    >>> create_wheel_filename("foo-bar", version, None, tags)
+    'foo_bar-1.0-py3-none-any.whl'
+
+    .. versionadded:: 26.1
+    """
+    norm_name = _distribution_regex.sub("_", name)
+    compressed_tag = _compress_tag_set(tags)
+
+    parts: tuple[str, ...]
+
+    if build:
+        parts = norm_name, str(version), "".join(map(str, build)), compressed_tag
+    else:
+        parts = norm_name, str(version), compressed_tag
+
+    return "-".join(parts) + ".whl"
+
+
 def parse_wheel_filename(
     filename: str,
     *,
@@ -301,6 +357,23 @@ def parse_wheel_filename(
             f"Invalid wheel filename (invalid tag component): {filename!r}"
         ) from None
     return (name, version, build, tags)
+
+
+def create_sdist_filename(name: str, version: Version) -> str:
+    """
+    Combines the project name and a version to make a valid sdist filename.
+
+    :param name: The project name
+    :param version: The project version
+
+    >>> from packaging.utils import create_sdist_filename
+    >>> from packaging.version import Version
+    >>> "foo_bar-1.0.tar.gz" == create_sdist_filename("foo-bar", Version("1.0"))
+    True
+
+    .. versionadded:: 26.1
+    """
+    return f"{_distribution_regex.sub('_', name)}-{version}.tar.gz"
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
