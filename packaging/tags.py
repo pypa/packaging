@@ -26,6 +26,8 @@ from typing import (
     cast,
 )
 
+from . import _musllinux
+
 logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
@@ -723,6 +725,7 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
     _, arch = linux.split("_", 1)
     if _have_compatible_manylinux_abi(arch):
         yield from _manylinux_tags(linux, arch)
+    yield from _musllinux.platform_tags(arch)
     yield linux
 
 
