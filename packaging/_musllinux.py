@@ -19,7 +19,7 @@ def _read_unpacked(f: IO[bytes], fmt: str) -> Tuple[int, ...]:
     return struct.unpack(fmt, f.read(struct.calcsize(fmt)))
 
 
-def _get_ld_musl_ctypes(f: IO[bytes]) -> Optional[str]:
+def _get_ld_musl_elf(f: IO[bytes]) -> Optional[str]:
     """Detect musl libc location by parsing the Python executable.
 
     Based on https://gist.github.com/lyssdod/f51579ae8d93c8657a5564aefc2ffbca
@@ -87,7 +87,7 @@ def _get_ld_musl_ldd(executable: str) -> Optional[str]:
 def _get_ld_musl(executable: str) -> Optional[str]:
     try:
         with open(executable, "rb") as f:
-            return _get_ld_musl_ctypes(f)
+            return _get_ld_musl_elf(f)
     except IOError:
         return _get_ld_musl_ldd(executable)
 
@@ -139,3 +139,16 @@ def platform_tags(arch: str) -> Iterator[str]:
         return
     for minor in range(sys_musl.minor, -1, -1):
         yield f"musllinux_{sys_musl.major}_{minor}_{arch}"
+
+
+if __name__ == "__main__":
+    import sysconfig
+
+    plat = sysconfig.get_platform()
+    assert plat.startswith("linux-"), "not linux"
+
+    print("plat:", plat)
+    print("musl:", _get_musl_version(sys.executable))
+    print("tags:", end=" ")
+    for t in platform_tags(re.sub(r"[.-]", "_", plat.split("-", 1)[-1])):
+        print(t, end="\n      ")
