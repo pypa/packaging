@@ -57,7 +57,7 @@ def _get_ld_musl_ctypes(f: IO[bytes]) -> Optional[str]:
             p_type, p_offset, p_filesz = p_get(_read_unpacked(f, p_fmt))
         except struct.error:
             return None
-        if p_type != 3:
+        if p_type != 3:  # Not PT_INTERP.
             continue
         f.seek(p_offset)
         interpreter = os.fsdecode(f.read(p_filesz)).strip("\0")
@@ -92,7 +92,7 @@ def _get_ld_musl(executable: str) -> Optional[str]:
         return _get_ld_musl_ldd(executable)
 
 
-_version_pat = re.compile(r"^Version (\d+)\.(\d+)", flags=re.MULTILINE)
+_version_pat = re.compile(r"Version (\d+)\.(\d+)")
 
 
 class _MuslVersion(NamedTuple):
@@ -112,13 +112,17 @@ def _get_musl_version(executable: str) -> Optional[_MuslVersion]:
         Version 1.2.2
         Dynamic Program Loader
     """
-    ld_musl = _get_ld_musl(executable)
-    if not ld_musl:
+    ld = _get_ld_musl(executable)
+    if not ld:
         return None
-    proc = subprocess.run([ld_musl], stderr=subprocess.PIPE, universal_newlines=True)
-    for m in _version_pat.finditer(proc.stderr):
-        return _MuslVersion(major=int(m.group(1)), minor=int(m.group(2)))
-    return None
+    proc = subprocess.run([ld], stderr=subprocess.PIPE, universal_newlines=True)
+    lines = [n for n in (n.strip() for n in proc.stderr.splitlines()) if n]
+    if len(lines) < 2 or lines[0][:4] != "musl":
+        return None
+    m = re.match(r"Version (\d+)\.(\d+)", lines[1])
+    if not m:
+        return None
+    return _MuslVersion(major=int(m.group(1)), minor=int(m.group(2)))
 
 
 def platform_tags(arch: str) -> Iterator[str]:
