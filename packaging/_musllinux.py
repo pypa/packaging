@@ -47,10 +47,16 @@ def _get_ld_musl_ctypes(f: IO[bytes]) -> Optional[str]:
         p_get = operator.itemgetter(*p_idx)
 
     # Find the interpreter section and return its content.
-    _, e_phoff, _, _, _, e_phentsize, e_phnum = _read_unpacked(f, e_fmt)
+    try:
+        _, e_phoff, _, _, _, e_phentsize, e_phnum = _read_unpacked(f, e_fmt)
+    except struct.error:
+        return None
     for i in range(e_phnum + 1):
         f.seek(e_phoff + e_phentsize * i)
-        p_type, p_offset, p_filesz = p_get(_read_unpacked(f, p_fmt))
+        try:
+            p_type, p_offset, p_filesz = p_get(_read_unpacked(f, p_fmt))
+        except struct.error:
+            return None
         if p_type != 3:
             continue
         f.seek(p_offset)
