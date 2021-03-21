@@ -68,7 +68,7 @@ class TestNode:
 
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
     def test_repr(self, value):
-        assert repr(Node(value)) == "<Node({!r})>".format(str(value))
+        assert repr(Node(value)) == f"<Node({str(value)!r})>"
 
     def test_base_class(self):
         with pytest.raises(NotImplementedError):
@@ -205,7 +205,7 @@ class TestMarker:
     def test_str_and_repr(self, marker_string, expected):
         m = Marker(marker_string)
         assert str(m) == expected
-        assert repr(m) == "<Marker({!r})>".format(str(m))
+        assert repr(m) == f"<Marker({str(m)!r})>"
 
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
