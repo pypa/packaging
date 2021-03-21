@@ -60,7 +60,7 @@ _LEGACY_MANYLINUX_MAP = {
 # be 50 for testing. Once this actually happens, update the dictionary
 # with the actual value.
 _LAST_GLIBC_MINOR: Dict[int, int] = collections.defaultdict(lambda: 50)
-glibcVersion = collections.namedtuple("Version", ["major", "minor"])
+glibcVersion = collections.namedtuple("glibcVersion", ["major", "minor"])
 
 
 class Tag:

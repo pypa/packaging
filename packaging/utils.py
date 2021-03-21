@@ -79,7 +79,7 @@ def canonicalize_version(version: Union[Version, str]) -> str:
 
 
 def parse_wheel_filename(
-    filename: str
+    filename: str,
 ) -> Tuple[NormalizedName, Version, BuildTag, FrozenSet[Tag]]:
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
