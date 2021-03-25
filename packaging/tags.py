@@ -101,10 +101,10 @@ class Tag:
             return NotImplemented
 
         return (
-            (self._hash == other._hash)
-            and (self.platform == other.platform)
-            and (self.abi == other.abi)
-            and (self.interpreter == other.interpreter)
+            (self._hash == other._hash)  # Short-circuit ASAP for perf reasons.
+            and (self._platform == other._platform)
+            and (self._abi == other._abi)
+            and (self._interpreter == other._interpreter)
         )
 
     def __hash__(self) -> int:
