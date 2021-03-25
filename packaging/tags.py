@@ -101,7 +101,8 @@ class Tag:
             return NotImplemented
 
         return (
-            (self.platform == other.platform)
+            (self._hash == other._hash)
+            and (self.platform == other.platform)
             and (self.abi == other.abi)
             and (self.interpreter == other.interpreter)
         )
