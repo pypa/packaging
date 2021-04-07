@@ -4,11 +4,11 @@ This module implements logic to detect if the currently running Python is
 linked against musl, and what musl version is used.
 """
 
+import contextlib
 import functools
 import operator
 import os
 import re
-import shutil
 import struct
 import subprocess
 import sys
@@ -19,10 +19,11 @@ def _read_unpacked(f: IO[bytes], fmt: str) -> Tuple[int, ...]:
     return struct.unpack(fmt, f.read(struct.calcsize(fmt)))
 
 
-def _get_ld_musl_elf(f: IO[bytes]) -> Optional[str]:
+def _parse_ld_musl_from_elf(f: IO[bytes]) -> Optional[str]:
     """Detect musl libc location by parsing the Python executable.
 
-    Based on https://gist.github.com/lyssdod/f51579ae8d93c8657a5564aefc2ffbca
+    Based on: https://gist.github.com/lyssdod/f51579ae8d93c8657a5564aefc2ffbca
+    ELF header: https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
     """
     f.seek(0)
     try:
@@ -67,37 +68,19 @@ def _get_ld_musl_elf(f: IO[bytes]) -> Optional[str]:
     return None
 
 
-def _get_ld_musl_ldd(executable: str) -> Optional[str]:
-    ldd = shutil.which("ldd")
-    if not ldd:  # No dynamic program loader.
-        return None
-    proc = subprocess.run(
-        [ldd, executable], stdout=subprocess.PIPE, universal_newlines=True
-    )
-    if proc.returncode != 0:  # Not a valid dynamic program.
-        return None
-    for line in proc.stdout.splitlines(keepends=False):
-        path = line.lstrip().rsplit(None, 1)[0]
-        if "musl" not in path:
-            continue
-        return path
-    return None
-
-
-def _get_ld_musl(executable: str) -> Optional[str]:
-    try:
-        with open(executable, "rb") as f:
-            return _get_ld_musl_elf(f)
-    except IOError:
-        return _get_ld_musl_ldd(executable)
-
-
-_version_pat = re.compile(r"Version (\d+)\.(\d+)")
-
-
 class _MuslVersion(NamedTuple):
     major: int
     minor: int
+
+
+def _parse_musl_version(output: str) -> Optional[_MuslVersion]:
+    lines = [n for n in (n.strip() for n in output.splitlines()) if n]
+    if len(lines) < 2 or lines[0][:4] != "musl":
+        return None
+    m = re.match(r"Version (\d+)\.(\d+)", lines[1])
+    if not m:
+        return None
+    return _MuslVersion(major=int(m.group(1)), minor=int(m.group(2)))
 
 
 @functools.lru_cache()
@@ -112,17 +95,16 @@ def _get_musl_version(executable: str) -> Optional[_MuslVersion]:
         Version 1.2.2
         Dynamic Program Loader
     """
-    ld = _get_ld_musl(executable)
+    with contextlib.ExitStack() as stack:
+        try:
+            f = stack.enter_context(open(executable, "rb"))
+        except IOError:
+            return None
+        ld = _parse_ld_musl_from_elf(f)
     if not ld:
         return None
     proc = subprocess.run([ld], stderr=subprocess.PIPE, universal_newlines=True)
-    lines = [n for n in (n.strip() for n in proc.stderr.splitlines()) if n]
-    if len(lines) < 2 or lines[0][:4] != "musl":
-        return None
-    m = re.match(r"Version (\d+)\.(\d+)", lines[1])
-    if not m:
-        return None
-    return _MuslVersion(major=int(m.group(1)), minor=int(m.group(2)))
+    return _parse_musl_version(proc.stderr)
 
 
 def platform_tags(arch: str) -> Iterator[str]:
@@ -141,7 +123,7 @@ def platform_tags(arch: str) -> Iterator[str]:
         yield f"musllinux_{sys_musl.major}_{minor}_{arch}"
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import sysconfig
 
     plat = sysconfig.get_platform()
