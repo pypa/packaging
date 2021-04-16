@@ -765,8 +765,16 @@ class TestVersion:
     def test_gt_with_string(self):
         assert Version("1.2.3") > "1.2.2"
 
+    def test_gteq_with_string(self):
+        assert Version("1.2.3") >= "1.2.2"
+        assert Version("1.2.2") >= "1.2.2"
+
     def test_lt_with_string(self):
         assert Version("1.2.2") < "1.2.3"
+
+    def test_lteq_with_string(self):
+        assert Version("1.2.2") <= "1.2.3"
+        assert Version("1.2.3") <= "1.2.3"
 
     def test_eq_with_string_rev(self):
         assert "1.2.3" == Version("1.2.3")
@@ -774,9 +782,16 @@ class TestVersion:
     def test_gt_with_string_rev(self):
         assert "1.2.3" > Version("1.2.2")
 
+    def test_gteq_with_string_rev(self):
+        assert "1.2.3" >= Version("1.2.2")
+        assert "1.2.2" >= Version("1.2.2")
+
     def test_lt_with_string_rev(self):
         assert "1.2.2" < Version("1.2.3")
 
+    def test_lteq_with_string_rev(self):
+        assert "1.2.1" <= Version("1.2.2")
+        assert "1.2.2" <= Version("1.2.2")
 
     def test_compare_legacyversion_version(self):
         result = sorted([Version("0"), LegacyVersion("1")])
