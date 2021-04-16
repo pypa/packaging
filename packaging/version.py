@@ -68,7 +68,10 @@ class _BaseVersion:
     # unless you find a way to avoid adding overhead function calls.
     def __lt__(self, other: "_BaseVersion") -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -76,7 +79,10 @@ class _BaseVersion:
 
     def __le__(self, other: "_BaseVersion") -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -84,7 +90,10 @@ class _BaseVersion:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -92,7 +101,10 @@ class _BaseVersion:
 
     def __ge__(self, other: "_BaseVersion") -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -100,7 +112,10 @@ class _BaseVersion:
 
     def __gt__(self, other: "_BaseVersion") -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -108,7 +123,10 @@ class _BaseVersion:
 
     def __ne__(self, other: object) -> bool:
         if isinstance(other, str):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except InvalidVersion:
+                return NotImplemented
         elif not isinstance(other, _BaseVersion):
             return NotImplemented
 

@@ -759,6 +759,14 @@ class TestVersion:
 
         assert getattr(operator, op)(Version("1"), other) is expected
 
+    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
+    def test_compare_invalid_string_return_false(self, op):
+        """
+        a comparison with an invalid string shoudl return False
+        """
+        method = getattr(Version, f"__{op}__")
+        assert method(Version("1"), "xyz,tuv-34") is NotImplemented
+
     def test_eq_with_string(self):
         assert Version("1.2.3") == "1.2.3"
 
