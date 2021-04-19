@@ -67,6 +67,13 @@ def test_canonicalize_version(version, expected):
             {Tag("py3", "none", "any")},
         ),
         (
+            "some_PACKAGE-1.0-py3-none-any.whl",
+            "some-package",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
             "foo-1.0-1000-py3-none-any.whl",
             "foo",
             Version("1.0"),
