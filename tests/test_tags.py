@@ -9,7 +9,6 @@ try:
     import ctypes
 except ImportError:
     ctypes = None
-import distutils.util
 import os
 import platform
 import sys
@@ -456,14 +455,14 @@ class TestManylinuxPlatform:
     def test_linux_platforms_32_64bit_on_64bit_os(
         self, arch, is_32bit, expected, monkeypatch
     ):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: arch)
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[-1]
         assert linux_platform == expected
 
     def test_linux_platforms_manylinux_unsupported(self, monkeypatch):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=False))
@@ -473,7 +472,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags, "_is_manylinux_compatible", lambda name, *args: name == "manylinux1"
         )
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
@@ -481,7 +480,7 @@ class TestManylinuxPlatform:
         assert platforms == ["manylinux1_" + arch, "linux_" + arch]
 
     def test_linux_platforms_manylinux2010(self, monkeypatch):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.12", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
@@ -502,7 +501,7 @@ class TestManylinuxPlatform:
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014(self, monkeypatch):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.17", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
@@ -535,7 +534,7 @@ class TestManylinuxPlatform:
             "_is_manylinux_compatible",
             lambda name, *args: name == "manylinux2014",
         )
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv7l")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv7l")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -547,7 +546,7 @@ class TestManylinuxPlatform:
 
     def test_linux_platforms_manylinux2014_i386_abi(self, monkeypatch):
         monkeypatch.setattr(tags, "_glibc_version_string", lambda: "2.17")
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -579,7 +578,7 @@ class TestManylinuxPlatform:
         # test for a future glic 3.x version
         monkeypatch.setattr(tags, "_glibc_version_string", lambda: "3.2")
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda name, *args: True)
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_aarch64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_aarch64")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -597,7 +596,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags, "_is_manylinux_compatible", lambda name, _: name == "manylinux2014"
         )
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv6l")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = ["linux_armv6l"]
@@ -611,7 +610,7 @@ class TestManylinuxPlatform:
         self, monkeypatch, machine, abi, alt_machine
     ):
         monkeypatch.setattr(tags, "_is_manylinux_compatible", lambda name, _: False)
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -951,7 +950,7 @@ class TestGenericTags:
         assert not list(tags._generic_abi())
 
     def test_generic_platforms(self):
-        platform = distutils.util.get_platform().replace("-", "_")
+        platform = sysconfig.get_platform().replace("-", "_")
         platform = platform.replace(".", "_")
         assert list(tags._generic_platforms()) == [platform]
 
@@ -1225,14 +1224,14 @@ class TestSysTags:
         assert result[-1] == expected
 
     def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch, manylinux_module):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_armv6l")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = ["linux_armv6l"]
         assert platforms == expected
 
     def test_skip_manylinux_2014(self, monkeypatch, manylinux_module):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_ppc64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_ppc64")
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 20))
         monkeypatch.setattr(
             manylinux_module, "manylinux2014_compatible", False, raising=False
@@ -1255,7 +1254,7 @@ class TestSysTags:
     def test_linux_platforms_not_manylinux_abi(
         self, monkeypatch, manylinux_module, machine, abi, alt_machine
     ):
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -1277,7 +1276,7 @@ class TestSysTags:
             return False
 
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (major, minor))
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: f"linux_{machine}")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
             manylinux_module,
             "manylinux_compatible",
@@ -1299,7 +1298,7 @@ class TestSysTags:
             return None
 
         monkeypatch.setattr(tags, "_get_glibc_version", lambda: (2, 30))
-        monkeypatch.setattr(distutils.util, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(
             manylinux_module,
             "manylinux_compatible",

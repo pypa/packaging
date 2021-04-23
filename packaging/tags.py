@@ -3,7 +3,6 @@
 # for complete details.
 
 import collections
-import distutils.util
 import logging
 import os
 import platform
@@ -715,7 +714,7 @@ def _manylinux_tags(linux: str, arch: str) -> Iterator[str]:
 
 
 def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
-    linux = _normalize_string(distutils.util.get_platform())
+    linux = _normalize_string(sysconfig.get_platform())
     if is_32bit:
         if linux == "linux_x86_64":
             linux = "linux_i686"
@@ -728,7 +727,7 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
 
 
 def _generic_platforms() -> Iterator[str]:
-    yield _normalize_string(distutils.util.get_platform())
+    yield _normalize_string(sysconfig.get_platform())
 
 
 def _platform_tags() -> Iterator[str]:
