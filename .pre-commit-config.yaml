@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v3.4.0
     hooks:
       - id: check-toml
       - id: check-yaml
@@ -8,24 +8,24 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.790
+    rev: v0.812
     hooks:
       - id: mypy
         exclude: '^(docs|tasks|tests)|setup\.py'
         args: []
 
   - repo: https://github.com/psf/black
-    rev: 19.3b0
+    rev: 20.8b1
     hooks:
       - id: black
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.6.4
+    rev: 5.8.0
     hooks:
       - id: isort
 
   - repo: https://gitlab.com/PyCQA/flake8
-    rev: "3.7.8"
+    rev: "3.9.0"
     hooks:
       - id: flake8
         additional_dependencies: ["pep8-naming"]
