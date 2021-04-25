@@ -79,7 +79,7 @@ No unreleased changes.
 
 * Use ``sys.implementation.name`` where appropriate for ``packaging.tags`` (:issue:`193`)
 
-* Expand upon the API provded by ``packaging.tags``: ``interpreter_name()``, ``mac_platforms()``, ``compatible_tags()``, ``cpython_tags()``, ``generic_tags()`` (:issue:`187`)
+* Expand upon the API provided by ``packaging.tags``: ``interpreter_name()``, ``mac_platforms()``, ``compatible_tags()``, ``cpython_tags()``, ``generic_tags()`` (:issue:`187`)
 
 * Officially support Python 3.8 (:issue:`232`)
 
