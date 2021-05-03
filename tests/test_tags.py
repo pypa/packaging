@@ -10,6 +10,7 @@ try:
 except ImportError:
     ctypes = None
 import os
+import pathlib
 import platform
 import sys
 import sysconfig
@@ -590,6 +591,44 @@ class TestManylinuxPlatform:
             + [f"manylinux_2_{i}_aarch64" for i in range(50, 16, -1)]
             + ["manylinux2014_aarch64", "linux_aarch64"]
         )
+        assert platforms == expected
+
+    @pytest.mark.parametrize(
+        "native_arch, cross32_arch, musl_version",
+        [
+            ("aarch64", "armv7l", (1, 1)),
+            ("i386", "i386", (1, 2)),
+            ("x86_64", "i686", (1, 2)),
+        ],
+    )
+    @pytest.mark.parametrize("cross32", [True, False], ids=["cross", "native"])
+    def test_linux_platforms_musllinux(
+        self, monkeypatch, native_arch, cross32_arch, musl_version, cross32
+    ):
+        fake_executable = str(
+            pathlib.Path(__file__)
+            .parent.joinpath("musllinux", f"musl-{native_arch}")
+            .resolve()
+        )
+        monkeypatch.setattr(tags._musllinux.sys, "executable", fake_executable)
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{native_arch}")
+        monkeypatch.setattr(
+            tags,
+            "_is_manylinux_compatible",
+            lambda *_: False,
+        )
+        monkeypatch.setattr(
+            tags,
+            "_have_compatible_manylinux_abi",
+            lambda *_: False,
+        )
+
+        platforms = list(tags._linux_platforms(is_32bit=cross32))
+        target_arch = cross32_arch if cross32 else native_arch
+        expected = [
+            f"musllinux_{musl_version[0]}_{minor}_{target_arch}"
+            for minor in range(musl_version[1], -1, -1)
+        ] + [f"linux_{target_arch}"]
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch):
