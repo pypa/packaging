@@ -5,6 +5,7 @@ Changelog
 ~~~~~~~~~~~~
 
 * `packaging` is now only compatible with Python 3.6 and above.
+* Add support for zip files in ``parse_sdist_filename`` (:issue:`429`)
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~

@@ -111,13 +111,14 @@ def test_parse_wheel_invalid_filename(filename):
 
 
 @pytest.mark.parametrize(
-    ("filename", "name", "version"), [("foo-1.0.tar.gz", "foo", Version("1.0"))]
+    ("filename", "name", "version"),
+    [("foo-1.0.tar.gz", "foo", Version("1.0")), ("foo-1.0.zip", "foo", Version("1.0"))],
 )
 def test_parse_sdist_filename(filename, name, version):
     assert parse_sdist_filename(filename) == (name, version)
 
 
-@pytest.mark.parametrize(("filename"), [("foo-1.0.zip"), ("foo1.0.tar.gz")])
+@pytest.mark.parametrize(("filename"), [("foo-1.0.xz"), ("foo1.0.tar.gz")])
 def test_parse_sdist_invalid_filename(filename):
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
