@@ -17,6 +17,7 @@ from typing import (
     Pattern,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
 
@@ -25,6 +26,7 @@ from .version import LegacyVersion, Version, parse
 
 ParsedVersion = Union[Version, LegacyVersion]
 UnparsedVersion = Union[Version, LegacyVersion, str]
+VersionTypeVar = TypeVar("VersionTypeVar", bound=UnparsedVersion)
 CallableOperator = Callable[[ParsedVersion, str], bool]
 
 
@@ -84,8 +86,8 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def filter(
-        self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+        self, iterable: Iterable[VersionTypeVar], prereleases: Optional[bool] = None
+    ) -> Iterable[VersionTypeVar]:
         """
         Takes an iterable of items and filters them so that only items which
         are contained within this specifier are allowed in it.
@@ -205,8 +207,8 @@ class _IndividualSpecifier(BaseSpecifier):
         return operator_callable(normalized_item, self.version)
 
     def filter(
-        self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+        self, iterable: Iterable[VersionTypeVar], prereleases: Optional[bool] = None
+    ) -> Iterable[VersionTypeVar]:
 
         yielded = False
         found_prereleases = []
@@ -773,8 +775,8 @@ class SpecifierSet(BaseSpecifier):
         return all(s.contains(item, prereleases=prereleases) for s in self._specs)
 
     def filter(
-        self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+        self, iterable: Iterable[VersionTypeVar], prereleases: Optional[bool] = None
+    ) -> Iterable[VersionTypeVar]:
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
@@ -793,8 +795,11 @@ class SpecifierSet(BaseSpecifier):
         # which will filter out any pre-releases, unless there are no final
         # releases, and which will filter out LegacyVersion in general.
         else:
-            filtered: List[UnparsedVersion] = []
-            found_prereleases: List[UnparsedVersion] = []
+            filtered: List[VersionTypeVar] = []
+            found_prereleases: List[VersionTypeVar] = []
+
+            item: UnparsedVersion
+            parsed_version: Union[Version, LegacyVersion]
 
             for item in iterable:
                 # Ensure that we some kind of Version class for this item.
