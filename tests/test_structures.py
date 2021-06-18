@@ -43,7 +43,7 @@ def test_negative_infinity_lesser(left):
     assert left >= NegativeInfinity
 
 
-def test_infinty_equal():
+def test_infinity_equal():
     assert Infinity == Infinity
 
 

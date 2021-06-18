@@ -140,7 +140,7 @@ class TestRequirements:
         marker = 'python_version < "2.7" and platform_version == "2"'
         self._assert_requirement(req, "name", extras=["strange", "quux"], marker=marker)
 
-    def test_multiple_comparsion_markers(self):
+    def test_multiple_comparison_markers(self):
         req = Requirement("name; os_name=='a' and os_name=='b' or os_name=='c'")
         marker = 'os_name == "a" and os_name == "b" or os_name == "c"'
         self._assert_requirement(req, "name", marker=marker)
