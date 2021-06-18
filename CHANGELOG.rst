@@ -231,7 +231,7 @@ No unreleased changes.
 15.2 - 2015-05-13
 ~~~~~~~~~~~~~~~~~
 
-* Fix an error where the arbitary specifier (``===``) was not correctly
+* Fix an error where the arbitrary specifier (``===``) was not correctly
   allowing pre-releases when it was being used.
 
 * Expose the specifier and version parts through properties on the
