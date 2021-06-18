@@ -719,7 +719,7 @@ class TestManylinuxPlatform:
     @pytest.mark.parametrize(
         "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
     )
-    def test_get_elf_header_bad_excutable(self, monkeypatch, content):
+    def test_get_elf_header_bad_executable(self, monkeypatch, content):
         if content:
             path = os.path.join(os.path.dirname(__file__), f"hello-world-{content}")
         else:
