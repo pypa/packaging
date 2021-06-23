@@ -41,6 +41,7 @@ jobs:
         sed -i "s/$PLACEHOLDER/__version__ = \"${VERSION}\"/g" "$VERSION_FILE"
         # Optionally, we could git push here, similar to what the nox session does,
         # though that means git push from GitHub Actions.
+        # https://github.com/ad-m/github-push-action
       shell: bash
     - name: Publish to test.pypi.org
       uses: pypa/gh-action-pypi-publish@master
