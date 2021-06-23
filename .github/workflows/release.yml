@@ -26,10 +26,27 @@ jobs:
       shell: bash
     - name: Build package
       run: python -m build
-    - name: nox release
-      run: nox --session release -- ${{ secrets.RELEASE_VERSION }}
+    # - name nox release
+    #  run nox --session release -- ${{ secrets.RELEASE_VERSION }}
+    - name: Autobump version
+      run: |
+        # from refs/tags/v1.2.3 get 1.2.3
+        VERSION=$(echo $GITHUB_REF | sed 's#.*/v##')
+        # there's probably a regexp that will reliably find __version__ in __about__.py
+        PLACEHOLDER='__version__ = "20.10.dev0"'
+        VERSION_FILE='packaging/__about__.py'
+        # ensure the placeholder is there. If grep doesn't find the placeholder
+        # it exits with exit code 1 and github actions aborts the build.
+        grep "$PLACEHOLDER" "$VERSION_FILE"
+        sed -i "s/$PLACEHOLDER/__version__ = \"${VERSION}\"/g" "$VERSION_FILE"
+      shell: bash
+    - name: Publish to test.pypi.org
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}

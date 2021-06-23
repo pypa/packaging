@@ -165,6 +165,11 @@ def release(session):
     # Upload the distribution.
     session.run("twine", "upload", *files)
 
+    # If we have GitHub Actions hook onto https://github.com/pypa/packaging/releases,
+    # then https://github.com/pypa/packaging/releases will actually be the *first*
+    # step that triggers this nox session to be run.
+    # But it looks like a release-initiated process would tend to absorb everything
+    # from this nox session, except _bump() which cannot be accomplished that way.
     # Open up the GitHub release page.
     webbrowser.open("https://github.com/pypa/packaging/releases")
 
