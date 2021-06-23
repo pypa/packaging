@@ -1,0 +1,15 @@
+name: Release
+
+on: 
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'description tag'
+
+jobs:
+  printInputs:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        echo "Tags: ${{ github.event.inputs.tags }}"
+
