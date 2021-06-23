@@ -30,15 +30,17 @@ jobs:
     #  run nox --session release -- ${{ secrets.RELEASE_VERSION }}
     - name: Autobump version
       run: |
-        # from refs/tags/v1.2.3 get 1.2.3
+        # from GITHUB_REF refs/tags/v1.2.3 extract 1.2.3
         VERSION=$(echo $GITHUB_REF | sed 's#.*/v##')
         # there's probably a regexp that will reliably find __version__ in __about__.py
         PLACEHOLDER='__version__ = "20.10.dev0"'
         VERSION_FILE='packaging/__about__.py'
-        # ensure the placeholder is there. If grep doesn't find the placeholder
-        # it exits with exit code 1 and github actions aborts the build.
+        # Ensure the placeholder is there. If grep doesn't find the placeholder,
+        # it exits with exit code 1 and GitHub Actions aborts the build.
         grep "$PLACEHOLDER" "$VERSION_FILE"
         sed -i "s/$PLACEHOLDER/__version__ = \"${VERSION}\"/g" "$VERSION_FILE"
+        # Optionally, we could git push here, similar to what the nox session does,
+        # though that means git push from GitHub Actions.
       shell: bash
     - name: Publish to test.pypi.org
       uses: pypa/gh-action-pypi-publish@master
