@@ -1,15 +1,36 @@
 name: Release
 
-on: 
-  workflow_dispatch:
-    inputs:
-      tags:
-        description: 'description tag'
+# This workflow will upload a Python Package using Twine when a release is created
+# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+
+on:
+  release:
+    types: [published]
 
 jobs:
-  printInputs:
+  deploy:
+
     runs-on: ubuntu-latest
+
     steps:
-    - run: |
-        echo "Tags: ${{ github.event.inputs.tags }}"
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install nox
+        python -m pip install build
+      shell: bash
+    - name: Build package
+      run: python -m build
+    - name: nox release
+      run: nox --session release -- ${{ secrets.RELEASE_VERSION }}
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
 
