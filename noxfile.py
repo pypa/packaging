@@ -140,7 +140,7 @@ def release(session):
     # Check what files are in dist/ for upload.
     files = sorted(glob.glob("dist/*"))
     expected = [
-        f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
+        f"dist/{package_name}-{release_version}-py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
     ]
     if files != expected:
