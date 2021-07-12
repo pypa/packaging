@@ -207,7 +207,7 @@ def cpython_tags(
         except ValueError:
             pass
 
-    platforms = list(platforms or _platform_tags())
+    platforms = list(platforms or platform_tags())
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -251,7 +251,7 @@ def generic_tags(
         interpreter = "".join([interp_name, interp_version])
     if abis is None:
         abis = _generic_abi()
-    platforms = list(platforms or _platform_tags())
+    platforms = list(platforms or platform_tags())
     abis = list(abis)
     if "none" not in abis:
         abis.append("none")
@@ -290,7 +290,7 @@ def compatible_tags(
     """
     if not python_version:
         python_version = sys.version_info[:2]
-    platforms = list(platforms or _platform_tags())
+    platforms = list(platforms or platform_tags())
     for version in _py_interpreter_range(python_version):
         for platform_ in platforms:
             yield Tag(version, "none", platform_)
@@ -431,7 +431,7 @@ def _generic_platforms() -> Iterator[str]:
     yield _normalize_string(sysconfig.get_platform())
 
 
-def _platform_tags() -> Iterator[str]:
+def platform_tags() -> Iterator[str]:
     """
     Provides the platform tags for this installation.
     """

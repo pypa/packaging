@@ -561,11 +561,11 @@ class TestManylinuxPlatform:
         ("Generic", "_generic_platforms"),
     ],
 )
-def test__platform_tags(platform_name, dispatch_func, monkeypatch):
+def test_platform_tags(platform_name, dispatch_func, monkeypatch):
     expected = ["sillywalk"]
     monkeypatch.setattr(platform, "system", lambda: platform_name)
     monkeypatch.setattr(tags, dispatch_func, lambda: expected)
-    assert tags._platform_tags() == expected
+    assert tags.platform_tags() == expected
 
 
 class TestCPythonABI:
@@ -730,12 +730,12 @@ class TestCPythonTags:
         assert tags.Tag("cp311", "none", "any") in result
 
     def test_platforms_defaults(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat1"])
+        monkeypatch.setattr(tags, "platform_tags", lambda: ["plat1"])
         result = list(tags.cpython_tags((3, 8), abis=["whatever"]))
         assert tags.Tag("cp38", "whatever", "plat1") in result
 
     def test_platforms_defaults_needs_underscore(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat1"])
+        monkeypatch.setattr(tags, "platform_tags", lambda: ["plat1"])
         result = list(tags.cpython_tags((3, 11), abis=["whatever"]))
         assert tags.Tag("cp311", "whatever", "plat1") in result
 
@@ -847,7 +847,7 @@ class TestGenericTags:
         ]
 
     def test_platforms_default(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: ["plat"])
+        monkeypatch.setattr(tags, "platform_tags", lambda: ["plat"])
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
@@ -985,7 +985,7 @@ class TestCompatibleTags:
         ]
 
     def test_default_platforms(self, monkeypatch):
-        monkeypatch.setattr(tags, "_platform_tags", lambda: iter(["plat", "plat2"]))
+        monkeypatch.setattr(tags, "platform_tags", lambda: iter(["plat", "plat2"]))
         result = list(tags.compatible_tags((3, 1), "cp31"))
         assert result == [
             tags.Tag("py31", "none", "plat"),
