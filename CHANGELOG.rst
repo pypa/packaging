@@ -9,8 +9,18 @@ No unreleased changes.
 21.0 - 2021-07-03
 ~~~~~~~~~~~~~~~~~
 
-* `packaging` is now only compatible with Python 3.6 and above.
+* PEP 656: musllinux support (:issue:`411`)
+* Drop support for Python 2.7, Python 3.4 and Python 3.5.
+* Replace distutils usage with sysconfig (:issue:`396`)
 * Add support for zip files in ``parse_sdist_filename`` (:issue:`429`)
+* Use cached ``_hash`` attribute to short-circuit tag equality comparisons (:issue:`417`)
+* Specify the default value for the ``specifier`` argument to ``SpecifierSet`` (:issue:`437`)
+* Proper keyword-only "warn" argument in packaging.tags (:issue:`403`)
+* Correctly remove prerelease suffixes from ~= check (:issue:`366`)
+* Fix type hints for ``Version.post`` and ``Version.dev`` (:issue:`393`)
+* Use typing alias ``UnparsedVersion`` (:issue:`398`)
+* Improve type inference for ``packaging.specifiers.filter()`` (:issue:`430`)
+* Tighten the return type of ``canonicalize_version()`` (:issue:`402`)
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~
