@@ -70,4 +70,4 @@ Project History
 Please review the ``CHANGELOG.rst`` file or the `Changelog documentation`_ for
 recent changes and project history.
 
-.. _`Changelog documentation`: https://packaging.pypa.io/en/latest/changelog/
+.. _`Changelog documentation`: https://packaging.pypa.io/en/latest/changelog.html
