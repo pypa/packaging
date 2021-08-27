@@ -152,7 +152,7 @@ to the implementation to provide.
 
 .. function:: platform_tags(version=None, arch=None)
 
-    Yields the :attr:`~Tag.platform` tags for current installation.
+    Yields the :attr:`~Tag.platform` tags for the running interpreter.
 
 
 .. function:: compatible_tags(python_version=None, interpreter=None, platforms=None)
