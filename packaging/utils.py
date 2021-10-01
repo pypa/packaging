@@ -24,7 +24,7 @@ class InvalidSdistFilename(ValueError):
     """
 
 
-_canonicalize_regex = re.compile(r"[-_.]+")
+_canonicalize_regex = re.compile(r"[_.]+")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
 
