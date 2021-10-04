@@ -6,7 +6,7 @@ import collections
 import itertools
 import re
 import warnings
-from typing import Callable, Iterator, List, Optional, SupportsInt, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
@@ -257,8 +257,18 @@ VERSION_PATTERN = r"""
 class Version(_BaseVersion):
 
     _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _obj_cache: Dict[str, "Version"] = {}
+
+    def __new__(cls, version: str) -> "Version":
+        try:
+            cached = cls._obj_cache[version]
+        except KeyError:
+            cached = super(Version, cls).__new__(cls)
+        return cached
 
     def __init__(self, version: str) -> None:
+        if version in Version._obj_cache:
+            return
 
         # Validate the version and parse it into pieces
         match = self._regex.search(version)
@@ -286,6 +296,7 @@ class Version(_BaseVersion):
             self._version.dev,
             self._version.local,
         )
+        Version._obj_cache[version] = self
 
     def __repr__(self) -> str:
         return f"<Version('{self}')>"
