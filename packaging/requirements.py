@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+import functools
 import re
 import string
 import urllib.parse
@@ -12,6 +13,7 @@ from pyparsing import (  # noqa
     Literal as L,
     Optional,
     ParseException,
+    ParseResults,
     Regex,
     Word,
     ZeroOrMore,
@@ -84,6 +86,11 @@ REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
 REQUIREMENT.parseString("x[]")
 
 
+@functools.lru_cache(maxsize=None)
+def cached_parse_requirement(requirement_string: str) -> ParseResults:
+    return REQUIREMENT.parseString(requirement_string)
+
+
 class Requirement:
     """Parse a requirement.
 
@@ -99,7 +106,7 @@ class Requirement:
 
     def __init__(self, requirement_string: str) -> None:
         try:
-            req = REQUIREMENT.parseString(requirement_string)
+            req = cached_parse_requirement(requirement_string)
         except ParseException as e:
             raise InvalidRequirement(
                 f'Parse error at "{ requirement_string[e.loc : e.loc + 8]!r}": {e.msg}'
