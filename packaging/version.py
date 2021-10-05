@@ -255,12 +255,32 @@ VERSION_PATTERN = r"""
 """
 
 
+@functools.lru_cache(maxsize=None)
+def _version_from_str(pattern: re.Pattern[str], version: str) -> _Version:
+    # Validate the version and parse it into pieces
+    match = pattern.search(version)
+    if not match:
+        raise InvalidVersion(f"Invalid version: '{version}'")
+
+    # construct a _Version from parsed out pieces of the version
+    return _Version(
+        epoch=int(match.group("epoch")) if match.group("epoch") else 0,
+        release=tuple(int(i) for i in match.group("release").split(".")),
+        pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
+        post=_parse_letter_version(
+            match.group("post_l"), match.group("post_n1") or match.group("post_n2")
+        ),
+        dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
+        local=_parse_local_version(match.group("local")),
+    )
+
+
 class Version(_BaseVersion):
 
     _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
 
     def __init__(self, version: str) -> None:
-        self._version = self._version_from_str(self._regex, version)
+        self._version = _version_from_str(self._regex, version)
 
         # Generate a key which will be used for sorting
         self._key = _cmpkey(
@@ -270,26 +290,6 @@ class Version(_BaseVersion):
             self._version.post,
             self._version.dev,
             self._version.local,
-        )
-
-    @staticmethod
-    @functools.lru_cache(maxsize=None)
-    def _version_from_str(pattern: re.Pattern[str], version: str) -> _Version:
-        # Validate the version and parse it into pieces
-        match = pattern.search(version)
-        if not match:
-            raise InvalidVersion(f"Invalid version: '{version}'")
-
-        # construct a _Version from parsed out pieces of the version
-        return _Version(
-            epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=tuple(int(i) for i in match.group("release").split(".")),
-            pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
-            post=_parse_letter_version(
-                match.group("post_l"), match.group("post_n1") or match.group("post_n2")
-            ),
-            dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
-            local=_parse_local_version(match.group("local")),
         )
 
     def __repr__(self) -> str:
