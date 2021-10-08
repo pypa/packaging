@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.6", "3.7", "3.8", "3.9", "pypy3"]
+          ["3.6", "3.7", "3.8", "3.9", "3.10", "pypy3"]
         exclude:
           # This is failing due to pip not being in the virtual environment.
           # https://github.com/pypa/packaging/runs/424785871#step:7:9
