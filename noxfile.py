@@ -21,7 +21,7 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "pypy3"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10", "pypy3"])
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
