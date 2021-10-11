@@ -119,7 +119,7 @@ class _IndividualSpecifier(BaseSpecifier):
             else ""
         )
 
-        return "<{}({!r}{})>".format(self.__class__.__name__, str(self), pre)
+        return f"<{self.__class__.__name__}({str(self)!r}{pre})>"
 
     def __str__(self) -> str:
         return "{}{}".format(*self._spec)
@@ -667,7 +667,7 @@ class SpecifierSet(BaseSpecifier):
             else ""
         )
 
-        return "<SpecifierSet({!r}{})>".format(str(self), pre)
+        return f"<SpecifierSet({str(self)!r}{pre})>"
 
     def __str__(self) -> str:
         return ",".join(sorted(str(s) for s in self._specs))
