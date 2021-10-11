@@ -151,7 +151,7 @@ class _IndividualSpecifier(BaseSpecifier):
         elif not isinstance(other, self.__class__):
             return NotImplemented
 
-        return self._spec != other._spec
+        return self._canonical_spec != other._canonical_spec
 
     def _get_operator(self, op: str) -> CallableOperator:
         operator_callable: CallableOperator = getattr(
