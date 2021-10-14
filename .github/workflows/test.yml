@@ -19,12 +19,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.6", "3.7", "3.8", "3.9", "3.10", "pypy3"]
-        exclude:
-          # This is failing due to pip not being in the virtual environment.
-          # https://github.com/pypa/packaging/runs/424785871#step:7:9
-          - os: windows
-            python_version: pypy3
+          ["3.6", "3.7", "3.8", "3.9", "3.10", "pypy-3.7"]
 
     steps:
       - uses: actions/checkout@v1
@@ -44,7 +39,7 @@ jobs:
         run: |
           python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         shell: bash
-        if: matrix.python_version != 'pypy2'
+        if: ${{ ! startsWith( matrix.python_version, 'pypy' ) }}
 
       # Binary is named 'pypy', but setup-python specifies it as 'pypy2'.
       - name: Run nox for pypy2
@@ -52,3 +47,10 @@ jobs:
           python -m nox --error-on-missing-interpreters -s tests-pypy
         shell: bash
         if: matrix.python_version == 'pypy2'
+
+      # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.7'.
+      - name: Run nox for pypy3
+        run: |
+          python -m nox --error-on-missing-interpreters -s tests-pypy3
+        shell: bash
+        if: matrix.python_version == 'pypy-3.7'
