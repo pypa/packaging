@@ -481,4 +481,7 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     else:
         yield from generic_tags()
 
-    yield from compatible_tags()
+    if interp_name == "pp":
+        yield from compatible_tags(interpreter="pp3")
+    else:
+        yield from compatible_tags()

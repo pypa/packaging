@@ -1180,3 +1180,14 @@ class TestSysTags:
             "linux_x86_64",
         ]
         assert platforms == expected
+
+    def test_pypy_first_tag(self, monkeypatch):
+        # When building the complete list of pypy tags, make sure the first
+        # <interpreter>-none-any one is pp3-none-any
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+
+        for tag in tags.sys_tags():
+            if tag.platform == "any":
+                break
+
+        assert tag == tags.Tag("pp3", "none", "any")
