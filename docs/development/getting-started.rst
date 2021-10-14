@@ -34,7 +34,7 @@ each supported Python version and run the tests. For example:
     nox > * tests-3.7: success
     nox > * tests-3.8: success
     nox > * tests-3.9: success
-    nox > * tests-pypy3.7: skipped
+    nox > * tests-pypy3: skipped
 
 You may not have all the required Python versions installed, in which case you
 will see one or more ``InterpreterNotFound`` errors.
