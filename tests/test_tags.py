@@ -1187,7 +1187,7 @@ class TestSysTags:
         monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
 
         for tag in tags.sys_tags():
-            if tag.platform == "any":
+            if tag.abi == "none" and tag.platform == "any":
                 break
 
         assert tag == tags.Tag("pp3", "none", "any")
