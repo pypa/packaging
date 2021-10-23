@@ -81,6 +81,9 @@ class TestSpecifier:
             # Cannot use a prefix matching after a .devN version
             "==1.0.dev1.*",
             "!=1.0.dev1.*",
+            # Local version which includes a non-ASCII letter that matches
+            # regex '[a-z]' when re.IGNORECASE is in force and re.ASCII is not
+            "==1.0+\u0130",
         ],
     )
     def test_specifiers_invalid(self, specifier):
@@ -197,6 +200,7 @@ class TestSpecifier:
             # Various other normalizations
             "v1.0",
             "  \r \f \v v1.0\t\n",
+            "  \r\N{NARROW NO-BREAK SPACE}\v v1.0\N{PARAGRAPH SEPARATOR}",
         ],
     )
     def test_specifiers_normalized(self, version):
@@ -221,6 +225,7 @@ class TestSpecifier:
             ("~=2.0", "~=2.0"),
             # Spaces should be removed
             ("< 2", "<2"),
+            ("<\N{HAIR SPACE}2", "<2"),
         ],
     )
     def test_specifiers_str_and_repr(self, specifier, expected):

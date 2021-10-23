@@ -96,6 +96,9 @@ class TestVersion:
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
+            # Local version which includes a non-ASCII letter that matches
+            # regex '[a-z]' when re.IGNORECASE is in force and re.ASCII is not
+            "1.0+\u0130",
         ],
     )
     def test_invalid_versions(self, version):
@@ -218,6 +221,7 @@ class TestVersion:
             # Various other normalizations
             ("v1.0", "1.0"),
             ("   v1.0\t\n", "1.0"),
+            ("\N{NARROW NO-BREAK SPACE}1.0\t\N{PARAGRAPH SEPARATOR}\n ", "1.0"),
         ],
     )
     def test_normalized_versions(self, version, normalized):

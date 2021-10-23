@@ -4,7 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Fix parsing of ``Version`` and ``Specifier``, to prevent certain
+  non-ASCII letters from being accepted as a part of the local version
+  segment (:issue:`469`); also, fix the docs of ``VERSION_PATTERN``, to
+  mention necessity of the ``re.ASCII`` flag
 
 21.0 - 2021-07-03
 ~~~~~~~~~~~~~~~~~

@@ -411,6 +411,23 @@ class Specifier(_IndividualSpecifier):
 
     _regex = re.compile(r"^\s*" + _regex_str + r"\s*$", re.VERBOSE | re.IGNORECASE)
 
+    # Note: an additional check, based of the following regular
+    # expression, is necessary because without it the 'a-z'
+    # character ranges in the above regular expression, in
+    # conjunction with re.IGNORECASE, would cause erroneous
+    # acceptance of non-ASCII letters in the local version segment
+    # (see: https://docs.python.org/library/re.html#re.IGNORECASE).
+    _supplementary_restriction_regex = re.compile(
+        r"""
+        \s*===.*         # No restriction in the identity operator case.
+        |
+        [\s\0-\177]*     # In all other cases only whitespace characters
+                         # and ASCII-only non-whitespace characters are
+                         # allowed.
+        """,
+        re.VERBOSE,
+    )
+
     _operators = {
         "~=": "compatible",
         "==": "equal",
@@ -421,6 +438,13 @@ class Specifier(_IndividualSpecifier):
         ">": "greater_than",
         "===": "arbitrary",
     }
+
+    def __init__(self, spec: str = "", prereleases: Optional[bool] = None) -> None:
+        super().__init__(spec, prereleases)
+
+        match = self._supplementary_restriction_regex.fullmatch(spec)
+        if not match:
+            raise InvalidSpecifier(f"Invalid specifier: '{spec}'")
 
     @_require_version_compare
     def _compare_compatible(self, prospective: ParsedVersion, spec: str) -> bool:
