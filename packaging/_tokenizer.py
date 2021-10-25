@@ -16,7 +16,7 @@ class Token:
         return True
 
 
-class ParseException(Exception):
+class ParseExceptionError(Exception):
     """
     Parsing failed.
     """
@@ -80,9 +80,7 @@ class Tokenizer:
 
     next_token: Optional[Token]
 
-    def __init__(
-        self, source: str, rules: Dict[Optional[str], object] = DEFAULT_RULES
-    ) -> None:
+    def __init__(self, source: str, rules: Dict[str, object] = DEFAULT_RULES) -> None:
         self.source = source
         self.rules = {name: re.compile(pattern) for name, pattern in rules.items()}
         self.next_token = None
@@ -137,7 +135,7 @@ class Tokenizer:
         """
         at = f"at position {self.position}:"
         marker = " " * self.position + "^"
-        raise ParseException(
+        raise ParseExceptionError(
             f"{message}\n{at}\n    {self.source}\n    {marker}",
             self.position,
         )

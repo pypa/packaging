@@ -2,13 +2,18 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import re
-import string
 import urllib.parse
+from collections import namedtuple
 from typing import Any, List, Optional, Set
 
-from .markers import Marker
-from .specifiers import LegacySpecifier, Specifier, SpecifierSet
+from ._parser import parse_named_requirement
+from ._tokenizer import ParseExceptionError
+from .markers import InvalidMarker, Marker
+from .specifiers import SpecifierSet
+
+_RequirementTuple = namedtuple(
+    "_RequirementTuple", ["name", "url", "extras", "specifier", "marker"]
+)
 
 
 class InvalidRequirement(ValueError):
@@ -32,11 +37,9 @@ class Requirement:
 
     def __init__(self, requirement_string: str) -> None:
         try:
-            req = REQUIREMENT.parseString(requirement_string)
-        except ParseException as e:
-            raise InvalidRequirement(
-                f'Parse error at "{ requirement_string[e.loc : e.loc + 8]!r}": {e.msg}'
-            )
+            req = _RequirementTuple(*parse_named_requirement(requirement_string))
+        except ParseExceptionError as e:
+            raise InvalidRequirement(str(e))
 
         self.name: str = req.name
         if req.url:
@@ -51,9 +54,12 @@ class Requirement:
             self.url: Optional[str] = req.url
         else:
             self.url = None
-        self.extras: Set[str] = set(req.extras.asList() if req.extras else [])
+        self.extras: Set[str] = set(req.extras if req.extras else [])
         self.specifier: SpecifierSet = SpecifierSet(req.specifier)
-        self.marker: Optional[Marker] = req.marker if req.marker else None
+        try:
+            self.marker: Optional[Marker] = Marker(req.marker) if req.marker else None
+        except InvalidMarker as e:
+            raise InvalidRequirement(str(e))
 
     def __str__(self) -> str:
         parts: List[str] = [self.name]

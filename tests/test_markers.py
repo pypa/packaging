@@ -10,10 +10,10 @@ import sys
 
 import pytest
 
+from packaging._parser import Node
 from packaging.markers import (
     InvalidMarker,
     Marker,
-    Node,
     UndefinedComparison,
     default_environment,
     format_full_version,
@@ -61,11 +61,11 @@ class TestNode:
     def test_accepts_value(self, value):
         assert Node(value).value == value
 
-    @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
+    @pytest.mark.parametrize("value", ["one", "two"])
     def test_str(self, value):
         assert str(Node(value)) == str(value)
 
-    @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
+    @pytest.mark.parametrize("value", ["one", "two"])
     def test_repr(self, value):
         assert repr(Node(value)) == f"<Node({str(value)!r})>"
 
@@ -165,6 +165,7 @@ class TestMarker:
             "python_version",
             "(python_version)",
             "python_version >= 1.0 and (python_version)",
+            '(python_version == "2.7" and os_name == "linux"',
         ],
     )
     def test_parses_invalid(self, marker_string):

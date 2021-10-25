@@ -8,6 +8,8 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from ._parser import MarkerAtom, MarkerList, Op, Variable, parse_marker_expr
+from ._tokenizer import ParseExceptionError, Tokenizer
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
@@ -41,37 +43,8 @@ class UndefinedEnvironmentName(ValueError):
     """
 
 
-class Node:
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}('{self}')>"
-
-    def serialize(self) -> str:
-        raise NotImplementedError
-
-
-class Variable(Node):
-    def serialize(self) -> str:
-        return str(self)
-
-
-class Value(Node):
-    def serialize(self) -> str:
-        return f'"{self}"'
-
-
-class Op(Node):
-    def serialize(self) -> str:
-        return str(self)
-
-
 def _format_marker(
-    marker: Union[List[str], Tuple[Node, ...], str], first: Optional[bool] = True
+    marker: Union[List[str], MarkerAtom, str], first: Optional[bool] = True
 ) -> str:
 
     assert isinstance(marker, (list, tuple, str))
@@ -138,7 +111,7 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     return values
 
 
-def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
+def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
     groups: List[List[bool]] = [[]]
 
     for marker in markers:
@@ -197,7 +170,7 @@ def default_environment() -> Dict[str, str]:
 class Marker:
     def __init__(self, marker: str) -> None:
         try:
-            self._markers = _coerce_parse_result(MARKER.parseString(marker))
+            self._markers = parse_marker_expr(Tokenizer(marker))
             # The attribute `_markers` can be described in terms of a recursive type:
             # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
             #
@@ -214,10 +187,10 @@ class Marker:
             #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
             #     ]
             # ]
-        except ParseException as e:
+        except ParseExceptionError as e:
             raise InvalidMarker(
                 f"Invalid marker: {marker!r}, parse error at "
-                f"{marker[e.loc : e.loc + 8]!r}"
+                f"{marker[e.position : e.position + 8]!r}"
             )
 
     def __str__(self) -> str:
