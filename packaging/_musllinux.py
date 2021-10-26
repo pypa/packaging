@@ -27,7 +27,7 @@ def _parse_ld_musl_from_elf(f: IO[bytes]) -> Optional[str]:
     """
     f.seek(0)
     try:
-        ident = _read_unpacked(f, "16B")
+        ident = _read_unpacked(f, "<16B")
     except struct.error:
         return None
     if ident[:4] != tuple(b"\x7fELF"):  # Invalid magic, not ELF.
@@ -39,8 +39,8 @@ def _parse_ld_musl_from_elf(f: IO[bytes]) -> Optional[str]:
         # p_fmt: Format for section header.
         # p_idx: Indexes to find p_type, p_offset, and p_filesz.
         e_fmt, p_fmt, p_idx = {
-            1: ("IIIIHHH", "IIIIIIII", (0, 1, 4)),  # 32-bit.
-            2: ("QQQIHHH", "IIQQQQQQ", (0, 2, 5)),  # 64-bit.
+            1: ("<IIIIHHH", "<IIIIIIII", (0, 1, 4)),  # 32-bit.
+            2: ("<QQQIHHH", "<IIQQQQQQ", (0, 2, 5)),  # 64-bit.
         }[ident[4]]
     except KeyError:
         return None
