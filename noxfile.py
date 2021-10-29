@@ -57,7 +57,7 @@ def tests(session):
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
-    session.run("pre-commit", "run", "--all-files")
+    session.run("pre-commit", "run", "--all-files", *session.posargs)
 
     # Check the distribution
     session.install("build", "twine")
