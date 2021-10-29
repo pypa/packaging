@@ -190,7 +190,7 @@ to the implementation to provide.
     user-provided ABIs via ``abis`` and the ``none`` ABI will be used.
 
     :param Sequence python_version: A one- or two-item sequence representing the
-                                 targetted Python version. Defaults to
+                                 targeted Python version. Defaults to
                                  ``sys.version_info[:2]``.
     :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
                           compatible with the current system.
