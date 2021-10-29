@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+21.2 - 2021-10-29
+~~~~~~~~~~~~~~~~~
 
 * Update documentation entry for 21.1.
 
