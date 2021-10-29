@@ -6,6 +6,16 @@ Changelog
 
 No unreleased changes.
 
+21.2 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update documentation entry for 21.1.
+
+21.1 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update pin to pyparsing to exclude 3.0.0.
+
 21.0 - 2021-07-03
 ~~~~~~~~~~~~~~~~~
 
