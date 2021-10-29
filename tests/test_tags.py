@@ -228,12 +228,10 @@ class TestMacOSPlatforms:
                 platform, "mac_ver", lambda: ("10.14", ("", "", ""), "x86_64")
             )
         version = platform.mac_ver()[0].split(".")
-        if version[0] == "10":
-            expected = "macosx_{major}_{minor}".format(
-                major=version[0], minor=version[1]
-            )
-        else:
-            expected = "macosx_{major}_{minor}".format(major=version[0], minor=0)
+        major = version[0]
+        minor = version[1] if major == "10" else "0"
+        expected = f"macosx_{major}_{minor}"
+
         platforms = list(tags.mac_platforms(arch="x86_64"))
         print(platforms, expected)
         assert platforms[0].startswith(expected)
@@ -608,7 +606,7 @@ class TestCPythonABI:
     def test_pymalloc(self, pymalloc, version, result, monkeypatch):
         config = {"Py_DEBUG": 0, "WITH_PYMALLOC": pymalloc, "Py_UNICODE_SIZE": 2}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        base_abi = "cp{}{}".format(version[0], version[1])
+        base_abi = f"cp{version[0]}{version[1]}"
         expected = [base_abi + "m" if result else base_abi]
         assert tags._cpython_abis(version) == expected
 
