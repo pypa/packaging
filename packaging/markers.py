@@ -16,8 +16,8 @@ from pyparsing import (  # noqa: N817
     ParseResults,
     QuotedString,
     ZeroOrMore,
-    stringEnd,
-    stringStart,
+    string_end,
+    string_start,
 )
 
 from .specifiers import InvalidSpecifier, Specifier
@@ -135,7 +135,7 @@ MARKER_EXPR = Forward()
 MARKER_ATOM = MARKER_ITEM | Group(LPAREN + MARKER_EXPR + RPAREN)
 MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 
-MARKER = stringStart + MARKER_EXPR + stringEnd
+MARKER = string_start + MARKER_EXPR + string_end
 
 
 def _coerce_parse_result(results: Union[ParseResults, List[Any]]) -> List[Any]:

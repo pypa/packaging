@@ -15,9 +15,9 @@ from pyparsing import (  # noqa
     Regex,
     Word,
     ZeroOrMore,
-    originalTextFor,
-    stringEnd,
-    stringStart,
+    original_text_for,
+    string_end,
+    string_start,
 )
 
 from .markers import MARKER_EXPR, Marker
@@ -63,10 +63,10 @@ VERSION_MANY = Combine(
 _VERSION_SPEC = Optional((LPAREN + VERSION_MANY + RPAREN) | VERSION_MANY)
 _VERSION_SPEC.setParseAction(lambda s, l, t: t._raw_spec or "")
 
-VERSION_SPEC = originalTextFor(_VERSION_SPEC)("specifier")
+VERSION_SPEC = original_text_for(_VERSION_SPEC)("specifier")
 VERSION_SPEC.setParseAction(lambda s, l, t: t[1])
 
-MARKER_EXPR = originalTextFor(MARKER_EXPR())("marker")
+MARKER_EXPR = original_text_for(MARKER_EXPR())("marker")
 MARKER_EXPR.setParseAction(
     lambda s, l, t: Marker(s[t._original_start : t._original_end])
 )
@@ -78,7 +78,7 @@ URL_AND_MARKER = URL + Optional(MARKER)
 
 NAMED_REQUIREMENT = NAME + Optional(EXTRAS) + (URL_AND_MARKER | VERSION_AND_MARKER)
 
-REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
+REQUIREMENT = string_start + NAMED_REQUIREMENT + string_end
 # pyparsing isn't thread safe during initialization, so we do it eagerly, see
 # issue #104
 REQUIREMENT.parseString("x[]")
