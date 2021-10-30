@@ -59,6 +59,9 @@ def lint(session):
     session.install("pre-commit")
     session.run("pre-commit", "run", "--all-files")
 
+    # Install current package and dependencies
+    session.install(".")
+
     # Check the distribution
     session.install("build", "twine")
     session.run("python", "-m", "build")
