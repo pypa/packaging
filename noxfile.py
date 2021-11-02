@@ -61,7 +61,7 @@ def lint(session):
 
     # Check the distribution
     session.install("build", "twine")
-    session.run("python", "-m", "build")
+    session.run("pyproject-build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
