@@ -8,18 +8,6 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from pyparsing import (  # noqa: N817
-    Forward,
-    Group,
-    Literal as L,
-    ParseException,
-    ParseResults,
-    QuotedString,
-    ZeroOrMore,
-    stringEnd,
-    stringStart,
-)
-
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
@@ -80,83 +68,6 @@ class Value(Node):
 class Op(Node):
     def serialize(self) -> str:
         return str(self)
-
-
-VARIABLE = (
-    L("implementation_version")
-    | L("platform_python_implementation")
-    | L("implementation_name")
-    | L("python_full_version")
-    | L("platform_release")
-    | L("platform_version")
-    | L("platform_machine")
-    | L("platform_system")
-    | L("python_version")
-    | L("sys_platform")
-    | L("os_name")
-    | L("os.name")  # PEP-345
-    | L("sys.platform")  # PEP-345
-    | L("platform.version")  # PEP-345
-    | L("platform.machine")  # PEP-345
-    | L("platform.python_implementation")  # PEP-345
-    | L("python_implementation")  # undocumented setuptools legacy
-    | L("extra")  # PEP-508
-)
-ALIASES = {
-    "os.name": "os_name",
-    "sys.platform": "sys_platform",
-    "platform.version": "platform_version",
-    "platform.machine": "platform_machine",
-    "platform.python_implementation": "platform_python_implementation",
-    "python_implementation": "platform_python_implementation",
-}
-VARIABLE.setParseAction(lambda s, l, t: Variable(ALIASES.get(t[0], t[0])))
-
-VERSION_CMP = (
-    L("===") | L("==") | L(">=") | L("<=") | L("!=") | L("~=") | L(">") | L("<")
-)
-
-MARKER_OP = VERSION_CMP | L("not in") | L("in")
-MARKER_OP.setParseAction(lambda s, l, t: Op(t[0]))
-
-MARKER_VALUE = QuotedString("'") | QuotedString('"')
-MARKER_VALUE.setParseAction(lambda s, l, t: Value(t[0]))
-
-BOOLOP = L("and") | L("or")
-
-MARKER_VAR = VARIABLE | MARKER_VALUE
-
-MARKER_ITEM = Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
-MARKER_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
-
-LPAREN = L("(").suppress()
-RPAREN = L(")").suppress()
-
-MARKER_EXPR = Forward()
-MARKER_ATOM = MARKER_ITEM | Group(LPAREN + MARKER_EXPR + RPAREN)
-MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
-
-MARKER = stringStart + MARKER_EXPR + stringEnd
-
-
-def _coerce_parse_result(results: Any) -> Any:
-    """
-    Flatten the parse results into a list of results.
-
-    Also normalize extra values.
-    """
-    if isinstance(results, ParseResults):
-        return [_coerce_parse_result(i) for i in results]
-    elif isinstance(results, tuple):
-        lhs, op, rhs = results
-        if isinstance(lhs, Variable) and lhs.value == "extra":
-            normalized_extra = canonicalize_name(rhs.value)
-            rhs = Value(normalized_extra)
-        elif isinstance(rhs, Variable) and rhs.value == "extra":
-            normalized_extra = canonicalize_name(lhs.value)
-            lhs = Value(normalized_extra)
-        results = lhs, op, rhs
-    return results
 
 
 def _format_marker(
