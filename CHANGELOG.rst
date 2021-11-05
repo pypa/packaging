@@ -8,6 +8,16 @@ Changelog
   local version segment (:issue:`469`).
 * Document that ``VERSION_PATTERN`` requires using the ``re.ASCII`` flag.
 
+21.2 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update documentation entry for 21.1.
+
+21.1 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update pin to pyparsing to exclude 3.0.0.
+
 21.0 - 2021-07-03
 ~~~~~~~~~~~~~~~~~
 
