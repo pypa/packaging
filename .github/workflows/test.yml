@@ -37,20 +37,20 @@ jobs:
 
       - name: Run nox
         run: |
-          python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+          python -m nox -v --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         shell: bash
         if: ${{ ! startsWith( matrix.python_version, 'pypy' ) }}
 
       # Binary is named 'pypy', but setup-python specifies it as 'pypy2'.
       - name: Run nox for pypy2
         run: |
-          python -m nox --error-on-missing-interpreters -s tests-pypy
+          python -m nox -v --error-on-missing-interpreters -s tests-pypy
         shell: bash
         if: matrix.python_version == 'pypy2'
 
       # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.7'.
       - name: Run nox for pypy3
         run: |
-          python -m nox --error-on-missing-interpreters -s tests-pypy3
+          python -m nox -v --error-on-missing-interpreters -s tests-pypy3
         shell: bash
         if: matrix.python_version == 'pypy-3.7'
