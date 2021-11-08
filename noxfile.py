@@ -27,8 +27,7 @@ def tests(session):
         session.run("python", "-m", "coverage", *args)
 
     # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
-    session.install("coverage<5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
-    session.install(".")
+    session.install(".", "coverage<5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
 
     if "pypy" not in session.python:
         coverage(
