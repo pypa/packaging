@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+21.3 - 2021-11-17
+~~~~~~~~~~~~~~~~~
 
 * Add a ``pp3-none-any`` tag (:issue:`311`)
 * Replace the blank pyparsing 3 exclusion with a 3.0.5 exclusion (:issue:`481`, :issue:`486`)
