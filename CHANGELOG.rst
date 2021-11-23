@@ -8,6 +8,13 @@ Changelog
   local version segment (:issue:`469`).
 * Document that ``VERSION_PATTERN`` requires using the ``re.ASCII`` flag.
 
+21.3 - 2021-11-17
+~~~~~~~~~~~~~~~~~
+
+* Add a ``pp3-none-any`` tag (:issue:`311`)
+* Replace the blank pyparsing 3 exclusion with a 3.0.5 exclusion (:issue:`481`, :issue:`486`)
+* Fix a spelling mistake (:issue:`479`)
+
 21.2 - 2021-10-29
 ~~~~~~~~~~~~~~~~~
 
