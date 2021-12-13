@@ -630,6 +630,9 @@ class TestSpecifier:
         items = {str(item) for item in spec}
         assert items == set(expected_items)
 
+    def test_specifier_equal_for_compatible_operator(self):
+        assert Specifier("~=1.18.0") != Specifier("~=1.18")
+
 
 class TestLegacySpecifier:
     def test_legacy_specifier_is_deprecated(self):

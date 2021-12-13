@@ -56,6 +56,11 @@ def test_canonicalize_version(version, expected):
     assert canonicalize_version(version) == expected
 
 
+@pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
+def test_canonicalize_version_no_strip_trailing_zero(version):
+    assert canonicalize_version(version, strip_trailing_zero=False) == version
+
+
 @pytest.mark.parametrize(
     ("filename", "name", "version", "build", "tags"),
     [
