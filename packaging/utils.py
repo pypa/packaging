@@ -36,7 +36,7 @@ def canonicalize_name(name: str) -> NormalizedName:
 
 
 def canonicalize_version(
-    version: Union[Version, str], strip_trailing_zero: bool = True
+    version: Union[Version, str], *, strip_trailing_zero: bool = True
 ) -> str:
     """
     This is very similar to Version.__str__, but has one subtle difference
