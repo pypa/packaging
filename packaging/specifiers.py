@@ -119,7 +119,6 @@ class _IndividualSpecifier(BaseSpecifier):
 
     @property
     def _canonical_spec(self) -> Tuple[str, str]:
-        strip_zeros = self._spec[0] != "~="
         canonical_version = canonicalize_version(
             self._spec[1],
             strip_trailing_zero=(self._spec[0] != "~="),
