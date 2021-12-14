@@ -633,6 +633,9 @@ class TestSpecifier:
     def test_specifier_equal_for_compatible_operator(self):
         assert Specifier("~=1.18.0") != Specifier("~=1.18")
 
+    def test_specifier_hash_for_compatible_operator(self):
+        assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
+
 
 class TestLegacySpecifier:
     def test_legacy_specifier_is_deprecated(self):
