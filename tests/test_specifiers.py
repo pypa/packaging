@@ -1002,3 +1002,8 @@ class TestSpecifierSet:
     )
     def test_comparison_ignores_local(self, version, specifier, expected):
         assert (Version(version) in SpecifierSet(specifier)) == expected
+
+    def test_contains_with_compatible_operator(self):
+        combination = SpecifierSet("~=1.18.0") & SpecifierSet("~=1.18")
+        assert "1.19.5" not in combination
+        assert "1.18.0" in combination
