@@ -61,9 +61,8 @@ def canonicalize_version(
     release_segment = ".".join(str(x) for x in parsed.release)
     if strip_trailing_zero:
         # NB: This strips trailing '.0's to normalize
-        parts.append(re.sub(r"(\.0)+$", "", release_segment))
-    else:
-        parts.append(release_segment)
+        release_segment = re.sub(r"(\.0)+$", "", release_segment)
+    parts.append(release_segment)
 
     # Pre-release
     if parsed.pre is not None:
