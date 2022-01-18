@@ -163,7 +163,7 @@ class CoreMetadata:
             for url in cast(Iterable[str], self.project_url):
                 key, _, value = url.partition(",")
                 urls[key.strip()] = value.strip()
-        _setattr(self, "project_url", ImmutableMapping(urls))
+        _setattr(self, "project_url", urls)
 
         # Dataclasses don't enforce data types at runtime
         if not isinstance(self.requires_python, SpecifierSet):
@@ -373,20 +373,6 @@ class CoreMetadata:
         if getattr(self, field):
             raise StaticFieldCannotBeDynamic(normalized)
         return True
-
-
-class ImmutableMapping(Mapping[A, B]):
-    def __init__(self, value: Mapping[A, B]):
-        self._value = value
-
-    def __getitem__(self, key: A) -> B:
-        return self._value[key]
-
-    def __iter__(self) -> Iterator[A]:
-        return iter(self._value)
-
-    def __len__(self) -> int:
-        return len(self._value)
 
 
 class InvalidCoreMetadataField(ValueError):
