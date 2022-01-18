@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.6", "3.7", "3.8", "3.9", "3.10", "pypy-3.7"]
+          ["3.7", "3.8", "3.9", "3.10", "pypy-3.7"]
 
     steps:
       - uses: actions/checkout@v1
