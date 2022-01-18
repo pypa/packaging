@@ -189,7 +189,7 @@ class CoreMetadata:
         return [f.name for f in dataclasses.fields(cls)]
 
     @classmethod
-    def _read_pkg_info(cls, pkg_info: bytes) -> Dict[str, Any]:
+    def _parse_pkg_info(cls, pkg_info: bytes) -> Dict[str, Any]:
         """Parse PKG-INFO data."""
 
         msg = message_from_bytes(pkg_info, EmailMessage, policy=cls._PARSING_POLICY)
@@ -223,13 +223,13 @@ class CoreMetadata:
     def from_pkg_info(cls: Type[T], pkg_info: bytes) -> T:
         """Parse PKG-INFO data."""
 
-        return cls(**cls._read_pkg_info(pkg_info))
+        return cls(**cls._parse_pkg_info(pkg_info))
 
     @classmethod
     def from_dist_info_metadata(cls: Type[T], metadata_source: bytes) -> T:
         """Parse METADATA data."""
 
-        attrs = cls._read_pkg_info(metadata_source)
+        attrs = cls._parse_pkg_info(metadata_source)
 
         if "dynamic" in attrs:
             raise DynamicNotAllowed(attrs["dynamic"])
