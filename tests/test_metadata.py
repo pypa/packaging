@@ -241,6 +241,10 @@ class TestCoreMetadata:
         assert len(pkg_info_text) > 0
         assert isinstance(pkg_info_text, bytes)
 
+        # Make sure email-specific headers don't leak into the generated document
+        assert b"Content-Transfer-Encoding" not in pkg_info_text
+        assert b"MIME-Version" not in pkg_info_text
+
     def test_missing_required_fields(self):
         with pytest.raises(MissingRequiredFields):
             CoreMetadata.from_dist_info_metadata(b"")

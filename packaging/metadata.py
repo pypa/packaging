@@ -7,7 +7,6 @@ import math
 import sys
 import textwrap
 from email import message_from_bytes
-from email.contentmanager import raw_data_manager
 from email.headerregistry import Address, AddressHeader
 from email.message import EmailMessage
 from email.policy import EmailPolicy, Policy
@@ -216,7 +215,7 @@ class CoreMetadata:
                 attrs[field] = value
 
         if "description" not in attrs:
-            attrs["description"] = info.get_content(content_manager=raw_data_manager)
+            attrs["description"] = str(info.get_payload(decode=True), "utf-8")
 
         return attrs
 
@@ -262,7 +261,7 @@ class CoreMetadata:
                 for kind in sorted(value):
                     info.add_header(key, f"{kind}, {value[kind]}")
             elif field == "description":
-                info.set_content(value, content_manager=raw_data_manager)
+                info.set_payload(bytes(value, "utf-8"))
             elif field in self._MULTIPLE_USE:
                 for single_value in sorted(str(v) for v in value):
                     info.add_header(key, single_value)
