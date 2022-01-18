@@ -238,9 +238,11 @@ class TestCoreMetadata:
             with pytest.raises(DynamicNotAllowed):
                 pkg_info.to_dist_info_metadata()
         pkg_info_text = pkg_info.to_pkg_info()
-        assert len(pkg_info_text) > 0
         assert isinstance(pkg_info_text, bytes)
-
+        # Make sure generated document is not empty
+        assert len(pkg_info_text.strip()) > 0
+        assert b"Name" in pkg_info_text
+        assert b"Metadata-Version" in pkg_info_text
         # Make sure email-specific headers don't leak into the generated document
         assert b"Content-Transfer-Encoding" not in pkg_info_text
         assert b"MIME-Version" not in pkg_info_text
