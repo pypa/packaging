@@ -234,7 +234,7 @@ class CoreMetadata:
         _attrs = attrs.copy()
         _attrs.pop("description", None)
 
-        if attrs.get("dynamic"):
+        if "dynamic" in attrs:
             raise DynamicNotAllowed(attrs["dynamic"])
 
         missing_fields = [k for k in cls._MANDATORY if not attrs.get(k)]
