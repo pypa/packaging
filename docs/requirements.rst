@@ -47,6 +47,14 @@ Usage
     set()
     >>> url_req.marker
     <Marker('os_name == "a"')>
+    >>> # You can do simple comparissons between requirement objects:
+    >>> Requirement("packaging") == Requirement("packaging")
+    True
+    >>> # You can also do simple comparissons between sets of requirements:
+    >>> requirements1 = {Requirement("packaging"), Requirement("pip")}
+    >>> requirements2 = {Requirement("pip"), Requirement("packaging")}
+    >>> requirements1 == requirements2
+    True
 
 
 Reference
