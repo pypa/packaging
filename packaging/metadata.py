@@ -231,8 +231,6 @@ class CoreMetadata:
         """Parse METADATA data."""
 
         attrs = cls._read_pkg_info(metadata_source)
-        _attrs = attrs.copy()
-        _attrs.pop("description", None)
 
         if "dynamic" in attrs:
             raise DynamicNotAllowed(attrs["dynamic"])
