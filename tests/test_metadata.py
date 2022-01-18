@@ -67,161 +67,174 @@ class TestCoreMetadata:
             dataclasses.replace(metadata, version="0.1")
 
     PER_VERSION_EXAMPLES = {
-        "1.1": """\
-            Metadata-Version: 1.1
-            Name: BeagleVote
-            Version: 1.0a2
-            Platform: ObscureUnix, RareDOS
-            Supported-Platform: RedHat 7.2
-            Supported-Platform: i386-win32-2791
-            Summary: A module for collecting votes from beagles.
-            Description: This module collects votes from beagles
-                         in order to determine their electoral wishes.
-                         Do *not* try to use this module with basset hounds;
-                         it makes them grumpy.
-            Keywords: dog puppy voting election
-            Home-page: http://www.example.com/~cschultz/bvote/
-            Author: C. Schultz, Universal Features Syndicate,
-                    Los Angeles, CA <cschultz@peanuts.example.com>
-            Author-email: "C. Schultz" <cschultz@example.com>
-            License: This software may only be obtained by sending the
-                     author a postcard, and then the user promises not
-                     to redistribute it.
-            Classifier: Development Status :: 4 - Beta
-            Classifier: Environment :: Console (Text Based)
-            Requires: re
-            Requires: sys
-            Requires: zlib
-            Requires: xml.parsers.expat (>1.0)
-            Requires: psycopg
-            Provides: xml
-            Provides: xml.utils
-            Provides: xml.utils.iso8601
-            Provides: xml.dom
-            Provides: xmltools (1.3)
-            Obsoletes: Gorgon
-        """,  # based on PEP 314
-        "2.1": """\
-            Metadata-Version: 2.1
-            Name: BeagleVote
-            Version: 1.0a2
-            Platform: ObscureUnix, RareDOS
-            Supported-Platform: RedHat 7.2
-            Supported-Platform: i386-win32-2791
-            Summary: A module for collecting votes from beagles.
-            Description: This project provides powerful math functions
-                    |For example, you can use `sum()` to sum numbers:
-                    |
-                    |Example::
-                    |
-                    |    >>> sum(1, 2)
-                    |    3
-                    |
-            Keywords: dog puppy voting election
-            Home-page: http://www.example.com/~cschultz/bvote/
-            Author: C. Schultz, Universal Features Syndicate,
-                    Los Angeles, CA <cschultz@peanuts.example.com>
-            Author-email: "C. Schultz" <cschultz@example.com>
-            Maintainer: C. Schultz, Universal Features Syndicate,
-                    Los Angeles, CA <cschultz@peanuts.example.com>
-            Maintainer-email: "C. Schultz" <cschultz@example.com>
-            License: This software may only be obtained by sending the
-                    author a postcard, and then the user promises not
-                    to redistribute it.
-            Classifier: Development Status :: 4 - Beta
-            Classifier: Environment :: Console (Text Based)
-            Requires-Dist: pkginfo
-            Requires-Dist: PasteDeploy
-            Requires-Dist: zope.interface (>3.5.0)
-            Provides-Dist: OtherProject
-            Provides-Dist: AnotherProject (3.4)
-            Provides-Dist: virtual_package
-            Obsoletes-Dist: Gorgon
-            Obsoletes-Dist: OtherProject (<3.0)
-            Requires-Python: 2.5
-            Requires-Python: >2.1
-            Requires-Python: >=2.3.4
-            Requires-Python: >=2.5,<2.7
-            Requires-External: C
-            Requires-External: libpng (>=1.5)
-            Project-URL: Bug Tracker, https://github.com/pypa/setuptools/issues
-            Project-URL: Documentation, https://setuptools.readthedocs.io/
-            Project-URL: Funding, https://donate.pypi.org
-            Requires-Dist: pywin32 (>1.0); sys.platform == 'win32'
-            Obsoletes-Dist: pywin31; sys.platform == 'win32'
-            Requires-Dist: foo (1,!=1.3); platform.machine == 'i386'
-            Requires-Dist: bar; python_version == '2.4' or python_version == '2.5'
-            Requires-Dist: baz (>=1,!=1.3); platform.machine == 'i386'
-            Requires-External: libxslt; 'linux' in sys.platform
-            Provides-Extra: docs
-            Description-Content-Type: text/x-rst; charset=UTF-8
-        """,  # based on PEP 345 / PEP 566
-        "2022-01-16": """\
-            Metadata-Version: 2.2
-            Name: BeagleVote
-            Version: 1.0a2
-            Platform: ObscureUnix
-            Platform: RareDOS
-            Supported-Platform: RedHat 7.2
-            Supported-Platform: i386-win32-2791
-            Keywords: dog,puppy,voting,election
-            Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-            Author-email: cschuoltz@example.com, snoopy@peanuts.com
-            License: GPL version 3, excluding DRM provisions
-            Requires-Dist: pkginfo
-            Requires-Dist: PasteDeploy
-            Requires-Dist: zope.interface (>3.5.0)
-            Requires-Dist: pywin32 >1.0; sys_platform == 'win32'
-            Requires-Python: >2.6,!=3.0.*,!=3.1.*
-            Requires-External: C
-            Requires-External: libpng (>=1.5)
-            Requires-External: make; sys_platform != "win32"
-            Project-URL: Bug Tracker, http://bitbucket.org/tarek/distribute/issues/
-            Provides-Extra: pdf
-            Requires-Dist: reportlab; extra == 'pdf'
-            Provides-Dist: OtherProject
-            Provides-Dist: AnotherProject (3.4)
-            Provides-Dist: virtual_package; python_version >= "3.4"
-            Obsoletes-Dist: Foo; os_name == "posix"
-            Dynamic: Maintainer
-            Dynamic: Maintainer-email
+        "1.1": {
+            "has_dynamic_fields": False,
+            "is_final_metadata": True,
+            "file_contents": """\
+                Metadata-Version: 1.1
+                Name: BeagleVote
+                Version: 1.0a2
+                Platform: ObscureUnix, RareDOS
+                Supported-Platform: RedHat 7.2
+                Supported-Platform: i386-win32-2791
+                Summary: A module for collecting votes from beagles.
+                Description: This module collects votes from beagles
+                             in order to determine their electoral wishes.
+                             Do *not* try to use this module with basset hounds;
+                             it makes them grumpy.
+                Keywords: dog puppy voting election
+                Home-page: http://www.example.com/~cschultz/bvote/
+                Author: C. Schultz, Universal Features Syndicate,
+                        Los Angeles, CA <cschultz@peanuts.example.com>
+                Author-email: "C. Schultz" <cschultz@example.com>
+                License: This software may only be obtained by sending the
+                         author a postcard, and then the user promises not
+                         to redistribute it.
+                Classifier: Development Status :: 4 - Beta
+                Classifier: Environment :: Console (Text Based)
+                Requires: re
+                Requires: sys
+                Requires: zlib
+                Requires: xml.parsers.expat (>1.0)
+                Requires: psycopg
+                Provides: xml
+                Provides: xml.utils
+                Provides: xml.utils.iso8601
+                Provides: xml.dom
+                Provides: xmltools (1.3)
+                Obsoletes: Gorgon
+            """,  # based on PEP 314
+        },
+        "2.1": {
+            "has_dynamic_fields": False,
+            "is_final_metadata": True,
+            "file_contents": """\
+                Metadata-Version: 2.1
+                Name: BeagleVote
+                Version: 1.0a2
+                Platform: ObscureUnix, RareDOS
+                Supported-Platform: RedHat 7.2
+                Supported-Platform: i386-win32-2791
+                Summary: A module for collecting votes from beagles.
+                Description: This project provides powerful math functions
+                        |For example, you can use `sum()` to sum numbers:
+                        |
+                        |Example::
+                        |
+                        |    >>> sum(1, 2)
+                        |    3
+                        |
+                Keywords: dog puppy voting election
+                Home-page: http://www.example.com/~cschultz/bvote/
+                Author: C. Schultz, Universal Features Syndicate,
+                        Los Angeles, CA <cschultz@peanuts.example.com>
+                Author-email: "C. Schultz" <cschultz@example.com>
+                Maintainer: C. Schultz, Universal Features Syndicate,
+                        Los Angeles, CA <cschultz@peanuts.example.com>
+                Maintainer-email: "C. Schultz" <cschultz@example.com>
+                License: This software may only be obtained by sending the
+                        author a postcard, and then the user promises not
+                        to redistribute it.
+                Classifier: Development Status :: 4 - Beta
+                Classifier: Environment :: Console (Text Based)
+                Requires-Dist: pkginfo
+                Requires-Dist: PasteDeploy
+                Requires-Dist: zope.interface (>3.5.0)
+                Provides-Dist: OtherProject
+                Provides-Dist: AnotherProject (3.4)
+                Provides-Dist: virtual_package
+                Obsoletes-Dist: Gorgon
+                Obsoletes-Dist: OtherProject (<3.0)
+                Requires-Python: 2.5
+                Requires-Python: >2.1
+                Requires-Python: >=2.3.4
+                Requires-Python: >=2.5,<2.7
+                Requires-External: C
+                Requires-External: libpng (>=1.5)
+                Project-URL: Bug Tracker, https://github.com/pypa/setuptools/issues
+                Project-URL: Documentation, https://setuptools.readthedocs.io/
+                Project-URL: Funding, https://donate.pypi.org
+                Requires-Dist: pywin32 (>1.0); sys.platform == 'win32'
+                Obsoletes-Dist: pywin31; sys.platform == 'win32'
+                Requires-Dist: foo (1,!=1.3); platform.machine == 'i386'
+                Requires-Dist: bar; python_version == '2.4' or python_version == '2.5'
+                Requires-Dist: baz (>=1,!=1.3); platform.machine == 'i386'
+                Requires-External: libxslt; 'linux' in sys.platform
+                Provides-Extra: docs
+                Description-Content-Type: text/x-rst; charset=UTF-8
+            """,  # based on PEP 345 / PEP 566
+        },
+        "2022-01-16": {
+            "has_dynamic_fields": True,
+            "is_final_metadata": False,
+            "file_contents": """\
+                Metadata-Version: 2.2
+                Name: BeagleVote
+                Version: 1.0a2
+                Platform: ObscureUnix
+                Platform: RareDOS
+                Supported-Platform: RedHat 7.2
+                Supported-Platform: i386-win32-2791
+                Keywords: dog,puppy,voting,election
+                Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+                Author-email: cschuoltz@example.com, snoopy@peanuts.com
+                License: GPL version 3, excluding DRM provisions
+                Requires-Dist: pkginfo
+                Requires-Dist: PasteDeploy
+                Requires-Dist: zope.interface (>3.5.0)
+                Requires-Dist: pywin32 >1.0; sys_platform == 'win32'
+                Requires-Python: >2.6,!=3.0.*,!=3.1.*
+                Requires-External: C
+                Requires-External: libpng (>=1.5)
+                Requires-External: make; sys_platform != "win32"
+                Project-URL: Bug Tracker, http://bitbucket.org/tarek/distribute/issues/
+                Provides-Extra: pdf
+                Requires-Dist: reportlab; extra == 'pdf'
+                Provides-Dist: OtherProject
+                Provides-Dist: AnotherProject (3.4)
+                Provides-Dist: virtual_package; python_version >= "3.4"
+                Obsoletes-Dist: Foo; os_name == "posix"
+                Dynamic: Maintainer
+                Dynamic: Maintainer-email
 
-            This project provides powerful math functions
-            For example, you can use `sum()` to sum numbers:
+                This project provides powerful math functions
+                For example, you can use `sum()` to sum numbers:
 
-            Example::
+                Example::
 
-                >>> sum(1, 2)
-                3
+                    >>> sum(1, 2)
+                    3
 
-        """,  # https://packaging.python.org/en/latest/specifications/core-metadata
+            """,  # https://packaging.python.org/en/latest/specifications/core-metadata
+        },
     }
 
     @pytest.mark.parametrize("spec", PER_VERSION_EXAMPLES.keys())
     def test_parsing(self, spec: str) -> None:
-        text = bytes(dedent(self.PER_VERSION_EXAMPLES[spec]), "UTF-8")
+        example = self.PER_VERSION_EXAMPLES[spec]
+        text = bytes(dedent(example["file_contents"]), "UTF-8")
         pkg_info = CoreMetadata.from_pkg_info(text)
-        if not pkg_info.dynamic:
+        if example["is_final_metadata"]:
             metadata = CoreMetadata.from_dist_info_metadata(text)
             assert metadata == pkg_info
-        else:
+        if example["has_dynamic_fields"]:
             with pytest.raises(DynamicNotAllowed):
                 CoreMetadata.from_dist_info_metadata(text)
         for field in ("requires_dist", "provides_dist", "obsoletes_dist"):
             for value in getattr(pkg_info, field):
                 assert isinstance(value, Requirement)
-        if pkg_info.description:
-            desc = pkg_info.description.splitlines()
-            for line in desc:
-                assert not line.strip().startswith("|")
+        desc = pkg_info.description.splitlines()
+        for line in desc:
+            assert not line.strip().startswith("|")
 
     @pytest.mark.parametrize("spec", PER_VERSION_EXAMPLES.keys())
     def test_serliazing(self, spec: str) -> None:
-        text = bytes(dedent(self.PER_VERSION_EXAMPLES[spec]), "UTF-8")
+        example = self.PER_VERSION_EXAMPLES[spec]
+        text = bytes(dedent(example["file_contents"]), "UTF-8")
         pkg_info = CoreMetadata.from_pkg_info(text)
-        if not pkg_info.dynamic:
+        if example["is_final_metadata"]:
             assert isinstance(pkg_info.to_dist_info_metadata(), bytes)
-        else:
+        if example["has_dynamic_fields"]:
             with pytest.raises(DynamicNotAllowed):
                 pkg_info.to_dist_info_metadata()
         pkg_info_text = pkg_info.to_pkg_info()
