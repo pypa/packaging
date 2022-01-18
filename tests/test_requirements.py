@@ -195,3 +195,65 @@ class TestRequirements:
         assert "Expected stringEnd" in str(e.value) or (
             "Expected string_end" in str(e.value)  # pyparsing>=3.0.0
         )
+
+    EQUAL_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>20.1"),
+        (
+            'requests[security, tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1, == 2.8.* ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.8'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'testing'",
+        ),
+    ]
+
+    DIFFERENT_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>=20.1"),
+        ("packaging>20.1", "packaging>21.1"),
+        ("packaging>20.1", "package>20.1"),
+        (
+            'requests[security,tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1 ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.7'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'docs'",
+        ),
+    ]
+
+    @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
+    def test_comparable_equal(self, dep1, dep2):
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 == req2
+
+    @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
+    def test_comparable_different(self, dep1, dep2):
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 != req2
+
+    def test_hashable_equal(self):
+        group1 = frozenset(Requirement(pair[0]) for pair in self.EQUAL_DEPENDENCIES)
+        group2 = frozenset(Requirement(pair[1]) for pair in self.EQUAL_DEPENDENCIES)
+        assert group1 == group2
+
+        values1 = {r: r.name for r in group1}
+        values2 = {r: r.name for r in group2}
+        assert values1 == values2
+
+    def test_hashable_different(self):
+        group1 = frozenset(Requirement(pair[0]) for pair in self.DIFFERENT_DEPENDENCIES)
+        group2 = frozenset(Requirement(pair[1]) for pair in self.DIFFERENT_DEPENDENCIES)
+        assert group1 != group2
+
+        values1 = {r: r.name for r in group1}
+        values2 = {r: r.name for r in group2}
+        assert values1 != values2
