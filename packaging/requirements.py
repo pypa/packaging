@@ -5,7 +5,7 @@
 import re
 import string
 import urllib.parse
-from typing import Any, List, Optional as TOptional, Set
+from typing import List, Optional as TOptional, Set
 
 from pyparsing import (  # noqa
     Combine,
@@ -144,9 +144,3 @@ class Requirement:
 
     def __repr__(self) -> str:
         return f"<Requirement('{self}')>"
-
-    def __hash__(self) -> int:
-        return hash((self.__class__.__name__, str(self)))
-
-    def __eq__(self, other: Any) -> bool:
-        return bool(self.__class__ == other.__class__ and str(self) == str(other))
