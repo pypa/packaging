@@ -11,7 +11,7 @@ from email.contentmanager import raw_data_manager
 from email.headerregistry import Address, AddressHeader
 from email.message import EmailMessage
 from email.policy import EmailPolicy, Policy
-from functools import lru_cache, reduce
+from functools import reduce
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -186,7 +186,6 @@ class CoreMetadata:
         return "2.2"
 
     @classmethod
-    @lru_cache(maxsize=None)
     def _fields(cls) -> Collection[str]:
         return frozenset(f.name for f in dataclasses.fields(cls))
 
