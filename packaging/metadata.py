@@ -165,7 +165,7 @@ class CoreMetadata:
                 urls[key.strip()] = value.strip()
         _setattr(self, "project_url", urls)
 
-        # Dataclasses don't enforce data types at runtime
+        # Dataclasses don't enforce data types at runtime.
         if not isinstance(self.requires_python, SpecifierSet):
             requires_python = self._parse_requires_python(self.requires_python)
             _setattr(self, "requires_python", requires_python)
