@@ -187,7 +187,7 @@ class CoreMetadata:
 
     @classmethod
     def _fields(cls) -> Collection[str]:
-        return frozenset(f.name for f in dataclasses.fields(cls))
+        return [f.name for f in dataclasses.fields(cls)]
 
     @classmethod
     def _read_pkg_info(cls, pkg_info: bytes) -> Dict[str, Any]:
