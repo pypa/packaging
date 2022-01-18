@@ -21,7 +21,6 @@ from typing import (
     Iterable,
     Iterator,
     Mapping,
-    NamedTuple,
     Set,
     Tuple,
     Type,
@@ -83,18 +82,6 @@ def _normalize_field_name_for_dynamic(field: str) -> NormalizedDynamicFields:
 _setattr = object.__setattr__
 
 
-class EmailAddress(NamedTuple):
-    """Named tuple representing an email address.
-    For values without a display name use ``EmailAddress(None, "your@email.com")``
-    """
-
-    display_name: Union[str, None]
-    value: str
-
-    def __str__(self) -> str:
-        return str(Address(self.display_name or "", addr_spec=self.value))
-
-
 @dataclasses.dataclass(frozen=True)
 class CoreMetadata:
     """
@@ -116,7 +103,7 @@ class CoreMetadata:
     keywords: Collection[str] = ()
     home_page: str = ""
     author: str = ""
-    author_email: Collection[EmailAddress] = ()
+    author_email: Collection[Tuple[Union[str, None], str]] = ()
     license: str = ""
     # license_file: Collection[str] = ()  # not standard yet
     # 1.1
@@ -125,7 +112,7 @@ class CoreMetadata:
     classifier: Collection[str] = ()
     # 1.2
     maintainer: str = ""
-    maintainer_email: Collection[EmailAddress] = ()
+    maintainer_email: Collection[Tuple[Union[str, None], str]] = ()
     requires_dist: Collection[Requirement] = ()
     requires_python: SpecifierSet = dataclasses.field(default_factory=SpecifierSet)
     requires_external: Collection[str] = ()
@@ -254,7 +241,7 @@ class CoreMetadata:
             if field == "keywords":
                 info.add_header(key, ",".join(sorted(value)))
             elif field.endswith("email"):
-                _emails = (str(v) for v in value)
+                _emails = (self._serialize_email(v) for v in value)
                 emails = ", ".join(sorted(v for v in _emails if v))
                 info.add_header(key, emails)
             elif field == "project_url":
@@ -332,21 +319,25 @@ class CoreMetadata:
     @classmethod
     def _convert_emails(
         cls, value: Collection[Union[str, Tuple[str, str]]]
-    ) -> Iterator[EmailAddress]:
+    ) -> Iterator[Tuple[Union[str, None], str]]:
         for email in value:
             if isinstance(email, str):
                 yield from cls._parse_emails(email)
             elif isinstance(email, tuple) and email[1]:
-                yield EmailAddress(email[0], email[1])
+                yield email
 
     @classmethod
-    def _parse_emails(cls, value: str) -> Iterator[EmailAddress]:
+    def _parse_emails(cls, value: str) -> Iterator[Tuple[Union[str, None], str]]:
         singleline = " ".join(value.splitlines())
         if singleline.strip() == "UNKNOWN":
             return
         address_list = AddressHeader.value_parser(singleline)
         for mailbox in address_list.all_mailboxes:
-            yield EmailAddress(mailbox.display_name, mailbox.addr_spec)
+            yield (mailbox.display_name, mailbox.addr_spec)
+
+    @classmethod
+    def _serialize_email(cls, value: Tuple[Union[str, None], str]) -> str:
+        return str(Address(value[0] or "", addr_spec=value[1]))
 
     @classmethod
     def _unescape_description(cls, content: str) -> str:
