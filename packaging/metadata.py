@@ -82,7 +82,12 @@ def _normalize_field_name_for_dynamic(field: str) -> NormalizedDynamicFields:
 _setattr = object.__setattr__
 
 
-@dataclasses.dataclass(frozen=True)
+# In the following we use `frozen` to prevent inconsistencies, specially with `dynamic`.
+# Comparison is disabled because currently `Requirement` objects are
+# unhashable/not-comparable.
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
 class CoreMetadata:
     """
     Core metadata for Python packages, represented as an immutable

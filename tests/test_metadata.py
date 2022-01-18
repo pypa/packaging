@@ -57,7 +57,7 @@ class TestCoreMetadata:
         }
         metadata1 = dataclasses.replace(metadata, **attrs)
         req = next(iter(metadata1.requires_dist))
-        assert req == Requirement("appdirs>1.4")
+        assert str(req) == "appdirs>1.4"
 
         with pytest.raises(InvalidCoreMetadataField):
             dataclasses.replace(metadata, dynamic=["myfield"])
@@ -216,7 +216,7 @@ class TestCoreMetadata:
         pkg_info = CoreMetadata.from_pkg_info(text)
         if example["is_final_metadata"]:
             metadata = CoreMetadata.from_dist_info_metadata(text)
-            assert metadata == pkg_info
+            assert_equal_metadata(metadata, pkg_info)
         if example["has_dynamic_fields"]:
             with pytest.raises(DynamicNotAllowed):
                 CoreMetadata.from_dist_info_metadata(text)
@@ -309,7 +309,7 @@ class TestIntegration:
             recons_data = from_(recons_file)
             description = metadata.description.replace("\r\n", "\n")
             metadata = dataclasses.replace(metadata, description=description)
-            assert metadata == recons_data
+            assert_equal_metadata(metadata, recons_data)
             # - Make sure the reconstructed file can be parsed with compat32
             attrs = dataclasses.asdict(_Compat32Metadata.from_pkg_info(recons_file))
             assert CoreMetadata(**attrs)
@@ -321,11 +321,25 @@ class TestIntegration:
                 result_contents = to_(data)
                 assert file_contents == result_contents
                 result_data = from_(result_contents)
-                assert data == result_data
+                assert_equal_metadata(data, result_data)
                 file_contents, data = result_contents, result_data
 
 
 # --- Helper Functions/Classes ---
+
+
+def assert_equal_metadata(metadata1: CoreMetadata, metadata2: CoreMetadata):
+    fields = (f.name for f in dataclasses.fields(CoreMetadata))
+    for field in fields:
+        value1, value2 = getattr(metadata1, field), getattr(metadata2, field)
+        if field.endswith("dist"):
+            # Currently `Requirement` objects are not directly comparable,
+            # therefore sets containing those objects are also not comparable.
+            # The best approach is to convert requirements to strings first.
+            req1, req2 = set(map(str, value1)), set(map(str, value2))
+            assert req1 == req2
+        else:
+            assert value1 == value2
 
 
 class _Compat32Metadata(CoreMetadata):
