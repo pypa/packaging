@@ -47,7 +47,7 @@ Usage
     set()
     >>> url_req.marker
     <Marker('os_name == "a"')>
-    >>> # You can do simple comparissons between requirement objects:
+    >>> # You can do simple comparisons between requirement objects:
     >>> Requirement("packaging") == Requirement("packaging")
     True
     >>> # You can also do simple comparissons between sets of requirements:
