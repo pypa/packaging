@@ -240,6 +240,10 @@ class TestRequirements:
         req1, req2 = Requirement(dep1), Requirement(dep2)
         assert req1 != req2
 
+        # Test comparison with different type of objects:
+        assert req1 != dep1
+        assert req2 != dep2
+
     def test_hashable_equal(self):
         group1 = frozenset(Requirement(pair[0]) for pair in self.EQUAL_DEPENDENCIES)
         group2 = frozenset(Requirement(pair[1]) for pair in self.EQUAL_DEPENDENCIES)

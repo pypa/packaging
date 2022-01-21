@@ -149,4 +149,13 @@ class Requirement:
         return hash((self.__class__.__name__, str(self)))
 
     def __eq__(self, other: Any) -> bool:
-        return bool(self.__class__ == other.__class__ and str(self) == str(other))
+        if self.__class__ != other.__class__:
+            return NotImplemented
+
+        return bool(
+            self.name == other.name
+            and self.extras == other.extras
+            and self.specifier == other.specifier
+            and self.url == other.url
+            and self.marker == other.marker
+        )
