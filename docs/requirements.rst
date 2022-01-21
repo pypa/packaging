@@ -50,7 +50,7 @@ Usage
     >>> # You can do simple comparisons between requirement objects:
     >>> Requirement("packaging") == Requirement("packaging")
     True
-    >>> # You can also do simple comparissons between sets of requirements:
+    >>> # You can also perform simple comparisons between sets of requirements:
     >>> requirements1 = {Requirement("packaging"), Requirement("pip")}
     >>> requirements2 = {Requirement("pip"), Requirement("packaging")}
     >>> requirements1 == requirements2
