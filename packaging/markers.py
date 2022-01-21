@@ -62,6 +62,9 @@ class Node:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}('{self}')>"
 
+    def __eq__(self, other: Any) -> bool:
+        return bool(self.value == other.value)
+
     def serialize(self) -> str:
         raise NotImplementedError
 
@@ -174,6 +177,21 @@ def _format_marker(
         return marker
 
 
+def _flatten_marker(
+    marker: Union[List[Any], Tuple[Node, ...]]
+) -> Union[List[Any], Tuple[Node, ...]]:
+    """Un-nest the parsed-equivalent of parenthesis with a single expression."""
+    assert isinstance(marker, (list, tuple))
+
+    if isinstance(marker, tuple):
+        return marker
+
+    if len(marker) == 1:
+        return _flatten_marker(marker[0])
+
+    return [_flatten_marker(e) if isinstance(e, list) else e for e in marker]
+
+
 _operators: Dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
@@ -276,6 +294,22 @@ class Marker:
     def __init__(self, marker: str) -> None:
         try:
             self._markers = _coerce_parse_result(MARKER.parseString(marker))
+            # The attribute `_markers` can be described in terms of a recursive type:
+            # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
+            #
+            # For example the following expression:
+            # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
+            #
+            # is parsed into:
+            # [
+            #     (<Variable('python_version')>, <Op('>')>, <Value('3.6')>),
+            #     'and',
+            #     [
+            #         (<Variable('python_version')>, <Op('==')>, <Value('3.6')>),
+            #         'or',
+            #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
+            #     ]
+            # ]
         except ParseException as e:
             raise InvalidMarker(
                 f"Invalid marker: {marker!r}, parse error at "
@@ -287,6 +321,15 @@ class Marker:
 
     def __repr__(self) -> str:
         return f"<Marker('{self}')>"
+
+    def __hash__(self) -> int:
+        return hash((self.__class__.__name__, str(self)))
+
+    def __eq__(self, other: Any) -> bool:
+        if self.__class__ != other.__class__:
+            return NotImplemented
+
+        return _flatten_marker(self._markers) == _flatten_marker(other._markers)
 
     def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
         """Evaluate a marker.

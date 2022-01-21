@@ -202,10 +202,42 @@ class TestMarker:
             ),
         ],
     )
-    def test_str_and_repr(self, marker_string, expected):
+    def test_str_repr_eq_hash(self, marker_string, expected):
         m = Marker(marker_string)
         assert str(m) == expected
         assert repr(m) == f"<Marker({str(m)!r})>"
+        assert m == Marker(marker_string)
+        assert m == Marker(expected)
+        assert {m} == {Marker(expected)}
+
+    @pytest.mark.parametrize(
+        ("example1", "example2"),
+        [
+            # Test trivial comparisons
+            ('python_version == "2.7"', 'python_version == "3.7"'),
+            (
+                'python_version == "2.7"',
+                'python_version == "2.7" and os_name == "linux"',
+            ),
+            (
+                'python_version == "2.7"',
+                '(python_version == "2.7" and os_name == "linux")',
+            ),
+            # Test different precedence
+            (
+                'python_version == "2.7" and (os_name == "linux" or '
+                'sys_platform == "win32")',
+                'python_version == "2.7" and os_name == "linux" or '
+                'sys_platform == "win32"',
+            ),
+        ],
+    )
+    def test_not_eq_not_same_hash(self, example1, example2):
+        marker1, marker2 = Marker(example1), Marker(example2)
+        assert marker1 != marker2
+        assert {marker1} != {marker2}
+        # Test comparison with another object type:
+        assert marker1 != example1
 
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
