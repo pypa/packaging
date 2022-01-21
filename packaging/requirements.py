@@ -152,7 +152,7 @@ class Requirement:
         if not isinstance(other, Requirement):
             return NotImplemented
 
-        return bool(
+        return (
             self.name == other.name
             and self.extras == other.extras
             and self.specifier == other.specifier
