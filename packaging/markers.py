@@ -326,7 +326,7 @@ class Marker:
         return hash((self.__class__.__name__, str(self)))
 
     def __eq__(self, other: Any) -> bool:
-        if self.__class__ != other.__class__:
+        if not isinstance(other, Marker):
             return NotImplemented
 
         return _flatten_marker(self._markers) == _flatten_marker(other._markers)

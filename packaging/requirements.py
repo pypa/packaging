@@ -149,7 +149,7 @@ class Requirement:
         return hash((self.__class__.__name__, str(self)))
 
     def __eq__(self, other: Any) -> bool:
-        if self.__class__ != other.__class__:
+        if not isinstance(other, Requirement):
             return NotImplemented
 
         return bool(
