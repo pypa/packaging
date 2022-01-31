@@ -34,17 +34,19 @@ DOWNLOADS = HERE / "downloads"
 
 class TestCoreMetadata:
     def test_simple(self):
-        example = {"name": "simple", "version": "0.1", "requires_dist": ["appdirs>1.2"]}
-        metadata = CoreMetadata(**example)
-        req = next(iter(metadata.requires_dist))
-        assert isinstance(req, Requirement)
+        example = {
+            "name": "simple",
+            "version": "0.1",
+            "requires_dist": [Requirement("appdirs>1.2")],
+        }
+        CoreMetadata(**example)
 
     def test_replace(self):
         example = {
             "name": "simple",
             "dynamic": ["version"],
-            "author_email": ["me@example.com"],
-            "requires_dist": ["appdirs>1.2"],
+            "author_email": [(None, "me@example.com")],
+            "requires_dist": [Requirement("appdirs>1.2")],
         }
         metadata = CoreMetadata(**example)
 
@@ -53,18 +55,18 @@ class TestCoreMetadata:
             "version": "0.2",
             "dynamic": [],
             "author_email": [("name", "me@example.com")],
-            "requires_dist": ["appdirs>1.4"],
+            "requires_dist": [Requirement("appdirs>1.4")],
         }
         metadata1 = dataclasses.replace(metadata, **attrs)
         req = next(iter(metadata1.requires_dist))
         assert str(req) == "appdirs>1.4"
 
         with pytest.raises(InvalidCoreMetadataField):
-            dataclasses.replace(metadata, dynamic=["myfield"])
+            dataclasses.replace(metadata, dynamic=["myfield"]).to_pkg_info()
         with pytest.raises(InvalidDynamicField):
-            dataclasses.replace(metadata, dynamic=["name"])
+            dataclasses.replace(metadata, dynamic=["name"]).to_pkg_info()
         with pytest.raises(StaticFieldCannotBeDynamic):
-            dataclasses.replace(metadata, version="0.1")
+            dataclasses.replace(metadata, version="0.1").to_pkg_info()
 
     PER_VERSION_EXAMPLES = {
         "1.1": {
@@ -249,7 +251,7 @@ class TestCoreMetadata:
 
     def test_missing_required_fields(self):
         with pytest.raises(MissingRequiredFields):
-            CoreMetadata.from_dist_info_metadata(b"")
+            CoreMetadata.from_dist_info_metadata(b"Name: pkg")
 
         example = {"name": "pkg", "requires_dist": ["appdirs>1.2"]}
         metadata = CoreMetadata(**example)
@@ -269,7 +271,7 @@ class TestCoreMetadata:
         assert metadata.description == "Hello World"
 
     def test_empty_email(self):
-        example = {"name": "pkg", "maintainer_email": ["", "", ("", "")]}
+        example = {"name": "pkg", "maintainer_email": [("", "")]}
         metadata = CoreMetadata(**example)
         serialized = metadata.to_pkg_info()
         assert b"Maintainer-email:" not in serialized
@@ -338,6 +340,8 @@ def assert_equal_metadata(metadata1: CoreMetadata, metadata2: CoreMetadata):
             # The best approach is to convert requirements to strings first.
             req1, req2 = set(map(str, value1)), set(map(str, value2))
             assert req1 == req2
+        elif not value1:
+            assert not value2
         else:
             assert value1 == value2
 

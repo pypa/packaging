@@ -130,44 +130,6 @@ class CoreMetadata:
     # 2.2
     dynamic: Collection[NormalizedDynamicFields] = ()
 
-    def __post_init__(self) -> None:
-        """Perform required data conversions, validations, and ensure immutability"""
-
-        _should_be_set = (self._MULTIPLE_USE | {"keywords"}) - {"project_url"}
-
-        for field in self._fields():
-            value = getattr(self, field)
-            if field.endswith("dist"):
-                reqs = (self._convert_single_req(v) for v in value)
-                _setattr(self, field, frozenset(reqs))
-            elif field.endswith("email"):
-                emails = self._convert_emails(value)
-                _setattr(self, field, frozenset(emails))
-            elif field in _should_be_set:
-                _setattr(self, field, frozenset(value))
-            elif field in {"description", "summary"}:
-                _setattr(self, field, value.strip())
-
-        urls = self.project_url
-        if not isinstance(urls, Mapping) and isinstance(urls, Iterable):
-            urls = {}
-            for url in cast(Iterable[str], self.project_url):
-                key, _, value = url.partition(",")
-                urls[key.strip()] = value.strip()
-        _setattr(self, "project_url", urls)
-
-        # Dataclasses don't enforce data types at runtime.
-        if not isinstance(self.requires_python, SpecifierSet):
-            requires_python = self._parse_requires_python(self.requires_python)
-            _setattr(self, "requires_python", requires_python)
-        if self.version and not isinstance(self.version, Version):
-            _setattr(self, "version", Version(self.version))
-
-        if self.dynamic:
-            values = (_normalize_field_name_for_dynamic(f) for f in self.dynamic)
-            dynamic = frozenset(v for v in values if self._validate_dynamic(v))
-            _setattr(self, "dynamic", dynamic)
-
     @property
     def metadata_version(self) -> str:
         """
@@ -181,13 +143,47 @@ class CoreMetadata:
         return [f.name for f in dataclasses.fields(cls)]
 
     @classmethod
-    def _parse_pkg_info(cls, pkg_info: bytes) -> Dict[str, Any]:
+    def _process_attrs(
+        cls, attrs: Iterable[Tuple[str, Any]]
+    ) -> Iterable[Tuple[str, Any]]:
+        """Transform input data to the matching attribute types."""
+
+        _as_set = (cls._MULTIPLE_USE | {"keywords"}) - {"project_url"}
+        _available_fields = cls._fields()
+
+        for field, value in attrs:
+            if field == "version":
+                yield ("version", Version(value))
+            elif field == "keywords":
+                yield (field, frozenset(value.split(",")))
+            elif field == "requires_python":
+                yield (field, cls._parse_requires_python(value))
+            elif field == "project_url":
+                urls = {}
+                for url in value:
+                    key, _, value = url.partition(",")
+                    urls[key.strip()] = value.strip()
+                yield (field, urls)
+            elif field == "dynamic":
+                values = (_normalize_field_name_for_dynamic(f) for f in value)
+                yield (field, frozenset(values))
+            elif field.endswith("email"):
+                yield (field, frozenset(cls._parse_emails(value.strip())))
+            elif field.endswith("dist"):
+                yield (field, frozenset(cls._parse_req(v) for v in value))
+            elif field in _as_set:
+                yield (field, frozenset(value))
+            elif field in _available_fields:
+                yield (field, value)
+
+    @classmethod
+    def _parse_pkg_info(cls, pkg_info: bytes) -> Iterable[Tuple[str, Any]]:
         """Parse PKG-INFO data."""
 
         msg = message_from_bytes(pkg_info, EmailMessage, policy=cls._PARSING_POLICY)
         info = cast(EmailMessage, msg)
+        has_description = False
 
-        attrs: Dict[str, Any] = {}
         for key in info.keys():
             field = key.lower().replace("-", "_")
             if field in cls._UPDATES:
@@ -195,45 +191,40 @@ class CoreMetadata:
 
             value = str(info.get(key))  # email.header.Header.__str__ handles encoding
 
-            if field == "keywords":
-                attrs[field] = " ".join(value.splitlines()).split(",")
+            if field in {"keywords", "summary"} or field.endswith("email"):
+                yield (field, cls._ensure_single_line(value))
             elif field == "description":
-                attrs[field] = cls._unescape_description(value)
-            elif field.endswith("email"):
-                attrs[field] = cls._parse_emails(value)
+                has_description = True
+                yield (field, cls._unescape_description(value))
             elif field in cls._MULTIPLE_USE:
-                attrs[field] = (str(v) for v in info.get_all(key))
-            elif field in cls._fields():
-                attrs[field] = value
+                yield (field, (str(v) for v in info.get_all(key)))
+            else:
+                yield (field, value)
 
-        if "description" not in attrs:
-            attrs["description"] = str(info.get_payload(decode=True), "utf-8")
-
-        return attrs
+        if not has_description:
+            yield ("description", str(info.get_payload(decode=True), "utf-8"))
 
     @classmethod
     def from_pkg_info(cls: Type[T], pkg_info: bytes) -> T:
         """Parse PKG-INFO data."""
 
-        return cls(**cls._parse_pkg_info(pkg_info))
+        attrs = cls._process_attrs(cls._parse_pkg_info(pkg_info))
+        obj = cls(**dict(attrs))
+        obj._validate_dynamic()
+        return obj
 
     @classmethod
     def from_dist_info_metadata(cls: Type[T], metadata_source: bytes) -> T:
         """Parse METADATA data."""
 
-        attrs = cls._parse_pkg_info(metadata_source)
-
-        if "dynamic" in attrs:
-            raise DynamicNotAllowed(attrs["dynamic"])
-
-        missing_fields = [k for k in cls._MANDATORY if not attrs.get(k)]
-        if missing_fields:
-            raise MissingRequiredFields(missing_fields)
-
-        return cls(**attrs)
+        obj = cls.from_pkg_info(metadata_source)
+        obj._validate_final_metadata()
+        return obj
 
     def to_pkg_info(self) -> bytes:
         """Generate PKG-INFO data."""
+
+        self._validate_dynamic()
 
         info = EmailMessage(self._PARSING_POLICY)
         info.add_header("Metadata-Version", self.metadata_version)
@@ -243,12 +234,13 @@ class CoreMetadata:
             if not value:
                 continue
             key = self._canonical_field(field)
-            if field == "keywords":
+            if field in "keywords":
                 info.add_header(key, ",".join(sorted(value)))
             elif field.endswith("email"):
-                _emails = (self._serialize_email(v) for v in value)
+                _emails = (self._serialize_email(v) for v in value if any(v))
                 emails = ", ".join(sorted(v for v in _emails if v))
-                info.add_header(key, emails)
+                if emails:
+                    info.add_header(key, emails)
             elif field == "project_url":
                 for kind in sorted(value):
                     info.add_header(key, f"{kind}, {value[kind]}")
@@ -264,8 +256,8 @@ class CoreMetadata:
 
     def to_dist_info_metadata(self) -> bytes:
         """Generate METADATA data."""
-        if self.dynamic:
-            raise DynamicNotAllowed(self.dynamic)
+
+        self._validate_final_metadata()
         return self.to_pkg_info()
 
     # --- Auxiliary Methods and Properties ---
@@ -301,6 +293,13 @@ class CoreMetadata:
         return reduce(lambda acc, x: acc.replace(x[0], x[1]), replacements, ucfirst)
 
     @classmethod
+    def _ensure_single_line(cls, value: str) -> str:
+        """Existing distributions might include  metadata with fields such as 'keywords'
+        or 'summary' showing up as multiline strings.
+        """
+        return " ".join(value.splitlines())
+
+    @classmethod
     def _parse_requires_python(cls, value: str) -> SpecifierSet:
         if value and value[0].isnumeric():
             value = f"=={value}"
@@ -318,25 +317,10 @@ class CoreMetadata:
             return Requirement(value)
 
     @classmethod
-    def _convert_single_req(cls, value: Union[Requirement, str]) -> Requirement:
-        return value if isinstance(value, Requirement) else cls._parse_req(value)
-
-    @classmethod
-    def _convert_emails(
-        cls, value: Collection[Union[str, Tuple[str, str]]]
-    ) -> Iterator[Tuple[Union[str, None], str]]:
-        for email in value:
-            if isinstance(email, str):
-                yield from cls._parse_emails(email)
-            elif isinstance(email, tuple) and email[1]:
-                yield email
-
-    @classmethod
     def _parse_emails(cls, value: str) -> Iterator[Tuple[Union[str, None], str]]:
-        singleline = " ".join(value.splitlines())
-        if singleline.strip() == "UNKNOWN":
+        if value == "UNKNOWN":
             return
-        address_list = AddressHeader.value_parser(singleline)
+        address_list = AddressHeader.value_parser(value)
         for mailbox in address_list.all_mailboxes:
             yield (mailbox.display_name, mailbox.addr_spec)
 
@@ -354,14 +338,25 @@ class CoreMetadata:
         continuation = (line.lstrip("|") for line in lines[1:])
         return "\n".join(chain(lines[:1], continuation))
 
-    def _validate_dynamic(self, normalized: str) -> bool:
-        field = normalized.lower().replace("-", "_")
-        if not hasattr(self, field):
-            raise InvalidCoreMetadataField(normalized)
-        if field in self._NOT_DYNAMIC:
-            raise InvalidDynamicField(normalized)
-        if getattr(self, field):
-            raise StaticFieldCannotBeDynamic(normalized)
+    def _validate_dynamic(self) -> bool:
+        for normalized in self.dynamic:
+            field = normalized.lower().replace("-", "_")
+            if not hasattr(self, field):
+                raise InvalidCoreMetadataField(normalized)
+            if field in self._NOT_DYNAMIC:
+                raise InvalidDynamicField(normalized)
+            if getattr(self, field):
+                raise StaticFieldCannotBeDynamic(normalized)
+        return True
+
+    def _validate_final_metadata(self) -> bool:
+        if self.dynamic:
+            raise DynamicNotAllowed(self.dynamic)
+
+        missing_fields = [k for k in self._MANDATORY if not getattr(self, k)]
+        if missing_fields:
+            raise MissingRequiredFields(missing_fields)
+
         return True
 
 
