@@ -231,33 +231,20 @@ class TestRequirements:
     ]
 
     @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
-    def test_comparable_equal(self, dep1, dep2):
+    def test_equal_reqs_equal_hashes(self, dep1, dep2):
+        # Requirement objects created from equivalent strings should be equal.
         req1, req2 = Requirement(dep1), Requirement(dep2)
         assert req1 == req2
+        # Equal Requirement objects should have the same hash.
+        assert hash(req1) == hash(req2)
 
     @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
-    def test_comparable_different(self, dep1, dep2):
+    def test_different_reqs_different_hashes(self, dep1, dep2):
+        # Requirement objects created from non-equivalent strings should differ.
         req1, req2 = Requirement(dep1), Requirement(dep2)
         assert req1 != req2
-
-        # Test comparison with different type of objects:
+        # Requirement objects should not be comparable with other kinds of objects.
         assert req1 != dep1
         assert req2 != dep2
-
-    def test_hashable_equal(self):
-        group1 = frozenset(Requirement(pair[0]) for pair in self.EQUAL_DEPENDENCIES)
-        group2 = frozenset(Requirement(pair[1]) for pair in self.EQUAL_DEPENDENCIES)
-        assert group1 == group2
-
-        values1 = {r: r.name for r in group1}
-        values2 = {r: r.name for r in group2}
-        assert values1 == values2
-
-    def test_hashable_different(self):
-        group1 = frozenset(Requirement(pair[0]) for pair in self.DIFFERENT_DEPENDENCIES)
-        group2 = frozenset(Requirement(pair[1]) for pair in self.DIFFERENT_DEPENDENCIES)
-        assert group1 != group2
-
-        values1 = {r: r.name for r in group1}
-        values2 = {r: r.name for r in group2}
-        assert values1 != values2
+        # Different Requirement objects should have different hashes.
+        assert hash(req1) != hash(req2)

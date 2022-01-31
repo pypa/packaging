@@ -206,9 +206,14 @@ class TestMarker:
         m = Marker(marker_string)
         assert str(m) == expected
         assert repr(m) == f"<Marker({str(m)!r})>"
+        # Objects created from the same string should be equal.
         assert m == Marker(marker_string)
+        # Objects created from the equivalent strings should also be equal.
         assert m == Marker(expected)
-        assert {m} == {Marker(expected)}
+        # Objects created from the same string should have the same hash.
+        assert hash(Marker(marker_string)) == hash(Marker(marker_string))
+        # Objects created from equivalent strings should also have the same hash.
+        assert hash(Marker(marker_string)) == hash(Marker(expected))
 
     @pytest.mark.parametrize(
         ("example1", "example2"),
@@ -232,12 +237,14 @@ class TestMarker:
             ),
         ],
     )
-    def test_not_eq_not_same_hash(self, example1, example2):
+    def test_different_markers_different_hashes(self, example1, example2):
         marker1, marker2 = Marker(example1), Marker(example2)
+        # Markers created from strings that are not equivalent should differ.
         assert marker1 != marker2
-        assert {marker1} != {marker2}
-        # Test comparison with another object type:
+        # Markers should not be comparable with other kinds of objects.
         assert marker1 != example1
+        # Different Marker objects should have different hashes.
+        assert hash(marker1) != hash(marker2)
 
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
