@@ -5,12 +5,12 @@
 import dataclasses
 import math
 import sys
-import textwrap
 from email import message_from_bytes
 from email.headerregistry import Address, AddressHeader
 from email.message import EmailMessage
 from email.policy import EmailPolicy, Policy
 from functools import reduce
+from inspect import cleandoc
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -347,14 +347,12 @@ class CoreMetadata:
     @classmethod
     def _unescape_description(cls, content: str) -> str:
         """Reverse RFC-822 escaping by removing leading whitespaces from content."""
-        lines = content.splitlines()
+        lines = cleandoc(content).splitlines()
         if not lines:
             return ""
 
-        first_line = lines[0].lstrip()
-        text = textwrap.dedent("\n".join(lines[1:]))
-        other_lines = (line.lstrip("|") for line in text.splitlines())
-        return "\n".join(chain([first_line], other_lines))
+        continuation = (line.lstrip("|") for line in lines[1:])
+        return "\n".join(chain(lines[:1], continuation))
 
     def _validate_dynamic(self, normalized: str) -> bool:
         field = normalized.lower().replace("-", "_")
