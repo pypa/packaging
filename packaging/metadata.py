@@ -159,11 +159,7 @@ class CoreMetadata:
             elif field == "requires_python":
                 yield (field, cls._parse_requires_python(value))
             elif field == "project_url":
-                urls = {}
-                for url in value:
-                    key, _, value = url.partition(",")
-                    urls[key.strip()] = value.strip()
-                yield (field, urls)
+                yield (field, cls._parse_url(value))
             elif field == "dynamic":
                 values = (_normalize_field_name_for_dynamic(f) for f in value)
                 yield (field, frozenset(values))
@@ -315,6 +311,14 @@ class CoreMetadata:
             name, _, rest = value.strip().partition("(")
             value = f"{name}(=={rest}"
             return Requirement(value)
+
+    @classmethod
+    def _parse_url(cls, value: Iterable[str]) -> Dict[str, str]:
+        urls = {}
+        for url in value:
+            key, _, value = url.partition(",")
+            urls[key.strip()] = value.strip()
+        return urls
 
     @classmethod
     def _parse_emails(cls, value: str) -> Iterator[Tuple[Union[str, None], str]]:
