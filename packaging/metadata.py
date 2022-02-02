@@ -211,6 +211,7 @@ class CoreMetadata:
 
         attrs = cls._process_attrs(cls._parse_pkg_info(pkg_info))
         obj = cls(**dict(attrs))
+        obj._validate_required_fields()
         obj._validate_dynamic()
         return obj
 
@@ -225,6 +226,7 @@ class CoreMetadata:
     def to_pkg_info(self) -> bytes:
         """Generate PKG-INFO data."""
 
+        self._validate_required_fields()
         self._validate_dynamic()
 
         info = EmailMessage(self._PARSING_POLICY)
@@ -266,7 +268,7 @@ class CoreMetadata:
     # (useful when providing a prof-of-concept for new PEPs)
 
     _MANDATORY: ClassVar[Set[str]] = {"name", "version"}
-    _NOT_DYNAMIC: ClassVar[Set[str]] = {"metadata_version", "name", "dynamic"}
+    _NOT_DYNAMIC: ClassVar[Set[str]] = {"metadata_version", "dynamic"} | _MANDATORY
     _MULTIPLE_USE: ClassVar[Set[str]] = {
         "dynamic",
         "platform",
@@ -361,6 +363,9 @@ class CoreMetadata:
         if unresolved:
             raise UnfilledDynamicFields(unresolved)
 
+        return True
+
+    def _validate_required_fields(self) -> bool:
         missing_fields = [k for k in self._MANDATORY if not getattr(self, k)]
         if missing_fields:
             raise MissingRequiredFields(missing_fields)

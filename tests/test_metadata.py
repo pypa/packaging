@@ -25,6 +25,7 @@ from packaging.metadata import (
 )
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 HERE = Path(__file__).parent
 EXAMPLES = HERE / "metadata_examples.csv"
@@ -35,31 +36,23 @@ class TestCoreMetadata:
     def test_simple(self):
         example = {
             "name": "simple",
-            "version": "0.1",
+            "version": Version("0.1"),
             "requires_dist": [Requirement("appdirs>1.2")],
         }
-        CoreMetadata(**example)
+        metadata = CoreMetadata(**example)
+        assert isinstance(metadata.to_pkg_info(), bytes)
 
-    def test_replace(self):
+    def test_invalid(self):
         example = {
             "name": "simple",
-            "dynamic": ["version"],
             "author_email": [(None, "me@example.com")],
             "requires_dist": [Requirement("appdirs>1.2")],
         }
         metadata = CoreMetadata(**example)
+        with pytest.raises(MissingRequiredFields):  # version is missing
+            metadata.to_pkg_info()
 
-        # Make sure replace goes through validations and transformations
-        attrs = {
-            "version": "0.2",
-            "dynamic": [],
-            "author_email": [("name", "me@example.com")],
-            "requires_dist": [Requirement("appdirs>1.4")],
-        }
-        metadata1 = dataclasses.replace(metadata, **attrs)
-        req = next(iter(metadata1.requires_dist))
-        assert str(req) == "appdirs>1.4"
-
+        metadata = dataclasses.replace(metadata, version=Version("0.42"))
         with pytest.raises(InvalidCoreMetadataField):
             dataclasses.replace(metadata, dynamic=["myfield"]).to_pkg_info()
         with pytest.raises(InvalidDynamicField):
@@ -246,29 +239,24 @@ class TestCoreMetadata:
         assert b"Content-Transfer-Encoding" not in pkg_info_text
         assert b"MIME-Version" not in pkg_info_text
 
-    def test_missing_required_fields(self):
-        with pytest.raises(MissingRequiredFields):
-            CoreMetadata.from_dist_info_metadata(b"Name: pkg")
-
-        example = {"name": "pkg", "requires_dist": ["appdirs>1.2"]}
-        metadata = CoreMetadata(**example)
-        serialized = metadata.to_pkg_info()
-        with pytest.raises(MissingRequiredFields):
-            CoreMetadata.from_dist_info_metadata(serialized)
-
     def test_empty_fields(self):
-        metadata = CoreMetadata.from_pkg_info(b"Name: pkg\nDescription:\n")
+        metadata = CoreMetadata.from_pkg_info(b"Name: pkg\nVersion: 1\nDescription:\n")
         assert metadata.description == ""
-        metadata = CoreMetadata.from_pkg_info(b"Name: pkg\nAuthor-email:\n")
+        metadata = CoreMetadata.from_pkg_info(b"Name: pkg\nVersion: 1\nAuthor-email:\n")
         assert metadata.description == ""
         assert len(metadata.author_email) == 0
 
     def test_single_line_description(self):
-        metadata = CoreMetadata.from_pkg_info(b"Name: pkg\nDescription: Hello World")
+        serialized = b"Name: pkg\nVersion: 1\nDescription: Hello World"
+        metadata = CoreMetadata.from_pkg_info(serialized)
         assert metadata.description == "Hello World"
 
     def test_empty_email(self):
-        example = {"name": "pkg", "maintainer_email": [("", "")]}
+        example = {
+            "name": "pkg",
+            "version": Version("1"),
+            "maintainer_email": [("", "")],
+        }
         metadata = CoreMetadata(**example)
         serialized = metadata.to_pkg_info()
         assert b"Maintainer-email:" not in serialized
