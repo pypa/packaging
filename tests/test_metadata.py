@@ -18,11 +18,10 @@ import pytest
 
 from packaging.metadata import (
     CoreMetadata,
-    DynamicNotAllowed,
     InvalidCoreMetadataField,
     InvalidDynamicField,
     MissingRequiredFields,
-    StaticFieldCannotBeDynamic,
+    UnfilledDynamicFields,
 )
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
@@ -65,8 +64,6 @@ class TestCoreMetadata:
             dataclasses.replace(metadata, dynamic=["myfield"]).to_pkg_info()
         with pytest.raises(InvalidDynamicField):
             dataclasses.replace(metadata, dynamic=["name"]).to_pkg_info()
-        with pytest.raises(StaticFieldCannotBeDynamic):
-            dataclasses.replace(metadata, version="0.1").to_pkg_info()
 
     PER_VERSION_EXAMPLES = {
         "1.1": {
@@ -220,7 +217,7 @@ class TestCoreMetadata:
             metadata = CoreMetadata.from_dist_info_metadata(text)
             assert_equal_metadata(metadata, pkg_info)
         if example["has_dynamic_fields"]:
-            with pytest.raises(DynamicNotAllowed):
+            with pytest.raises(UnfilledDynamicFields):
                 CoreMetadata.from_dist_info_metadata(text)
         for field in ("requires_dist", "provides_dist", "obsoletes_dist"):
             for value in getattr(pkg_info, field):
@@ -237,7 +234,7 @@ class TestCoreMetadata:
         if example["is_final_metadata"]:
             assert isinstance(pkg_info.to_dist_info_metadata(), bytes)
         if example["has_dynamic_fields"]:
-            with pytest.raises(DynamicNotAllowed):
+            with pytest.raises(UnfilledDynamicFields):
                 pkg_info.to_dist_info_metadata()
         pkg_info_text = pkg_info.to_pkg_info()
         assert isinstance(pkg_info_text, bytes)

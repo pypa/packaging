@@ -77,6 +77,11 @@ def _normalize_field_name_for_dynamic(field: str) -> NormalizedDynamicFields:
     return cast(NormalizedDynamicFields, field.lower().replace("_", "-"))
 
 
+def _field_name(field: str) -> str:
+    """Equivalent field name in the class representing metadata"""
+    return field.lower().replace("-", "_")
+
+
 # Bypass frozen dataclass for __post_init__, this approach is documented in:
 # https://docs.python.org/3/library/dataclasses.html#frozen-instances
 _setattr = object.__setattr__
@@ -181,7 +186,7 @@ class CoreMetadata:
         has_description = False
 
         for key in info.keys():
-            field = key.lower().replace("-", "_")
+            field = _field_name(key)
             if field in cls._UPDATES:
                 field = cls._UPDATES[field]
 
@@ -343,19 +348,18 @@ class CoreMetadata:
         return "\n".join(chain(lines[:1], continuation))
 
     def _validate_dynamic(self) -> bool:
-        for normalized in self.dynamic:
-            field = normalized.lower().replace("-", "_")
+        for item in self.dynamic:
+            field = _field_name(item)
             if not hasattr(self, field):
-                raise InvalidCoreMetadataField(normalized)
+                raise InvalidCoreMetadataField(item)
             if field in self._NOT_DYNAMIC:
-                raise InvalidDynamicField(normalized)
-            if getattr(self, field):
-                raise StaticFieldCannotBeDynamic(normalized)
+                raise InvalidDynamicField(item)
         return True
 
     def _validate_final_metadata(self) -> bool:
-        if self.dynamic:
-            raise DynamicNotAllowed(self.dynamic)
+        unresolved = [k for k in self.dynamic if not getattr(self, _field_name(k))]
+        if unresolved:
+            raise UnfilledDynamicFields(unresolved)
 
         missing_fields = [k for k in self._MANDATORY if not getattr(self, k)]
         if missing_fields:
@@ -374,18 +378,14 @@ class InvalidDynamicField(ValueError):
         super().__init__(f"{field!r} cannot be dynamic")
 
 
-class StaticFieldCannotBeDynamic(ValueError):
-    def __init__(self, field: str):
-        super().__init__(f"{field!r} specified both dynamically and statically")
-
-
-class DynamicNotAllowed(ValueError):
-    def __init__(self, fields: Collection[str]):
-        given = ", ".join(fields)
-        super().__init__(f"Dynamic fields not allowed in this context (given: {given})")
+class UnfilledDynamicFields(ValueError):
+    def __init__(self, fields: Iterable[str]):
+        given = ", ".join(repr(f) for f in fields)
+        msg = f"Unfilled dynamic fields not allowed in this context (given: {given})"
+        super().__init__(msg)
 
 
 class MissingRequiredFields(ValueError):
-    def __init__(self, fields: Collection[str]):
+    def __init__(self, fields: Iterable[str]):
         missing = ", ".join(fields)
         super().__init__(f"Required fields are missing: {missing}")
