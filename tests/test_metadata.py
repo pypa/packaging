@@ -6,6 +6,7 @@ import dataclasses
 import json
 import tarfile
 from email.policy import compat32
+from functools import partial
 from hashlib import md5
 from itertools import chain
 from pathlib import Path
@@ -207,11 +208,11 @@ class TestCoreMetadata:
         text = bytes(dedent(example["file_contents"]), "UTF-8")
         pkg_info = CoreMetadata.from_pkg_info(text)
         if example["is_final_metadata"]:
-            metadata = CoreMetadata.from_dist_info_metadata(text)
+            metadata = CoreMetadata.from_pkg_info(text, allow_unfilled_dynamic=False)
             assert_equal_metadata(metadata, pkg_info)
         if example["has_dynamic_fields"]:
             with pytest.raises(UnfilledDynamicFields):
-                CoreMetadata.from_dist_info_metadata(text)
+                CoreMetadata.from_pkg_info(text, allow_unfilled_dynamic=False)
         for field in ("requires_dist", "provides_dist", "obsoletes_dist"):
             for value in getattr(pkg_info, field):
                 assert isinstance(value, Requirement)
@@ -225,10 +226,10 @@ class TestCoreMetadata:
         text = bytes(dedent(example["file_contents"]), "UTF-8")
         pkg_info = CoreMetadata.from_pkg_info(text)
         if example["is_final_metadata"]:
-            assert isinstance(pkg_info.to_dist_info_metadata(), bytes)
+            assert isinstance(pkg_info.to_pkg_info(allow_unfilled_dynamic=False), bytes)
         if example["has_dynamic_fields"]:
             with pytest.raises(UnfilledDynamicFields):
-                pkg_info.to_dist_info_metadata()
+                pkg_info.to_pkg_info(allow_unfilled_dynamic=False)
         pkg_info_text = pkg_info.to_pkg_info()
         assert isinstance(pkg_info_text, bytes)
         # Make sure generated document is not empty
@@ -274,14 +275,14 @@ class TestIntegration:
     @pytest.mark.parametrize("pkg, version", examples())
     def test_parse(self, pkg: str, version: str) -> None:
         for dist in download_dists(pkg, version):
+            from_ = CoreMetadata.from_pkg_info
+            to_ = CoreMetadata.to_pkg_info
             if dist.suffix == ".whl":
                 orig = read_metadata(dist)
-                from_ = CoreMetadata.from_dist_info_metadata
-                to_ = CoreMetadata.to_dist_info_metadata
+                from_ = partial(from_, allow_unfilled_dynamic=False)
+                to_ = partial(to_, allow_unfilled_dynamic=False)
             else:
                 orig = read_pkg_info(dist)
-                from_ = CoreMetadata.from_pkg_info
-                to_ = CoreMetadata.to_pkg_info
 
             # Given PKG-INFO or METADATA from existing packages on PyPI
             # - Make sure they can be parsed

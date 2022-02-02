@@ -200,28 +200,21 @@ class CoreMetadata:
             yield ("description", str(info.get_payload(decode=True), "utf-8"))
 
     @classmethod
-    def from_pkg_info(cls: Type[T], pkg_info: bytes) -> T:
+    def from_pkg_info(
+        cls: Type[T], pkg_info: bytes, *, allow_unfilled_dynamic: bool = True
+    ) -> T:
         """Parse PKG-INFO data."""
 
         attrs = cls._process_attrs(cls._parse_pkg_info(pkg_info))
         obj = cls(**dict(attrs))
-        obj._validate_required_fields()
-        obj._validate_dynamic()
+        obj._validate(allow_unfilled_dynamic)
+
         return obj
 
-    @classmethod
-    def from_dist_info_metadata(cls: Type[T], metadata_source: bytes) -> T:
-        """Parse METADATA data."""
-
-        obj = cls.from_pkg_info(metadata_source)
-        obj._validate_final_metadata()
-        return obj
-
-    def to_pkg_info(self) -> bytes:
+    def to_pkg_info(self, *, allow_unfilled_dynamic: bool = True) -> bytes:
         """Generate PKG-INFO data."""
 
-        self._validate_required_fields()
-        self._validate_dynamic()
+        self._validate(allow_unfilled_dynamic)
 
         info = EmailMessage(self._PARSING_POLICY)
         info.add_header("Metadata-Version", self.metadata_version)
@@ -250,12 +243,6 @@ class CoreMetadata:
                 info.add_header(key, str(value))
 
         return info.as_bytes()
-
-    def to_dist_info_metadata(self) -> bytes:
-        """Generate METADATA data."""
-
-        self._validate_final_metadata()
-        return self.to_pkg_info()
 
     # --- Auxiliary Methods and Properties ---
     # Not part of the API, but can be overwritten by subclasses
@@ -343,6 +330,14 @@ class CoreMetadata:
         continuation = (line.lstrip("|") for line in lines[1:])
         return "\n".join(chain(lines[:1], continuation))
 
+    def _validate(self, allow_unfilled_dynamic: bool) -> bool:
+        self._validate_required_fields()
+        self._validate_dynamic()
+        if not allow_unfilled_dynamic:
+            self._validate_unfilled_dynamic()
+
+        return True
+
     def _validate_dynamic(self) -> bool:
         for item in self.dynamic:
             field = _field_name(item)
@@ -350,9 +345,10 @@ class CoreMetadata:
                 raise InvalidCoreMetadataField(item)
             if field in self._NOT_DYNAMIC:
                 raise InvalidDynamicField(item)
+
         return True
 
-    def _validate_final_metadata(self) -> bool:
+    def _validate_unfilled_dynamic(self) -> bool:
         unresolved = [k for k in self.dynamic if not getattr(self, _field_name(k))]
         if unresolved:
             raise UnfilledDynamicFields(unresolved)
