@@ -82,11 +82,6 @@ def _field_name(field: str) -> str:
     return field.lower().replace("-", "_")
 
 
-# Bypass frozen dataclass for __post_init__, this approach is documented in:
-# https://docs.python.org/3/library/dataclasses.html#frozen-instances
-_setattr = object.__setattr__
-
-
 # In the following we use `frozen` to prevent inconsistencies, specially with `dynamic`.
 # Comparison is disabled because currently `Requirement` objects are
 # unhashable/not-comparable.
