@@ -82,12 +82,11 @@ def _field_name(field: str) -> str:
     return field.lower().replace("-", "_")
 
 
-# In the following we use `frozen` to prevent inconsistencies, specially with `dynamic`.
-# Comparison is disabled because currently `Requirement` objects are
-# unhashable/not-comparable.
+# In the following, comparison is disabled because currently `Requirement`
+# objects are unhashable/not-comparable.
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(eq=False)
 class CoreMetadata:
     """
     Core metadata for Python packages, represented as an immutable
@@ -155,20 +154,20 @@ class CoreMetadata:
             if field == "version":
                 yield ("version", Version(value))
             elif field == "keywords":
-                yield (field, frozenset(value.split(",")))
+                yield (field, set(value.split(",")))
             elif field == "requires_python":
                 yield (field, cls._parse_requires_python(value))
             elif field == "project_url":
                 yield (field, cls._parse_url(value))
             elif field == "dynamic":
                 values = (_normalize_field_name_for_dynamic(f) for f in value)
-                yield (field, frozenset(values))
+                yield (field, set(values))
             elif field.endswith("email"):
-                yield (field, frozenset(cls._parse_emails(value.strip())))
+                yield (field, set(cls._parse_emails(value.strip())))
             elif field.endswith("dist"):
-                yield (field, frozenset(cls._parse_req(v) for v in value))
+                yield (field, {cls._parse_req(v) for v in value})
             elif field in _as_set:
-                yield (field, frozenset(value))
+                yield (field, set(value))
             elif field in _available_fields:
                 yield (field, value)
 
