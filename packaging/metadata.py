@@ -4,7 +4,6 @@
 
 import dataclasses
 import math
-import sys
 from email import message_from_bytes
 from email.headerregistry import Address, AddressHeader
 from email.message import EmailMessage
@@ -37,8 +36,8 @@ T = TypeVar("T", bound="CoreMetadata")
 A = TypeVar("A")
 B = TypeVar("B")
 
-if sys.version_info[:2] >= (3, 8) and TYPE_CHECKING:  # pragma: no cover
-    from typing import Literal
+if TYPE_CHECKING:  # pragma: no cover
+    from typing_extensions import Literal
 
     NormalizedDynamicFields = Literal[
         "platform",
