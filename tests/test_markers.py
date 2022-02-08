@@ -86,6 +86,9 @@ class TestOperatorEvaluation:
         with pytest.raises(UndefinedComparison):
             Marker("'2.7.0' ~= os_name").evaluate()
 
+    def test_evaluate_case_insensitive(self):
+        assert Marker('extra == "Mustache"').evaluate(dict(extra="mustache"))
+ 
 
 FakeVersionInfo = collections.namedtuple(
     "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
