@@ -232,9 +232,9 @@ def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
 
             if isinstance(lhs, Variable):
                 lhs_value = _get_env(environment, lhs.value)
-                rhs_value = rhs.value
+                rhs_value = rhs.value.lower()
             else:
-                lhs_value = lhs.value
+                lhs_value = lhs.value.lower()
                 rhs_value = _get_env(environment, rhs.value)
 
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
