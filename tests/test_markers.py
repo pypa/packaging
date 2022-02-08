@@ -87,7 +87,7 @@ class TestOperatorEvaluation:
             Marker("'2.7.0' ~= os_name").evaluate()
 
     def test_evaluate_case_insensitive(self):
-        assert Marker('extra == "Mustache"').evaluate(dict(extra="mustache"))
+        assert Marker('extra == "CaseInsensitive"').evaluate(dict(extra="caseinsensitive"))
  
 
 FakeVersionInfo = collections.namedtuple(
