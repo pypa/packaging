@@ -116,7 +116,7 @@ No unreleased changes.
 
 * Officially support Python 3.8 (:issue:`232`)
 
-* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`226`)
+* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`225`)
 
 * Properly mark ``packaging`` has being fully typed by adding a `py.typed` file (:issue:`226`)
 
