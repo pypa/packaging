@@ -23,7 +23,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.7", "3.8", "3.9", "3.10", "pypy-3.7"]
+          ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
 
     steps:
       - uses: actions/checkout@v1
@@ -39,15 +39,24 @@ jobs:
           python -m pip install nox
         shell: bash
 
+      - name: Fix-up PyPy 3.9 executable
+        run: |
+          cd $(dirname $(which python))
+          if [ ! -f pypy3.exe ]; then
+            ln -s python.exe pypy3.exe
+          fi
+        shell: bash
+        if: ${{ (matrix.os == 'Windows') && (matrix.python_version == 'pypy-3.9') }}
+
       - name: Run nox
         run: |
           python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         shell: bash
         if: ${{ ! startsWith( matrix.python_version, 'pypy' ) }}
 
-      # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.7'.
+      # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.x'.
       - name: Run nox for pypy3
         run: |
           python -m nox --error-on-missing-interpreters -s tests-pypy3
         shell: bash
-        if: matrix.python_version == 'pypy-3.7'
+        if: ${{ startsWith( matrix.python_version, 'pypy' ) }}
