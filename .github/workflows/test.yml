@@ -39,6 +39,11 @@ jobs:
           python -m pip install nox
         shell: bash
 
+      # PyPy 3.9 for Windows changed the binary name from pypy3 to pypy3.9
+      # PyPy 3.7 & 3.8 for Windows still only have pypy3
+      # https://foss.heptapod.net/pypy/pypy/-/commit/f15239a703325d97ca4fa655d00f3c05f58bd8be adds back pypy3 on 3.9
+      # pypy3 will be the only 'pypy3'-prefixed common exe name for all platforms once PyPy 7.3.9 is out
+      # TODO remove this step once pypy3.9 7.3.9 is released
       - name: Fix-up PyPy 3.9 executable
         run: |
           cd $(dirname $(which python))
