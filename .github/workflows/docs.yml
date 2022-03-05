@@ -3,9 +3,11 @@ name: Documentation
 on:
   pull_request:
     paths:
+      - ".github/workflows/docs.yml"
       - 'docs/**'
   push:
     paths:
+      - ".github/workflows/docs.yml"
       - 'docs/**'
 
 concurrency:
