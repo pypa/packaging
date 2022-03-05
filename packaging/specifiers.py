@@ -57,7 +57,8 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         objects are equal.
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def prereleases(self) -> Optional[bool]:
         """
         Returns whether or not pre-releases as a whole are allowed by this
@@ -724,7 +725,10 @@ class SpecifierSet(BaseSpecifier):
         return self.contains(item)
 
     def contains(
-        self, item: UnparsedVersion, prereleases: Optional[bool] = None
+        self,
+        item: UnparsedVersion,
+        prereleases: Optional[bool] = None,
+        installed: Optional[bool] = None,
     ) -> bool:
 
         # Ensure that our item is a Version or LegacyVersion instance.
@@ -745,6 +749,9 @@ class SpecifierSet(BaseSpecifier):
         #       like >=1.0.devabc however it would be in >=1.0.debabc,>0.0.dev0
         if not prereleases and item.is_prerelease:
             return False
+
+        if installed and item.is_prerelease:
+            item = parse(item.base_version)
 
         # We simply dispatch to the underlying specs here to make sure that the
         # given version is contained within all of them.

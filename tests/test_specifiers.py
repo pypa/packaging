@@ -819,6 +819,15 @@ class TestSpecifierSet:
         assert spec.contains("1.0.dev1")
         assert not spec.contains("1.0.dev1", prereleases=False)
 
+    def test_specifier_contains_installed_prereleases(self):
+        spec = SpecifierSet("~=1.0")
+        assert not spec.contains("1.0.0.dev1", installed=True)
+        assert spec.contains("1.0.0.dev1", prereleases=True, installed=True)
+
+        spec = SpecifierSet("~=1.0", prereleases=True)
+        assert spec.contains("1.0.0.dev1", installed=True)
+        assert not spec.contains("1.0.0.dev1", prereleases=False, installed=False)
+
     @pytest.mark.parametrize(
         ("specifier", "specifier_prereleases", "prereleases", "input", "expected"),
         [
