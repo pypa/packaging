@@ -34,21 +34,11 @@ jobs:
           python-version: ${{ matrix.python_version }}
           cache: "pip"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install nox
-        shell: bash
-
       - name: Run nox
-        run: |
-          python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
-        shell: bash
+        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
         if: ${{ ! startsWith( matrix.python_version, 'pypy' ) }}
 
       # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.x'.
       - name: Run nox for pypy3
-        run: |
-          python -m nox --error-on-missing-interpreters -s tests-pypy3
-        shell: bash
+        run: pipx run nox --error-on-missing-interpreters -s tests-pypy3
         if: ${{ startsWith( matrix.python_version, 'pypy' ) }}
