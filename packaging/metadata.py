@@ -82,7 +82,10 @@ class Metadata:
     A representation of core metadata.
     """
 
-    name: utils.NormalizedName
+    # A property named `display_name` exposes the value.
+    _display_name: str
+    # A property named `canonical_name` exposes the value.
+    _canonical_name: utils.NormalizedName
     version: packaging_version.Version
     platforms: Set[str]
     summary: str
@@ -146,7 +149,7 @@ class Metadata:
         An argument of `None` will be converted to an appropriate, false-y value
         (e.g. the empty string).
         """
-        self.name = utils.canonicalize_name(name)
+        self.display_name = name
         self.version = version
         self.platforms = set(platforms or [])
         self.summary = summary or ""
@@ -170,3 +173,19 @@ class Metadata:
         self.description_content_type = description_content_type or ""
         self.provides_extras = set(provides_extras or [])
         self.dynamic = set(dynamic or [])
+
+    @property
+    def display_name(self) -> str:
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, value, /) -> None:
+        """"""
+        self._display_name = value
+        self._canonical_name = utils.canonicalize_name(value)
+
+    # Use functools.cached_property once Python 3.7 support is dropped.
+    # Value is set by self.display_name.setter to keep in sync with self.display_name.
+    @property
+    def canonical_name(self) -> utils.NormalizedName:
+        return self._canonical_name
