@@ -195,3 +195,57 @@ class TestRequirements:
         assert "Expected stringEnd" in str(e.value) or (
             "Expected string_end" in str(e.value)  # pyparsing>=3.0.0
         )
+
+    EQUAL_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>20.1"),
+        (
+            'requests[security, tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1, == 2.8.* ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.8'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'testing'",
+        ),
+    ]
+
+    DIFFERENT_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>=20.1"),
+        ("packaging>20.1", "packaging>21.1"),
+        ("packaging>20.1", "package>20.1"),
+        (
+            'requests[security,tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1 ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.7'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'docs'",
+        ),
+    ]
+
+    @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
+    def test_equal_reqs_equal_hashes(self, dep1, dep2):
+        # Requirement objects created from equivalent strings should be equal.
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 == req2
+        # Equal Requirement objects should have the same hash.
+        assert hash(req1) == hash(req2)
+
+    @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
+    def test_different_reqs_different_hashes(self, dep1, dep2):
+        # Requirement objects created from non-equivalent strings should differ.
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 != req2
+        # Different Requirement objects should have different hashes.
+        assert hash(req1) != hash(req2)
+
+    def test_compare_reqs_to_other_objects(self):
+        # Requirement objects should not be comparable to other kinds of objects.
+        assert Requirement("packaging>=21.3") != "packaging>=21.3"
