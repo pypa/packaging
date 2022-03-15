@@ -279,7 +279,7 @@ class Marker:
             # The attribute `_markers` can be described in terms of a recursive type:
             # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
             #
-            # For example the following expression:
+            # For example, the following expression:
             # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
             #
             # is parsed into:
