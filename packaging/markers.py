@@ -62,9 +62,6 @@ class Node:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}('{self}')>"
 
-    def __eq__(self, other: Any) -> bool:
-        return bool(self.value == other.value)
-
     def serialize(self) -> str:
         raise NotImplementedError
 
@@ -175,21 +172,6 @@ def _format_marker(
         return " ".join([m.serialize() for m in marker])
     else:
         return marker
-
-
-def _flatten_marker(
-    marker: Union[List[Any], Tuple[Node, ...]]
-) -> Union[List[Any], Tuple[Node, ...]]:
-    """Un-nest the parsed-equivalent of parenthesis with a single expression."""
-    assert isinstance(marker, (list, tuple))
-
-    if isinstance(marker, tuple):
-        return marker
-
-    if len(marker) == 1:
-        return _flatten_marker(marker[0])
-
-    return [_flatten_marker(e) if isinstance(e, list) else e for e in marker]
 
 
 _operators: Dict[str, Operator] = {
@@ -329,7 +311,7 @@ class Marker:
         if not isinstance(other, Marker):
             return NotImplemented
 
-        return _flatten_marker(self._markers) == _flatten_marker(other._markers)
+        return str(self) == str(other)
 
     def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
         """Evaluate a marker.
