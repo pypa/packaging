@@ -218,7 +218,7 @@ class TestMarker:
     @pytest.mark.parametrize(
         ("example1", "example2"),
         [
-            # Test trivial comparisons
+            # Test trivial comparisons.
             ('python_version == "2.7"', 'python_version == "3.7"'),
             (
                 'python_version == "2.7"',
@@ -228,7 +228,7 @@ class TestMarker:
                 'python_version == "2.7"',
                 '(python_version == "2.7" and os_name == "linux")',
             ),
-            # Test different precedence
+            # Test different precedence.
             (
                 'python_version == "2.7" and (os_name == "linux" or '
                 'sys_platform == "win32")',
