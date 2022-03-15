@@ -243,8 +243,9 @@ class TestRequirements:
         # Requirement objects created from non-equivalent strings should differ.
         req1, req2 = Requirement(dep1), Requirement(dep2)
         assert req1 != req2
-        # Requirement objects should not be comparable with other kinds of objects.
-        assert req1 != dep1
-        assert req2 != dep2
         # Different Requirement objects should have different hashes.
         assert hash(req1) != hash(req2)
+
+    def test_compare_reqs_to_other_objects(self):
+        # Requirement objects should not be comparable to other kinds of objects.
+        assert Requirement("packaging>=21.3") != "packaging>=21.3"

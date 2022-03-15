@@ -241,10 +241,12 @@ class TestMarker:
         marker1, marker2 = Marker(example1), Marker(example2)
         # Markers created from strings that are not equivalent should differ.
         assert marker1 != marker2
-        # Markers should not be comparable with other kinds of objects.
-        assert marker1 != example1
         # Different Marker objects should have different hashes.
         assert hash(marker1) != hash(marker2)
+
+    def test_compare_markers_to_other_objects(self):
+        # Markers should not be comparable to other kinds of objects.
+        assert Marker("os_name == 'nt'") != "os_name == 'nt'"
 
     def test_extra_with_no_extra_in_environment(self):
         # We can't evaluate an extra if no extra is passed into the environment
