@@ -192,7 +192,7 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     except InvalidSpecifier:
         pass
     else:
-        return spec.contains(lhs)
+        return spec.contains(lhs, prereleases=True)
 
     oper: Optional[Operator] = _operators.get(op.serialize())
     if oper is None:
