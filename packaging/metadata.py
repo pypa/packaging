@@ -13,6 +13,10 @@ if typing.TYPE_CHECKING:
     from . import requirements
     from . import version as packaging_version  # Alt name avoids shadowing.
 
+    # Type aliases.
+    _NameAndEmail = Tuple[Optional[str], str]
+    _LabelAndURL = Tuple[str, str]
+
 
 class InvalidMetadata(ValueError):
     """
@@ -70,11 +74,6 @@ class DynamicField(enum.Enum):
     # 2.1
     DESCRIPTION_CONTENT_TYPE = "description-content-type"
     PROVIDES_EXTRA = "provides-extra"
-
-
-# Type aliases.
-_NameAndEmail = Tuple[Optional[str], str]
-_LabelAndURL = Tuple[str, str]
 
 
 class Metadata:
