@@ -32,6 +32,7 @@ class MetadataVersion(enum.Enum):
     V1_2 = "1.2"
     V2_1 = "2.1"
     V2_2 = "2.2"
+    v2_3 = "2.3"
 
 
 @enum.unique
@@ -107,7 +108,7 @@ class Metadata:
     provides_dists: Set[requirements.Requirement]
     obsoletes_dists: Set[requirements.Requirement]
     description_content_type: str
-    provides_extras: Set[str]
+    provides_extras: Set[utils.NormalizedName]
     dynamic: Set[DynamicField]
 
     def __init__(
@@ -139,7 +140,7 @@ class Metadata:
         obsoletes_dists: Optional[Iterable[requirements.Requirement]] = None,
         # 2.1
         description_content_type: Optional[str] = None,  # TODO: OK?
-        provides_extras: Optional[Iterable[str]] = None,  # TODO: OK?
+        provides_extras: Optional[Iterable[utils.NormalizedName]] = None,
         # 2.2
         dynamic: Optional[Iterable[DynamicField]] = None,
     ) -> None:
@@ -180,7 +181,7 @@ class Metadata:
 
     @display_name.setter
     def display_name(self, value, /) -> None:
-        """"""
+        """Set the value for self.display_name and self.canonical_name."""
         self._display_name = value
         self._canonical_name = utils.canonicalize_name(value)
 
