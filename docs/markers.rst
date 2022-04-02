@@ -45,6 +45,14 @@ Usage
     >>> extra_environment['extra'] = 'bar'
     >>> extra.evaluate(environment=extra_environment)
     True
+    >>> # You can do simple comparisons between marker objects:
+    >>> Marker("python_version > '3.6'") == Marker("python_version > '3.6'")
+    True
+    >>> # You can also perform simple comparisons between sets of markers:
+    >>> markers1 = {Marker("python_version > '3.6'"), Marker('os_name == "unix"')}
+    >>> markers2 = {Marker('os_name == "unix"'), Marker("python_version > '3.6'")}
+    >>> markers1 == markers2
+    True
 
 
 Reference

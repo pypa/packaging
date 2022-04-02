@@ -192,7 +192,7 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     except InvalidSpecifier:
         pass
     else:
-        return spec.contains(lhs)
+        return spec.contains(lhs, prereleases=True)
 
     oper: Optional[Operator] = _operators.get(op.serialize())
     if oper is None:
@@ -276,6 +276,22 @@ class Marker:
     def __init__(self, marker: str) -> None:
         try:
             self._markers = _coerce_parse_result(MARKER.parseString(marker))
+            # The attribute `_markers` can be described in terms of a recursive type:
+            # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
+            #
+            # For example, the following expression:
+            # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
+            #
+            # is parsed into:
+            # [
+            #     (<Variable('python_version')>, <Op('>')>, <Value('3.6')>),
+            #     'and',
+            #     [
+            #         (<Variable('python_version')>, <Op('==')>, <Value('3.6')>),
+            #         'or',
+            #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
+            #     ]
+            # ]
         except ParseException as e:
             raise InvalidMarker(
                 f"Invalid marker: {marker!r}, parse error at "
@@ -287,6 +303,15 @@ class Marker:
 
     def __repr__(self) -> str:
         return f"<Marker('{self}')>"
+
+    def __hash__(self) -> int:
+        return hash((self.__class__.__name__, str(self)))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Marker):
+            return NotImplemented
+
+        return str(self) == str(other)
 
     def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
         """Evaluate a marker.

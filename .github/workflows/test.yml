@@ -28,10 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v3
         name: Install Python ${{ matrix.python_version }}
         with:
           python-version: ${{ matrix.python_version }}
+          cache: "pip"
 
       - name: Install dependencies
         run: |
