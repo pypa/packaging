@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - ".github/workflows/lint.yml"
+      - ".pre-commit-config.yaml"
       - "**.py"
   push:
     paths:
       - ".github/workflows/lint.yml"
+      - ".pre-commit-config.yaml"
       - "**.py"
 
 concurrency:
