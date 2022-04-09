@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2014-2022 Donald Stufft and individual contributors. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0
+
 """PEP 656 support.
 
 This module implements logic to detect if the currently running Python is

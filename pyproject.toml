@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2014-2022 Donald Stufft and individual contributors. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0
+
 [build-system]
 requires = ['setuptools >= 40.8.0', 'wheel']
 build-backend = 'setuptools.build_meta'
