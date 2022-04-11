@@ -35,10 +35,9 @@ jobs:
           cache: "pip"
 
       - name: Run nox
-        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
-        if: ${{ ! startsWith( matrix.python_version, 'pypy' ) }}
-
-      # Binary is named 'pypy3', but setup-python specifies it as 'pypy-3.x'.
-      - name: Run nox for pypy3
-        run: pipx run nox --error-on-missing-interpreters -s tests-pypy3
-        if: ${{ startsWith( matrix.python_version, 'pypy' ) }}
+        run: |
+          # Need to fix-up PyPy. This can be removed once https://github.com/actions/setup-python/issues/346 lands.
+          INTERPRETER=${{ matrix.python_version }}
+          INTERPRETER=${INTERPRETER/-/}  # remove the first '-' in "pypy-X.Y" -> "pypyX.Y" to match executable name
+          pipx run nox --error-on-missing-interpreters -s tests-${INTERPRETER}
+        shell: bash
