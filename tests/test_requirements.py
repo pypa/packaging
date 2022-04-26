@@ -15,6 +15,11 @@ class TestRequirements:
         req = Requirement(requirement)
         assert str(req) == requirement
 
+    def test_requirement_accepts_requirement(self):
+        requirement = 'name[bar]>=3; python_version == "2.7"'
+        req = Requirement(requirement)
+        assert Requirement(req) == req
+
     def test_string_url(self):
         requirement = "name@ http://foo.com"
         req = Requirement(requirement)

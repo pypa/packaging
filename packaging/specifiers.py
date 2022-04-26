@@ -10,6 +10,7 @@ import warnings
 from typing import (
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     Iterator,
     List,
@@ -93,12 +94,21 @@ class _IndividualSpecifier(BaseSpecifier):
     _operators: Dict[str, str] = {}
     _regex: Pattern[str]
 
-    def __init__(self, spec: str = "", prereleases: Optional[bool] = None) -> None:
+    def __init__(
+        self,
+        spec: Union[str, "_IndividualSpecifier"] = "",
+        prereleases: Optional[bool] = None,
+    ) -> None:
+        if isinstance(spec, _IndividualSpecifier):
+            self._spec: Tuple[str, str] = spec._spec
+            self._prereleases: Optional[bool] = spec.prereleases
+            return
+
         match = self._regex.search(spec)
         if not match:
             raise InvalidSpecifier(f"Invalid specifier: '{spec}'")
 
-        self._spec: Tuple[str, str] = (
+        self._spec = (
             match.group("operator").strip(),
             match.group("version").strip(),
         )
@@ -624,8 +634,15 @@ def _pad_version(left: List[str], right: List[str]) -> Tuple[List[str], List[str
 
 class SpecifierSet(BaseSpecifier):
     def __init__(
-        self, specifiers: str = "", prereleases: Optional[bool] = None
+        self,
+        specifiers: Union[str, "SpecifierSet"] = "",
+        prereleases: Optional[bool] = None,
     ) -> None:
+
+        if isinstance(specifiers, SpecifierSet):
+            self._specs: FrozenSet[_IndividualSpecifier] = specifiers._specs
+            self._prereleases: Optional[bool] = specifiers._prereleases
+            return
 
         # Split on , to break each individual specifier into it's own item, and
         # strip each item to remove leading/trailing whitespace.

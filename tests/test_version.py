@@ -662,6 +662,10 @@ class TestVersion:
     def test_version_is_postrelease(self, version, expected):
         assert Version(version).is_postrelease is expected
 
+    def test_version_accepts_version(self):
+        v = Version("1.0")
+        assert Version(v) == v
+
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that

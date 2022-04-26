@@ -636,6 +636,10 @@ class TestSpecifier:
     def test_specifier_hash_for_compatible_operator(self):
         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
 
+    def test_specifier_accepts_specifier(self):
+        spec = Specifier("~=1.18.0")
+        assert Specifier(spec) == spec
+
 
 class TestLegacySpecifier:
     def test_legacy_specifier_is_deprecated(self):
@@ -1016,3 +1020,7 @@ class TestSpecifierSet:
         combination = SpecifierSet("~=1.18.0") & SpecifierSet("~=1.18")
         assert "1.19.5" not in combination
         assert "1.18.0" in combination
+
+    def test_specifier_set_accepts_specifier_set(self):
+        spec = SpecifierSet("~=1.18.0")
+        assert SpecifierSet(spec) == spec

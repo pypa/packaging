@@ -4,7 +4,8 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Classes ``Version``, ``Requirement``, ``Specifier`` and ``SpecifierSet`` now accept
+  a value of the corresponding type and return a copy (:issue:`454`)
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~

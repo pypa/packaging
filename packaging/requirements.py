@@ -5,7 +5,7 @@
 import re
 import string
 import urllib.parse
-from typing import Any, List, Optional as TOptional, Set
+from typing import Any, List, Optional as TOptional, Set, Union
 
 from pyparsing import (  # noqa
     Combine,
@@ -97,7 +97,16 @@ class Requirement:
     #       the thing as well as the version? What about the markers?
     # TODO: Can we normalize the name and extra name?
 
-    def __init__(self, requirement_string: str) -> None:
+    def __init__(self, requirement_string: Union[str, "Requirement"]) -> None:
+
+        if isinstance(requirement_string, Requirement):
+            self.name: str = requirement_string.name
+            self.extras: Set[str] = requirement_string.extras
+            self.specifier: SpecifierSet = requirement_string.specifier
+            self.url: TOptional[str] = requirement_string.url
+            self.marker: TOptional[Marker] = requirement_string.marker
+            return
+
         try:
             req = REQUIREMENT.parseString(requirement_string)
         except ParseException as e:
@@ -105,7 +114,7 @@ class Requirement:
                 f'Parse error at "{ requirement_string[e.loc : e.loc + 8]!r}": {e.msg}'
             )
 
-        self.name: str = req.name
+        self.name = req.name
         if req.url:
             parsed_url = urllib.parse.urlparse(req.url)
             if parsed_url.scheme == "file":
@@ -115,12 +124,12 @@ class Requirement:
                 not parsed_url.scheme and not parsed_url.netloc
             ):
                 raise InvalidRequirement(f"Invalid URL: {req.url}")
-            self.url: TOptional[str] = req.url
+            self.url = req.url
         else:
             self.url = None
-        self.extras: Set[str] = set(req.extras.asList() if req.extras else [])
-        self.specifier: SpecifierSet = SpecifierSet(req.specifier)
-        self.marker: TOptional[Marker] = req.marker if req.marker else None
+        self.extras = set(req.extras.asList() if req.extras else [])
+        self.specifier = SpecifierSet(req.specifier)
+        self.marker = req.marker if req.marker else None
 
     def __str__(self) -> str:
         parts: List[str] = [self.name]
