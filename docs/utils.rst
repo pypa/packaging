@@ -63,6 +63,8 @@ Reference
     instance of :class:`~packaging.tags.Tag`.
 
     :param str filename: The name of the wheel file.
+    :raises packaging.utils.InvalidWheelFilename: If the filename in question
+        does not follow conventions outlined in `PEP 427`_.
 
     .. doctest::
 
@@ -87,6 +89,9 @@ Reference
     represented by an instance of :class:`~packaging.version.Version`.
 
     :param str filename: The name of the sdist file.
+    :raises packaging.utils.InvalidSdistFilename: If the filename does not end
+        with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
+        contain a dash separating the name and the version of the distribution.
 
     .. doctest::
 
@@ -99,3 +104,4 @@ Reference
         True
 
 .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
+.. _`PEP 427`: https://peps.python.org/pep-0427/#file-name-convention
