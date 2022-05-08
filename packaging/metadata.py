@@ -3,15 +3,16 @@ from __future__ import annotations
 import enum
 import typing
 
-from . import specifiers
-from . import utils
+from . import specifiers, utils
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
-    from typing import List, Optional, Set, Tuple
+    from typing import List, Optional, Tuple
 
-    from . import requirements
-    from . import version as packaging_version  # Alt name avoids shadowing.
+    from . import (  # Alt name avoids shadowing.
+        requirements,
+        version as packaging_version,
+    )
 
     # Type aliases.
     _NameAndEmail = Tuple[Optional[str], str]
@@ -31,12 +32,25 @@ class MetadataVersion(enum.Enum):
     Core metadata versions.
     """
 
-    V1_0 = "1.0"
-    V1_1 = "1.1"
-    V1_2 = "1.2"
-    V2_1 = "2.1"
-    V2_2 = "2.2"
-    v2_3 = "2.3"
+    # Make sure to update _VERSION_FROM_STR when adding a new version.
+    V1_0 = 1, 0
+    V1_1 = 1, 1
+    V1_2 = 1, 2
+    V2_1 = 2, 1
+    V2_2 = 2, 2
+    V2_3 = 2, 3
+
+
+_VERSION_FROM_STR = {
+    "1.0": MetadataVersion.V1_0,
+    "1.1": MetadataVersion.V1_1,
+    "1.2": MetadataVersion.V1_2,
+    # While no official 2.0, some projects used it prior to 2.1 being standardized.
+    "2.0": MetadataVersion.V2_1,
+    "2.1": MetadataVersion.V2_1,
+    "2.2": MetadataVersion.V2_2,
+    "2.3": MetadataVersion.V2_3,
+}
 
 
 @enum.unique
@@ -87,7 +101,7 @@ class Metadata:
     # A property named `canonical_name` exposes the value.
     _canonical_name: utils.NormalizedName
     version: packaging_version.Version
-    platforms: Set[str]
+    platforms: List[str]
     summary: str
     description: str
     keywords: List[str]
@@ -95,20 +109,20 @@ class Metadata:
     author: str
     author_emails: List[_NameAndEmail]
     license: str
-    supported_platforms: Set[str]
+    supported_platforms: List[str]
     download_url: str
-    classifiers: Set[str]
+    classifiers: List[str]
     maintainer: str
     maintainer_emails: List[_NameAndEmail]
-    requires_dists: Set[requirements.Requirement]
+    requires_dists: List[requirements.Requirement]
     requires_python: specifiers.SpecifierSet
-    requires_externals: Set[str]
-    project_urls: Set[_LabelAndURL]
-    provides_dists: Set[requirements.Requirement]
-    obsoletes_dists: Set[requirements.Requirement]
+    requires_externals: List[str]
+    project_urls: List[_LabelAndURL]
+    provides_dists: List[str]
+    obsoletes_dists: List[str]
     description_content_type: str
-    provides_extras: Set[utils.NormalizedName]
-    dynamic: Set[DynamicField]
+    provides_extras: List[utils.NormalizedName]
+    dynamic_fields: List[DynamicField]
 
     def __init__(
         self,
@@ -135,13 +149,13 @@ class Metadata:
         requires_python: Optional[specifiers.SpecifierSet] = None,
         requires_externals: Optional[Iterable[str]] = None,  # TODO: OK?
         project_urls: Optional[Iterable[_LabelAndURL]] = None,
-        provides_dists: Optional[Iterable[requirements.Requirement]] = None,
-        obsoletes_dists: Optional[Iterable[requirements.Requirement]] = None,
+        provides_dists: Optional[Iterable[str]] = None,
+        obsoletes_dists: Optional[Iterable[str]] = None,
         # 2.1
         description_content_type: Optional[str] = None,  # TODO: OK?
         provides_extras: Optional[Iterable[utils.NormalizedName]] = None,
         # 2.2
-        dynamic: Optional[Iterable[DynamicField]] = None,
+        dynamic_fields: Optional[Iterable[DynamicField]] = None,
     ) -> None:
         """
         Set all attributes on the instance.
@@ -151,7 +165,7 @@ class Metadata:
         """
         self.display_name = name
         self.version = version
-        self.platforms = set(platforms or [])
+        self.platforms = list(platforms or [])
         self.summary = summary or ""
         self.description = description or ""
         self.keywords = list(keywords or [])
@@ -159,20 +173,20 @@ class Metadata:
         self.author = author or ""
         self.author_emails = list(author_emails or [])
         self.license = license or ""
-        self.supported_platforms = set(supported_platforms or [])
+        self.supported_platforms = list(supported_platforms or [])
         self.download_url = download_url or ""
-        self.classifiers = set(classifiers or [])
+        self.classifiers = list(classifiers or [])
         self.maintainer = maintainer or ""
         self.maintainer_emails = list(maintainer_emails or [])
-        self.requires_dists = set(requires_dists or [])
+        self.requires_dists = list(requires_dists or [])
         self.requires_python = requires_python or specifiers.SpecifierSet()
-        self.requires_externals = set(requires_externals or [])
-        self.project_urls = set(project_urls or [])
-        self.provides_dists = set(provides_dists or [])
-        self.obsoletes_dists = set(obsoletes_dists or [])
+        self.requires_externals = list(requires_externals or [])
+        self.project_urls = list(project_urls or [])
+        self.provides_dists = list(provides_dists or [])
+        self.obsoletes_dists = list(obsoletes_dists or [])
         self.description_content_type = description_content_type or ""
-        self.provides_extras = set(provides_extras or [])
-        self.dynamic = set(dynamic or [])
+        self.provides_extras = list(provides_extras or [])
+        self.dynamic_fields = list(dynamic_fields or [])
 
     @property
     def display_name(self) -> str:
