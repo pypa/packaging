@@ -1,6 +1,38 @@
 [build-system]
-requires = ['setuptools >= 40.8.0', 'wheel']
-build-backend = 'setuptools.build_meta'
+requires = ["flit_core >=3.3"]
+build-backend = "flit_core.buildapi"
+
+
+[project]
+name = "packaging"
+description = "Core utilities for Python packages"
+version = "21.4.dev0"
+readme = "README.rst"
+requires-python = ">=3.7"
+authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+urls.Source = "https://github.com/pypa/packaging"
+dependencies = []
+
+
+[tool.flit.sdist]
+include = ["LICENSE*", "tests/", "docs/"]
+exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 
 [tool.coverage.run]
@@ -19,3 +51,8 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
+
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
