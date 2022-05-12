@@ -6,7 +6,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, overload
 
 from pyparsing import (  # noqa: N817
     Forward,
@@ -139,11 +139,37 @@ MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 MARKER = stringStart + MARKER_EXPR + stringEnd
 
 
-def _coerce_parse_result(results: Union[ParseResults, List[Any]]) -> List[Any]:
+_T = TypeVar("_T")
+
+
+@overload
+def _coerce_parse_result(results: ParseResults) -> List[Any]:
+    ...
+
+
+@overload
+def _coerce_parse_result(results: _T) -> _T:
+    ...
+
+
+def _coerce_parse_result(results):
+    """
+    Flatten the parse results into a list of results.
+
+    Also normalize extra values.
+    """
     if isinstance(results, ParseResults):
         return [_coerce_parse_result(i) for i in results]
-    else:
-        return results
+    elif isinstance(results, tuple):
+        lhs, op, rhs = results
+        if isinstance(lhs, Variable) and lhs.value == "extra":
+            normalized_extra = canonicalize_name(rhs.value)
+            rhs = Value(normalized_extra)
+        elif isinstance(rhs, Variable) and rhs.value == "extra":
+            normalized_extra = canonicalize_name(lhs.value)
+            lhs = Value(normalized_extra)
+        results = lhs, op, rhs
+    return results
 
 
 def _format_marker(
