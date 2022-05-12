@@ -21,6 +21,7 @@ from pyparsing import (  # noqa: N817
 )
 
 from .specifiers import InvalidSpecifier, Specifier
+from .utils import canonicalize_name
 
 __all__ = [
     "InvalidMarker",
@@ -219,6 +220,18 @@ def _get_env(environment: Dict[str, str], name: str) -> str:
     return value
 
 
+def _normalize(*values: str, key: str) -> Tuple[str, ...]:
+    # PEP 685 – Comparison of extra names for optional distribution dependencies
+    # https://peps.python.org/pep-0685/
+    # > When comparing extra names, tools MUST normalize the names being
+    # > compared using the semantics outlined in PEP 503 for names
+    if key == "extra":
+        return tuple(canonicalize_name(v) for v in values)
+
+    # other environment markes don't have such standards
+    return values
+
+
 def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
     groups: List[List[bool]] = [[]]
 
@@ -231,12 +244,15 @@ def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
             lhs, op, rhs = marker
 
             if isinstance(lhs, Variable):
-                lhs_value = _get_env(environment, lhs.value)
+                environment_key = lhs.value
+                lhs_value = _get_env(environment, environment_key)
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
-                rhs_value = _get_env(environment, rhs.value)
+                environment_key = rhs.value
+                rhs_value = _get_env(environment, environment_key)
 
+            lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
         else:
             assert marker in ["and", "or"]
