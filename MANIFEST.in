@@ -4,7 +4,6 @@ include LICENSE LICENSE.APACHE LICENSE.BSD
 include .coveragerc
 include .flake8
 include .pre-commit-config.yaml
-include mypy.ini
 
 recursive-include docs *
 recursive-include tests *.py
