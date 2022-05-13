@@ -6,7 +6,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pyparsing import (  # noqa: N817
     Forward,
@@ -139,20 +139,7 @@ MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 MARKER = stringStart + MARKER_EXPR + stringEnd
 
 
-_T = TypeVar("_T")
-
-
-@overload
-def _coerce_parse_result(results: ParseResults) -> List[Any]:
-    ...
-
-
-@overload
-def _coerce_parse_result(results: _T) -> _T:
-    ...
-
-
-def _coerce_parse_result(results):
+def _coerce_parse_result(results: Any) -> Any:
     """
     Flatten the parse results into a list of results.
 
