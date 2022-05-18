@@ -274,6 +274,7 @@ def default_environment() -> Dict[str, str]:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
+        "extra": "",
         "implementation_name": implementation_name,
         "implementation_version": iver,
         "os_name": os.name,
