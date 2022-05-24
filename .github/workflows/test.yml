@@ -9,6 +9,9 @@ on:
     paths:
       - ".github/workflows/test.yml"
       - "**.py"
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -23,10 +26,10 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
+          ["3.7", "3.8", "3.9", "3.10", "3.11-dev", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v3
         name: Install Python ${{ matrix.python_version }}
