@@ -101,14 +101,15 @@ def test_parse_ld_musl_from_elf_no_interpreter_section():
     with BIN_MUSL_X86_64.open("rb") as f:
         data = f.read()
 
-    # Change all sections to *not* PT_INTERP.
-    unpacked = struct.unpack("16BHHIQQQIHHH", data[:58])
+    # Change all sections to *not* PT_INTERP. We are explicitly using LSB rules
+    # because the binaries are in LSB.
+    unpacked = struct.unpack("<16BHHIQQQIHHH", data[:58])
     *_, e_phoff, _, _, _, e_phentsize, e_phnum = unpacked
     for i in range(e_phnum + 1):
         sb = e_phoff + e_phentsize * i
         se = sb + 56
-        section = struct.unpack("IIQQQQQQ", data[sb:se])
-        data = data[:sb] + struct.pack("IIQQQQQQ", 0, *section[1:]) + data[se:]
+        section = struct.unpack("<IIQQQQQQ", data[sb:se])
+        data = data[:sb] + struct.pack("<IIQQQQQQ", 0, *section[1:]) + data[se:]
 
     assert _parse_ld_musl_from_elf(io.BytesIO(data)) is None
 
