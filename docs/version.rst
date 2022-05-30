@@ -284,7 +284,7 @@ Reference
     The pattern is not anchored at either end, and is intended for embedding
     in larger expressions (for example, matching a version number as part of
     a file name). The regular expression should be compiled with the
-    ``re.VERBOSE`` and ``re.IGNORECASE`` flags set.
+    ``re.VERBOSE``, ``re.IGNORECASE`` and ``re.ASCII`` flags set.
 
 
 .. _PEP 440: https://www.python.org/dev/peps/pep-0440/

@@ -256,12 +256,20 @@ VERSION_PATTERN = r"""
 
 class Version(_BaseVersion):
 
-    _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _regex = re.compile(
+        VERSION_PATTERN,
+        # Note: the re.ASCII flag is necessary because without it the
+        # 'a-z' character ranges in VERSION_PATTERN, in conjunction
+        # with re.IGNORECASE, would cause erroneous acceptance of
+        # non-ASCII letters in the local version segment (see:
+        # https://docs.python.org/library/re.html#re.IGNORECASE).
+        re.VERBOSE | re.IGNORECASE | re.ASCII,
+    )
 
     def __init__(self, version: str) -> None:
 
         # Validate the version and parse it into pieces
-        match = self._regex.search(version)
+        match = self._regex.fullmatch(version.strip())
         if not match:
             raise InvalidVersion(f"Invalid version: '{version}'")
 

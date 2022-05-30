@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Prevent certain non-ASCII letters from being accepted as a part of the
+  local version segment (:issue:`469`).
+* Document that ``VERSION_PATTERN`` requires using the ``re.ASCII`` flag.
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
