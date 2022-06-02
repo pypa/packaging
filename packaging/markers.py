@@ -21,6 +21,7 @@ from pyparsing import (  # noqa: N817
 )
 
 from .specifiers import InvalidSpecifier, Specifier
+from .utils import canonicalize_name
 
 __all__ = [
     "InvalidMarker",
@@ -138,11 +139,24 @@ MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
 MARKER = stringStart + MARKER_EXPR + stringEnd
 
 
-def _coerce_parse_result(results: Union[ParseResults, List[Any]]) -> List[Any]:
+def _coerce_parse_result(results: Any) -> Any:
+    """
+    Flatten the parse results into a list of results.
+
+    Also normalize extra values.
+    """
     if isinstance(results, ParseResults):
         return [_coerce_parse_result(i) for i in results]
-    else:
-        return results
+    elif isinstance(results, tuple):
+        lhs, op, rhs = results
+        if isinstance(lhs, Variable) and lhs.value == "extra":
+            normalized_extra = canonicalize_name(rhs.value)
+            rhs = Value(normalized_extra)
+        elif isinstance(rhs, Variable) and rhs.value == "extra":
+            normalized_extra = canonicalize_name(lhs.value)
+            lhs = Value(normalized_extra)
+        results = lhs, op, rhs
+    return results
 
 
 def _format_marker(
@@ -201,22 +215,16 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     return oper(lhs, rhs)
 
 
-class Undefined:
-    pass
+def _normalize(*values: str, key: str) -> Tuple[str, ...]:
+    # PEP 685 – Comparison of extra names for optional distribution dependencies
+    # https://peps.python.org/pep-0685/
+    # > When comparing extra names, tools MUST normalize the names being
+    # > compared using the semantics outlined in PEP 503 for names
+    if key == "extra":
+        return tuple(canonicalize_name(v) for v in values)
 
-
-_undefined = Undefined()
-
-
-def _get_env(environment: Dict[str, str], name: str) -> str:
-    value: Union[str, Undefined] = environment.get(name, _undefined)
-
-    if isinstance(value, Undefined):
-        raise UndefinedEnvironmentName(
-            f"{name!r} does not exist in evaluation environment."
-        )
-
-    return value
+    # other environment markes don't have such standards
+    return values
 
 
 def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
@@ -231,12 +239,15 @@ def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
             lhs, op, rhs = marker
 
             if isinstance(lhs, Variable):
-                lhs_value = _get_env(environment, lhs.value)
+                environment_key = lhs.value
+                lhs_value = environment[environment_key]
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
-                rhs_value = _get_env(environment, rhs.value)
+                environment_key = rhs.value
+                rhs_value = environment[environment_key]
 
+            lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
         else:
             assert marker in ["and", "or"]
@@ -258,6 +269,7 @@ def default_environment() -> Dict[str, str]:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
+        "extra": "",
         "implementation_name": implementation_name,
         "implementation_version": iver,
         "os_name": os.name,

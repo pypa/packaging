@@ -15,7 +15,6 @@ from packaging.markers import (
     Marker,
     Node,
     UndefinedComparison,
-    UndefinedEnvironmentName,
     default_environment,
     format_full_version,
 )
@@ -110,6 +109,7 @@ class TestDefaultEnvironment:
             )
 
         assert environment == {
+            "extra": "",
             "implementation_name": sys.implementation.name,
             "implementation_version": iver,
             "os_name": os.name,
@@ -253,11 +253,8 @@ class TestMarker:
         # Markers should not be comparable to other kinds of objects.
         assert Marker("os_name == 'nt'") != "os_name == 'nt'"
 
-    def test_extra_with_no_extra_in_environment(self):
-        # We can't evaluate an extra if no extra is passed into the environment
-        m = Marker("extra == 'security'")
-        with pytest.raises(UndefinedEnvironmentName):
-            m.evaluate()
+    def test_environment_assumes_empty_extra(self):
+        assert Marker('extra == "im_valid"').evaluate() is False
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
@@ -292,6 +289,14 @@ class TestMarker:
             ),
             ("extra == 'security'", {"extra": "quux"}, False),
             ("extra == 'security'", {"extra": "security"}, True),
+            ("extra == 'SECURITY'", {"extra": "security"}, True),
+            ("extra == 'security'", {"extra": "SECURITY"}, True),
+            ("extra == 'pep-685-norm'", {"extra": "PEP_685...norm"}, True),
+            (
+                "extra == 'Different.punctuation..is...equal'",
+                {"extra": "different__punctuation_is_EQUAL"},
+                True,
+            ),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
@@ -354,3 +359,12 @@ class TestMarker:
         marker_string = "python_implementation=='Jython'"
         args = [{"platform_python_implementation": "CPython"}]
         assert Marker(marker_string).evaluate(*args) is False
+
+    def test_extra_str_normalization(self):
+        raw_name = "S_P__A_M"
+        normalized_name = "s-p-a-m"
+        lhs = f"{raw_name!r} == extra"
+        rhs = f"extra == {raw_name!r}"
+
+        assert str(Marker(lhs)) == f'"{normalized_name}" == extra'
+        assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
