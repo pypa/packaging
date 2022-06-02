@@ -215,24 +215,6 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     return oper(lhs, rhs)
 
 
-class Undefined:
-    pass
-
-
-_undefined = Undefined()
-
-
-def _get_env(environment: Dict[str, str], name: str) -> str:
-    value: Union[str, Undefined] = environment.get(name, _undefined)
-
-    if isinstance(value, Undefined):
-        raise UndefinedEnvironmentName(
-            f"{name!r} does not exist in evaluation environment."
-        )
-
-    return value
-
-
 def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     # PEP 685 – Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
@@ -258,12 +240,12 @@ def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
 
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
-                lhs_value = _get_env(environment, environment_key)
+                lhs_value = environment[environment_key]
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
-                rhs_value = _get_env(environment, environment_key)
+                rhs_value = environment[environment_key]
 
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
@@ -287,6 +269,7 @@ def default_environment() -> Dict[str, str]:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
+        "extra": "",
         "implementation_name": implementation_name,
         "implementation_version": iver,
         "os_name": os.name,

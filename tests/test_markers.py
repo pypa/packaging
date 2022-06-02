@@ -15,7 +15,6 @@ from packaging.markers import (
     Marker,
     Node,
     UndefinedComparison,
-    UndefinedEnvironmentName,
     default_environment,
     format_full_version,
 )
@@ -110,6 +109,7 @@ class TestDefaultEnvironment:
             )
 
         assert environment == {
+            "extra": "",
             "implementation_name": sys.implementation.name,
             "implementation_version": iver,
             "os_name": os.name,
@@ -253,11 +253,8 @@ class TestMarker:
         # Markers should not be comparable to other kinds of objects.
         assert Marker("os_name == 'nt'") != "os_name == 'nt'"
 
-    def test_extra_with_no_extra_in_environment(self):
-        # We can't evaluate an extra if no extra is passed into the environment
-        m = Marker("extra == 'security'")
-        with pytest.raises(UndefinedEnvironmentName):
-            m.evaluate()
+    def test_environment_assumes_empty_extra(self):
+        assert Marker('extra == "im_valid"').evaluate() is False
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
