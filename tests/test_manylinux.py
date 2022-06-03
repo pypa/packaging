@@ -13,15 +13,12 @@ import pytest
 
 from packaging import _manylinux
 from packaging._manylinux import (
-    _ELFFileHeader,
-    _get_elf_header,
     _get_glibc_version,
     _glibc_version_string,
     _glibc_version_string_confstr,
     _glibc_version_string_ctypes,
     _is_compatible,
-    _is_linux_armhf,
-    _is_linux_i686,
+    _parse_elf,
     _parse_glibc_version,
 )
 
@@ -167,80 +164,10 @@ def test_glibc_version_string_none(monkeypatch):
     assert not _is_compatible("any", "any", (2, 4))
 
 
-def test_is_linux_armhf_not_elf(monkeypatch):
-    monkeypatch.setattr(_manylinux, "_get_elf_header", lambda: None)
-    assert not _is_linux_armhf()
-
-
-def test_is_linux_i686_not_elf(monkeypatch):
-    monkeypatch.setattr(_manylinux, "_get_elf_header", lambda: None)
-    assert not _is_linux_i686()
-
-
-@pytest.mark.parametrize(
-    "machine, abi, elf_class, elf_data, elf_machine",
-    [
-        (
-            "x86_64",
-            "x32",
-            _ELFFileHeader.ELFCLASS32,
-            _ELFFileHeader.ELFDATA2LSB,
-            _ELFFileHeader.EM_X86_64,
-        ),
-        (
-            "x86_64",
-            "i386",
-            _ELFFileHeader.ELFCLASS32,
-            _ELFFileHeader.ELFDATA2LSB,
-            _ELFFileHeader.EM_386,
-        ),
-        (
-            "x86_64",
-            "amd64",
-            _ELFFileHeader.ELFCLASS64,
-            _ELFFileHeader.ELFDATA2LSB,
-            _ELFFileHeader.EM_X86_64,
-        ),
-        (
-            "armv7l",
-            "armel",
-            _ELFFileHeader.ELFCLASS32,
-            _ELFFileHeader.ELFDATA2LSB,
-            _ELFFileHeader.EM_ARM,
-        ),
-        (
-            "armv7l",
-            "armhf",
-            _ELFFileHeader.ELFCLASS32,
-            _ELFFileHeader.ELFDATA2LSB,
-            _ELFFileHeader.EM_ARM,
-        ),
-        (
-            "s390x",
-            "s390x",
-            _ELFFileHeader.ELFCLASS64,
-            _ELFFileHeader.ELFDATA2MSB,
-            _ELFFileHeader.EM_S390,
-        ),
-    ],
-)
-def test_get_elf_header(monkeypatch, machine, abi, elf_class, elf_data, elf_machine):
-    path = os.path.join(
-        os.path.dirname(__file__),
-        "manylinux",
-        f"hello-world-{machine}-{abi}",
-    )
-    monkeypatch.setattr(sys, "executable", path)
-    elf_header = _get_elf_header()
-    assert elf_header.e_ident_class == elf_class
-    assert elf_header.e_ident_data == elf_data
-    assert elf_header.e_machine == elf_machine
-
-
 @pytest.mark.parametrize(
     "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
 )
-def test_get_elf_header_bad_executable(monkeypatch, content):
+def test_parse_elf_bad_executable(monkeypatch, content):
     if content:
         path = os.path.join(
             os.path.dirname(__file__),
@@ -249,5 +176,5 @@ def test_get_elf_header_bad_executable(monkeypatch, content):
         )
     else:
         path = None
-    monkeypatch.setattr(sys, "executable", path)
-    assert _get_elf_header() is None
+    with _parse_elf(path) as ef:
+        assert ef is None

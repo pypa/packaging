@@ -1,19 +1,12 @@
 import collections
-import io
 import pathlib
-import struct
 import subprocess
 
 import pretend
 import pytest
 
 from packaging import _musllinux
-from packaging._musllinux import (
-    _get_musl_version,
-    _MuslVersion,
-    _parse_ld_musl_from_elf,
-    _parse_musl_version,
-)
+from packaging._musllinux import _get_musl_version, _MuslVersion, _parse_musl_version
 
 MUSL_AMD64 = "musl libc (x86_64)\nVersion 1.2.2\n"
 MUSL_I386 = "musl libc (i386)\nVersion 1.2.1\n"
@@ -52,66 +45,6 @@ def clear_lru_cache():
 )
 def test_parse_musl_version(output, version):
     assert _parse_musl_version(output) == version
-
-
-@pytest.mark.parametrize(
-    "executable, location",
-    [
-        (BIN_GLIBC_X86_64, None),
-        (BIN_MUSL_X86_64, LD_MUSL_X86_64),
-        (BIN_MUSL_I386, LD_MUSL_I386),
-        (BIN_MUSL_AARCH64, LD_MUSL_AARCH64),
-    ],
-    ids=["glibc", "x86_64", "i386", "aarch64"],
-)
-def test_parse_ld_musl_from_elf(executable, location):
-    with executable.open("rb") as f:
-        assert _parse_ld_musl_from_elf(f) == location
-
-
-@pytest.mark.parametrize(
-    "data",
-    [
-        # Too short for magic.
-        b"\0",
-        # Enough for magic, but not ELF.
-        b"#!/bin/bash" + b"\0" * 16,
-        # ELF, but unknown byte declaration.
-        b"\x7fELF\3" + b"\0" * 16,
-    ],
-    ids=["no-magic", "wrong-magic", "unknown-format"],
-)
-def test_parse_ld_musl_from_elf_invalid(data):
-    assert _parse_ld_musl_from_elf(io.BytesIO(data)) is None
-
-
-@pytest.mark.parametrize(
-    "head",
-    [
-        25,  # Enough for magic, but not the section definitions.
-        58,  # Enough for section definitions, but not the actual sections.
-    ],
-)
-def test_parse_ld_musl_from_elf_invalid_section(head):
-    data = BIN_MUSL_X86_64.read_bytes()[:head]
-    assert _parse_ld_musl_from_elf(io.BytesIO(data)) is None
-
-
-def test_parse_ld_musl_from_elf_no_interpreter_section():
-    with BIN_MUSL_X86_64.open("rb") as f:
-        data = f.read()
-
-    # Change all sections to *not* PT_INTERP. We are explicitly using LSB rules
-    # because the binaries are in LSB.
-    unpacked = struct.unpack("<16BHHIQQQIHHH", data[:58])
-    *_, e_phoff, _, _, _, e_phentsize, e_phnum = unpacked
-    for i in range(e_phnum + 1):
-        sb = e_phoff + e_phentsize * i
-        se = sb + 56
-        section = struct.unpack("<IIQQQQQQ", data[sb:se])
-        data = data[:sb] + struct.pack("<IIQQQQQQ", 0, *section[1:]) + data[se:]
-
-    assert _parse_ld_musl_from_elf(io.BytesIO(data)) is None
 
 
 @pytest.mark.parametrize(
