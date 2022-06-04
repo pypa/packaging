@@ -269,7 +269,6 @@ def default_environment() -> Dict[str, str]:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
-        "extra": "",
         "implementation_name": implementation_name,
         "implementation_version": iver,
         "os_name": os.name,
@@ -335,6 +334,7 @@ class Marker:
         The environment is determined from the current Python process.
         """
         current_environment = default_environment()
+        current_environment["extra"] = ""
         if environment is not None:
             current_environment.update(environment)
 

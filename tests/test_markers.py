@@ -109,7 +109,6 @@ class TestDefaultEnvironment:
             )
 
         assert environment == {
-            "extra": "",
             "implementation_name": sys.implementation.name,
             "implementation_version": iver,
             "os_name": os.name,
