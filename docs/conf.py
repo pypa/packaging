@@ -52,8 +52,8 @@ copyright = about["__copyright__"]
 exclude_patterns = ["_build"]
 
 extlinks = {
-    "issue": ("https://github.com/pypa/packaging/issues/%s", "#"),
-    "pull": ("https://github.com/pypa/packaging/pull/%s", "PR #"),
+    "issue": ("https://github.com/pypa/packaging/issues/%s", "#%s"),
+    "pull": ("https://github.com/pypa/packaging/pull/%s", "PR #%s"),
 }
 # -- Options for HTML output --------------------------------------------------
 
