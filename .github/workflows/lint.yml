@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - ".github/workflows/lint.yml"
+      - ".pre-commit-config.yaml"
       - "**.py"
   push:
     paths:
       - ".github/workflows/lint.yml"
+      - ".pre-commit-config.yaml"
       - "**.py"
 
 concurrency:
@@ -20,21 +22,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         name: Install Python
         with:
           python-version: "3.9"
           cache: "pip"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade nox
-
       - name: Run `nox -s lint`
-        run: python -m nox --error-on-missing-interpreters -s lint
+        run: pipx run nox --error-on-missing-interpreters -s lint
 
   build:
     name: Build sdist and wheel
@@ -46,22 +43,13 @@ jobs:
     needs: lint
 
     steps:
-      - uses: actions/checkout@v1
-
-      - uses: actions/setup-python@v3
-        name: Install Python
-        with:
-          python-version: "3.9"
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: python -m pip install --upgrade build
+      - uses: actions/checkout@v3
 
       - name: Build
-        run: pyproject-build
+        run: pipx run build
 
       - name: Archive files
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: dist
           path: dist

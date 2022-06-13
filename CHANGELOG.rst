@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
+  Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
+  ``environment`` will no longer raise an exception.
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
