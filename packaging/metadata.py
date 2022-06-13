@@ -1,56 +1,25 @@
 from __future__ import annotations
 
 import enum
-import typing
+from collections.abc import Iterable
+from typing import Optional, Tuple
 
-from . import specifiers, utils
+from . import (  # Alt name avoids shadowing.
+    requirements,
+    specifiers,
+    utils,
+    version as packaging_version,
+)
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Iterable
-    from typing import List, Optional, Tuple
-
-    from . import (  # Alt name avoids shadowing.
-        requirements,
-        version as packaging_version,
-    )
-
-    # Type aliases.
-    _NameAndEmail = Tuple[Optional[str], str]
-    _LabelAndURL = Tuple[str, str]
+# Type aliases.
+_NameAndEmail = Tuple[Optional[str], str]
+_LabelAndURL = Tuple[str, str]
 
 
 class InvalidMetadata(ValueError):
     """
     Invalid metadata found.
     """
-
-
-@enum.unique
-class MetadataVersion(enum.Enum):
-
-    """
-    Core metadata versions.
-    """
-
-    # Make sure to update _VERSION_FROM_STR when adding a new version.
-    V1_0 = 1, 0
-    V1_1 = 1, 1
-    V1_2 = 1, 2
-    V2_1 = 2, 1
-    V2_2 = 2, 2
-    V2_3 = 2, 3
-
-
-_VERSION_FROM_STR = {
-    "1.0": MetadataVersion.V1_0,
-    "1.1": MetadataVersion.V1_1,
-    "1.2": MetadataVersion.V1_2,
-    # While no official 2.0, some projects used it prior to 2.1 being standardized.
-    "2.0": MetadataVersion.V2_1,
-    "2.1": MetadataVersion.V2_1,
-    "2.2": MetadataVersion.V2_2,
-    "2.3": MetadataVersion.V2_3,
-}
 
 
 @enum.unique
@@ -101,28 +70,28 @@ class Metadata:
     # A property named `canonical_name` exposes the value.
     _canonical_name: utils.NormalizedName
     version: packaging_version.Version
-    platforms: List[str]
+    platforms: list[str]
     summary: str
     description: str
-    keywords: List[str]
+    keywords: list[str]
     home_page: str
     author: str
-    author_emails: List[_NameAndEmail]
+    author_emails: list[_NameAndEmail]
     license: str
-    supported_platforms: List[str]
+    supported_platforms: list[str]
     download_url: str
-    classifiers: List[str]
+    classifiers: list[str]
     maintainer: str
-    maintainer_emails: List[_NameAndEmail]
-    requires_dists: List[requirements.Requirement]
+    maintainer_emails: list[_NameAndEmail]
+    requires_dists: list[requirements.Requirement]
     requires_python: specifiers.SpecifierSet
-    requires_externals: List[str]
-    project_urls: List[_LabelAndURL]
-    provides_dists: List[str]
-    obsoletes_dists: List[str]
+    requires_externals: list[str]
+    project_urls: list[_LabelAndURL]
+    provides_dists: list[str]
+    obsoletes_dists: list[str]
     description_content_type: str
-    provides_extras: List[utils.NormalizedName]
-    dynamic_fields: List[DynamicField]
+    provides_extras: list[utils.NormalizedName]
+    dynamic_fields: list[DynamicField]
 
     def __init__(
         self,
@@ -130,32 +99,32 @@ class Metadata:
         version: packaging_version.Version,
         *,
         # 1.0
-        platforms: Optional[Iterable[str]] = None,
-        summary: Optional[str] = None,
-        description: Optional[str] = None,
-        keywords: Optional[Iterable[str]] = None,
-        home_page: Optional[str] = None,
-        author: Optional[str] = None,
-        author_emails: Optional[Iterable[_NameAndEmail]] = None,
-        license: Optional[str] = None,
+        platforms: Iterable[str] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        keywords: Iterable[str] | None = None,
+        home_page: str | None = None,
+        author: str | None = None,
+        author_emails: Iterable[_NameAndEmail] | None = None,
+        license: str | None = None,
         # 1.1
-        supported_platforms: Optional[Iterable[str]] = None,
-        download_url: Optional[str] = None,
-        classifiers: Optional[Iterable[str]] = None,  # TODO: OK?
+        supported_platforms: Iterable[str] | None = None,
+        download_url: str | None = None,
+        classifiers: Iterable[str] | None = None,
         # 1.2
-        maintainer: Optional[str] = None,
-        maintainer_emails: Optional[Iterable[_NameAndEmail]] = None,
-        requires_dists: Optional[Iterable[requirements.Requirement]] = None,
-        requires_python: Optional[specifiers.SpecifierSet] = None,
-        requires_externals: Optional[Iterable[str]] = None,  # TODO: OK?
-        project_urls: Optional[Iterable[_LabelAndURL]] = None,
-        provides_dists: Optional[Iterable[str]] = None,
-        obsoletes_dists: Optional[Iterable[str]] = None,
+        maintainer: str | None = None,
+        maintainer_emails: Iterable[_NameAndEmail] | None = None,
+        requires_dists: Iterable[requirements.Requirement] | None = None,
+        requires_python: specifiers.SpecifierSet | None = None,
+        requires_externals: Iterable[str] | None = None,
+        project_urls: Iterable[_LabelAndURL] | None = None,
+        provides_dists: Iterable[str] | None = None,
+        obsoletes_dists: Iterable[str] | None = None,
         # 2.1
-        description_content_type: Optional[str] = None,  # TODO: OK?
-        provides_extras: Optional[Iterable[utils.NormalizedName]] = None,
+        description_content_type: str | None = None,
+        provides_extras: Iterable[utils.NormalizedName] | None = None,
         # 2.2
-        dynamic_fields: Optional[Iterable[DynamicField]] = None,
+        dynamic_fields: Iterable[DynamicField] | None = None,
     ) -> None:
         """
         Set all attributes on the instance.
@@ -193,8 +162,10 @@ class Metadata:
         return self._display_name
 
     @display_name.setter
-    def display_name(self, value, /) -> None:
-        """Set the value for self.display_name and self.canonical_name."""
+    def display_name(self, value: str) -> None:
+        """
+        Set the value for self.display_name and self.canonical_name.
+        """
         self._display_name = value
         self._canonical_name = utils.canonicalize_name(value)
 

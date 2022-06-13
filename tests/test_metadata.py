@@ -3,6 +3,16 @@ import pytest
 from packaging import metadata, utils, version
 
 
+class TestInit:
+    def test_defaults(self):
+        specified_attributes = {"display_name", "canonical_name", "version"}
+        metadata_ = metadata.Metadata("packaging", version.Version("2023.0.0"))
+        for attr in dir(metadata_):
+            if attr in specified_attributes or attr.startswith("_"):
+                continue
+            assert not getattr(metadata_, attr)
+
+
 class TestNameNormalization:
 
     version = version.Version("1.0.0")
