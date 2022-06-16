@@ -16,12 +16,6 @@ _NameAndEmail = Tuple[Optional[str], str]
 _LabelAndURL = Tuple[str, str]
 
 
-class InvalidMetadata(ValueError):
-    """
-    Invalid metadata found.
-    """
-
-
 @enum.unique
 class DynamicField(enum.Enum):
 
