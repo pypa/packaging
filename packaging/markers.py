@@ -223,7 +223,7 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     if key == "extra":
         return tuple(canonicalize_name(v) for v in values)
 
-    # other environment markes don't have such standards
+    # other environment markers don't have such standards
     return values
 
 
