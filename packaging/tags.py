@@ -4,6 +4,7 @@
 
 import logging
 import platform
+import subprocess
 import sys
 import sysconfig
 from importlib.machinery import EXTENSION_SUFFIXES
@@ -356,6 +357,22 @@ def mac_platforms(
     version_str, _, cpu_arch = platform.mac_ver()
     if version is None:
         version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
+        if version == (10, 16):
+            # When built against an older macOS SDK, Python will report macOS 10.16
+            # instead of the real version.
+            version_str = subprocess.run(
+                [
+                    sys.executable,
+                    "-sS",
+                    "-c",
+                    "import platform; print(platform.mac_ver()[0])",
+                ],
+                check=True,
+                env={"SYSTEM_VERSION_COMPAT": "0"},
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            ).stdout
+            version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
     else:
         version = version
     if arch is None:
