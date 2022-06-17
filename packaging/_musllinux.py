@@ -39,9 +39,11 @@ def _parse_ld_musl_from_elf(f: IO[bytes]) -> Optional[str]:
         # p_fmt: Format for section header.
         # p_idx: Indexes to find p_type, p_offset, and p_filesz.
         e_fmt, p_fmt, p_idx = {
-            1: ("IIIIHHH", "IIIIIIII", (0, 1, 4)),  # 32-bit.
-            2: ("QQQIHHH", "IIQQQQQQ", (0, 2, 5)),  # 64-bit.
-        }[ident[4]]
+            (1, 1): ("<IIIIHHH", "<IIIIIIII", (0, 1, 4)),  # 32-bit LSB.
+            (1, 2): (">IIIIHHH", ">IIIIIIII", (0, 1, 4)),  # 32-bit MSB.
+            (2, 1): ("<QQQIHHH", "<IIQQQQQQ", (0, 2, 5)),  # 64-bit LSB.
+            (2, 2): (">QQQIHHH", ">IIQQQQQQ", (0, 2, 5)),  # 64-bit MSB.
+        }[(ident[4], ident[5])]
     except KeyError:
         return None
     else:
