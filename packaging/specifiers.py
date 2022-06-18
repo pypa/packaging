@@ -447,18 +447,16 @@ class Specifier(_IndividualSpecifier):
             # segment.
             split_prospective = _version_split(str(prospective))
 
+            # 0-pad the prospective version before shortening it to get the correct
+            # shortened version.
+            _, padded_prospective = _pad_version(split_spec, split_prospective)
+
             # Shorten the prospective version to be the same length as the spec
             # so that we can determine if the specifier is a prefix of the
             # prospective version or not.
-            shortened_prospective = split_prospective[: len(split_spec)]
+            shortened_prospective = padded_prospective[: len(split_spec)]
 
-            # Pad out our two sides with zeros so that they both equal the same
-            # length.
-            padded_spec, padded_prospective = _pad_version(
-                split_spec, shortened_prospective
-            )
-
-            return padded_prospective == padded_spec
+            return shortened_prospective == split_spec
         else:
             # Convert our spec string into a Version
             spec_version = Version(spec)
