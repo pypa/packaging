@@ -385,30 +385,37 @@ class Specifier(BaseSpecifier):
         # We need special logic to handle prefix matching
         if spec.endswith(".*"):
             # In the case of prefix matching we want to ignore local segment.
-            prospective = Version(prospective.public)
-            # Get the normalized version string ignoring the trailing .*
-            normalized_spec = canonicalize_version(spec[:-2], strip_trailing_zero=False)
+            normalized_prospective = canonicalize_version(prospective.public)
+            # Convert our spec string into a Version ignoring the trailing .*
+            # This allows to get the normalized version string
+            spec_version = Version(spec[:-2])
             # Split the spec out by dots, and pretend that there is an implicit
             # dot in between a release segment and a pre-release segment.
-            split_spec = _version_split(normalized_spec)
+            split_spec = _version_split(str(spec_version))
 
             # Split the prospective version out by dots, and pretend that there
             # is an implicit dot in between a release segment and a pre-release
             # segment.
-            split_prospective = _version_split(str(prospective))
+            split_prospective = _version_split(normalized_prospective)
+
+            if spec_version.is_prerelease or spec_version.is_postrelease:
+                # the release segment must match exactly
+                # 0-pad both the prospective and spec versions
+                padded_spec, padded_prospective = _pad_version(
+                    split_spec, split_prospective
+                )
+            else:
+                # 0-pad the prospective version before shortening it to get the correct
+                # shortened version.
+                _, padded_prospective = _pad_version(split_spec, split_prospective)
+                padded_spec = split_spec
 
             # Shorten the prospective version to be the same length as the spec
             # so that we can determine if the specifier is a prefix of the
             # prospective version or not.
-            shortened_prospective = split_prospective[: len(split_spec)]
+            shortened_prospective = padded_prospective[: len(padded_spec)]
 
-            # Pad out our two sides with zeros so that they both equal the same
-            # length.
-            padded_spec, padded_prospective = _pad_version(
-                split_spec, shortened_prospective
-            )
-
-            return padded_prospective == padded_spec
+            return shortened_prospective == padded_spec
         else:
             # Convert our spec string into a Version
             spec_version = Version(spec)
