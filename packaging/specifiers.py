@@ -130,21 +130,21 @@ class Specifier(BaseSpecifier):
                 v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:                   # pre release
-                    [-_\.]?
-                    (a|b|c|rc|alpha|beta|pre|preview)
-                    [-_\.]?
-                    [0-9]*
-                )?
-                (?:                   # post release
-                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
-                )?
 
-                # You cannot use a wild card and a dev or local version
-                # together so group them with a | and make them optional.
+                # You cannot use a wild card and a pre-release, post-release, a dev or
+                # local version together so group them with a | and make them optional.
                 (?:
                     \.\*  # Wild card syntax of .*
                     |
+                    (?:                                  # pre release
+                        [-_\.]?
+                        (a|b|c|rc|alpha|beta|pre|preview)
+                        [-_\.]?
+                        [0-9]*
+                    )?
+                    (?:                                  # post release
+                        (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
+                    )?
                     (?:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
                     (?:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
                 )?
