@@ -8,7 +8,7 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from ._parser import MarkerAtom, MarkerList, Op, Variable, parse_marker_expr
+from ._parser import MarkerAtom, MarkerList, Op, Value, Variable, parse_marker_expr
 from ._tokenizer import ParseExceptionError, Tokenizer
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
@@ -41,6 +41,22 @@ class UndefinedEnvironmentName(ValueError):
     A name was attempted to be used that does not exist inside of the
     environment.
     """
+
+
+def _normalize_extra_values(results: Any) -> Any:
+    """
+    Normalize extra values.
+    """
+    if isinstance(results[0], tuple):
+        lhs, op, rhs = results[0]
+        if isinstance(lhs, Variable) and lhs.value == "extra":
+            normalized_extra = canonicalize_name(rhs.value)
+            rhs = Value(normalized_extra)
+        elif isinstance(rhs, Variable) and rhs.value == "extra":
+            normalized_extra = canonicalize_name(lhs.value)
+            lhs = Value(normalized_extra)
+        results[0] = lhs, op, rhs
+    return results
 
 
 def _format_marker(
@@ -170,7 +186,9 @@ def default_environment() -> Dict[str, str]:
 class Marker:
     def __init__(self, marker: str) -> None:
         try:
-            self._markers = parse_marker_expr(Tokenizer(marker))
+            self._markers = _normalize_extra_values(
+                parse_marker_expr(Tokenizer(marker))
+            )
             # The attribute `_markers` can be described in terms of a recursive type:
             # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
             #
