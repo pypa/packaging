@@ -10,10 +10,18 @@ A set of small, helper utilities for dealing with Python packages.
 Reference
 ---------
 
+.. class:: NormalizedName
+
+    A :class:`typing.NewType` of :class:`str`, representing a normalized name.
+
 .. function:: canonicalize_name(name)
 
-    This function takes a valid Python package name, and returns the normalized
-    form of it.
+    This function takes a valid Python package or extra name, and returns the
+    normalized form of it.
+
+    The return type is typed as :class:`NormalizedName`. This allows type
+    checkers to help require that a string has passed through this function
+    before use.
 
     :param str name: The name to normalize.
 
@@ -46,10 +54,11 @@ Reference
     This function takes the filename of a wheel file, and parses it,
     returning a tuple of name, version, build number, and tags.
 
-    The name part of the tuple is normalized. The version portion is an
-    instance of :class:`~packaging.version.Version`. The build number
-    is ``()`` if there is no build number in the wheel filename,
-    otherwise a two-item tuple of an integer for the leading digits and
+    The name part of the tuple is normalized and typed as
+    :class:`NormalizedName`. The version portion is an instance of
+    :class:`~packaging.version.Version`. The build number is ``()`` if
+    there is no build number in the wheel filename, otherwise a
+    two-item tuple of an integer for the leading digits and
     a string for the rest of the build number. The tags portion is an
     instance of :class:`~packaging.tags.Tag`.
 
