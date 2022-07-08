@@ -4,19 +4,13 @@
 
 import itertools
 import operator
-import warnings
 
 import pytest
 
-from packaging.specifiers import (
-    InvalidSpecifier,
-    LegacySpecifier,
-    Specifier,
-    SpecifierSet,
-)
-from packaging.version import LegacyVersion, Version, parse
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
+from packaging.version import Version, parse
 
-from .test_version import LEGACY_VERSIONS, VERSIONS
+from .test_version import VERSIONS
 
 LEGACY_SPECIFIERS = [
     "==2.1.0.3",
@@ -37,7 +31,6 @@ SPECIFIERS = [
     ">=7.9a1",
     "<1.0.dev1",
     ">2.0.post1",
-    "===lolwat",
 ]
 
 
@@ -489,12 +482,10 @@ class TestSpecifier:
     @pytest.mark.parametrize(
         ("version", "spec", "expected"),
         [
-            # Test identity comparison by itself
-            ("lolwat", "===lolwat", True),
-            ("Lolwat", "===lolwat", True),
-            ("1.0", "===1.0", True),
-            ("nope", "===lolwat", False),
             ("1.0.0", "===1.0", False),
+            ("1.0.dev0", "===1.0", False),
+            # Test identity comparison by itself
+            ("1.0", "===1.0", True),
             ("1.0.dev0", "===1.0.dev0", True),
         ],
     )
@@ -567,10 +558,6 @@ class TestSpecifier:
 
         assert list(spec.filter(input, **kwargs)) == expected
 
-    @pytest.mark.xfail
-    def test_specifier_explicit_legacy(self):
-        assert Specifier("==1.0").contains(LegacyVersion("1.0"))
-
     @pytest.mark.parametrize(
         ("spec", "op"),
         [
@@ -583,6 +570,7 @@ class TestSpecifier:
             (">=7.9a1", ">="),
             ("<1.0.dev1", "<"),
             (">2.0.post1", ">"),
+            # === is an escape hatch in PEP 440
             ("===lolwat", "==="),
         ],
     )
@@ -601,6 +589,7 @@ class TestSpecifier:
             (">=7.9a1", "7.9a1"),
             ("<1.0.dev1", "1.0.dev1"),
             (">2.0.post1", "2.0.post1"),
+            # === is an escape hatch in PEP 440
             ("===lolwat", "lolwat"),
         ],
     )
@@ -637,141 +626,8 @@ class TestSpecifier:
         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
 
 
-class TestLegacySpecifier:
-    def test_legacy_specifier_is_deprecated(self):
-        with warnings.catch_warnings(record=True) as w:
-            LegacySpecifier(">=some-legacy-version")
-            assert len(w) == 1
-            assert issubclass(w[0].category, DeprecationWarning)
-
-    @pytest.mark.parametrize(
-        ("version", "spec", "expected"),
-        [
-            (v, s, True)
-            for v, s in [
-                # Test the equality operation
-                ("2.0", "==2"),
-                ("2.0", "==2.0"),
-                ("2.0", "==2.0.0"),
-                # Test the in-equality operation
-                ("2.1", "!=2"),
-                ("2.1", "!=2.0"),
-                ("2.0.1", "!=2"),
-                ("2.0.1", "!=2.0"),
-                ("2.0.1", "!=2.0.0"),
-                # Test the greater than equal operation
-                ("2.0", ">=2"),
-                ("2.0", ">=2.0"),
-                ("2.0", ">=2.0.0"),
-                ("2.0.post1", ">=2"),
-                ("2.0.post1.dev1", ">=2"),
-                ("3", ">=2"),
-                # Test the less than equal operation
-                ("2.0", "<=2"),
-                ("2.0", "<=2.0"),
-                ("2.0", "<=2.0.0"),
-                ("2.0.dev1", "<=2"),
-                ("2.0a1", "<=2"),
-                ("2.0a1.dev1", "<=2"),
-                ("2.0b1", "<=2"),
-                ("2.0b1.post1", "<=2"),
-                ("2.0c1", "<=2"),
-                ("2.0c1.post1.dev1", "<=2"),
-                ("2.0rc1", "<=2"),
-                ("1", "<=2"),
-                # Test the greater than operation
-                ("3", ">2"),
-                ("2.1", ">2.0"),
-                # Test the less than operation
-                ("1", "<2"),
-                ("2.0", "<2.1"),
-            ]
-        ]
-        + [
-            (v, s, False)
-            for v, s in [
-                # Test the equality operation
-                ("2.1", "==2"),
-                ("2.1", "==2.0"),
-                ("2.1", "==2.0.0"),
-                # Test the in-equality operation
-                ("2.0", "!=2"),
-                ("2.0", "!=2.0"),
-                ("2.0", "!=2.0.0"),
-                # Test the greater than equal operation
-                ("2.0.dev1", ">=2"),
-                ("2.0a1", ">=2"),
-                ("2.0a1.dev1", ">=2"),
-                ("2.0b1", ">=2"),
-                ("2.0b1.post1", ">=2"),
-                ("2.0c1", ">=2"),
-                ("2.0c1.post1.dev1", ">=2"),
-                ("2.0rc1", ">=2"),
-                ("1", ">=2"),
-                # Test the less than equal operation
-                ("2.0.post1", "<=2"),
-                ("2.0.post1.dev1", "<=2"),
-                ("3", "<=2"),
-                # Test the greater than operation
-                ("1", ">2"),
-                ("2.0.dev1", ">2"),
-                ("2.0a1", ">2"),
-                ("2.0a1.post1", ">2"),
-                ("2.0b1", ">2"),
-                ("2.0b1.dev1", ">2"),
-                ("2.0c1", ">2"),
-                ("2.0c1.post1.dev1", ">2"),
-                ("2.0rc1", ">2"),
-                ("2.0", ">2"),
-                # Test the less than operation
-                ("3", "<2"),
-            ]
-        ],
-    )
-    def test_specifiers(self, version, spec, expected):
-        spec = LegacySpecifier(spec, prereleases=True)
-
-        if expected:
-            # Test that the plain string form works
-            assert version in spec
-            assert spec.contains(version)
-
-            # Test that the version instance form works
-            assert LegacyVersion(version) in spec
-            assert spec.contains(LegacyVersion(version))
-        else:
-            # Test that the plain string form works
-            assert version not in spec
-            assert not spec.contains(version)
-
-            # Test that the version instance form works
-            assert LegacyVersion(version) not in spec
-            assert not spec.contains(LegacyVersion(version))
-
-    def test_specifier_explicit_prereleases(self):
-        spec = LegacySpecifier(">=1.0")
-        assert not spec.prereleases
-        spec.prereleases = True
-        assert spec.prereleases
-
-        spec = LegacySpecifier(">=1.0", prereleases=False)
-        assert not spec.prereleases
-        spec.prereleases = True
-        assert spec.prereleases
-
-        spec = LegacySpecifier(">=1.0", prereleases=True)
-        assert spec.prereleases
-        spec.prereleases = False
-        assert not spec.prereleases
-
-        spec = LegacySpecifier(">=1.0", prereleases=True)
-        assert spec.prereleases
-        spec.prereleases = None
-        assert not spec.prereleases
-
-
 class TestSpecifierSet:
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
+    @pytest.mark.parametrize("version", VERSIONS)
     def test_empty_specifier(self, version):
         spec = SpecifierSet(prereleases=True)
 
@@ -836,7 +692,6 @@ class TestSpecifierSet:
             (">=1.0.dev1", None, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             ("", None, None, ["1.0a1"], ["1.0a1"]),
             ("", None, None, ["1.0", Version("2.0")], ["1.0", Version("2.0")]),
-            ("", None, None, ["2.0dog", "1.0"], ["1.0"]),
             # Test overriding with the prereleases parameter on filter
             ("", None, False, ["1.0a1"], []),
             (">=1.0.dev1", None, False, ["1.0", "2.0a1"], ["1.0"]),
@@ -861,10 +716,6 @@ class TestSpecifierSet:
         kwargs = {"prereleases": prereleases} if prereleases is not None else {}
 
         assert list(spec.filter(input, **kwargs)) == expected
-
-    def test_legacy_specifiers_combined(self):
-        spec = SpecifierSet("<3,>1-1-1")
-        assert "2.0" in spec
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),

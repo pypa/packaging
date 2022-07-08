@@ -50,8 +50,8 @@ Reference
 .. function:: parse(version)
 
     This function takes a version string and will parse it as a
-    :class:`Version` if the version is a valid PEP 440 version, otherwise it
-    will parse it as a deprecated :class:`LegacyVersion`.
+    :class:`Version` if the version is a valid PEP 440 version.
+    Otherwise, raises :class:`InvalidVersion`.
 
 
 .. class:: Version(version)
@@ -136,140 +136,6 @@ Reference
 
         A boolean value indicating whether this :class:`Version` instance
         represents a post-release.
-
-
-.. class:: LegacyVersion(version)
-
-    .. deprecated:: 20.5
-
-        Use :class:`Version` instead.
-
-    This class abstracts handling of a project's versions if they are not
-    compatible with the scheme defined in `PEP 440`_. It implements a similar
-    interface to that of :class:`Version`.
-
-    This class implements the previous de facto sorting algorithm used by
-    setuptools, however it will always sort as less than a :class:`Version`
-    instance.
-
-    :param str version: The string representation of a version which will be
-                        used as is.
-
-    .. note::
-
-        :class:`LegacyVersion` instances are always ordered lower than :class:`Version` instances.
-
-        >>> from packaging.version import Version, LegacyVersion
-        >>> v1 = Version("1.0")
-        >>> v2 = LegacyVersion("1.0")
-        >>> v1 > v2
-        True
-        >>> v3 = LegacyVersion("1.3")
-        >>> v1 > v3
-        True
-
-        Also note that some strings are still valid PEP 440 strings (:class:`Version`), even if they look very similar to
-        other versions that are not (:class:`LegacyVersion`). Examples include versions with `Pre-release spelling`_ and
-        `Post-release spelling`_.
-
-        >>> from packaging.version import parse
-        >>> v1 = parse('0.9.8a')
-        >>> v2 = parse('0.9.8beta')
-        >>> v3 = parse('0.9.8r')
-        >>> v4 = parse('0.9.8rev')
-        >>> v5 = parse('0.9.8t')
-        >>> v1
-        <Version('0.9.8a0')>
-        >>> v1.is_prerelease
-        True
-        >>> v2
-        <Version('0.9.8b0')>
-        >>> v2.is_prerelease
-        True
-        >>> v3
-        <Version('0.9.8.post0')>
-        >>> v3.is_postrelease
-        True
-        >>> v4
-        <Version('0.9.8.post0')>
-        >>> v4.is_postrelease
-        True
-        >>> v5
-        <LegacyVersion('0.9.8t')>
-        >>> v5.is_prerelease
-        False
-        >>> v5.is_postrelease
-        False
-
-    .. attribute:: public
-
-        A string representing the public version portion of this
-        :class:`LegacyVersion`. This will always be the entire version string.
-
-    .. attribute:: base_version
-
-        A string representing the base version portion of this
-        :class:`LegacyVersion` instance. This will always be the entire version
-        string.
-
-    .. attribute:: epoch
-
-        This will always be ``-1`` since without `PEP 440`_ we do not have the
-        concept of version epochs.  The value reflects the fact that
-        :class:`LegacyVersion` instances always compare less than
-        :class:`Version` instances.
-
-    .. attribute:: release
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a release segment or its components.  It exists
-        primarily to allow a :class:`LegacyVersion` to be used as a stand in
-        for a :class:`Version`.
-
-    .. attribute:: local
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a local version. It exists primarily to allow a
-        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
-
-    .. attribute:: pre
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a prerelease. It exists primarily to allow a
-        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
-
-    .. attribute:: is_prerelease
-
-        A boolean value indicating whether this :class:`LegacyVersion`
-        represents a prerelease and/or development release.  Since without
-        `PEP 440`_ there is no concept of pre or dev releases this will
-        always be `False` and exists for compatibility with :class:`Version`.
-
-    .. attribute:: dev
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a development release. It exists primarily to allow a
-        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
-
-    .. attribute:: is_devrelease
-
-        A boolean value indicating whether this :class:`LegacyVersion`
-        represents a development release.  Since without `PEP 440`_ there is
-        no concept of dev releases this will always be `False` and exists for
-        compatibility with :class:`Version`.
-
-    .. attribute:: post
-
-        This will always be ``None`` since without `PEP 440`_ we do not have
-        the concept of a postrelease. It exists primarily to allow a
-        :class:`LegacyVersion` to be used as a stand in for a :class:`Version`.
-
-    .. attribute:: is_postrelease
-
-        A boolean value indicating whether this :class:`LegacyVersion`
-        represents a post-release. Since without `PEP 440`_ there is no concept
-        of post-releases this will always be ``False`` and exists for
-        compatibility with :class:`Version`.
 
 
 .. exception:: InvalidVersion

@@ -5,12 +5,11 @@
 import collections
 import itertools
 import re
-import warnings
-from typing import Callable, Iterator, List, Optional, SupportsInt, Tuple, Union
+from typing import Callable, Optional, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
-__all__ = ["parse", "Version", "LegacyVersion", "InvalidVersion", "VERSION_PATTERN"]
+__all__ = ["parse", "Version", "InvalidVersion", "VERSION_PATTERN"]
 
 InfiniteTypes = Union[InfinityType, NegativeInfinityType]
 PrePostDevType = Union[InfiniteTypes, Tuple[str, int]]
@@ -29,26 +28,22 @@ LocalType = Union[
 CmpKey = Tuple[
     int, Tuple[int, ...], PrePostDevType, PrePostDevType, PrePostDevType, LocalType
 ]
-LegacyCmpKey = Tuple[int, Tuple[str, ...]]
-VersionComparisonMethod = Callable[
-    [Union[CmpKey, LegacyCmpKey], Union[CmpKey, LegacyCmpKey]], bool
-]
+VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
 _Version = collections.namedtuple(
     "_Version", ["epoch", "release", "dev", "pre", "post", "local"]
 )
 
 
-def parse(version: str) -> Union["LegacyVersion", "Version"]:
+def parse(version: str) -> "Version":
     """
-    Parse the given version string and return either a :class:`Version` object
-    or a :class:`LegacyVersion` object depending on if the given version is
-    a valid PEP 440 version or a legacy version.
+    Parse the given version string.
+
+    Returns a :class:`Version` object, if the given version is a valid PEP 440 version.
+
+    Raises :class:`InvalidVersion` otherwise.
     """
-    try:
-        return Version(version)
-    except InvalidVersion:
-        return LegacyVersion(version)
+    return Version(version)
 
 
 class InvalidVersion(ValueError):
@@ -58,7 +53,7 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion:
-    _key: Union[CmpKey, LegacyCmpKey]
+    _key: CmpKey
 
     def __hash__(self) -> int:
         return hash(self._key)
@@ -101,123 +96,6 @@ class _BaseVersion:
             return NotImplemented
 
         return self._key != other._key
-
-
-class LegacyVersion(_BaseVersion):
-    def __init__(self, version: str) -> None:
-        self._version = str(version)
-        self._key = _legacy_cmpkey(self._version)
-
-        warnings.warn(
-            "Creating a LegacyVersion has been deprecated and will be "
-            "removed in the next major release",
-            DeprecationWarning,
-        )
-
-    def __str__(self) -> str:
-        return self._version
-
-    def __repr__(self) -> str:
-        return f"<LegacyVersion('{self}')>"
-
-    @property
-    def public(self) -> str:
-        return self._version
-
-    @property
-    def base_version(self) -> str:
-        return self._version
-
-    @property
-    def epoch(self) -> int:
-        return -1
-
-    @property
-    def release(self) -> None:
-        return None
-
-    @property
-    def pre(self) -> None:
-        return None
-
-    @property
-    def post(self) -> None:
-        return None
-
-    @property
-    def dev(self) -> None:
-        return None
-
-    @property
-    def local(self) -> None:
-        return None
-
-    @property
-    def is_prerelease(self) -> bool:
-        return False
-
-    @property
-    def is_postrelease(self) -> bool:
-        return False
-
-    @property
-    def is_devrelease(self) -> bool:
-        return False
-
-
-_legacy_version_component_re = re.compile(r"(\d+ | [a-z]+ | \.| -)", re.VERBOSE)
-
-_legacy_version_replacement_map = {
-    "pre": "c",
-    "preview": "c",
-    "-": "final-",
-    "rc": "c",
-    "dev": "@",
-}
-
-
-def _parse_version_parts(s: str) -> Iterator[str]:
-    for part in _legacy_version_component_re.split(s):
-        part = _legacy_version_replacement_map.get(part, part)
-
-        if not part or part == ".":
-            continue
-
-        if part[:1] in "0123456789":
-            # pad for numeric comparison
-            yield part.zfill(8)
-        else:
-            yield "*" + part
-
-    # ensure that alpha/beta/candidate are before final
-    yield "*final"
-
-
-def _legacy_cmpkey(version: str) -> LegacyCmpKey:
-
-    # We hardcode an epoch of -1 here. A PEP 440 version can only have a epoch
-    # greater than or equal to 0. This will effectively put the LegacyVersion,
-    # which uses the defacto standard originally implemented by setuptools,
-    # as before all PEP 440 versions.
-    epoch = -1
-
-    # This scheme is taken from pkg_resources.parse_version setuptools prior to
-    # it's adoption of the packaging library.
-    parts: List[str] = []
-    for part in _parse_version_parts(version.lower()):
-        if part.startswith("*"):
-            # remove "-" before a prerelease tag
-            if part < "*final":
-                while parts and parts[-1] == "*final-":
-                    parts.pop()
-
-            # remove trailing zeros from each series of numeric parts
-            while parts and parts[-1] == "00000000":
-                parts.pop()
-
-        parts.append(part)
-
-    return epoch, tuple(parts)
 
 
 # Deliberately not anchored to the start and end of the string, to make it

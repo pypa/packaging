@@ -21,7 +21,7 @@ from pyparsing import (  # noqa
 )
 
 from .markers import MARKER_EXPR as _MARKER_EXPR, Marker
-from .specifiers import LegacySpecifier, Specifier, SpecifierSet
+from .specifiers import Specifier, SpecifierSet
 
 
 class InvalidRequirement(ValueError):
@@ -53,10 +53,7 @@ URL = AT + URI
 EXTRAS_LIST = EXTRA + ZeroOrMore(COMMA + EXTRA)
 EXTRAS = (LBRACKET + Optional(EXTRAS_LIST) + RBRACKET)("extras")
 
-VERSION_PEP440 = Regex(Specifier._regex_str, re.VERBOSE | re.IGNORECASE)
-VERSION_LEGACY = Regex(LegacySpecifier._regex_str, re.VERBOSE | re.IGNORECASE)
-
-VERSION_ONE = VERSION_PEP440 ^ VERSION_LEGACY
+VERSION_ONE = Regex(Specifier._regex_str, re.VERBOSE | re.IGNORECASE)
 VERSION_MANY = Combine(
     VERSION_ONE + ZeroOrMore(COMMA + VERSION_ONE), joinString=",", adjacent=False
 )("_raw_spec")

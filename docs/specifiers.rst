@@ -54,10 +54,8 @@ Reference
     can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all. Each individual
     specifier will be attempted to be parsed as a PEP 440 specifier
-    (:class:`Specifier`) or as a legacy, setuptools style specifier
-    (deprecated :class:`LegacySpecifier`). You may combine
-    :class:`SpecifierSet` instances using the ``&`` operator
-    (``SpecifierSet(">2") & SpecifierSet("<4")``).
+    (:class:`Specifier`). You may combine :class:`SpecifierSet` instances using
+    the ``&`` operator (``SpecifierSet(">2") & SpecifierSet("<4")``).
 
     Both the membership tests and the combination support using raw strings
     in place of already instantiated objects.
@@ -91,8 +89,7 @@ Reference
     .. method:: contains(version, prereleases=None)
 
         Determines if ``version``, which can be either a version string, a
-        :class:`Version`, or a deprecated :class:`LegacyVersion` object, is
-        contained within this set of specifiers.
+        :class:`Version` is contained within this set of specifiers.
 
         This will either match or not match prereleases based on the
         ``prereleases`` parameter. When ``prereleases`` is set to ``None``
@@ -106,15 +103,14 @@ Reference
 
     .. method:: __iter__()
 
-        Returns an iterator over all the underlying :class:`Specifier` (or
-        deprecated :class:`LegacySpecifier`) instances in this specifier set.
+        Returns an iterator over all the underlying :class:`Specifier` instances
+        in this specifier set.
 
     .. method:: filter(iterable, prereleases=None)
 
         Takes an iterable that can contain version strings, :class:`~.Version`,
-        and deprecated :class:`~.LegacyVersion` instances and will then filter
-        it, returning an iterable that contains only items which match the
-        rules of this specifier object.
+        instances and will then filter them, returning an iterable that contains
+        only items which match the rules of this specifier object.
 
         This method is smarter than just
         ``filter(Specifier().contains, [...])`` because it implements the rule
@@ -143,50 +139,6 @@ Reference
                              given specifiers.
     :raises InvalidSpecifier: If the ``specifier`` does not conform to PEP 440
                               in any way then this exception will be raised.
-
-    .. attribute:: operator
-
-        The string value of the operator part of this specifier.
-
-    .. attribute:: version
-
-        The string version of the version part of this specifier.
-
-    .. attribute:: prereleases
-
-        See :attr:`SpecifierSet.prereleases`.
-
-    .. method:: __contains__(version)
-
-        See :meth:`SpecifierSet.__contains__()`.
-
-    .. method:: contains(version, prereleases=None)
-
-        See :meth:`SpecifierSet.contains()`.
-
-    .. method:: filter(iterable, prereleases=None)
-
-        See :meth:`SpecifierSet.filter()`.
-
-
-.. class:: LegacySpecifier(specifier, prereleases=None)
-
-    .. deprecated:: 20.5
-
-        Use :class:`Specifier` instead.
-
-    This class abstracts the handling of a single legacy, setuptools style
-    specifier. It is generally not required to instantiate this manually,
-    preferring instead to work with :class:`SpecifierSet`.
-
-    :param str specifier: The string representation of a specifier which will
-                          be parsed and normalized before use.
-    :param bool prereleases: This tells the specifier if it should accept
-                             prerelease versions if applicable or not. The
-                             default of ``None`` will autodetect it from the
-                             given specifiers.
-    :raises InvalidSpecifier: If the ``specifier`` is not parseable then this
-                              will be raised.
 
     .. attribute:: operator
 
