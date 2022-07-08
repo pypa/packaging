@@ -89,8 +89,7 @@ Reference
     .. method:: contains(version, prereleases=None)
 
         Determines if ``version``, which can be either a version string, a
-        :class:`Version`, or a deprecated :class:`LegacyVersion` object, is
-        contained within this set of specifiers.
+        :class:`Version` is contained within this set of specifiers.
 
         This will either match or not match prereleases based on the
         ``prereleases`` parameter. When ``prereleases`` is set to ``None``
@@ -110,9 +109,8 @@ Reference
     .. method:: filter(iterable, prereleases=None)
 
         Takes an iterable that can contain version strings, :class:`~.Version`,
-        and deprecated :class:`~.LegacyVersion` instances and will then filter
-        it, returning an iterable that contains only items which match the
-        rules of this specifier object.
+        instances and will then filter them, returning an iterable that contains
+        only items which match the rules of this specifier object.
 
         This method is smarter than just
         ``filter(Specifier().contains, [...])`` because it implements the rule
