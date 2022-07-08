@@ -341,10 +341,10 @@ class Specifier(_IndividualSpecifier):
                 # You cannot use a wild card and a dev or local version
                 # together so group them with a | and make them optional.
                 (?:
+                    \.\*  # Wild card syntax of .*
+                    |
                     (?:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
                     (?:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
-                    |
-                    \.\*  # Wild card syntax of .*
                 )?
             )
             |
