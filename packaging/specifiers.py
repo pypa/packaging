@@ -3,16 +3,21 @@
 # for complete details.
 
 import abc
-import functools
 import itertools
 import re
 from typing import Callable, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 from .utils import canonicalize_version
-from .version import Version, parse
+from .version import Version
 
 UnparsedVersion = Union[Version, str]
 CallableOperator = Callable[[Version, str], bool]
+
+
+def _coerce_version(version: UnparsedVersion) -> Version:
+    if not isinstance(version, Version):
+        version = Version(version)
+    return version
 
 
 class InvalidSpecifier(ValueError):
@@ -234,11 +239,6 @@ class Specifier(BaseSpecifier):
         )
         return operator_callable
 
-    def _coerce_version(self, version: UnparsedVersion) -> Version:
-        if not isinstance(version, Version):
-            version = parse(version)
-        return version
-
     def _compare_compatible(self, prospective: Version, spec: str) -> bool:
 
         # Compatible releases have an equivalent combination of >= and ==. That
@@ -396,7 +396,7 @@ class Specifier(BaseSpecifier):
 
         # Normalize item to a Version, this allows us to have a shortcut for
         # "2.0" in Specifier(">=2")
-        normalized_item = self._coerce_version(item)
+        normalized_item = _coerce_version(item)
 
         # Determine if we should be supporting prereleases in this specifier
         # or not, if we do not support prereleases than we can short circuit
@@ -421,7 +421,7 @@ class Specifier(BaseSpecifier):
         # Attempt to iterate over all the values in the iterable and if any of
         # them match, yield them.
         for version in iterable:
-            parsed_version = self._coerce_version(version)
+            parsed_version = _coerce_version(version)
 
             if self.contains(parsed_version, **kw):
                 # If our version is a prerelease, and we were not set to allow
@@ -464,7 +464,7 @@ class Specifier(BaseSpecifier):
 
             # Parse the version, and if it is a pre-release than this
             # specifier allows pre-releases.
-            if parse(version).is_prerelease:
+            if Version(version).is_prerelease:
                 return True
 
         return False
@@ -620,7 +620,7 @@ class SpecifierSet(BaseSpecifier):
 
         # Ensure that our item is a Version instance.
         if not isinstance(item, Version):
-            item = parse(item)
+            item = Version(item)
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
@@ -638,7 +638,7 @@ class SpecifierSet(BaseSpecifier):
             return False
 
         if installed and item.is_prerelease:
-            item = parse(item.base_version)
+            item = Version(item.base_version)
 
         # We simply dispatch to the underlying specs here to make sure that the
         # given version is contained within all of them.
@@ -670,15 +670,8 @@ class SpecifierSet(BaseSpecifier):
             filtered: List[UnparsedVersion] = []
             found_prereleases: List[UnparsedVersion] = []
 
-            item: UnparsedVersion
-            parsed_version: Version
-
             for item in iterable:
-                # Ensure that we some kind of Version class for this item.
-                if not isinstance(item, Version):
-                    parsed_version = parse(item)
-                else:
-                    parsed_version = item
+                parsed_version = _coerce_version(item)
 
                 # Store any item which is a pre-release for later unless we've
                 # already found a final version or we are accepting prereleases
