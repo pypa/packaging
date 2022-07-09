@@ -1,11 +1,13 @@
 Version Handling
 ================
 
-.. currentmodule:: packaging.version
-
 A core requirement of dealing with packages is the ability to work with
-versions. `PEP 440`_ defines the standard version scheme for Python packages
-which has been implemented by this module.
+versions.
+
+See `Version Specifiers Specification`_ for more details on the exact
+format implemented in this module, for use in Python Packaging tooling.
+
+.. _Version Specifiers Specification: https://packaging.python.org/en/latest/specifications/version-specifiers/
 
 Usage
 -----
@@ -47,112 +49,6 @@ Usage
 Reference
 ---------
 
-.. function:: parse(version)
-
-    This function takes a version string and will parse it as a
-    :class:`Version` if the version is a valid PEP 440 version.
-    Otherwise, raises :class:`InvalidVersion`.
-
-
-.. class:: Version(version)
-
-    This class abstracts handling of a project's versions. It implements the
-    scheme defined in `PEP 440`_. A :class:`Version` instance is comparison
-    aware and can be compared and sorted using the standard Python interfaces.
-
-    :param str version: The string representation of a version which will be
-                        parsed and normalized before use.
-    :raises InvalidVersion: If the ``version`` does not conform to PEP 440 in
-                            any way then this exception will be raised.
-
-    .. attribute:: public
-
-        A string representing the public version portion of this ``Version()``.
-
-    .. attribute:: base_version
-
-        A string representing the base version of this :class:`Version`
-        instance. The base version is the public version of the project without
-        any pre or post release markers.
-
-    .. attribute:: epoch
-
-        An integer giving the version epoch of this :class:`Version` instance
-
-    .. attribute:: release
-
-        A tuple of integers giving the components of the release segment of
-        this :class:`Version` instance; that is, the ``1.2.3`` part of the
-        version number, including trailing zeroes but not including the epoch
-        or any prerelease/development/postrelease suffixes
-
-    .. attribute:: major
-
-        An integer representing the first item of :attr:`release` or ``0`` if unavailable.
-
-    .. attribute:: minor
-
-        An integer representing the second item of :attr:`release` or ``0`` if unavailable.
-
-    .. attribute:: micro
-
-        An integer representing the third item of :attr:`release` or ``0`` if unavailable.
-
-    .. attribute:: local
-
-        A string representing the local version portion of this ``Version()``
-        if it has one, or ``None`` otherwise.
-
-    .. attribute:: pre
-
-        If this :class:`Version` instance represents a prerelease, this
-        attribute will be a pair of the prerelease phase (the string ``"a"``,
-        ``"b"``, or ``"rc"``) and the prerelease number (an integer).  If this
-        instance is not a prerelease, the attribute will be `None`.
-
-    .. attribute:: is_prerelease
-
-        A boolean value indicating whether this :class:`Version` instance
-        represents a prerelease and/or development release.
-
-    .. attribute:: dev
-
-        If this :class:`Version` instance represents a development release,
-        this attribute will be the development release number (an integer);
-        otherwise, it will be `None`.
-
-    .. attribute:: is_devrelease
-
-        A boolean value indicating whether this :class:`Version` instance
-        represents a development release.
-
-    .. attribute:: post
-
-        If this :class:`Version` instance represents a postrelease, this
-        attribute will be the postrelease number (an integer); otherwise, it
-        will be `None`.
-
-    .. attribute:: is_postrelease
-
-        A boolean value indicating whether this :class:`Version` instance
-        represents a post-release.
-
-
-.. exception:: InvalidVersion
-
-    Raised when attempting to create a :class:`Version` with a version string
-    that does not conform to `PEP 440`_.
-
-
-.. data:: VERSION_PATTERN
-
-    A string containing the regular expression used to match a valid version.
-    The pattern is not anchored at either end, and is intended for embedding
-    in larger expressions (for example, matching a version number as part of
-    a file name). The regular expression should be compiled with the
-    ``re.VERBOSE`` and ``re.IGNORECASE`` flags set.
-
-
-.. _PEP 440: https://www.python.org/dev/peps/pep-0440/
-.. _Pre-release spelling : https://www.python.org/dev/peps/pep-0440/#pre-release-spelling
-.. _Post-release spelling : https://www.python.org/dev/peps/pep-0440/#post-release-spelling
+.. automodule:: packaging.version
+    :members:
+    :special-members:
