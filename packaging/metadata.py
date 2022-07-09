@@ -1,15 +1,10 @@
-from __future__ import annotations
-
 import enum
-from collections.abc import Iterable
-from typing import Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
-from . import (  # Alt name avoids shadowing.
-    requirements,
-    specifiers,
-    utils,
-    version as packaging_version,
-)
+from .requirements import Requirement
+from .specifiers import SpecifierSet
+from .utils import NormalizedName, canonicalize_name
+from .version import Version
 
 # Type aliases.
 _NameAndEmail = Tuple[Optional[str], str]
@@ -18,11 +13,13 @@ _LabelAndURL = Tuple[str, str]
 
 @enum.unique
 class DynamicField(enum.Enum):
-
     """
-    Field names for the `dynamic` field.
+    An :class:`enum.Enum` representing fields which can be listed in the ``Dynamic``
+    field of `core metadata`_. Every valid field is a name on this enum,
+    upper-cased with any ``-`` replaced with ``_``.
 
-    All values are lower-cased for easy comparison.
+    Each value is the field name lower-cased (``-`` are kept). For example, the
+    ``Home-page`` field has a name of ``HOME_PAGE`` and a value of ``home-page``.
     """
 
     # `Name`, `Version`, and `Metadata-Version` are invalid in `Dynamic`.
@@ -54,77 +51,108 @@ class DynamicField(enum.Enum):
 
 
 class Metadata:
+    """A class representing the `Core Metadata`_ for a project.
 
-    """
-    A representation of core metadata.
+    Every potential metadata field except for ``Metadata-Version`` is represented by a
+    parameter to the class' constructor. The required metadata can be passed in
+    positionally or via keyword, while all optional metadata can only be passed in via
+    keyword.
+
+    Every parameter has a matching attribute on instances, except for *name* (see
+    :attr:`display_name` and :attr:`canonical_name`). Any parameter that accepts an
+    :class:`~collections.abc.Iterable` is represented as a :class:`list` on the
+    corresponding attribute.
     """
 
     # A property named `display_name` exposes the value.
     _display_name: str
     # A property named `canonical_name` exposes the value.
-    _canonical_name: utils.NormalizedName
-    version: packaging_version.Version
-    platforms: list[str]
+    _canonical_name: NormalizedName
+    version: Version
+    platforms: List[str]
     summary: str
     description: str
-    keywords: list[str]
+    keywords: List[str]
     home_page: str
     author: str
-    author_emails: list[_NameAndEmail]
+    author_emails: List[_NameAndEmail]
     license: str
-    supported_platforms: list[str]
+    supported_platforms: List[str]
     download_url: str
-    classifiers: list[str]
+    classifiers: List[str]
     maintainer: str
-    maintainer_emails: list[_NameAndEmail]
-    requires_dists: list[requirements.Requirement]
-    requires_python: specifiers.SpecifierSet
-    requires_externals: list[str]
-    project_urls: list[_LabelAndURL]
-    provides_dists: list[str]
-    obsoletes_dists: list[str]
+    maintainer_emails: List[_NameAndEmail]
+    requires_dists: List[Requirement]
+    requires_python: SpecifierSet
+    requires_externals: List[str]
+    project_urls: List[_LabelAndURL]
+    provides_dists: List[str]
+    obsoletes_dists: List[str]
     description_content_type: str
-    provides_extras: list[utils.NormalizedName]
-    dynamic_fields: list[DynamicField]
+    provides_extras: List[NormalizedName]
+    dynamic_fields: List[DynamicField]
 
     def __init__(
         self,
         name: str,
-        version: packaging_version.Version,
+        version: Version,
         *,
         # 1.0
-        platforms: Iterable[str] | None = None,
-        summary: str | None = None,
-        description: str | None = None,
-        keywords: Iterable[str] | None = None,
-        home_page: str | None = None,
-        author: str | None = None,
-        author_emails: Iterable[_NameAndEmail] | None = None,
-        license: str | None = None,
+        platforms: Optional[Iterable[str]] = None,
+        summary: Optional[str] = None,
+        description: Optional[str] = None,
+        keywords: Optional[Iterable[str]] = None,
+        home_page: Optional[str] = None,
+        author: Optional[str] = None,
+        author_emails: Optional[Iterable[_NameAndEmail]] = None,
+        license: Optional[str] = None,
         # 1.1
-        supported_platforms: Iterable[str] | None = None,
-        download_url: str | None = None,
-        classifiers: Iterable[str] | None = None,
+        supported_platforms: Optional[Iterable[str]] = None,
+        download_url: Optional[str] = None,
+        classifiers: Optional[Iterable[str]] = None,
         # 1.2
-        maintainer: str | None = None,
-        maintainer_emails: Iterable[_NameAndEmail] | None = None,
-        requires_dists: Iterable[requirements.Requirement] | None = None,
-        requires_python: specifiers.SpecifierSet | None = None,
-        requires_externals: Iterable[str] | None = None,
-        project_urls: Iterable[_LabelAndURL] | None = None,
-        provides_dists: Iterable[str] | None = None,
-        obsoletes_dists: Iterable[str] | None = None,
+        maintainer: Optional[str] = None,
+        maintainer_emails: Optional[Iterable[_NameAndEmail]] = None,
+        requires_dists: Optional[Iterable[Requirement]] = None,
+        requires_python: Optional[SpecifierSet] = None,
+        requires_externals: Optional[Iterable[str]] = None,
+        project_urls: Optional[Iterable[_LabelAndURL]] = None,
+        provides_dists: Optional[Iterable[str]] = None,
+        obsoletes_dists: Optional[Iterable[str]] = None,
         # 2.1
-        description_content_type: str | None = None,
-        provides_extras: Iterable[utils.NormalizedName] | None = None,
+        description_content_type: Optional[str] = None,
+        provides_extras: Optional[Iterable[NormalizedName]] = None,
         # 2.2
-        dynamic_fields: Iterable[DynamicField] | None = None,
+        dynamic_fields: Optional[Iterable[DynamicField]] = None,
     ) -> None:
-        """
-        Set all attributes on the instance.
+        """Initialize a Metadata object.
 
-        An argument of `None` will be converted to an appropriate, false-y value
-        (e.g. the empty string).
+        The parameters all correspond to fields in `Core Metadata`_.
+
+        :param name: ``Name``
+        :param version: ``Version``
+        :param platforms: ``Platform``
+        :param summary: ``Summary``
+        :param description: ``Description``
+        :param keywords: ``Keywords``
+        :param home_page: ``Home-Page``
+        :param author: ``Author``
+        :param author_emails: ``Author-Email`` (two-item tuple represent the name and email of the author)
+        :param license: ``License``
+        :param supported_platforms: ``Supported-Platform``
+        :param download_url: ``Download-URL``
+        :param classifiers: ``Classifier``
+        :param maintainer: ``Maintainer``
+        :param maintainer_emails: ``Maintainer-Email`` (two-item tuple represent the name and email of the maintainer)
+        :param requires_dists: ``Requires-Dist``
+        :param SpecifierSet requires_python: ``Requires-Python``
+        :param requires_externals: ``Requires-External``
+        :param project_urls: ``Project-URL``
+        :param provides_dists: ``Provides-Dist``
+        :param obsoletes_dists: ``Obsoletes-Dist``
+        :param description_content_type: ``Description-Content-Type``
+        :param provides_extras: ``Provides-Extra``
+        :param dynamic_fields: ``Dynamic``
         """
         self.display_name = name
         self.version = version
@@ -142,7 +170,7 @@ class Metadata:
         self.maintainer = maintainer or ""
         self.maintainer_emails = list(maintainer_emails or [])
         self.requires_dists = list(requires_dists or [])
-        self.requires_python = requires_python or specifiers.SpecifierSet()
+        self.requires_python = requires_python or SpecifierSet()
         self.requires_externals = list(requires_externals or [])
         self.project_urls = list(project_urls or [])
         self.provides_dists = list(provides_dists or [])
@@ -153,18 +181,27 @@ class Metadata:
 
     @property
     def display_name(self) -> str:
+        """
+        The project name to be displayed to users (i.e. not normalized). Initially
+        set based on the `name` parameter.
+
+        Setting this attribute will also update :attr:`canonical_name`.
+        """
         return self._display_name
 
     @display_name.setter
     def display_name(self, value: str) -> None:
-        """
-        Set the value for self.display_name and self.canonical_name.
-        """
         self._display_name = value
-        self._canonical_name = utils.canonicalize_name(value)
+        self._canonical_name = canonicalize_name(value)
 
     # Use functools.cached_property once Python 3.7 support is dropped.
     # Value is set by self.display_name.setter to keep in sync with self.display_name.
     @property
-    def canonical_name(self) -> utils.NormalizedName:
+    def canonical_name(self) -> NormalizedName:
+        """
+        The normalized project name as per :func:`packaging.utils.canonicalize_name`.
+
+        The attribute is read-only and automatically calculated based on the value of
+        :attr:`display_name`.
+        """
         return self._canonical_name
