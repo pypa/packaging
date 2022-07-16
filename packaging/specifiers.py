@@ -823,6 +823,9 @@ class SpecifierSet(BaseSpecifier):
         """
         Returns an iterator over all the underlying :class:`Specifier` instances
         in this specifier set.
+
+        >>> list(SpecifierSet(">=1.0.0,!=1.0.1"))
+        [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
         """
         return iter(self._specs)
 
