@@ -4,8 +4,7 @@ import email.message
 import email.parser
 import email.policy
 import json
-from typing import Any, TypedDict, Union, cast
-
+from typing import Any, Dict, List, Tuple, TypedDict, Union, cast
 
 __all__ = ["RawMetadata", "parse_email", "parse_json"]
 
@@ -22,32 +21,32 @@ class RawMetadata(TypedDict, total=False):
     metadata_version: str
     name: str
     version: str
-    platforms: list[str]
+    platforms: List[str]
     summary: str
     description: str
-    keywords: list[str]
+    keywords: List[str]
     home_page: str
     author: str
     author_email: str
     license: str
 
     # Metadata 1.1 - PEP 314
-    supported_platforms: list[str]
+    supported_platforms: List[str]
     download_url: str
-    classifiers: list[str]
-    requires: list[str]
-    provides: list[str]
-    obsoletes: list[str]
+    classifiers: List[str]
+    requires: List[str]
+    provides: List[str]
+    obsoletes: List[str]
 
     # Metadata 1.2 - PEP 345
     maintainer: str
     maintainer_email: str
-    requires_dist: list[str]
-    provides_dist: list[str]
-    obsoletes_dist: list[str]
+    requires_dist: List[str]
+    provides_dist: List[str]
+    obsoletes_dist: List[str]
     requires_python: str
-    requires_external: list[str]
-    project_urls: dict[str, str]
+    requires_external: List[str]
+    project_urls: Dict[str, str]
 
     # Metadata 2.0
     # PEP 426 attempted to completely revamp the metadata format
@@ -60,10 +59,10 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.1 - PEP 566
     description_content_type: str
-    provides_extra: list[str]
+    provides_extra: List[str]
 
     # Metadata 2.2 - PEP 643
-    dynamic: list[str]
+    dynamic: List[str]
 
     # Metadata 2.3 - PEP 685
     # No new fields were added in PEP 685, just some edge case were
@@ -106,11 +105,11 @@ _LIST_STRING_FIELDS = {
 # multiple parse_FORMAT functions
 
 
-def _parse_keywords(data: str) -> list[str]:
+def _parse_keywords(data: str) -> List[str]:
     return [k.strip() for k in data.split(",")]
 
 
-def _parse_project_urls(data: list[str]) -> dict[str, str]:
+def _parse_project_urls(data: List[str]) -> Dict[str, str]:
     urls = {}
     for pair in data:
         # Our logic is slightly tricky here as we want to try and do
@@ -193,9 +192,9 @@ _EMAIL_FIELD_MAPPING = {
 }
 
 
-def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
-    raw: dict[str, Any] = {}
-    unparsed: dict[Any, Any] = {}
+def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[Any, Any]]:
+    raw: Dict[str, Any] = {}
+    unparsed: Dict[Any, Any] = {}
 
     if isinstance(data, str):
         parsed = email.parser.Parser(policy=email.policy.compat32).parsestr(data)
@@ -382,9 +381,9 @@ _JSON_FIELD_MAPPING = {
 }
 
 
-def parse_json(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
-    raw: dict[Any, Any] = {}
-    unparsed: dict[Any, Any] = {}
+def parse_json(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[Any, Any]]:
+    raw: Dict[Any, Any] = {}
+    unparsed: Dict[Any, Any] = {}
     parsed = json.loads(data)
 
     # We need to make sure that the data given to us actually implements
@@ -413,7 +412,7 @@ def parse_json(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
             and isinstance(value, list)
             and all(isinstance(v, str) for v in value)
         ):
-            raw[raw_name] = cast(list[str], value)
+            raw[raw_name] = cast(List[str], value)
         # Special Case: Keywords
         # The keywords field is implemented in the metadata spec as a str,
         # but it conceptually is a list of strings. Interestingly, the
@@ -463,14 +462,14 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
     # If our source is a str, then our caller has managed encodings for us,
     # and we don't need to deal with it.
     if isinstance(source, str):
-        payload: Union[list[str], str] = msg.get_payload()
+        payload: Union[List[str], str] = msg.get_payload()
         if isinstance(payload, list):
             raise ValueError("payload is a multipart")
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
     else:
-        bpayload: Union[list[bytes], bytes] = msg.get_payload(decode=True)
+        bpayload: Union[List[bytes], bytes] = msg.get_payload(decode=True)
         if isinstance(bpayload, list):
             raise ValueError("payload is a multipart")
 
