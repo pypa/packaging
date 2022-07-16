@@ -1,7 +1,9 @@
 Welcome to packaging
 ====================
 
-Core utilities for Python packages
+.. include:: ../README.rst
+   :start-after: start-intro
+   :end-before: end-intro
 
 
 Installation
@@ -14,25 +16,23 @@ You can install packaging with ``pip``:
     $ pip install packaging
 
 
-API
----
-
 .. toctree::
     :maxdepth: 1
+    :caption: API Documentation
+    :hidden:
 
     version
     specifiers
     markers
     requirements
     tags
+    metadata
     utils
-
-
-Project
--------
 
 .. toctree::
     :maxdepth: 2
+    :caption: Project
+    :hidden:
 
     development/index
     security

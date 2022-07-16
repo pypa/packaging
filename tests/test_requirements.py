@@ -1,13 +1,11 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-from __future__ import absolute_import, division, print_function
 
 import pytest
 
 from packaging.markers import Marker
-from packaging.requirements import InvalidRequirement, Requirement, URL
-from packaging.requirements import URL_AND_MARKER
+from packaging.requirements import URL, URL_AND_MARKER, InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 
 
@@ -62,14 +60,12 @@ class TestRequirements:
         self._assert_requirement(req, "name", specifier=">=3")
 
     def test_with_legacy_version(self):
-        req = Requirement("name==1.0.org1")
-        self._assert_requirement(req, "name", specifier="==1.0.org1")
+        with pytest.raises(InvalidRequirement):
+            Requirement("name==1.0.org1")
 
     def test_with_legacy_version_and_marker(self):
-        req = Requirement("name>=1.x.y;python_version=='2.6'")
-        self._assert_requirement(
-            req, "name", specifier=">=1.x.y", marker='python_version == "2.6"'
-        )
+        with pytest.raises(InvalidRequirement):
+            Requirement("name>=1.x.y;python_version=='2.6'")
 
     def test_version_with_parens_and_whitespace(self):
         req = Requirement("name (==4)")
@@ -142,7 +138,7 @@ class TestRequirements:
         marker = 'python_version < "2.7" and platform_version == "2"'
         self._assert_requirement(req, "name", extras=["strange", "quux"], marker=marker)
 
-    def test_multiple_comparsion_markers(self):
+    def test_multiple_comparison_markers(self):
         req = Requirement("name; os_name=='a' and os_name=='b' or os_name=='c'")
         marker = 'os_name == "a" and os_name == "b" or os_name == "c"'
         self._assert_requirement(req, "name", marker=marker)
@@ -194,4 +190,60 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-        assert "Expected stringEnd" in str(e.value)
+        assert "Expected stringEnd" in str(e.value) or (
+            "Expected string_end" in str(e.value)  # pyparsing>=3.0.0
+        )
+
+    EQUAL_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>20.1"),
+        (
+            'requests[security, tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1, == 2.8.* ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.8'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'testing'",
+        ),
+    ]
+
+    DIFFERENT_DEPENDENCIES = [
+        ("packaging>20.1", "packaging>=20.1"),
+        ("packaging>20.1", "packaging>21.1"),
+        ("packaging>20.1", "package>20.1"),
+        (
+            'requests[security,tests]>=2.8.1,==2.8.*;python_version<"2.7"',
+            'requests [security,tests] >= 2.8.1 ; python_version < "2.7"',
+        ),
+        (
+            'importlib-metadata; python_version<"3.8"',
+            "importlib-metadata; python_version<'3.7'",
+        ),
+        (
+            'appdirs>=1.4.4,<2; os_name=="posix" and extra=="testing"',
+            "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'docs'",
+        ),
+    ]
+
+    @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
+    def test_equal_reqs_equal_hashes(self, dep1, dep2):
+        # Requirement objects created from equivalent strings should be equal.
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 == req2
+        # Equal Requirement objects should have the same hash.
+        assert hash(req1) == hash(req2)
+
+    @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
+    def test_different_reqs_different_hashes(self, dep1, dep2):
+        # Requirement objects created from non-equivalent strings should differ.
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+        assert req1 != req2
+        # Different Requirement objects should have different hashes.
+        assert hash(req1) != hash(req2)
+
+    def test_compare_reqs_to_other_objects(self):
+        # Requirement objects should not be comparable to other kinds of objects.
+        assert Requirement("packaging>=21.3") != "packaging>=21.3"
