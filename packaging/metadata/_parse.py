@@ -2,6 +2,7 @@ import email.feedparser
 import email.header
 import email.parser
 import email.policy
+import email.message
 import json
 from typing import Any, TypedDict, Union, cast
 
@@ -293,28 +294,17 @@ def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     # addition to getting it from the the headers, but since Description is
     # conceptually a string, if it's already been set from headers then we'll
     # clear it out move them both to unparsed.
-    #
-    # It's possible that someone has messed up and given us a multipart body,
-    # in which case we'll move the entire body to the unparsed dictionary.
-    if parsed.is_multipart():
-        unparsed["Description"] = parsed.get_payload(decode=True)
-    # We know we'll get a single bytes object out of this, so now we just need
-    # to deal with encodings.
+    try:
+        payload = _get_payload(parsed, data)
+    except ValueError:
+        unparsed["Description"] = parsed.get_payload(decode=isinstance(data, bytes))
     else:
-        bpayload = parsed.get_payload(decode=True)
-        assert isinstance(bpayload, bytes)
-
-        try:
-            payload = bpayload.decode("utf", "strict")
-        except UnicodeDecodeError:
-            unparsed["Description"] = bpayload
+        # Check to see if we've already got a description, if so then both
+        # it, and this body move to unparseable.
+        if "description" in raw:
+            unparsed["Description"] = [raw.pop("description"), payload]
         else:
-            # Check to see if we've already got a description, if so then both
-            # it, and this body move to unparseable.
-            if "description" in raw:
-                unparsed["Description"] = [raw.pop("description"), payload]
-            else:
-                raw["description"] = payload
+            raw["description"] = payload
 
     # We need to cast our `raw` to a metadata, because a TypedDict only support
     # literal key names, but we're computing our key names on purpose, but the
@@ -430,3 +420,24 @@ def parse_json(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     # way this function is implemented, our `TypedDict` can only have valid key
     # names.
     return cast(RawMetadata, raw), unparsed
+
+
+def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
+    # If our source is a str, then our caller has managed encodings for us,
+    # and we don't need to deal with it.
+    if isinstance(source, str):
+        payload: Union[list[str], str] = msg.get_payload()
+        if isinstance(payload, list):
+            raise ValueError("payload is a multipart")
+        return payload
+    # If our source is a bytes, then we're managing the encoding and we need
+    # to deal with it.
+    else:
+        bpayload: Union[list[bytes], bytes] = msg.get_payload(decode=True)
+        if isinstance(bpayload, list):
+            raise ValueError("payload is a multipart")
+
+        try:
+            return bpayload.decode("utf8", "strict")
+        except UnicodeDecodeError:
+            raise ValueError("payload in an invalid encoding")
