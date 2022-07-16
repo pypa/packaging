@@ -15,60 +15,88 @@ from typing import Any, TypedDict, Union, cast
 # but that map can be easily implemented as a list of strings)
 # then we can support serializing to and from that format.
 class RawMetadata(TypedDict, total=False):
+    # Metadata 1.0 - PEP 241
     metadata_version: str
     name: str
     version: str
-    dynamic: list[str]
     platforms: list[str]
-    supported_platforms: list[str]
     summary: str
     description: str
-    description_content_type: str
     keywords: list[str]
     home_page: str
-    download_url: str
     author: str
     author_email: str
+    license: str
+
+    # Metadata 1.1 - PEP 314
+    supported_platforms: list[str]
+    download_url: str
+    classifiers: list[str]
+    requires: list[str]
+    provides: list[str]
+    obsoletes: list[str]
+
+    # Metadata 1.2 - PEP 345
     maintainer: str
     maintainer_email: str
-    license: str
-    classifiers: list[str]
     requires_dist: list[str]
+    provides_dist: list[str]
+    obsoletes_dist: list[str]
     requires_python: str
     requires_external: list[str]
     project_urls: dict[str, str]
+
+    # Metadata 2.0
+    # PEP 426 attempted to completely revamp the metadata format
+    # but got stuck without ever being able to build consensus on
+    # it and ultimately ended up withdrawn.
+    #
+    # However, a number of tools had started emiting METADATA with
+    # `2.0` Metadata-Version, so for historical reasons, this version
+    # was skipped.
+
+    # Metadata 2.1 - PEP 566
+    description_content_type: str
     provides_extra: list[str]
-    provides_dist: list[str]
-    obsoletes_dist: list[str]
+
+    # Metadata 2.2 - PEP 643
+    dynamic: list[str]
+
+    # Metadata 2.3 - PEP 685
+    # No new fields were added in PEP 685, just some edge case were
+    # tightened up to provide better interoptability.
 
 
 _STRING_FIELDS = {
-    "metadata_version",
-    "name",
-    "version",
-    "summary",
-    "description",
-    "description_content_type",
-    "home_page",
-    "download_url",
     "author",
     "author_email",
+    "description",
+    "description_content_type",
+    "download_url",
+    "home_page",
+    "license",
     "maintainer",
     "maintainer_email",
-    "license",
+    "metadata_version",
+    "name",
     "requires_python",
+    "summary",
+    "version",
 }
 
 _LIST_STRING_FIELDS = {
-    "dynamic",
-    "platforms",
-    "supported_platforms",
     "classifiers",
+    "dynamic",
+    "obsoletes",
+    "obsoletes_dist",
+    "platforms",
+    "provides",
+    "provides_dist",
+    "provides_extra",
+    "requires",
     "requires_dist",
     "requires_external",
-    "provides_extra",
-    "provides_dist",
-    "obsoletes_dist",
+    "supported_platforms",
 }
 
 # General helper functions for parsing some string values for reusing in
@@ -131,31 +159,34 @@ def _parse_project_urls(data: list[str]) -> dict[str, str]:
 
 
 _EMAIL_FIELD_MAPPING = {
-    "metadata-version": "metadata_version",
-    "name": "name",
-    "version": "version",
-    "dynamic": "dynamic",
-    "platform": "platforms",
-    "supported-platform": "supported_platforms",
-    "summary": "summary",
-    "description": "description",
-    "description-content-type": "description_content_type",
-    "keywords": "keywords",
-    "home-page": "home_page",
-    "download-url": "download_url",
     "author": "author",
     "author-email": "author_email",
+    "classifier": "classifiers",
+    "description": "description",
+    "description-content-type": "description_content_type",
+    "download-url": "download_url",
+    "dynamic": "dynamic",
+    "home-page": "home_page",
+    "keywords": "keywords",
+    "license": "license",
     "maintainer": "maintainer",
     "maintainer-email": "maintainer_email",
-    "license": "license",
-    "classifier": "classifiers",
-    "requires-dist": "requires_dist",
-    "requires-python": "requires_python",
-    "requires-external": "requires_external",
-    "project-url": "project_urls",
-    "provides-extra": "provides_extra",
-    "provides-dist": "provides_dist",
+    "metadata-version": "metadata_version",
+    "name": "name",
+    "obsoletes": "obsoletes",
     "obsoletes-dist": "obsoletes_dist",
+    "platform": "platforms",
+    "project-url": "project_urls",
+    "provides": "provides",
+    "provides-dist": "provides_dist",
+    "provides-extra": "provides_extra",
+    "requires": "requires",
+    "requires-dist": "requires_dist",
+    "requires-external": "requires_external",
+    "requires-python": "requires_python",
+    "summary": "summary",
+    "supported-platform": "supported_platforms",
+    "version": "version",
 }
 
 
@@ -317,31 +348,34 @@ def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
 # it is. However, the algorithm in PEP 566 doesn't match 100% the keys chosen
 # for RawMetadata, so we use this mapping just like with email to handle that.
 _JSON_FIELD_MAPPING = {
-    "metadata_version": "metadata_version",
-    "name": "name",
-    "version": "version",
-    "dynamic": "dynamic",
-    "platform": "platforms",
-    "supported_platform": "supported_platforms",
-    "summary": "summary",
-    "description": "description",
-    "description_content_type": "description_content_type",
-    "keywords": "keywords",
-    "home_page": "home_page",
-    "download_url": "download_url",
     "author": "author",
     "author_email": "author_email",
+    "classifier": "classifiers",
+    "description": "description",
+    "description_content_type": "description_content_type",
+    "download_url": "download_url",
+    "dynamic": "dynamic",
+    "home_page": "home_page",
+    "keywords": "keywords",
+    "license": "license",
     "maintainer": "maintainer",
     "maintainer_email": "maintainer_email",
-    "license": "license",
-    "classifier": "classifiers",
-    "requires_dist": "requires_dist",
-    "requires_python": "requires_python",
-    "requires_external": "requires_external",
-    "project_url": "project_urls",
-    "provides_extra": "provides_extra",
-    "provides_dist": "provides_dist",
+    "metadata_version": "metadata_version",
+    "name": "name",
+    "obsoletes": "obsoletes",
     "obsoletes_dist": "obsoletes_dist",
+    "platform": "platforms",
+    "project_url": "project_urls",
+    "provides": "provides",
+    "provides_dist": "provides_dist",
+    "provides_extra": "provides_extra",
+    "requires": "requires",
+    "requires_dist": "requires_dist",
+    "requires_external": "requires_external",
+    "requires_python": "requires_python",
+    "summary": "summary",
+    "supported_platform": "supported_platforms",
+    "version": "version",
 }
 
 
