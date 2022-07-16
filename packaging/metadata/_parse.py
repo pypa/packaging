@@ -2,7 +2,7 @@ import email.feedparser
 import email.parser
 import email.policy
 import json
-from typing import Any, TypedDict, cast
+from typing import Any, TypedDict, Union, cast
 
 
 # The RawMetadata class attempts to make as few assumptions about
@@ -156,7 +156,7 @@ _EMAIL_FIELD_MAPPING = {
 }
 
 
-def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[Any, Any]]:
+def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     raw = {}
     unparsed: dict[Any, Any] = {}
 
@@ -395,7 +395,7 @@ _JSON_FIELD_MAPPING = {
 }
 
 
-def parse_json(data: bytes | str) -> tuple[RawMetadata, dict[Any, Any]]:
+def parse_json(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     raw: dict[Any, Any] = {}
     unparsed: dict[Any, Any] = {}
     parsed = json.loads(data)
