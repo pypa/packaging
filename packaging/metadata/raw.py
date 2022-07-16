@@ -7,6 +7,9 @@ import json
 from typing import Any, TypedDict, Union, cast
 
 
+__all__ = ["RawMetadata", "parse_email", "parse_json"]
+
+
 # The RawMetadata class attempts to make as few assumptions about
 # the underlying serialization formats as possible, these could
 # possibly serialize in an entirely different way, but the idea
