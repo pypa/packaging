@@ -1,9 +1,8 @@
-import json
 import email.feedparser
 import email.parser
 import email.policy
-
-from typing import Any, Optional, TypedDict, cast
+import json
+from typing import Any, TypedDict, cast
 
 
 # The RawMetadata class attempts to make as few assumptions about
