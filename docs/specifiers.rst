@@ -111,7 +111,10 @@ Reference
     .. method:: __iter__()
 
         Returns an iterator over all the underlying :class:`Specifier` (or
-        deprecated :class:`LegacySpecifier`) instances in this specifier set.
+        deprecated :class:`LegacySpecifier`) instances in this specifier set::
+
+            >>> list(SpecifierSet(">=1.0, <1.1"))
+            [<Specifier('<1.1')>, <Specifier('>=1.0')>]
 
     .. method:: filter(iterable, prereleases=None)
 
