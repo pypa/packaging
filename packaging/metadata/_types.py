@@ -4,7 +4,7 @@ import enum
 from collections.abc import Iterable
 from typing import Optional, Tuple
 
-from . import (  # Alt name avoids shadowing.
+from .. import (  # Alt name avoids shadowing.
     requirements,
     specifiers,
     utils,
