@@ -1,8 +1,8 @@
 import email.feedparser
 import email.header
+import email.message
 import email.parser
 import email.policy
-import email.message
 import json
 from typing import Any, TypedDict, Union, cast
 
