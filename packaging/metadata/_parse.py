@@ -1,4 +1,5 @@
 import email.feedparser
+import email.header
 import email.parser
 import email.policy
 import json
@@ -157,116 +158,13 @@ _EMAIL_FIELD_MAPPING = {
 
 
 def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
-    raw = {}
+    raw: dict[str, Any] = {}
     unparsed: dict[Any, Any] = {}
 
     if isinstance(data, str):
         parsed = email.parser.Parser(policy=email.policy.compat32).parsestr(data)
     else:
-        # In theory we could use the BytesParser from email.parser, but that has
-        # several problems that this method solves:
-        #
-        # 1. BytesParser (and BytesFeedParser) hard codes an assumption that the
-        #    bytes are encoded as ascii (with a surrogateescape handler), but
-        #    the packaging specifications explicitly have decided that our specs
-        #    are in UTF8, not ascii.
-        # 2. We could work around (1) by just decoding the bytes using utf8 ourself
-        #    and then pass it into Parser, which we *could* do, however we're
-        #    attempting to be lenient with this method to enable someone to usee
-        #    this class to parse as much as possible while ignoring any errors that
-        #    do come from it.
-        #
-        #    So we'll want to break our bytes up into a list of headers followed up
-        #    by the message body.
-        #
-        #    Unfortunately, doing this is impossible without lightly parsing the
-        #    RFC 822 format ourselves, which is not the most straightforward thing
-        #    primarily because of a few concerns:
-        #
-        #    1. Conceptually RFC 822 messages is a format where you emit all of the
-        #       headers first, one per line, then a blank line, then the body of the
-        #       message. But it has the ability to "fold" a long header line across
-        #       multiple lines, so to correctly do decoding on a field by field basis
-        #       we will have to take this folding into account (but we do not need to
-        #       actually implement the unfolding, we just want to make sure we have
-        #       the entire logical "line" for that header).
-        #    2. The message body isn't part of a normal field, it's effectively a
-        #       a blank header field, then everythig else is part of the body.
-        #    3. If a particular field can't be decoded using utf8, then we want to
-        #       treat that field as unparseable, but getting the name out of that field
-        #       requires implementing (more) of RFC 822 ourselves, though it's a pretty
-        #       straight forward part.
-        #    4. RFC 822 very specifically calls out CRLF as the line endings, but the
-        #       python stdlib email.parser supports CRLF or LF, and in practice the
-        #       core metadata specs are emiting METADATA files using LF only.
-        #
-        # TODO: Is doing this unconditionally for `bytes` the best idea here? Another
-        #       option is to provide a helper function that will produce a possibly
-        #       mojibaked string, and expect people who want per field decoding
-        #       leniency to manually decode bytes using that method instead.
-        parser = email.feedparser.FeedParser(policy=email.policy.compat32)
-
-        # We don't use splitlines here, because it splits on a lot more different
-        # types of line endings than we want to split on. Since in practice we
-        # have to support just LF, we can just split on that, and do our decoding
-        # and let the FeedParser deal with sorting out if it should be CRLF or LF.
-        buf = b""
-        in_body = False
-        for line in data.split(b"\n"):
-            # Put our LF back onto our line that the call to .split() removed.
-            line = line + b"\n"
-
-            # If we're in the body of our message, line continuation no longer matters
-            # and we can just buffer the entire body so we can attempt to decode it
-            # all at once.
-            if in_body:
-                buf += line
-                continue
-
-            # Continuation lines always start with LWSP, so we'll check to if we have
-            # any data to parse and if so, if this is NOT a continuation line, if it's
-            # not then we've finished reading the previous logical line, and we need
-            # to decode it and pass it into the FeedParser.
-            if buf and line[:1] not in {b" ", b"\t"}:
-                try:
-                    encoded = buf.decode("utf8", "strict")
-                except UnicodeDecodeError:
-                    # If we've gotten here, then we can't actually determine what
-                    # encoding this line is in, so we'll try to pull a header key
-                    # out of it to give us something to put into our unparsed data.
-                    parts = buf.split(b":", 1)
-                    parts.extend([b""] * (max(0, 2 - len(parts))))  # Ensure 2 items
-
-                    # We're leaving this data as bytes and we're also leaving it folded,
-                    # if the caller wants to attempt to parse something out of this
-                    unparsed[parts[0]] = parts[1]
-                else:
-                    parser.feed(encoded)
-
-                # Either way, this logical line has been handled, so we'll reset our
-                # buffer and keep going.
-                buf = b""
-
-            # Check to see if this line is the "blank" line that signals the end
-            # of the header data and the start of the body data.
-            if line in {b"\n", b"\r\n"}:
-                parser.feed(line.decode("utf8", "strict"))
-                in_body = True
-            # More header data, add it to our buffer
-            else:
-                buf += line
-
-        # At this point, buf should be full of the entire body (if there was one) so
-        # we'll attempt to decode that.
-        try:
-            encoded = buf.decode("utf8", "strict")
-        except UnicodeDecodeError:
-            # Our body isn't valid UTF8, we know what the key name for the Description
-            # is though, so we can just use that
-            unparsed["Description"] = buf
-
-        # Actually consume our data, turning it into our email Message.
-        parsed = parser.close()
+        parsed = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(data)
 
     # We have to wrap parsed.keys() in a set, because in the case of multiple
     # values for a key (a list), the key will appear multiple times in the
@@ -275,7 +173,63 @@ def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
         # We use get_all here, even for fields that aren't multiple use, because
         # otherwise someone could have say, two Name fields, and we would just
         # silently ignore it rather than doing something about it.
-        value = parsed.get_all(name)
+        headers = parsed.get_all(name)
+
+        # The way the email module works when parsing bytes is that it
+        # unconditionally decodes the bytes as ascii, using the surrogateescape
+        # handler, and then when you pull that data back out (such as with get_all)
+        # it looks to see if the str has any surrogate escapes, and if it does
+        # it wraps it in a Header object instead of returning the string.
+        #
+        # So we'll look for those Header objects, and fix up the encoding
+        value = []
+        valid_encoding = True
+        for h in headers:
+            # It's unclear if this can return more types than just a Header or
+            # a str, so we'll just assert here to make sure.
+            assert isinstance(h, (email.header.Header, str))
+
+            # If it's a header object, we need to do our little dance to get
+            # the real data out of it. In cases where there is invalid data
+            # we're going to end up with mojibake, but I don't see a good way
+            # around that without reimplementing parts of the Header object
+            # ourselves.
+            #
+            # That should be fine, since if that happens, this key is going
+            # into the unparsed dict anyways.
+            if isinstance(h, email.header.Header):
+                # The Heade object stores it's data as chunks, and each chunk
+                # can be independently encoded, so we'll need to check each
+                # of them.
+                chunks = []
+                for bin, encoding in email.header.decode_header(h):
+                    # This means it found a surrogate escape, that could be
+                    # valid data (if the source was utf8), or invalid.
+                    if encoding == "unknown-8bit":
+                        try:
+                            bin.decode("utf8", "strict")
+                        except UnicodeDecodeError:
+                            # Enable mojibake
+                            encoding = "latin1"
+                            valid_encoding = False
+                        else:
+                            encoding = "utf8"
+                    chunks.append((bin, encoding))
+
+                # Turn our chunks back into a Header object, then let that
+                # Header object do the right thing to turn them into a
+                # string for us.
+                value.append(str(email.header.make_header(chunks)))
+            # This is already a string, so just add it
+            else:
+                value.append(h)
+
+        # We've processed all of our values to get them into a list of str,
+        # but we may have mojibake data, in which case this is an unparsed
+        # field.
+        if not valid_encoding:
+            unparsed[name] = value
+            continue
 
         raw_name = _EMAIL_FIELD_MAPPING.get(name)
         if raw_name is None:
@@ -335,26 +289,27 @@ def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     # conceptually a string, if it's already been set from headers then we'll
     # clear it out move them both to unparsed.
     #
-    # NOTE: For whatever reason, this will return a list of strings if the
-    #       message is in mutlipart format, otherwise it will return a single
-    #       string. The list format would be an unparseable error.
-    payload = parsed.get_payload()
-    if payload:
-        # Check to see if we've got duplicated values, if so remove the
-        # parsed one and move to unparsed.
-        if "description" in raw:
-            unparsed["Description"] = [raw.pop("description")]
-            if isinstance(payload, str):
-                unparsed["Description"].append(payload)
-            else:
-                unparsed["Description"].extend(payload)
-        # If payload is a string, then we're good to go to add this to our
-        # RawMetadata.
-        elif isinstance(payload, str):
-            raw["description"] = payload
-        # Otherwise, it's unparseable, and we need to record that.
+    # It's possible that someone has messed up and given us a multipart body,
+    # in which case we'll move the entire body to the unparsed dictionary.
+    if parsed.is_multipart():
+        unparsed["Description"] = parsed.get_payload(decode=True)
+    # We know we'll get a single bytes object out of this, so now we just need
+    # to deal with encodings.
+    else:
+        bpayload = parsed.get_payload(decode=True)
+        assert isinstance(bpayload, bytes)
+
+        try:
+            payload = bpayload.decode("utf", "strict")
+        except UnicodeDecodeError:
+            unparsed["Description"] = bpayload
         else:
-            unparsed["Description"] = payload
+            # Check to see if we've already got a description, if so then both
+            # it, and this body move to unparseable.
+            if "description" in raw:
+                unparsed["Description"] = [raw.pop("description"), payload]
+            else:
+                raw["description"] = payload
 
     # We need to cast our `raw` to a metadata, because a TypedDict only support
     # literal key names, but we're computing our key names on purpose, but the
