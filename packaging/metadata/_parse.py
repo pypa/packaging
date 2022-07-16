@@ -46,6 +46,8 @@ _STRING_FIELDS = {
     "name",
     "version",
     "summary",
+    "description",
+    "description_content_type",
     "home_page",
     "download_url",
     "author",
@@ -62,7 +64,6 @@ _LIST_STRING_FIELDS = {
     "supported_platforms",
     "classifiers",
     "requires_dist",
-    "requires_python",
     "requires_external",
     "provides_extra",
     "provides_dist",
@@ -129,31 +130,31 @@ def _parse_project_urls(data: list[str]) -> dict[str, str]:
 
 
 _EMAIL_FIELD_MAPPING = {
-    "Metadata-Version": "metadata_version",
-    "Name": "name",
-    "Version": "version",
-    "Dynamic": "dynamic",
-    "Platform": "platforms",
-    "Supported-Platform": "supported_platforms",
-    "Summary": "summary",
-    "Description": "description",
-    "Description-Content-Type": "description_content_type",
-    "Keywords": "keywords",
-    "Home-Page": "home_page",
-    "Download-URL": "download_url",
-    "Author": "author",
-    "Author-Email": "author_email",
-    "Maintainer": "maintainer",
-    "Maintainer-Email": "maintainer_email",
-    "License": "license",
-    "Classifier": "classifiers",
-    "Requires-Dist": "requires_dist",
-    "Requires-Python": "requires_python",
-    "Requires-External": "requires_external",
-    "Project-URL": "project_urls",
-    "Provides-Extra": "provides_extra",
-    "Provides-Dist": "provides_dist",
-    "Obsoletes-Dist": "obsoletes_dist",
+    "metadata-version": "metadata_version",
+    "name": "name",
+    "version": "version",
+    "dynamic": "dynamic",
+    "platform": "platforms",
+    "supported-platform": "supported_platforms",
+    "summary": "summary",
+    "description": "description",
+    "description-content-type": "description_content_type",
+    "keywords": "keywords",
+    "home-page": "home_page",
+    "download-url": "download_url",
+    "author": "author",
+    "author-email": "author_email",
+    "maintainer": "maintainer",
+    "maintainer-email": "maintainer_email",
+    "license": "license",
+    "classifier": "classifiers",
+    "requires-dist": "requires_dist",
+    "requires-python": "requires_python",
+    "requires-external": "requires_external",
+    "project-url": "project_urls",
+    "provides-extra": "provides_extra",
+    "provides-dist": "provides_dist",
+    "obsoletes-dist": "obsoletes_dist",
 }
 
 
@@ -170,6 +171,10 @@ def parse_email(data: Union[bytes, str]) -> tuple[RawMetadata, dict[Any, Any]]:
     # values for a key (a list), the key will appear multiple times in the
     # list of keys, but we're avoiding that by using get_all().
     for name in set(parsed.keys()):
+        # Header names in RFC are case insensitive, so we'll normalize to all
+        # lower case to make comparisons easier.
+        name = name.lower()
+
         # We use get_all here, even for fields that aren't multiple use, because
         # otherwise someone could have say, two Name fields, and we would just
         # silently ignore it rather than doing something about it.
