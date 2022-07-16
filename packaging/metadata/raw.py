@@ -393,7 +393,7 @@ def emit_email(raw: RawMetadata) -> bytes:
     data = cast(Dict[str, Any], raw)
 
     # Figure out our mapping to email names
-    field_names = dict((v, k) for (k, v) in _EMAIL_FIELD_MAPPING.items())
+    field_names = {v: k for (k, v) in _EMAIL_FIELD_MAPPING.items()}
 
     # From what I can tell, there is no way to get the email module in the stdlib
     # to actually emit a ``METADATA``file in the format that we need, so instead
@@ -551,7 +551,7 @@ def emit_json(raw: RawMetadata) -> bytes:
     data = cast(Dict[str, Any], raw)
 
     # Figure out our mapping to email names
-    field_names = dict((v, k) for (k, v) in _JSON_FIELD_MAPPING.items())
+    field_names = {v: k for (k, v) in _JSON_FIELD_MAPPING.items()}
 
     out = {}
     for field in _EMAIL_FIELD_ORDER:
