@@ -346,6 +346,93 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[Any, Any]]:
     return cast(RawMetadata, raw), unparsed
 
 
+_EMAIL_FIELD_ORDER = [
+    # Always put the metadata version first, incase it ever changes how
+    # we parse this file.
+    "metadata_version",
+    # Put the other pieces of mandatory information next.
+    "name",
+    "version",
+    # We're just going to emit all of these in sorted order, except we'll
+    # float deprecated or "rarely used" fields to the bottom.
+    "author",
+    "author_email",
+    "classifiers",
+    # We are purposely excluding the description field, we don't want to
+    # write that field out as a header, so we won't include it in this list
+    # and it will have to be manually handled instead.
+    # "description",
+    "description_content_type",
+    "download_url",
+    "dynamic",
+    "home_page",
+    "keywords",
+    "license",
+    "maintainer",
+    "maintainer_email",
+    "platforms",
+    "project_urls",
+    "provides_extra",
+    "requires_dist",
+    "requires_python",
+    "summary",
+    "supported_platforms",
+    # Deprecated or "rarely used"
+    "obsoletes",
+    "obsoletes_dist",
+    "provides",
+    "provides_dist",
+    "requires",
+    "requires_external",
+]
+
+
+def emit_email(raw: RawMetadata) -> bytes:
+    # TypedDict only allows literal keys, we know that are dynamic keys are correct
+    # but to satisfy the type checker we'll cast things.
+    data = cast(Dict[str, Any], raw)
+
+    # Figure out our mapping to email names
+    field_names = dict((v, k) for (k, v) in _EMAIL_FIELD_MAPPING.items())
+
+    # From what I can tell, there is no way to get the email module in the stdlib
+    # to actually emit a ``METADATA``file in the format that we need, so instead
+    # we'll have to manually craft one.
+    lines = []
+
+    for field in _EMAIL_FIELD_ORDER:
+        field_name = field_names[field]
+        field_data = data.get(field)
+        if field_data:
+            # String fields get emitted as Key: Data
+            if field in _STRING_FIELDS and isinstance(field_data, str):
+                lines.append(f"{field_name}: {_rfc822_escape(field_data)}")
+            # List String fields get emitted as a Key: Data per entry.
+            elif field in _LIST_STRING_FIELDS and isinstance(field_data, list):
+                for item in field_data:
+                    lines.append(f"{field_name}: {_rfc822_escape(item)}")
+            # Special Case: Keywords
+            #   We need to turn our List String for Keywords back into a singular
+            #   string for the core metadata spec.
+            elif field == "keywords" and isinstance(field_data, list):
+                lines.append(f"{field_name}: {_rfc822_escape(', '.join(field_data))}")
+            # Special Case: Project-URL
+            #   We need to turn our dict[str, str] back into the list of specially
+            #   formatted strings to match what the core metadata expects.
+            elif field == "project_urls" and isinstance(field_data, dict):
+                for label, url in field_data.items():
+                    lines.append(
+                        f"{field_name}: {_rfc822_escape(', '.join([label, url]))}"
+                    )
+
+    msg = "\n".join(lines)
+    description = raw.get("description")
+    if description:
+        msg = msg + "\n\n" + description
+
+    return msg.encode("utf8")
+
+
 # This might appear to be a mapping of the same key to itself, and in many cases
 # it is. However, the algorithm in PEP 566 doesn't match 100% the keys chosen
 # for RawMetadata, so we use this mapping just like with email to handle that.
@@ -458,6 +545,43 @@ def parse_json(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[Any, Any]]:
     return cast(RawMetadata, raw), unparsed
 
 
+def emit_json(raw: RawMetadata) -> bytes:
+    # TypedDict only allows literal keys, we know that are dynamic keys are correct
+    # but to satisfy the type checker we'll cast things.
+    data = cast(Dict[str, Any], raw)
+
+    # Figure out our mapping to email names
+    field_names = dict((v, k) for (k, v) in _JSON_FIELD_MAPPING.items())
+
+    out = {}
+    for field in _EMAIL_FIELD_ORDER:
+        field_name = field_names[field]
+        field_data = data.get(field)
+        if field_data:
+            if (field in _STRING_FIELDS and isinstance(field_data, str)) or (
+                field in _LIST_STRING_FIELDS and isinstance(field_data, list)
+            ):
+                out[field_name] = field_data
+            # Special Case: Keywords
+            #   We need to turn our List String for Keywords back into a singular
+            #   string for the core metadata spec.
+            elif field == "keywords" and isinstance(field_data, list):
+                out[field_name] = ", ".join(field_data)
+            # Special Case: Project-URL
+            #   We need to turn our dict[str, str] back into the list of specially
+            #   formatted strings to match what the core metadata expects.
+            elif field == "project_urls" and isinstance(field_data, dict):
+                out[field_name] = [
+                    f"{label}, {url}" for (label, url) in field_data.items()
+                ]
+
+    description = raw.get("description")
+    if description:
+        out["description"] = description
+
+    return json.dumps(out).encode("utf8")
+
+
 def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
     # If our source is a str, then our caller has managed encodings for us,
     # and we don't need to deal with it.
@@ -477,3 +601,13 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError:
             raise ValueError("payload in an invalid encoding")
+
+
+def _rfc822_escape(header: str) -> str:
+    """
+    Return a version of the string escaped for inclusion in an
+    RFC-822 header, by ensuring there are 8 spaces space after each newline.
+    """
+    lines = header.split("\n")
+    sep = "\n" + 8 * " "
+    return sep.join(lines)
