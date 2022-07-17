@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import re
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
     Type,
     TypeVar,
-    Optional,
-    TYPE_CHECKING,
-    cast,
-    Dict,
     Union,
-    List,
-    Generic,
+    cast,
 )
 
 if TYPE_CHECKING:
