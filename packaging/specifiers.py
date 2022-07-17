@@ -824,7 +824,7 @@ class SpecifierSet(BaseSpecifier):
         Returns an iterator over all the underlying :class:`Specifier` instances
         in this specifier set.
 
-        >>> sorted(SpecifierSet(">=1.0.0,!=1.0.1"), key=lambda x: x.operator)
+        >>> sorted(SpecifierSet(">=1.0.0,!=1.0.1"), key=str)
         [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
         """
         return iter(self._specs)
