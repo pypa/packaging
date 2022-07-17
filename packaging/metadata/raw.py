@@ -332,12 +332,13 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[Any, Any]]:
     except ValueError:
         unparsed["Description"] = parsed.get_payload(decode=isinstance(data, bytes))
     else:
-        # Check to see if we've already got a description, if so then both
-        # it, and this body move to unparseable.
-        if "description" in raw:
-            unparsed["Description"] = [raw.pop("description"), payload]
-        else:
-            raw["description"] = payload
+        if payload:
+            # Check to see if we've already got a description, if so then both
+            # it, and this body move to unparseable.
+            if "description" in raw:
+                unparsed["Description"] = [raw.pop("description"), payload]
+            else:
+                raw["description"] = payload
 
     # We need to cast our `raw` to a metadata, because a TypedDict only support
     # literal key names, but we're computing our key names on purpose, but the
