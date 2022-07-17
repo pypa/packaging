@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import abc
+from email import message
 import re
 from typing import (
     TYPE_CHECKING,
@@ -19,25 +21,22 @@ if TYPE_CHECKING:
     from ._types import Metadata
 
 
-V = TypeVar("V")
+T = TypeVar("T")
 
 
-Validator = Callable[[V], None]
-
-
-class lazy_validator(Generic[V]):
+class lazy_validator(Generic[T]):
 
     # This hack exists to work around https://github.com/python/mypy/issues/708
-    _creator: Union[Callable[[Any], V], Callable[[Any], V]]
+    _creator: Union[Callable[[Any], T], Callable[[Any], T]]
     _raw_name: str
-    _validators: List[Validator[Optional[V]]]
+    _validators: List[Callable[[Any], None]]
 
     def __init__(
         self,
-        creator: Callable[[Any], V],
+        creator: Callable[[Any], T],
         *,
         raw_name: Optional[str] = None,
-        validators: Optional[List[Validator[Optional[V]]]] = None,
+        validators: Optional[List[Callable[[Any], None]]] = None,
     ) -> None:
         self._creator = creator
         if raw_name is not None:
@@ -48,14 +47,15 @@ class lazy_validator(Generic[V]):
             self._validators = []
 
     def __set_name__(self, owner: Metadata, name: str) -> None:
-        self._raw_name = name
+        if not hasattr(self, "_raw_name"):
+            self._raw_name = name
 
-    def __get__(self, obj: Metadata, owner: Type[Metadata]) -> Optional[V]:
+    def __get__(self, obj: Metadata, owner: Type[Metadata]) -> Optional[T]:
         # TypedDict doesn't support variable key names, and Python 3.7 doesn't
         # support Literal which would let us let it know that this is validated
         # already to be safe, so we'll cast here to make things work.
         raw = cast(Dict[str, Any], obj._raw)
-        validated = cast(Dict[str, Optional[V]], obj._validated)
+        validated = cast(Dict[str, Optional[T]], obj._validated)
 
         if self._raw_name not in validated:
             value = self._validate(raw.get(self._raw_name))
@@ -66,7 +66,7 @@ class lazy_validator(Generic[V]):
 
     def __set__(self, obj: Metadata, value: Any) -> None:
         raw = cast(Dict[str, Any], obj._raw)
-        validated = cast(Dict[str, Optional[V]], obj._validated)
+        validated = cast(Dict[str, Optional[T]], obj._validated)
 
         validated_value = self._validate(value)
         validated[self._raw_name] = validated_value
@@ -74,12 +74,12 @@ class lazy_validator(Generic[V]):
 
     def __delete__(self, obj: Metadata) -> None:
         raw = cast(Dict[str, Any], obj._raw)
-        validated = cast(Dict[str, Optional[V]], obj._validated)
+        validated = cast(Dict[str, Optional[T]], obj._validated)
 
         raw.pop(self._raw_name, None)
         validated.pop(self._raw_name, None)
 
-    def _validate(self, data: Any) -> Optional[V]:
+    def _validate(self, data: Any) -> Optional[T]:
         # Create our value from our raw data
         value = self._creator(data) if data is not None else None
 
@@ -96,39 +96,77 @@ def eagerly_validate(obj: Metadata) -> None:
             getattr(obj, name)
 
 
-class Required:
+V = TypeVar("V")
 
-    _error_msg: str
 
-    def __init__(self, message: Optional[str] = None):
-        if message is None:
-            self._error_msg = "value is required: {value!r}"
-        else:
-            self._error_msg = message
+class ValidationError(Exception):
+    pass
 
-    def __call__(self, value: V) -> None:
+
+class Validator(Generic[V], abc.ABC):
+
+    message: str
+
+    def __init__(self, *args: Any, message: Optional[str] = None, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        if message is not None:
+            self.message = message
+
+    def __call__(self, value: Optional[V]) -> None:
+        try:
+            self.full_validate(value)
+        except Exception as exc:
+            raise ValidationError(self.message.format(value=value)) from exc
+
+    def full_validate(self, value: Optional[V]) -> None:
+        if value is not None:
+            self.validate(value)
+
+    @abc.abstractmethod
+    def validate(self, value: V) -> None:
+        ...
+
+
+class Required(Validator[V]):
+
+    message: str = "value is required: {value!r}"
+
+    def full_validate(self, value: Optional[V]) -> None:
         if value is None:
-            raise ValueError(self._error_msg.format(value=value))
+            raise ValueError("required value")
+
+    def validate(self, value: V) -> None:
+        pass
 
 
-class RegexValidator:
+class RegexValidator(Validator[V]):
 
     _regex: re.Pattern[str]
-    _error_msg: str
+    message: str = "invalid value: {value!r}"
 
-    def __init__(
-        self, regex: Union[str, re.Pattern[str]], *, message: Optional[str] = None
-    ):
+    def __init__(self, regex: Union[str, re.Pattern[str]], *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+
         if isinstance(regex, str):
             self._regex = re.compile(regex)
         else:
             self._regex = regex
 
-        if message is None:
-            self._error_msg = "invalid value: {value!r}"
-        else:
-            self._error_msg = message
+    def validate(self, value: V) -> None:
+        if not isinstance(value, str):
+            raise TypeError
 
-    def __call__(self, value: Optional[str]) -> None:
-        if value is not None and self._regex.search(value) is None:
-            raise ValueError(self._error_msg.format(value=value))
+        if self._regex.search(value) is None:
+            raise ValueError(f"doesn't match: {self._regex.pattern}")
+
+
+class SingleLine(Validator[V]):
+
+    message: str = "must contain only one line: {value!r}"
+
+    def validate(self, value: V) -> None:
+        if not isinstance(value, str):
+            raise TypeError
+
+        if "\n" in value or "\r" in value:
+            raise ValueError("multiline str")

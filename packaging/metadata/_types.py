@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import enum
-from typing import Optional, Tuple, TypedDict
+from collections.abc import Iterable
+from typing import Any, List, Optional, Tuple, TypedDict
 
 from ..version import Version
 from ._validation import RegexValidator, Required, eagerly_validate, lazy_validator
 from .raw import RawMetadata, parse_email, parse_json
+from ._utils import as_str, as_list_str
 
 # Type aliases.
 _NameAndEmail = Tuple[Optional[str], str]
@@ -51,12 +53,24 @@ class DynamicField(enum.Enum):
     PROVIDES_EXTRA = "provides-extra"
 
 
+@enum.unique
+class MetadataVersion(enum.Enum):
+    v1_0 = "1.0"
+    v1_1 = "1.1"
+    v1_2 = "1.2"
+    v2_0 = "2.0"
+    v2_1 = "2.1"
+    v2_2 = "2.2"
+    v2_3 = "2.3"
+
+
 class _ValidatedMetadata(TypedDict, total=False):
     # Metadata 1.0 - PEP 241
+    metadata_version: str
     name: str
     version: Version
-    # platforms: List[str]
-    # summary: str
+    platforms: List[str]
+    summary: str
     # description: str
     # keywords: List[str]
     # home_page: str
@@ -95,9 +109,13 @@ class Metadata:
     # like this for every attribute, however this enables us to do our on the
     # fly validation.
 
+    # Metadata-Version: Metadata 1.0
+    _metadata_version = lazy_validator(
+        MetadataVersion, raw_name="metadata_version", validators=[Required()]
+    )
     # Name: Metadata 1.0
     name = lazy_validator(
-        str,
+        as_str,
         validators=[
             Required(),
             RegexValidator("(?i)^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$"),
@@ -105,6 +123,9 @@ class Metadata:
     )
     # Version: Metadata 1.0
     version = lazy_validator(Version, validators=[Required()])
+    # Platform: Metadata 1.0
+    platforms = lazy_validator(as_list_str)
+    summary = lazy_validator(as_str)
 
     @classmethod
     def from_raw(cls, raw: RawMetadata, *, validate: bool = True) -> Metadata:
