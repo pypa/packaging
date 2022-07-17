@@ -30,6 +30,10 @@ Usage
     >>> combined_spec &= "!=1.1"
     >>> combined_spec
     <SpecifierSet('!=1.1,>=1.0,~=1.0')>
+    >>> # We can iterate over the SpecifierSet to recover the
+    >>> # individual specifiers
+    >>> sorted(combined_spec, key=str)
+    [<Specifier('!=1.1')>, <Specifier('>=1.0')>, <Specifier('~=1.0')>]
     >>> # Create a few versions to check for contains.
     >>> v1 = Version("1.0a5")
     >>> v2 = Version("1.0")
