@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Iterable
-from typing import Any, List, Optional, Tuple, TypedDict
+from typing import Optional, Tuple, TypedDict
 
 from ..version import Version
+from ._utils import as_list_str, as_str
 from ._validation import RegexValidator, Required, eagerly_validate, lazy_validator
 from .raw import RawMetadata, parse_email, parse_json
-from ._utils import as_str, as_list_str
 
 # Type aliases.
 _NameAndEmail = Tuple[Optional[str], str]
@@ -69,7 +68,7 @@ class _ValidatedMetadata(TypedDict, total=False):
     metadata_version: str
     name: str
     version: Version
-    platforms: List[str]
+    platforms: list[str]
     summary: str
     # description: str
     # keywords: List[str]
