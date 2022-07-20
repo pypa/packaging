@@ -236,12 +236,11 @@ class TestMacOSPlatforms:
         if (major, minor) == ("10", "16"):
             print(platforms, "macosx_11+")
             # For 10.16, the real version is at least 11.0.
-            prefix, major, minor, _ = platforms[0].split("_", maxsplit=3)
+            prefix, major, _ = platforms[0].split("_", maxsplit=2)
             assert prefix == "macosx"
             assert int(major) >= 11
-            assert minor == "0"
         else:
-            expected = f"macosx_{major}_{minor}_"
+            expected = f"macosx_{major}_"
             print(platforms, expected)
             assert platforms[0].startswith(expected)
 
@@ -303,7 +302,9 @@ class TestMacOSPlatforms:
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
 
-    @pytest.mark.parametrize("major,minor", [(11, 0), (11, 3), (12, 0), (12, 3)])
+    @pytest.mark.parametrize(
+        "major,minor", [(11, 0), (11, 3), (12, 0), (12, 3), (13, 0)]
+    )
     def test_macos_11(self, major, minor):
         platforms = list(tags.mac_platforms((major, minor), "x86_64"))
         assert "macosx_11_0_arm64" not in platforms
@@ -311,6 +312,10 @@ class TestMacOSPlatforms:
         assert "macosx_11_3_x86_64" not in platforms
         assert "macosx_11_0_universal" in platforms
         assert "macosx_11_0_universal2" in platforms
+        assert "macosx_11_arm64" not in platforms
+        assert "macosx_11_x86_64" in platforms
+        assert "macosx_11_universal" in platforms
+        assert "macosx_11_universal2" in platforms
         # Mac OS "10.16" is the version number that binaries compiled against an old
         # (pre 11.0) SDK will see.   It can also be enabled explicitly for a process
         # with the environment variable SYSTEM_VERSION_COMPAT=1.
@@ -319,10 +324,22 @@ class TestMacOSPlatforms:
         assert "macosx_10_15_universal2" in platforms
         assert "macosx_10_4_x86_64" in platforms
         assert "macosx_10_3_x86_64" not in platforms
+        assert "macosx_10_x86_64" not in platforms
+        assert "macosx_10_universal2" not in platforms
         if major >= 12:
             assert "macosx_12_0_x86_64" in platforms
             assert "macosx_12_0_universal" in platforms
             assert "macosx_12_0_universal2" in platforms
+            assert "macosx_12_x86_64" in platforms
+            assert "macosx_12_universal" in platforms
+            assert "macosx_12_universal2" in platforms
+        if major >= 13:
+            assert "macosx_13_0_x86_64" not in platforms
+            assert "macosx_13_0_universal" not in platforms
+            assert "macosx_13_0_universal2" not in platforms
+            assert "macosx_13_x86_64" in platforms
+            assert "macosx_13_universal" in platforms
+            assert "macosx_13_universal2" in platforms
 
         platforms = list(tags.mac_platforms((major, minor), "arm64"))
         assert "macosx_11_0_arm64" in platforms
@@ -333,9 +350,21 @@ class TestMacOSPlatforms:
         assert "macosx_10_15_x86_64" not in platforms
         assert "macosx_10_4_x86_64" not in platforms
         assert "macosx_10_3_x86_64" not in platforms
+        assert "macosx_11_arm64" in platforms
+        assert "macosx_11_universal" not in platforms
+        assert "macosx_11_universal2" in platforms
+        assert "macosx_10_universal2" not in platforms
+        assert "macosx_10_x86_64" not in platforms
         if major >= 12:
             assert "macosx_12_0_arm64" in platforms
             assert "macosx_12_0_universal2" in platforms
+            assert "macosx_12_arm64" in platforms
+            assert "macosx_12_universal2" in platforms
+        if major >= 13:
+            assert "macosx_13_0_arm64" not in platforms
+            assert "macosx_13_0_universal2" not in platforms
+            assert "macosx_13_arm64" in platforms
+            assert "macosx_13_universal2" in platforms
 
 
 class TestManylinuxPlatform:
@@ -1040,6 +1069,10 @@ class TestSysTags:
     def teardown_method(self):
         # Clear the version cache
         tags._glibc_version = []
+
+    def test_interpreter_platform(self):
+        tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+        assert tag in list(tags.platform_tags())
 
     @pytest.mark.parametrize(
         "name,expected",
