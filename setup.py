@@ -48,7 +48,6 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
     python_requires=">=3.7",
-    install_requires=["pyparsing>=2.0.2,!=3.0.5"],  # 2.0.2 + needed to avoid issue #91
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

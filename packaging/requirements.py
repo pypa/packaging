@@ -2,83 +2,24 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import re
-import string
 import urllib.parse
-from typing import Any, List, Optional as TOptional, Set
+from collections import namedtuple
+from typing import Any, List, Optional, Set
 
-from pyparsing import (  # noqa
-    Combine,
-    Literal as L,
-    Optional,
-    ParseException,
-    Regex,
-    Word,
-    ZeroOrMore,
-    originalTextFor,
-    stringEnd,
-    stringStart,
+from ._parser import parse_named_requirement
+from ._tokenizer import ParseExceptionError
+from .markers import InvalidMarker, Marker
+from .specifiers import SpecifierSet
+
+_RequirementTuple = namedtuple(
+    "_RequirementTuple", ["name", "url", "extras", "specifier", "marker"]
 )
-
-from .markers import MARKER_EXPR as _MARKER_EXPR, Marker
-from .specifiers import Specifier, SpecifierSet
 
 
 class InvalidRequirement(ValueError):
     """
     An invalid requirement was found, users should refer to PEP 508.
     """
-
-
-ALPHANUM = Word(string.ascii_letters + string.digits)
-
-LBRACKET = L("[").suppress()
-RBRACKET = L("]").suppress()
-LPAREN = L("(").suppress()
-RPAREN = L(")").suppress()
-COMMA = L(",").suppress()
-SEMICOLON = L(";").suppress()
-AT = L("@").suppress()
-
-PUNCTUATION = Word("-_.")
-IDENTIFIER_END = ALPHANUM | (ZeroOrMore(PUNCTUATION) + ALPHANUM)
-IDENTIFIER = Combine(ALPHANUM + ZeroOrMore(IDENTIFIER_END))
-
-NAME = IDENTIFIER("name")
-EXTRA = IDENTIFIER
-
-URI = Regex(r"[^ ]+")("url")
-URL = AT + URI
-
-EXTRAS_LIST = EXTRA + ZeroOrMore(COMMA + EXTRA)
-EXTRAS = (LBRACKET + Optional(EXTRAS_LIST) + RBRACKET)("extras")
-
-VERSION_ONE = Regex(Specifier._regex_str, re.VERBOSE | re.IGNORECASE)
-VERSION_MANY = Combine(
-    VERSION_ONE + ZeroOrMore(COMMA + VERSION_ONE), joinString=",", adjacent=False
-)("_raw_spec")
-_VERSION_SPEC = Optional((LPAREN + VERSION_MANY + RPAREN) | VERSION_MANY)
-_VERSION_SPEC.setParseAction(lambda s, l, t: t._raw_spec or "")
-
-VERSION_SPEC = originalTextFor(_VERSION_SPEC)("specifier")
-VERSION_SPEC.setParseAction(lambda s, l, t: t[1])
-
-MARKER_EXPR = originalTextFor(_MARKER_EXPR())("marker")
-MARKER_EXPR.setParseAction(
-    lambda s, l, t: Marker(s[t._original_start : t._original_end])
-)
-MARKER_SEPARATOR = SEMICOLON
-MARKER = MARKER_SEPARATOR + MARKER_EXPR
-
-VERSION_AND_MARKER = VERSION_SPEC + Optional(MARKER)
-URL_AND_MARKER = URL + Optional(MARKER)
-
-NAMED_REQUIREMENT = NAME + Optional(EXTRAS) + (URL_AND_MARKER | VERSION_AND_MARKER)
-
-REQUIREMENT = stringStart + NAMED_REQUIREMENT + stringEnd
-# pyparsing isn't thread safe during initialization, so we do it eagerly, see
-# issue #104
-REQUIREMENT.parseString("x[]")
 
 
 class Requirement:
@@ -96,11 +37,9 @@ class Requirement:
 
     def __init__(self, requirement_string: str) -> None:
         try:
-            req = REQUIREMENT.parseString(requirement_string)
-        except ParseException as e:
-            raise InvalidRequirement(
-                f'Parse error at "{ requirement_string[e.loc : e.loc + 8]!r}": {e.msg}'
-            )
+            req = _RequirementTuple(*parse_named_requirement(requirement_string))
+        except ParseExceptionError as e:
+            raise InvalidRequirement(str(e))
 
         self.name: str = req.name
         if req.url:
@@ -112,12 +51,15 @@ class Requirement:
                 not parsed_url.scheme and not parsed_url.netloc
             ):
                 raise InvalidRequirement(f"Invalid URL: {req.url}")
-            self.url: TOptional[str] = req.url
+            self.url: Optional[str] = req.url
         else:
             self.url = None
-        self.extras: Set[str] = set(req.extras.asList() if req.extras else [])
+        self.extras: Set[str] = set(req.extras if req.extras else [])
         self.specifier: SpecifierSet = SpecifierSet(req.specifier)
-        self.marker: TOptional[Marker] = req.marker if req.marker else None
+        try:
+            self.marker: Optional[Marker] = Marker(req.marker) if req.marker else None
+        except InvalidMarker as e:
+            raise InvalidRequirement(str(e))
 
     def __str__(self) -> str:
         parts: List[str] = [self.name]
