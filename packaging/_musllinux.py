@@ -105,7 +105,7 @@ def _get_musl_version(executable: str) -> Optional[_MuslVersion]:
         ld = _parse_ld_musl_from_elf(f)
     if not ld:
         return None
-    proc = subprocess.run([ld], stderr=subprocess.PIPE, universal_newlines=True)
+    proc = subprocess.run([ld], stderr=subprocess.PIPE, text=True)
     return _parse_musl_version(proc.stderr)
 
 
