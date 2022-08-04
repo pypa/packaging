@@ -7,7 +7,7 @@ Changelog
 * ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
   Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
   ``environment`` will no longer raise an exception.
-* Remove a depndency on ``pyparsing``, this package no longer has any runtime requirements (:issue:`468`)
+* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
