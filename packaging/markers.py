@@ -8,18 +8,8 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from pyparsing import (  # noqa: N817
-    Forward,
-    Group,
-    Literal as L,
-    ParseException,
-    ParseResults,
-    QuotedString,
-    ZeroOrMore,
-    stringEnd,
-    stringStart,
-)
-
+from ._parser import MarkerAtom, MarkerList, Op, Value, Variable, parse_marker_expr
+from ._tokenizer import ParseExceptionError, Tokenizer
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
@@ -53,114 +43,24 @@ class UndefinedEnvironmentName(ValueError):
     """
 
 
-class Node:
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}('{self}')>"
-
-    def serialize(self) -> str:
-        raise NotImplementedError
-
-
-class Variable(Node):
-    def serialize(self) -> str:
-        return str(self)
-
-
-class Value(Node):
-    def serialize(self) -> str:
-        return f'"{self}"'
-
-
-class Op(Node):
-    def serialize(self) -> str:
-        return str(self)
-
-
-VARIABLE = (
-    L("implementation_version")
-    | L("platform_python_implementation")
-    | L("implementation_name")
-    | L("python_full_version")
-    | L("platform_release")
-    | L("platform_version")
-    | L("platform_machine")
-    | L("platform_system")
-    | L("python_version")
-    | L("sys_platform")
-    | L("os_name")
-    | L("os.name")  # PEP-345
-    | L("sys.platform")  # PEP-345
-    | L("platform.version")  # PEP-345
-    | L("platform.machine")  # PEP-345
-    | L("platform.python_implementation")  # PEP-345
-    | L("python_implementation")  # undocumented setuptools legacy
-    | L("extra")  # PEP-508
-)
-ALIASES = {
-    "os.name": "os_name",
-    "sys.platform": "sys_platform",
-    "platform.version": "platform_version",
-    "platform.machine": "platform_machine",
-    "platform.python_implementation": "platform_python_implementation",
-    "python_implementation": "platform_python_implementation",
-}
-VARIABLE.setParseAction(lambda s, l, t: Variable(ALIASES.get(t[0], t[0])))
-
-VERSION_CMP = (
-    L("===") | L("==") | L(">=") | L("<=") | L("!=") | L("~=") | L(">") | L("<")
-)
-
-MARKER_OP = VERSION_CMP | L("not in") | L("in")
-MARKER_OP.setParseAction(lambda s, l, t: Op(t[0]))
-
-MARKER_VALUE = QuotedString("'") | QuotedString('"')
-MARKER_VALUE.setParseAction(lambda s, l, t: Value(t[0]))
-
-BOOLOP = L("and") | L("or")
-
-MARKER_VAR = VARIABLE | MARKER_VALUE
-
-MARKER_ITEM = Group(MARKER_VAR + MARKER_OP + MARKER_VAR)
-MARKER_ITEM.setParseAction(lambda s, l, t: tuple(t[0]))
-
-LPAREN = L("(").suppress()
-RPAREN = L(")").suppress()
-
-MARKER_EXPR = Forward()
-MARKER_ATOM = MARKER_ITEM | Group(LPAREN + MARKER_EXPR + RPAREN)
-MARKER_EXPR << MARKER_ATOM + ZeroOrMore(BOOLOP + MARKER_EXPR)
-
-MARKER = stringStart + MARKER_EXPR + stringEnd
-
-
-def _coerce_parse_result(results: Any) -> Any:
+def _normalize_extra_values(results: Any) -> Any:
     """
-    Flatten the parse results into a list of results.
-
-    Also normalize extra values.
+    Normalize extra values.
     """
-    if isinstance(results, ParseResults):
-        return [_coerce_parse_result(i) for i in results]
-    elif isinstance(results, tuple):
-        lhs, op, rhs = results
+    if isinstance(results[0], tuple):
+        lhs, op, rhs = results[0]
         if isinstance(lhs, Variable) and lhs.value == "extra":
             normalized_extra = canonicalize_name(rhs.value)
             rhs = Value(normalized_extra)
         elif isinstance(rhs, Variable) and rhs.value == "extra":
             normalized_extra = canonicalize_name(lhs.value)
             lhs = Value(normalized_extra)
-        results = lhs, op, rhs
+        results[0] = lhs, op, rhs
     return results
 
 
 def _format_marker(
-    marker: Union[List[str], Tuple[Node, ...], str], first: Optional[bool] = True
+    marker: Union[List[str], MarkerAtom, str], first: Optional[bool] = True
 ) -> str:
 
     assert isinstance(marker, (list, tuple, str))
@@ -227,7 +127,7 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     return values
 
 
-def _evaluate_markers(markers: List[Any], environment: Dict[str, str]) -> bool:
+def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
     groups: List[List[bool]] = [[]]
 
     for marker in markers:
@@ -286,7 +186,9 @@ def default_environment() -> Dict[str, str]:
 class Marker:
     def __init__(self, marker: str) -> None:
         try:
-            self._markers = _coerce_parse_result(MARKER.parseString(marker))
+            self._markers = _normalize_extra_values(
+                parse_marker_expr(Tokenizer(marker))
+            )
             # The attribute `_markers` can be described in terms of a recursive type:
             # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
             #
@@ -303,10 +205,10 @@ class Marker:
             #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
             #     ]
             # ]
-        except ParseException as e:
+        except ParseExceptionError as e:
             raise InvalidMarker(
                 f"Invalid marker: {marker!r}, parse error at "
-                f"{marker[e.loc : e.loc + 8]!r}"
+                f"{marker[e.position : e.position + 8]!r}"
             )
 
     def __str__(self) -> str:

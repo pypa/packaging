@@ -5,7 +5,7 @@
 import pytest
 
 from packaging.markers import Marker
-from packaging.requirements import URL, URL_AND_MARKER, InvalidRequirement, Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 
 
@@ -60,16 +60,33 @@ class TestRequirements:
         self._assert_requirement(req, "name", specifier=">=3")
 
     def test_with_legacy_version(self):
-        with pytest.raises(InvalidRequirement):
+        with pytest.raises(InvalidRequirement) as e:
             Requirement("name==1.0.org1")
+        assert "Expected semicolon (followed by markers) or end of string" in str(e)
 
     def test_with_legacy_version_and_marker(self):
-        with pytest.raises(InvalidRequirement):
+        with pytest.raises(InvalidRequirement) as e:
             Requirement("name>=1.x.y;python_version=='2.6'")
+        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+
+    def test_missing_name(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("@ http://example.com")
+        assert "Expression must begin with package name" in str(e)
+
+    def test_name_with_missing_version(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("name>=")
+        assert "Missing version" in str(e)
 
     def test_version_with_parens_and_whitespace(self):
         req = Requirement("name (==4)")
         self._assert_requirement(req, "name", specifier="==4")
+
+    def test_version_with_missing_closing_paren(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("name(==4")
+        assert "Closing right parenthesis is missing" in str(e)
 
     def test_name_with_multiple_versions(self):
         req = Requirement("name>=3,<2")
@@ -79,6 +96,22 @@ class TestRequirements:
         req = Requirement("name >=2, <3")
         self._assert_requirement(req, "name", specifier="<3,>=2")
 
+    def test_name_with_multiple_versions_in_parenthesis(self):
+        req = Requirement("name (>=2,<3)")
+        self._assert_requirement(req, "name", specifier="<3,>=2")
+
+    def test_name_with_no_extras_no_versions_in_parenthesis(self):
+        req = Requirement("name []()")
+        self._assert_requirement(req, "name", specifier="", extras=[])
+
+    def test_name_with_extra_and_multiple_versions_in_parenthesis(self):
+        req = Requirement("name [foo, bar](>=2,<3)")
+        self._assert_requirement(req, "name", specifier="<3,>=2", extras=["foo", "bar"])
+
+    def test_name_with_no_versions_in_parenthesis(self):
+        req = Requirement("name ()")
+        self._assert_requirement(req, "name", specifier="")
+
     def test_extras(self):
         req = Requirement("foobar [quux,bar]")
         self._assert_requirement(req, "foobar", extras=["bar", "quux"])
@@ -87,16 +120,27 @@ class TestRequirements:
         req = Requirement("foo[]")
         self._assert_requirement(req, "foo")
 
+    def test_unclosed_extras(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("foo[")
+        assert "Closing square bracket is missing" in str(e)
+
+    def test_extras_without_comma(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement("foobar[quux bar]")
+        assert "Missing comma after extra" in str(e)
+
     def test_url(self):
-        url_section = "@ http://example.com"
-        parsed = URL.parseString(url_section)
-        assert parsed.url == "http://example.com"
+        url_section = "test @ http://example.com"
+        req = Requirement(url_section)
+        self._assert_requirement(req, "test", "http://example.com", extras=[])
 
     def test_url_and_marker(self):
-        instring = "@ http://example.com ; os_name=='a'"
-        parsed = URL_AND_MARKER.parseString(instring)
-        assert parsed.url == "http://example.com"
-        assert str(parsed.marker) == 'os_name == "a"'
+        instring = "test @ http://example.com ; os_name=='a'"
+        req = Requirement(instring)
+        self._assert_requirement(
+            req, "test", "http://example.com", extras=[], marker='os_name == "a"'
+        )
 
     def test_invalid_url(self):
         with pytest.raises(InvalidRequirement) as e:
@@ -147,6 +191,11 @@ class TestRequirements:
         with pytest.raises(InvalidRequirement):
             Requirement("name; foobar=='x'")
 
+    def test_marker_with_missing_semicolon(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement('name[bar]>=3 python_version == "2.7"')
+        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+
     def test_types(self):
         req = Requirement("foobar[quux]<2,>=3; os_name=='a'")
         assert isinstance(req.name, str)
@@ -190,9 +239,7 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-        assert "Expected stringEnd" in str(e.value) or (
-            "Expected string_end" in str(e.value)  # pyparsing>=3.0.0
-        )
+        assert "Expected semicolon (followed by markers) or end of string" in str(e)
 
     EQUAL_DEPENDENCIES = [
         ("packaging>20.1", "packaging>20.1"),
