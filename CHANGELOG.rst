@@ -8,6 +8,8 @@ Changelog
   Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
   ``environment`` will no longer raise an exception.
 * Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
+* Update return type hint for ``Specifier.filter`` and ``SpecifierSet.filter``
+  to use ``Iterator`` instead of ``Iterable``
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
