@@ -7,13 +7,16 @@ include .pre-commit-config.yaml
 
 recursive-include docs *
 recursive-include tests *.py
-recursive-include tests hello-world-*
+recursive-include tests/manylinux hello-world-*
+recursive-include tests/musllinux glibc-*
+recursive-include tests/musllinux musl-*
 
 exclude noxfile.py
 exclude .readthedocs.yml
 exclude .travis.yml
 exclude dev-requirements.txt
-exclude tests/build-hello-world.sh
+exclude tests/manylinux/build-hello-world.sh
+exclude tests/musllinux/build.sh
 exclude tests/hello-world.c
 
 prune docs/_build
