@@ -23,21 +23,16 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
+          ["3.7", "3.8", "3.9", "3.10", "pypy3.7", "pypy3.8", "pypy3.9"]
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         name: Install Python ${{ matrix.python_version }}
         with:
           python-version: ${{ matrix.python_version }}
           cache: "pip"
 
       - name: Run nox
-        run: |
-          # Need to fix-up PyPy. This can be removed once https://github.com/actions/setup-python/issues/346 lands.
-          INTERPRETER=${{ matrix.python_version }}
-          INTERPRETER=${INTERPRETER/-/}  # remove the first '-' in "pypy-X.Y" -> "pypyX.Y" to match executable name
-          pipx run nox --error-on-missing-interpreters -s tests-${INTERPRETER}
-        shell: bash
+        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}

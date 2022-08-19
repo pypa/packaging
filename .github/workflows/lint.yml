@@ -22,16 +22,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         name: Install Python
         with:
           python-version: "3.9"
           cache: "pip"
 
       - name: Run `nox -s lint`
-        run: pipx run nox --error-on-missing-interpreters -s lint
+        run: pipx run nox --error-on-missing-interpreters -s lint -- --show-diff-on-failure
 
   build:
     name: Build sdist and wheel
@@ -43,13 +43,13 @@ jobs:
     needs: lint
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
       - name: Build
         run: pipx run build
 
       - name: Archive files
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: dist
           path: dist
