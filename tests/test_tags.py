@@ -4,6 +4,7 @@
 
 
 import collections.abc
+import subprocess
 
 try:
     import ctypes
@@ -228,15 +229,49 @@ class TestMacOSPlatforms:
                 platform, "mac_ver", lambda: ("10.14", ("", "", ""), "x86_64")
             )
         version = platform.mac_ver()[0].split(".")
-        if version[0] == "10":
-            expected = "macosx_{major}_{minor}".format(
-                major=version[0], minor=version[1]
-            )
+        major = version[0]
+        minor = version[1] if major == "10" else "0"
+
+        platforms = list(tags.mac_platforms(arch="x86_64"))
+        if (major, minor) == ("10", "16"):
+            print(platforms, "macosx_11+")
+            # For 10.16, the real version is at least 11.0.
+            prefix, major, minor, _ = platforms[0].split("_", maxsplit=3)
+            assert prefix == "macosx"
+            assert int(major) >= 11
+            assert minor == "0"
         else:
-            expected = "macosx_{major}_{minor}".format(major=version[0], minor=0)
+            expected = f"macosx_{major}_{minor}_"
+            print(platforms, expected)
+            assert platforms[0].startswith(expected)
+
+    def test_version_detection_10_15(self, monkeypatch):
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: ("10.15", ("", "", ""), "x86_64")
+        )
+        expected = "macosx_10_15_"
+
         platforms = list(tags.mac_platforms(arch="x86_64"))
         print(platforms, expected)
         assert platforms[0].startswith(expected)
+
+    def test_version_detection_compatibility(self, monkeypatch):
+        if platform.system() != "Darwin":
+            monkeypatch.setattr(
+                subprocess,
+                "run",
+                lambda *args, **kwargs: subprocess.CompletedProcess(
+                    [], 0, stdout="10.15"
+                ),
+            )
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: ("10.16", ("", "", ""), "x86_64")
+        )
+        unexpected = "macosx_10_16_"
+
+        platforms = list(tags.mac_platforms(arch="x86_64"))
+        print(platforms, unexpected)
+        assert not platforms[0].startswith(unexpected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
     def test_arch_detection(self, arch, monkeypatch):
@@ -608,7 +643,7 @@ class TestCPythonABI:
     def test_pymalloc(self, pymalloc, version, result, monkeypatch):
         config = {"Py_DEBUG": 0, "WITH_PYMALLOC": pymalloc, "Py_UNICODE_SIZE": 2}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        base_abi = "cp{}{}".format(version[0], version[1])
+        base_abi = f"cp{version[0]}{version[1]}"
         expected = [base_abi + "m" if result else base_abi]
         assert tags._cpython_abis(version) == expected
 
@@ -1180,3 +1215,14 @@ class TestSysTags:
             "linux_x86_64",
         ]
         assert platforms == expected
+
+    def test_pypy_first_none_any_tag(self, monkeypatch):
+        # When building the complete list of pypy tags, make sure the first
+        # <interpreter>-none-any one is pp3-none-any
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+
+        for tag in tags.sys_tags():
+            if tag.abi == "none" and tag.platform == "any":
+                break
+
+        assert tag == tags.Tag("pp3", "none", "any")

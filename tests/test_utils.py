@@ -49,11 +49,18 @@ def test_canonicalize_name(name, expected):
         ("1.0a0", "1a0"),
         ("1.0rc0", "1rc0"),
         ("100!0.0", "100!0"),
-        ("1.0.1-test7", "1.0.1-test7"),  # LegacyVersion is unchanged
+        # improper version strings are unchanged
+        ("lolwat", "lolwat"),
+        ("1.0.1-test7", "1.0.1-test7"),
     ],
 )
 def test_canonicalize_version(version, expected):
     assert canonicalize_version(version) == expected
+
+
+@pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
+def test_canonicalize_version_no_strip_trailing_zero(version):
+    assert canonicalize_version(version, strip_trailing_zero=False) == version
 
 
 @pytest.mark.parametrize(

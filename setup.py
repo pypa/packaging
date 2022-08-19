@@ -47,8 +47,7 @@ setup(
     url=about["__uri__"],
     author=about["__author__"],
     author_email=about["__email__"],
-    python_requires=">=3.6",
-    install_requires=["pyparsing>=2.0.2,<3"],  # Needed to avoid issue #91
+    python_requires=">=3.7",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -57,7 +56,6 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
