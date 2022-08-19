@@ -86,7 +86,7 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def filter(
         self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+    ) -> Iterator[UnparsedVersion]:
         """
         Takes an iterable of items and filters them so that only items which
         are contained within this specifier are allowed in it.
@@ -564,14 +564,14 @@ class Specifier(BaseSpecifier):
 
     def filter(
         self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+    ) -> Iterator[UnparsedVersion]:
         """Filter items in the given iterable, that match the specifier.
 
         :param iterable:
             An iterable that can contain version strings and :class:`Version` instances.
             The items in the iterable will be filtered according to the specifier.
         :param prereleases:
-            Whether or not to allow prereleases in the returned iterable. If set to
+            Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will be intelligently decide whether to allow
             prereleases or not (based on the :attr:`prereleases` attribute, and
             whether the only versions matching are prereleases).
@@ -914,14 +914,14 @@ class SpecifierSet(BaseSpecifier):
 
     def filter(
         self, iterable: Iterable[UnparsedVersion], prereleases: Optional[bool] = None
-    ) -> Iterable[UnparsedVersion]:
+    ) -> Iterator[UnparsedVersion]:
         """Filter items in the given iterable, that match the specifiers in this set.
 
         :param iterable:
             An iterable that can contain version strings and :class:`Version` instances.
             The items in the iterable will be filtered according to the specifier.
         :param prereleases:
-            Whether or not to allow prereleases in the returned iterable. If set to
+            Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will be intelligently decide whether to allow
             prereleases or not (based on the :attr:`prereleases` attribute, and
             whether the only versions matching are prereleases).
@@ -965,7 +965,7 @@ class SpecifierSet(BaseSpecifier):
         if self._specs:
             for spec in self._specs:
                 iterable = spec.filter(iterable, prereleases=bool(prereleases))
-            return iterable
+            return iter(iterable)
         # If we do not have any specifiers, then we need to have a rough filter
         # which will filter out any pre-releases, unless there are no final
         # releases.
@@ -987,6 +987,6 @@ class SpecifierSet(BaseSpecifier):
             # If we've found no items except for pre-releases, then we'll go
             # ahead and use the pre-releases
             if not filtered and found_prereleases and prereleases is None:
-                return found_prereleases
+                return iter(found_prereleases)
 
-            return filtered
+            return iter(filtered)

@@ -31,7 +31,7 @@ jobs:
           cache: "pip"
 
       - name: Run `nox -s lint`
-        run: pipx run nox --error-on-missing-interpreters -s lint
+        run: pipx run nox --error-on-missing-interpreters -s lint -- --show-diff-on-failure
 
   build:
     name: Build sdist and wheel
