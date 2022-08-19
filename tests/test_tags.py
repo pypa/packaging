@@ -1232,9 +1232,10 @@ class TestSysTags:
         # <interpreter>-none-any one is cpxx-none-any
         monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
 
+        # Find the first tag that is ABI- and platform-agnostic.
         for tag in tags.sys_tags():
             if tag.abi == "none" and tag.platform == "any":
                 break
 
-        interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
