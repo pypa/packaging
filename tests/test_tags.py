@@ -1226,3 +1226,16 @@ class TestSysTags:
                 break
 
         assert tag == tags.Tag("pp3", "none", "any")
+
+    def test_cpython_first_none_any_tag(self, monkeypatch):
+        # When building the complete list of cpython tags, make sure the first
+        # <interpreter>-none-any one is cpxx-none-any
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+
+        # Find the first tag that is ABI- and platform-agnostic.
+        for tag in tags.sys_tags():
+            if tag.abi == "none" and tag.platform == "any":
+                break
+
+        interpreter = f"cp{tags.interpreter_version()}"
+        assert tag == tags.Tag(interpreter, "none", "any")
