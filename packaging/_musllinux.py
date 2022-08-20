@@ -10,7 +10,7 @@ import subprocess
 import sys
 from typing import Iterator, NamedTuple, Optional
 
-from ._elffile import ElfFile
+from ._elffile import ELFFile
 
 
 class _MuslVersion(NamedTuple):
@@ -42,7 +42,7 @@ def _get_musl_version(executable: str) -> Optional[_MuslVersion]:
     """
     try:
         with open(executable, "rb") as f:
-            ld = ElfFile(f).interpreter
+            ld = ELFFile(f).interpreter
     except (OSError, TypeError, ValueError):
         return None
     if ld is None or "musl" not in ld:

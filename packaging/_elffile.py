@@ -1,6 +1,7 @@
-"""ELF file parser.
+"""
+ELF file parser.
 
-This provides a class ``ElfFile`` that parses an ELF executable in a similar
+This provides a class ``ELFFile`` that parses an ELF executable in a similar
 interface to ``ZipFile``. Only the read interface is implemented.
 
 Based on: https://gist.github.com/lyssdod/f51579ae8d93c8657a5564aefc2ffbca
@@ -13,7 +14,7 @@ import struct
 from typing import IO, Optional, Tuple
 
 
-class ElfInvalid(ValueError):
+class ELFInvalid(ValueError):
     pass
 
 
@@ -35,8 +36,10 @@ class EMachine(enum.IntEnum):
     AArc64 = 183
 
 
-class ElfFile:
-    """Representation of an ELF executable."""
+class ELFFile:
+    """
+    Representation of an ELF executable.
+    """
 
     def __init__(self, f: IO[bytes]) -> None:
         self._f = f
@@ -44,9 +47,10 @@ class ElfFile:
         try:
             ident = self._read("16B")
         except struct.error:
-            raise ElfInvalid
-        if bytes(ident[:4]) != b"\x7fELF":  # Invalid magic, not ELF.
-            raise ElfInvalid
+            raise ELFInvalid("unable to parse identification")
+        magic = bytes(ident[:4])
+        if magic != b"\x7fELF":
+            raise ELFInvalid(f"invalid magic: {magic!r}")
 
         self.capacity = ident[4]  # Format for program header (bitness).
         self.encoding = ident[5]  # Data structure encoding (endianess).
@@ -62,7 +66,10 @@ class ElfFile:
                 (2, 2): (">HHIQQQIHHH", ">IIQQQQQQ", (0, 2, 5)),  # 64-bit MSB.
             }[(self.capacity, self.encoding)]
         except KeyError:
-            raise ElfInvalid
+            raise ELFInvalid(
+                f"unrecognized capacity ({self.capacity}) or "
+                f"encoding ({self.encoding})"
+            )
 
         try:
             (
@@ -77,15 +84,17 @@ class ElfFile:
                 self._e_phentsize,  # Size of section.
                 self._e_phnum,  # Number of sections.
             ) = self._read(e_fmt)
-        except struct.error:
-            raise ElfInvalid
+        except struct.error as e:
+            raise ELFInvalid("unable to parse machine and section information") from e
 
     def _read(self, fmt: str) -> Tuple[int, ...]:
         return struct.unpack(fmt, self._f.read(struct.calcsize(fmt)))
 
     @property
     def interpreter(self) -> Optional[str]:
-        """Path recorded in the ``PT_INTERP`` section header."""
+        """
+        The path recorded in the ``PT_INTERP`` section header.
+        """
         for index in range(self._e_phnum):
             self._f.seek(self._e_phoff + self._e_phentsize * index)
             try:

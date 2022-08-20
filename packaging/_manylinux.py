@@ -7,7 +7,7 @@ import sys
 import warnings
 from typing import Dict, Generator, Iterator, NamedTuple, Optional, Tuple
 
-from ._elffile import EIClass, EIData, ElfFile, EMachine
+from ._elffile import EIClass, EIData, ELFFile, EMachine
 
 EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000
@@ -15,10 +15,10 @@ EF_ARM_ABI_FLOAT_HARD = 0x00000400
 
 
 @contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[Optional[ElfFile], None, None]:
+def _parse_elf(path: str) -> Generator[Optional[ELFFile], None, None]:
     try:
         with open(path, "rb") as f:
-            yield ElfFile(f)
+            yield ELFFile(f)
     except (OSError, TypeError, ValueError):
         yield None
 
