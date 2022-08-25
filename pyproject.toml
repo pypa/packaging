@@ -26,8 +26,10 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-urls.Source = "https://github.com/pypa/packaging"
 dependencies = []
+
+[project.urls]
+Source = "https://github.com/pypa/packaging"
 
 
 [tool.flit.sdist]
