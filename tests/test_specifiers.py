@@ -64,7 +64,14 @@ class TestSpecifier:
             # support one or the other
             "==1.0.*+5",
             "!=1.0.*+deadbeef",
-            # Prefix matching cannot be used inside of a local version
+            # Prefix matching cannot be used with a pre-release, post-release,
+            # dev or local version
+            "==2.0a1.*",
+            "!=2.0a1.*",
+            "==2.0.post1.*",
+            "!=2.0.post1.*",
+            "==2.0.dev1.*",
+            "!=2.0.dev1.*",
             "==1.0+5.*",
             "!=1.0+deadbeef.*",
             # Prefix matching must appear at the end
@@ -304,8 +311,6 @@ class TestSpecifier:
                 ("2", "==2.*"),
                 ("2.0", "==2.*"),
                 ("2.0.0", "==2.*"),
-                ("2.0.post1", "==2.0.post1.*"),
-                ("2.0.post1.dev1", "==2.0.post1.*"),
                 ("2.1+local.version", "==2.1.*"),
                 # Test the in-equality operation
                 ("2.1", "!=2"),
@@ -401,8 +406,6 @@ class TestSpecifier:
                 ("2", "!=2.*"),
                 ("2.0", "!=2.*"),
                 ("2.0.0", "!=2.*"),
-                ("2.0.post1", "!=2.0.post1.*"),
-                ("2.0.post1.dev1", "!=2.0.post1.*"),
                 # Test the greater than equal operation
                 ("2.0.dev1", ">=2"),
                 ("2.0a1", ">=2"),
@@ -526,7 +529,6 @@ class TestSpecifier:
             (">=1.0", "2.0.dev1", False),
             (">=2.0.dev1", "2.0a1", True),
             ("==2.0.*", "2.0a1.dev1", False),
-            ("==2.0a1.*", "2.0a1.dev1", True),
             ("<=2.0", "1.0.dev1", False),
             ("<=2.0.dev1", "1.0a1", True),
         ],
