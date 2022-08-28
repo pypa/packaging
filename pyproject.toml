@@ -3,6 +3,14 @@ requires = ['setuptools >= 40.8.0', 'wheel']
 build-backend = 'setuptools.build_meta'
 
 
+[tool.coverage.run]
+branch = true
+omit = ["packaging/_compat.py"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
+
+
 [tool.mypy]
 strict = true
 show_error_codes = true
