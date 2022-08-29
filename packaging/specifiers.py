@@ -386,9 +386,11 @@ class Specifier(BaseSpecifier):
         if spec.endswith(".*"):
             # In the case of prefix matching we want to ignore local segment.
             prospective = Version(prospective.public)
+            # Get the normalized version string ignoring the trailing .*
+            normalized_spec = canonicalize_version(spec[:-2], strip_trailing_zero=False)
             # Split the spec out by dots, and pretend that there is an implicit
             # dot in between a release segment and a pre-release segment.
-            split_spec = _version_split(spec[:-2])  # Remove the trailing .*
+            split_spec = _version_split(normalized_spec)
 
             # Split the prospective version out by dots, and pretend that there
             # is an implicit dot in between a release segment and a pre-release
