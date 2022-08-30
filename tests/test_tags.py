@@ -4,6 +4,7 @@
 
 
 import collections.abc
+import subprocess
 
 try:
     import ctypes
@@ -230,11 +231,47 @@ class TestMacOSPlatforms:
         version = platform.mac_ver()[0].split(".")
         major = version[0]
         minor = version[1] if major == "10" else "0"
-        expected = f"macosx_{major}_{minor}"
+
+        platforms = list(tags.mac_platforms(arch="x86_64"))
+        if (major, minor) == ("10", "16"):
+            print(platforms, "macosx_11+")
+            # For 10.16, the real version is at least 11.0.
+            prefix, major, minor, _ = platforms[0].split("_", maxsplit=3)
+            assert prefix == "macosx"
+            assert int(major) >= 11
+            assert minor == "0"
+        else:
+            expected = f"macosx_{major}_{minor}_"
+            print(platforms, expected)
+            assert platforms[0].startswith(expected)
+
+    def test_version_detection_10_15(self, monkeypatch):
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: ("10.15", ("", "", ""), "x86_64")
+        )
+        expected = "macosx_10_15_"
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
         print(platforms, expected)
         assert platforms[0].startswith(expected)
+
+    def test_version_detection_compatibility(self, monkeypatch):
+        if platform.system() != "Darwin":
+            monkeypatch.setattr(
+                subprocess,
+                "run",
+                lambda *args, **kwargs: subprocess.CompletedProcess(
+                    [], 0, stdout="10.15"
+                ),
+            )
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: ("10.16", ("", "", ""), "x86_64")
+        )
+        unexpected = "macosx_10_16_"
+
+        platforms = list(tags.mac_platforms(arch="x86_64"))
+        print(platforms, unexpected)
+        assert not platforms[0].startswith(unexpected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
     def test_arch_detection(self, arch, monkeypatch):
@@ -1189,3 +1226,16 @@ class TestSysTags:
                 break
 
         assert tag == tags.Tag("pp3", "none", "any")
+
+    def test_cpython_first_none_any_tag(self, monkeypatch):
+        # When building the complete list of cpython tags, make sure the first
+        # <interpreter>-none-any one is cpxx-none-any
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+
+        # Find the first tag that is ABI- and platform-agnostic.
+        for tag in tags.sys_tags():
+            if tag.abi == "none" and tag.platform == "any":
+                break
+
+        interpreter = f"cp{tags.interpreter_version()}"
+        assert tag == tags.Tag(interpreter, "none", "any")

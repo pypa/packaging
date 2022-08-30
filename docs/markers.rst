@@ -34,16 +34,13 @@ Usage
     >>> # Markers can be also used with extras, to pull in dependencies if
     >>> # a certain extra is being installed
     >>> extra = Marker('extra == "bar"')
-    >>> # Evaluating an extra marker with no environment is an error
-    >>> try:
-    ...     extra.evaluate()
-    ... except UndefinedEnvironmentName:
-    ...     pass
-    >>> extra_environment = {'extra': ''}
-    >>> extra.evaluate(environment=extra_environment)
-    False
-    >>> extra_environment['extra'] = 'bar'
-    >>> extra.evaluate(environment=extra_environment)
+    >>> # You can do simple comparisons between marker objects:
+    >>> Marker("python_version > '3.6'") == Marker("python_version > '3.6'")
+    True
+    >>> # You can also perform simple comparisons between sets of markers:
+    >>> markers1 = {Marker("python_version > '3.6'"), Marker('os_name == "unix"')}
+    >>> markers2 = {Marker('os_name == "unix"'), Marker("python_version > '3.6'")}
+    >>> markers1 == markers2
     True
 
 

@@ -10,12 +10,11 @@ import sys
 
 import pytest
 
+from packaging._parser import Node
 from packaging.markers import (
     InvalidMarker,
     Marker,
-    Node,
     UndefinedComparison,
-    UndefinedEnvironmentName,
     default_environment,
     format_full_version,
 )
@@ -62,11 +61,11 @@ class TestNode:
     def test_accepts_value(self, value):
         assert Node(value).value == value
 
-    @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
+    @pytest.mark.parametrize("value", ["one", "two"])
     def test_str(self, value):
         assert str(Node(value)) == str(value)
 
-    @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
+    @pytest.mark.parametrize("value", ["one", "two"])
     def test_repr(self, value):
         assert repr(Node(value)) == f"<Node({str(value)!r})>"
 
@@ -86,9 +85,15 @@ class TestOperatorEvaluation:
         with pytest.raises(UndefinedComparison):
             Marker("'2.7.0' ~= os_name").evaluate()
 
+
     def test_evaluate_case_insensitive(self):
         assert Marker('extra == "CaseInsensitive"').evaluate(
             dict(extra="caseinsensitive")
+        ) 
+        
+    def test_allows_prerelease(self):
+        assert Marker('python_full_version > "3.6.2"').evaluate(
+            {"python_full_version": "3.11.0a5"}
         )
 
 
@@ -166,6 +171,7 @@ class TestMarker:
             "python_version",
             "(python_version)",
             "python_version >= 1.0 and (python_version)",
+            '(python_version == "2.7" and os_name == "linux"',
         ],
     )
     def test_parses_invalid(self, marker_string):
@@ -207,16 +213,54 @@ class TestMarker:
             ),
         ],
     )
-    def test_str_and_repr(self, marker_string, expected):
+    def test_str_repr_eq_hash(self, marker_string, expected):
         m = Marker(marker_string)
         assert str(m) == expected
         assert repr(m) == f"<Marker({str(m)!r})>"
+        # Objects created from the same string should be equal.
+        assert m == Marker(marker_string)
+        # Objects created from the equivalent strings should also be equal.
+        assert m == Marker(expected)
+        # Objects created from the same string should have the same hash.
+        assert hash(Marker(marker_string)) == hash(Marker(marker_string))
+        # Objects created from equivalent strings should also have the same hash.
+        assert hash(Marker(marker_string)) == hash(Marker(expected))
 
-    def test_extra_with_no_extra_in_environment(self):
-        # We can't evaluate an extra if no extra is passed into the environment
-        m = Marker("extra == 'security'")
-        with pytest.raises(UndefinedEnvironmentName):
-            m.evaluate()
+    @pytest.mark.parametrize(
+        ("example1", "example2"),
+        [
+            # Test trivial comparisons.
+            ('python_version == "2.7"', 'python_version == "3.7"'),
+            (
+                'python_version == "2.7"',
+                'python_version == "2.7" and os_name == "linux"',
+            ),
+            (
+                'python_version == "2.7"',
+                '(python_version == "2.7" and os_name == "linux")',
+            ),
+            # Test different precedence.
+            (
+                'python_version == "2.7" and (os_name == "linux" or '
+                'sys_platform == "win32")',
+                'python_version == "2.7" and os_name == "linux" or '
+                'sys_platform == "win32"',
+            ),
+        ],
+    )
+    def test_different_markers_different_hashes(self, example1, example2):
+        marker1, marker2 = Marker(example1), Marker(example2)
+        # Markers created from strings that are not equivalent should differ.
+        assert marker1 != marker2
+        # Different Marker objects should have different hashes.
+        assert hash(marker1) != hash(marker2)
+
+    def test_compare_markers_to_other_objects(self):
+        # Markers should not be comparable to other kinds of objects.
+        assert Marker("os_name == 'nt'") != "os_name == 'nt'"
+
+    def test_environment_assumes_empty_extra(self):
+        assert Marker('extra == "im_valid"').evaluate() is False
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
@@ -251,6 +295,14 @@ class TestMarker:
             ),
             ("extra == 'security'", {"extra": "quux"}, False),
             ("extra == 'security'", {"extra": "security"}, True),
+            ("extra == 'SECURITY'", {"extra": "security"}, True),
+            ("extra == 'security'", {"extra": "SECURITY"}, True),
+            ("extra == 'pep-685-norm'", {"extra": "PEP_685...norm"}, True),
+            (
+                "extra == 'Different.punctuation..is...equal'",
+                {"extra": "different__punctuation_is_EQUAL"},
+                True,
+            ),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
@@ -313,3 +365,12 @@ class TestMarker:
         marker_string = "python_implementation=='Jython'"
         args = [{"platform_python_implementation": "CPython"}]
         assert Marker(marker_string).evaluate(*args) is False
+
+    def test_extra_str_normalization(self):
+        raw_name = "S_P__A_M"
+        normalized_name = "s-p-a-m"
+        lhs = f"{raw_name!r} == extra"
+        rhs = f"extra == {raw_name!r}"
+
+        assert str(Marker(lhs)) == f'"{normalized_name}" == extra'
+        assert str(Marker(rhs)) == f'extra == "{normalized_name}"'

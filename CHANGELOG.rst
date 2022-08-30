@@ -4,7 +4,12 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
+  Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
+  ``environment`` will no longer raise an exception.
+* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
+* Update return type hint for ``Specifier.filter`` and ``SpecifierSet.filter``
+  to use ``Iterator`` instead of ``Iterable``
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
@@ -116,7 +121,7 @@ No unreleased changes.
 
 * Officially support Python 3.8 (:issue:`232`)
 
-* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`226`)
+* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`225`)
 
 * Properly mark ``packaging`` has being fully typed by adding a `py.typed` file (:issue:`226`)
 
