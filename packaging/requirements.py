@@ -39,7 +39,7 @@ class Requirement:
         try:
             req = _RequirementTuple(*parse_named_requirement(requirement_string))
         except ParseExceptionError as e:
-            raise InvalidRequirement(str(e))
+            raise InvalidRequirement(str(e)) from None
 
         self.name: str = req.name
         if req.url:
