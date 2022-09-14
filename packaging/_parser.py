@@ -77,18 +77,22 @@ def parse_named_requirement(requirement: str) -> Requirement:
         url = tokens.read().text[1:].strip()
     elif not tokens.match("END"):
         specifier = parse_specifier(tokens)
+    marker = ""
     if tokens.try_read("SEMICOLON"):
-        marker = ""
         while not tokens.match("END"):
             # we don't validate markers here, it's done later as part of
             # packaging/requirements.py
             marker += tokens.read().text
-    else:
-        marker = ""
-        tokens.expect(
-            "END",
-            error_message="Expected semicolon (followed by markers) or end of string",
-        )
+    elif not tokens.match("END"):
+        if url and url[-1] == ";":
+            error_msg = (
+                "Expected space before semicolon (followed by markers) or end of string"
+            )
+            # update position to point at the place where the space was expected
+            tokens.position -= 1
+        else:
+            error_msg = "Expected semicolon (followed by markers) or end of string"
+        tokens.raise_syntax_error(message=error_msg)
     return Requirement(name, url, extras, specifier, marker)
 
 
