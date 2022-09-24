@@ -196,6 +196,14 @@ class TestRequirements:
             Requirement('name[bar]>=3 python_version == "2.7"')
         assert "Expected semicolon (followed by markers) or end of string" in str(e)
 
+    def test_url_and_marker_with_missing_space_after_semicolon(self):
+        with pytest.raises(InvalidRequirement) as e:
+            Requirement('foobar @ https://foo.com; python_version < "3.11"')
+        assert (
+            "Expected space before semicolon (followed by markers) or end of string"
+            in str(e)
+        )
+
     def test_types(self):
         req = Requirement("foobar[quux]<2,>=3; os_name=='a'")
         assert isinstance(req.name, str)
