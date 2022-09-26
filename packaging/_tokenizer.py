@@ -129,16 +129,16 @@ class Tokenizer:
             return self.read()
         return None
 
-    def raise_syntax_error(self, *, message: str) -> NoReturn:
+    def raise_syntax_error(self, *, message: str, suffix: str = "") -> NoReturn:
         """
         Raise SyntaxError at the given position in the marker.
         """
         at = f"at position {self.position}:"
         marker = " " * self.position + "^"
-        raise ParseExceptionError(
-            f"{message}\n{at}\n    {self.source}\n    {marker}",
-            self.position,
-        )
+        message = f"{message}\n{at}\n    {self.source}\n    {marker}"
+        if suffix:
+            message = f"{message}\n{suffix}"
+        raise ParseExceptionError(message, self.position)
 
     def _make_token(self, name: str, text: str) -> Token:
         """

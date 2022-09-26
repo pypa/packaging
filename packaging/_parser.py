@@ -90,9 +90,14 @@ def parse_named_requirement(requirement: str) -> Requirement:
             )
             # update position to point at the place where the space was expected
             tokens.position -= 1
+            suffix = (
+                f"Maybe you mean this instead?\n    "
+                f"{tokens.source[:tokens.position]} {tokens.source[tokens.position:]}"
+            )
         else:
             error_msg = "Expected semicolon (followed by markers) or end of string"
-        tokens.raise_syntax_error(message=error_msg)
+            suffix = ""
+        tokens.raise_syntax_error(message=error_msg, suffix=suffix)
     return Requirement(name, url, extras, specifier, marker)
 
 
