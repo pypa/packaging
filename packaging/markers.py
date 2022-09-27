@@ -209,7 +209,7 @@ class Marker:
             raise InvalidMarker(
                 f"Invalid marker: {marker!r}, parse error at "
                 f"{marker[e.position : e.position + 8]!r}"
-            )
+            ) from e
 
     def __str__(self) -> str:
         return _format_marker(self._markers)
