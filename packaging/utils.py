@@ -36,7 +36,9 @@ def canonicalize_name(name: str) -> NormalizedName:
     return cast(NormalizedName, value)
 
 
-def canonicalize_version(version: Union[Version, str]) -> str:
+def canonicalize_version(
+    version: Union[Version, str], *, strip_trailing_zero: bool = True
+) -> str:
     """
     This is very similar to Version.__str__, but has one subtle difference
     with the way it handles the release segment.
@@ -57,8 +59,11 @@ def canonicalize_version(version: Union[Version, str]) -> str:
         parts.append(f"{parsed.epoch}!")
 
     # Release segment
-    # NB: This strips trailing '.0's to normalize
-    parts.append(re.sub(r"(\.0)+$", "", ".".join(str(x) for x in parsed.release)))
+    release_segment = ".".join(str(x) for x in parsed.release)
+    if strip_trailing_zero:
+        # NB: This strips trailing '.0's to normalize
+        release_segment = re.sub(r"(\.0)+$", "", release_segment)
+    parts.append(release_segment)
 
     # Pre-release
     if parsed.pre is not None:
@@ -104,7 +109,7 @@ def create_wheel_filename(
 
 
 def parse_wheel_filename(
-    filename: str
+    filename: str,
 ) -> Tuple[NormalizedName, Version, BuildTag, FrozenSet[Tag]]:
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -144,14 +149,19 @@ def create_sdist_filename(name: str, version: Version) -> str:
 
 
 def parse_sdist_filename(filename: str) -> Tuple[NormalizedName, Version]:
-    if not filename.endswith(".tar.gz"):
+    if filename.endswith(".tar.gz"):
+        file_stem = filename[: -len(".tar.gz")]
+    elif filename.endswith(".zip"):
+        file_stem = filename[: -len(".zip")]
+    else:
         raise InvalidSdistFilename(
-            f"Invalid sdist filename (extension must be '.tar.gz'): {filename}"
+            f"Invalid sdist filename (extension must be '.tar.gz' or '.zip'):"
+            f" {filename}"
         )
 
     # We are requiring a PEP 440 version, which cannot contain dashes,
     # so we split on the last dash.
-    name_part, sep, version_part = filename[:-7].rpartition("-")
+    name_part, sep, version_part = file_stem.rpartition("-")
     if not sep:
         raise InvalidSdistFilename(f"Invalid sdist filename: {filename}")
 

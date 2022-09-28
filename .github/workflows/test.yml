@@ -10,6 +10,10 @@ on:
       - ".github/workflows/test.yml"
       - "**.py"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: ${{ matrix.os }} / ${{ matrix.python_version }}
@@ -19,36 +23,21 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.6", "3.7", "3.8", "3.9", "pypy3"]
-        exclude:
-          # This is failing due to pip not being in the virtual environment.
-          # https://github.com/pypa/packaging/runs/424785871#step:7:9
-          - os: windows
-            python_version: pypy3
+          ["3.7", "3.8", "3.9", "3.10", "3.11-dev", "pypy3.7", "pypy3.8", "pypy3.9"]
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         name: Install Python ${{ matrix.python_version }}
         with:
           python-version: ${{ matrix.python_version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install nox
-        shell: bash
+          cache: "pip"
 
       - name: Run nox
         run: |
-          python -m nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+          # Need to remove "-dev" suffix
+          INTERPRETER=${{ matrix.python_version }}
+          INTERPRETER=${INTERPRETER/-dev/}
+          pipx run nox --error-on-missing-interpreters -s tests-${INTERPRETER}
         shell: bash
-        if: matrix.python_version != 'pypy2'
-
-      # Binary is named 'pypy', but setup-python specifies it as 'pypy2'.
-      - name: Run nox for pypy2
-        run: |
-          python -m nox --error-on-missing-interpreters -s tests-pypy
-        shell: bash
-        if: matrix.python_version == 'pypy2'

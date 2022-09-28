@@ -4,19 +4,20 @@
 
 import itertools
 import operator
-import warnings
 
 import pretend
 import pytest
 
-from packaging.version import InvalidVersion, LegacyVersion, Version, parse
+from packaging.version import InvalidVersion, Version, parse
 
 
-@pytest.mark.parametrize(
-    ("version", "klass"), [("1.0", Version), ("1-1-1", LegacyVersion)]
-)
-def test_parse(version, klass):
-    assert isinstance(parse(version), klass)
+def test_parse():
+    assert isinstance(parse("1.0"), Version)
+
+
+def test_parse_raises():
+    with pytest.raises(InvalidVersion):
+        parse("lolwat")
 
 
 # This list must be in the correct sorting order
@@ -277,7 +278,7 @@ class TestVersion:
     )
     def test_version_str_repr(self, version, expected):
         assert str(Version(version)) == expected
-        assert repr(Version(version)) == "<Version({!r})>".format(expected)
+        assert repr(Version(version)) == f"<Version({expected!r})>"
 
     def test_version_rc_and_c_equals(self):
         assert Version("1.0rc1") == Version("1.0c1")
@@ -759,10 +760,6 @@ class TestVersion:
 
         assert getattr(operator, op)(Version("1"), other) is expected
 
-    def test_compare_legacyversion_version(self):
-        result = sorted([Version("0"), LegacyVersion("1")])
-        assert result == [LegacyVersion("1"), Version("0")]
-
     def test_major_version(self):
         assert Version("2.1.0").major == 2
 
@@ -774,131 +771,3 @@ class TestVersion:
         assert Version("2.1.3").micro == 3
         assert Version("2.1").micro == 0
         assert Version("2").micro == 0
-
-
-LEGACY_VERSIONS = ["foobar", "a cat is fine too", "lolwut", "1-0", "2.0-a1"]
-
-
-class TestLegacyVersion:
-    def test_legacy_version_is_deprecated(self):
-        with warnings.catch_warnings(record=True) as w:
-            LegacyVersion("some-legacy-version")
-            assert len(w) == 1
-            assert issubclass(w[0].category, DeprecationWarning)
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_valid_legacy_versions(self, version):
-        LegacyVersion(version)
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_str_repr(self, version):
-        assert str(LegacyVersion(version)) == version
-        assert repr(LegacyVersion(version)) == "<LegacyVersion({})>".format(
-            repr(version)
-        )
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_hash(self, version):
-        assert hash(LegacyVersion(version)) == hash(LegacyVersion(version))
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_public(self, version):
-        assert LegacyVersion(version).public == version
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_base_version(self, version):
-        assert LegacyVersion(version).base_version == version
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_epoch(self, version):
-        assert LegacyVersion(version).epoch == -1
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_release(self, version):
-        assert LegacyVersion(version).release is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_local(self, version):
-        assert LegacyVersion(version).local is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_pre(self, version):
-        assert LegacyVersion(version).pre is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_is_prerelease(self, version):
-        assert not LegacyVersion(version).is_prerelease
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_dev(self, version):
-        assert LegacyVersion(version).dev is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_is_devrelease(self, version):
-        assert not LegacyVersion(version).is_devrelease
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_post(self, version):
-        assert LegacyVersion(version).post is None
-
-    @pytest.mark.parametrize("version", VERSIONS + LEGACY_VERSIONS)
-    def test_legacy_version_is_postrelease(self, version):
-        assert not LegacyVersion(version).is_postrelease
-
-    @pytest.mark.parametrize(
-        ("left", "right", "op"),
-        # Below we'll generate every possible combination of
-        # VERSIONS + LEGACY_VERSIONS that should be True for the given operator
-        itertools.chain(
-            *
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.eq) for x in VERSIONS + LEGACY_VERSIONS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [
-                    (x, y, operator.ne)
-                    for j, y in enumerate(VERSIONS + LEGACY_VERSIONS)
-                    if i != j
-                ]
-                for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
-            ]
-        ),
-    )
-    def test_comparison_true(self, left, right, op):
-        assert op(LegacyVersion(left), LegacyVersion(right))
-
-    @pytest.mark.parametrize(
-        ("left", "right", "op"),
-        # Below we'll generate every possible combination of
-        # VERSIONS + LEGACY_VERSIONS that should be False for the given
-        # operator
-        itertools.chain(
-            *
-            # Verify that the equal (==) operator works correctly
-            [
-                [
-                    (x, y, operator.eq)
-                    for j, y in enumerate(VERSIONS + LEGACY_VERSIONS)
-                    if i != j
-                ]
-                for i, x in enumerate(VERSIONS + LEGACY_VERSIONS)
-            ]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [[(x, x, operator.ne) for x in VERSIONS + LEGACY_VERSIONS]]
-        ),
-    )
-    def test_comparison_false(self, left, right, op):
-        assert not op(LegacyVersion(left), LegacyVersion(right))
-
-    @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
-    def test_dunder_op_returns_notimplemented(self, op):
-        method = getattr(LegacyVersion, f"__{op}__")
-        assert method(LegacyVersion("1"), 1) is NotImplemented
-
-    @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
-    def test_compare_other(self, op, expected):
-        other = pretend.stub(**{f"__{op}__": lambda other: NotImplemented})
-
-        assert getattr(operator, op)(LegacyVersion("1"), other) is expected

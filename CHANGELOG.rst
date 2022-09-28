@@ -4,8 +4,46 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-* `packaging` is now only compatible with Python 3.6 and above.
 * Added ``packaging.utils.create_wheel_filename()`` and ``create_sdist_filename()`` (:issue:`408`)
+* ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
+  Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
+  ``environment`` will no longer raise an exception.
+* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
+* Update return type hint for ``Specifier.filter`` and ``SpecifierSet.filter``
+  to use ``Iterator`` instead of ``Iterable``
+
+21.3 - 2021-11-17
+~~~~~~~~~~~~~~~~~
+
+* Add a ``pp3-none-any`` tag (:issue:`311`)
+* Replace the blank pyparsing 3 exclusion with a 3.0.5 exclusion (:issue:`481`, :issue:`486`)
+* Fix a spelling mistake (:issue:`479`)
+
+21.2 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update documentation entry for 21.1.
+
+21.1 - 2021-10-29
+~~~~~~~~~~~~~~~~~
+
+* Update pin to pyparsing to exclude 3.0.0.
+
+21.0 - 2021-07-03
+~~~~~~~~~~~~~~~~~
+
+* PEP 656: musllinux support (:issue:`411`)
+* Drop support for Python 2.7, Python 3.4 and Python 3.5.
+* Replace distutils usage with sysconfig (:issue:`396`)
+* Add support for zip files in ``parse_sdist_filename`` (:issue:`429`)
+* Use cached ``_hash`` attribute to short-circuit tag equality comparisons (:issue:`417`)
+* Specify the default value for the ``specifier`` argument to ``SpecifierSet`` (:issue:`437`)
+* Proper keyword-only "warn" argument in packaging.tags (:issue:`403`)
+* Correctly remove prerelease suffixes from ~= check (:issue:`366`)
+* Fix type hints for ``Version.post`` and ``Version.dev`` (:issue:`393`)
+* Use typing alias ``UnparsedVersion`` (:issue:`398`)
+* Improve type inference for ``packaging.specifiers.filter()`` (:issue:`430`)
+* Tighten the return type of ``canonicalize_version()`` (:issue:`402`)
 
 20.9 - 2021-01-29
 ~~~~~~~~~~~~~~~~~
@@ -80,11 +118,11 @@ No unreleased changes.
 
 * Use ``sys.implementation.name`` where appropriate for ``packaging.tags`` (:issue:`193`)
 
-* Expand upon the API provded by ``packaging.tags``: ``interpreter_name()``, ``mac_platforms()``, ``compatible_tags()``, ``cpython_tags()``, ``generic_tags()`` (:issue:`187`)
+* Expand upon the API provided by ``packaging.tags``: ``interpreter_name()``, ``mac_platforms()``, ``compatible_tags()``, ``cpython_tags()``, ``generic_tags()`` (:issue:`187`)
 
 * Officially support Python 3.8 (:issue:`232`)
 
-* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`226`)
+* Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`225`)
 
 * Properly mark ``packaging`` has being fully typed by adding a `py.typed` file (:issue:`226`)
 
@@ -231,7 +269,7 @@ No unreleased changes.
 15.2 - 2015-05-13
 ~~~~~~~~~~~~~~~~~
 
-* Fix an error where the arbitary specifier (``===``) was not correctly
+* Fix an error where the arbitrary specifier (``===``) was not correctly
   allowing pre-releases when it was being used.
 
 * Expose the specifier and version parts through properties on the

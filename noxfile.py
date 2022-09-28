@@ -21,13 +21,15 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "pypy3"])
+@nox.session(
+    python=["3.7", "3.8", "3.9", "3.10", "3.11", "pypy3.7", "pypy3.8", "pypy3.9"]
+)
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
-    # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
-    session.install("coverage<5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
+    session.install("coverage[toml]>=5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
+    session.install(".")
 
     if "pypy" not in session.python:
         coverage(
@@ -56,11 +58,11 @@ def tests(session):
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
-    session.run("pre-commit", "run", "--all-files")
+    session.run("pre-commit", "run", "--all-files", *session.posargs)
 
     # Check the distribution
     session.install("build", "twine")
-    session.run("python", "-m", "build")
+    session.run("pyproject-build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
@@ -140,7 +142,7 @@ def release(session):
     # Check what files are in dist/ for upload.
     files = sorted(glob.glob("dist/*"))
     expected = [
-        f"dist/{package_name}-{release_version}-py2.py3-none-any.whl",
+        f"dist/{package_name}-{release_version}-py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
     ]
     if files != expected:

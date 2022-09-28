@@ -51,11 +51,18 @@ def test_canonicalize_name(name, expected):
         ("1.0a0", "1a0"),
         ("1.0rc0", "1rc0"),
         ("100!0.0", "100!0"),
-        ("1.0.1-test7", "1.0.1-test7"),  # LegacyVersion is unchanged
+        # improper version strings are unchanged
+        ("lolwat", "lolwat"),
+        ("1.0.1-test7", "1.0.1-test7"),
     ],
 )
 def test_canonicalize_version(version, expected):
     assert canonicalize_version(version) == expected
+
+
+@pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
+def test_canonicalize_version_no_strip_trailing_zero(version):
+    assert canonicalize_version(version, strip_trailing_zero=False) == version
 
 
 @pytest.mark.parametrize(
@@ -64,6 +71,13 @@ def test_canonicalize_version(version, expected):
         (
             "foo-1.0-py3-none-any.whl",
             "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "some_PACKAGE-1.0-py3-none-any.whl",
+            "some-package",
             Version("1.0"),
             (),
             {Tag("py3", "none", "any")},
@@ -160,7 +174,7 @@ def test_parse_sdist_filename(filename, name, version):
     assert parse_sdist_filename(filename) == (name, version)
 
 
-@pytest.mark.parametrize(("filename"), [("foo-1.0.zip"), ("foo1.0.tar.gz")])
+@pytest.mark.parametrize(("filename"), [("foo-1.0.xz"), ("foo1.0.tar.gz")])
 def test_parse_sdist_invalid_filename(filename):
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
