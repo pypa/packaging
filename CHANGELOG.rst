@@ -4,6 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Added ``packaging.utils.create_wheel_filename()`` and ``create_sdist_filename()`` (:issue:`408`)
 * ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
   Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
   ``environment`` will no longer raise an exception.

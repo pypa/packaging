@@ -3,7 +3,7 @@
 # for complete details.
 
 import re
-from typing import FrozenSet, NewType, Tuple, Union, cast
+from typing import AbstractSet, FrozenSet, NewType, Optional, Tuple, Union, cast
 
 from .tags import Tag, parse_tag
 from .version import InvalidVersion, Version
@@ -24,6 +24,7 @@ class InvalidSdistFilename(ValueError):
     """
 
 
+_distribution_regex = re.compile(r"[^\w\d.]+")
 _canonicalize_regex = re.compile(r"[-_.]+")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
@@ -83,6 +84,30 @@ def canonicalize_version(
     return "".join(parts)
 
 
+def _join_tag_attr(tags: AbstractSet[Tag], field: str) -> str:
+    return ".".join(sorted({getattr(tag, field) for tag in tags}))
+
+
+def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
+    return "-".join(_join_tag_attr(tags, x) for x in ("interpreter", "abi", "platform"))
+
+
+def create_wheel_filename(
+    name: str, version: Version, build: Optional[BuildTag], tags: AbstractSet[Tag]
+) -> str:
+    norm_name = _distribution_regex.sub("_", name)
+    compressed_tag = _compress_tag_set(tags)
+
+    parts: Tuple[str, ...]
+
+    if build:
+        parts = norm_name, str(version), "".join(map(str, build)), compressed_tag
+    else:
+        parts = norm_name, str(version), compressed_tag
+
+    return "-".join(parts) + ".whl"
+
+
 def parse_wheel_filename(
     filename: str,
 ) -> Tuple[NormalizedName, Version, BuildTag, FrozenSet[Tag]]:
@@ -117,6 +142,10 @@ def parse_wheel_filename(
         build = ()
     tags = parse_tag(parts[-1])
     return (name, version, build, tags)
+
+
+def create_sdist_filename(name: str, version: Version) -> str:
+    return f"{_distribution_regex.sub('_', name)}-{version}.tar.gz"
 
 
 def parse_sdist_filename(filename: str) -> Tuple[NormalizedName, Version]:
