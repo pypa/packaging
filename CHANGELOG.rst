@@ -4,12 +4,30 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Explicitly declare support for Python 3.11 (:issue:`587`)
+* Remove support for Python 3.6 (:issue:`500`)
+* Remove ``LegacySpecifier`` and ``LegacyVersion`` (:issue:`407`)
+* New ``packaging.metadata`` module with a data class for core metadata (:issue:`518`)
+* Add ``__hash__`` and ``__eq__`` to ``Requirement`` (:issue:`499`)
+* Add a ``cpNNN-none-any`` tag (:issue:`541`)
+* Adhere to :pep:`685` when evaluating markers with extras (:issue:`545`)
+* Allow accepting locally installed prereleases with ``SpecifierSet``  (:issue:`515`)
+* Allow pre-release versions in marker evaluation (:issue:`523`)
+* Correctly parse ELF for musllinux on Big Endian (:issue:`538`)
+* Document ``packaging.utils.NormalizedName`` (:issue:`565`)
+* Document exceptions raised by functions in ``packaging.utils`` (:issue:`544`)
+* Fix compatible version specifier incorrectly strip trailing ``0`` (:issue:`493`)
+* Fix macOS platform tags with old macOS SDK (:issue:`513`)
+* Forbid prefix version matching on pre-release/post-release segments (:issue:`563`)
+* Normalize specifier version for prefix matching (:issue:`561`)
+* Improve documentation for ``packaging.specifiers`` and ``packaging.version``. (:issue:`572`)
 * ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
   Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
-  ``environment`` will no longer raise an exception.
-* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
+  ``environment`` will no longer raise an exception (:issue:`550`)
+* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser.
+  This package now has no runtime dependencies (:issue:`468`)
 * Update return type hint for ``Specifier.filter`` and ``SpecifierSet.filter``
-  to use ``Iterator`` instead of ``Iterable``
+  to use ``Iterator`` instead of ``Iterable`` (:issue:`584`)
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~
