@@ -7,7 +7,6 @@ from .utils import NormalizedName, canonicalize_name
 from .version import Version
 
 # Type aliases.
-_NameAndEmail = Tuple[Optional[str], str]
 _LabelAndURL = Tuple[str, str]
 
 
@@ -75,13 +74,13 @@ class Metadata:
     keywords: List[str]
     home_page: str
     author: str
-    author_emails: List[_NameAndEmail]
+    author_email: str
     license: str
     supported_platforms: List[str]
     download_url: str
     classifiers: List[str]
     maintainer: str
-    maintainer_emails: List[_NameAndEmail]
+    maintainer_email: str
     requires_dists: List[Requirement]
     requires_python: SpecifierSet
     requires_externals: List[str]
@@ -104,7 +103,7 @@ class Metadata:
         keywords: Optional[Iterable[str]] = None,
         home_page: Optional[str] = None,
         author: Optional[str] = None,
-        author_emails: Optional[Iterable[_NameAndEmail]] = None,
+        author_email: Optional[str] = None,
         license: Optional[str] = None,
         # 1.1
         supported_platforms: Optional[Iterable[str]] = None,
@@ -112,7 +111,7 @@ class Metadata:
         classifiers: Optional[Iterable[str]] = None,
         # 1.2
         maintainer: Optional[str] = None,
-        maintainer_emails: Optional[Iterable[_NameAndEmail]] = None,
+        maintainer_email: Optional[str] = None,
         requires_dists: Optional[Iterable[Requirement]] = None,
         requires_python: Optional[SpecifierSet] = None,
         requires_externals: Optional[Iterable[str]] = None,
@@ -137,17 +136,13 @@ class Metadata:
         :param keywords: ``Keywords``
         :param home_page: ``Home-Page``
         :param author: ``Author``
-        :param author_emails:
-            ``Author-Email`` (two-item tuple represents the name and email of the
-            author)
+        :param author_email: ``Author-Email``
         :param license: ``License``
         :param supported_platforms: ``Supported-Platform``
         :param download_url: ``Download-URL``
         :param classifiers: ``Classifier``
         :param maintainer: ``Maintainer``
-        :param maintainer_emails:
-            ``Maintainer-Email`` (two-item tuple represent the name and email of the
-            maintainer)
+        :param maintainer_email: ``Maintainer-Email``
         :param requires_dists: ``Requires-Dist``
         :param SpecifierSet requires_python: ``Requires-Python``
         :param requires_externals: ``Requires-External``
@@ -166,13 +161,13 @@ class Metadata:
         self.keywords = list(keywords or [])
         self.home_page = home_page or ""
         self.author = author or ""
-        self.author_emails = list(author_emails or [])
+        self.author_emails = author_email or ""
         self.license = license or ""
         self.supported_platforms = list(supported_platforms or [])
         self.download_url = download_url or ""
         self.classifiers = list(classifiers or [])
         self.maintainer = maintainer or ""
-        self.maintainer_emails = list(maintainer_emails or [])
+        self.maintainer_emails = maintainer_email or ""
         self.requires_dists = list(requires_dists or [])
         self.requires_python = requires_python or SpecifierSet()
         self.requires_externals = list(requires_externals or [])

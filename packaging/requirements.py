@@ -3,17 +3,12 @@
 # for complete details.
 
 import urllib.parse
-from collections import namedtuple
 from typing import Any, List, Optional, Set
 
 from ._parser import parse_named_requirement
 from ._tokenizer import ParseExceptionError
 from .markers import InvalidMarker, Marker
 from .specifiers import SpecifierSet
-
-_RequirementTuple = namedtuple(
-    "_RequirementTuple", ["name", "url", "extras", "specifier", "marker"]
-)
 
 
 class InvalidRequirement(ValueError):
@@ -37,7 +32,7 @@ class Requirement:
 
     def __init__(self, requirement_string: str) -> None:
         try:
-            req = _RequirementTuple(*parse_named_requirement(requirement_string))
+            req = parse_named_requirement(requirement_string)
         except ParseExceptionError as e:
             raise InvalidRequirement(str(e)) from e
 
