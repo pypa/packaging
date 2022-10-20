@@ -7,7 +7,6 @@ Changelog
 * Explicitly declare support for Python 3.11 (:issue:`587`)
 * Remove support for Python 3.6 (:issue:`500`)
 * Remove ``LegacySpecifier`` and ``LegacyVersion`` (:issue:`407`)
-* New ``packaging.metadata`` module with a data class for core metadata (:issue:`518`)
 * Add ``__hash__`` and ``__eq__`` to ``Requirement`` (:issue:`499`)
 * Add a ``cpNNN-none-any`` tag (:issue:`541`)
 * Adhere to :pep:`685` when evaluating markers with extras (:issue:`545`)

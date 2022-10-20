@@ -26,7 +26,6 @@ You can install packaging with ``pip``:
     markers
     requirements
     tags
-    metadata
     utils
 
 .. toctree::
