@@ -823,22 +823,40 @@ class TestCPythonTags:
 
 
 class TestGenericTags:
-    @pytest.mark.skipif(
-        not sysconfig.get_config_var("SOABI"), reason="SOABI not defined"
-    )
-    def test__generic_abi_soabi_provided(self):
-        abi = sysconfig.get_config_var("SOABI").replace(".", "_").replace("-", "_")
-        assert [abi] == list(tags._generic_abi())
-
-    def test__generic_abi(self, monkeypatch):
+    def test__generic_abi_macos(self, monkeypatch):
         monkeypatch.setattr(
-            sysconfig, "get_config_var", lambda key: "cpython-37m-darwin"
+            sysconfig, "get_config_var", lambda key: ".cpython-37m-darwin.so"
         )
-        assert list(tags._generic_abi()) == ["cpython_37m_darwin"]
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+        assert tags._generic_abi() == ["cp37m"]
 
-    def test__generic_abi_no_soabi(self, monkeypatch):
-        monkeypatch.setattr(sysconfig, "get_config_var", lambda key: None)
-        assert not list(tags._generic_abi())
+    def test__generic_abi_linux_cpython(self, monkeypatch):
+        config = {
+            "Py_DEBUG": False,
+            "WITH_PYMALLOC": True,
+            "EXT_SUFFIX": ".cpython-37m-x86_64-linux-gnu.so",
+        }
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+        # They are identical
+        assert tags._cpython_abis((3, 7)) == ["cp37m"]
+        assert tags._generic_abi() == ["cp37m"]
+
+    def test__generic_abi_jp(self, monkeypatch):
+        config = {"EXT_SUFFIX": ".return exactly this.so"}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "other")
+        assert tags._generic_abi() == ["return exactly this"]
+
+    def test__generic_abi_linux_pypy(self, monkeypatch):
+        # issue gh-606
+        config = {
+            "Py_DEBUG": False,
+            "EXT_SUFFIX": ".pypy39-pp73-x86_64-linux-gnu.so",
+        }
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+        assert tags._generic_abi() == ["pypy39_pp73"]
 
     def test_generic_platforms(self):
         platform = sysconfig.get_platform().replace("-", "_")
@@ -874,7 +892,7 @@ class TestGenericTags:
         assert result == [tags.Tag("sillywalkNN", "none", "any")]
 
     def test_abis_default(self, monkeypatch):
-        monkeypatch.setattr(tags, "_generic_abi", lambda: iter(["abi"]))
+        monkeypatch.setattr(tags, "_generic_abi", lambda: ["abi"])
         result = list(tags.generic_tags(interpreter="sillywalk", platforms=["any"]))
         assert result == [
             tags.Tag("sillywalk", "abi", "any"),

@@ -225,10 +225,32 @@ def cpython_tags(
                 yield Tag(interpreter, "abi3", platform_)
 
 
-def _generic_abi() -> Iterator[str]:
-    abi = sysconfig.get_config_var("SOABI")
-    if abi:
-        yield _normalize_string(abi)
+def _generic_abi() -> List[str]:
+    """Return the ABI tag based on EXT_SUFFIX"""
+    # ext_suffix is something like this. We want to keep the parts which are
+    # related to the ABI and remove the parts which are related to the
+    # platform:
+    # - linux:   '.cpython-310-x86_64-linux-gnu.so' => cp310
+    # - mac:     '.cpython-310-darwin.so'           => cp310
+    # - win:     '.cp310-win_amd64.pyd'             => cp310
+    # - pypy:    '.pypy38-pp73-x86_64-linux-gnu.so' => pypy38-pp73
+    # - graalpy: '.graalpy-38-native-x86_64-darwin.dylib'
+    #                                               => graalpy-38-native
+
+    ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
+    assert ext_suffix[0] == "."
+    _, soabi, ext = ext_suffix.split(".")
+    if soabi.startswith("cpython"):
+        abi = "cp" + soabi.split("-")[1]
+    elif soabi.startswith("pypy"):
+        abi = "-".join(soabi.split("-")[:2])
+    elif soabi.startswith("graalpy"):
+        abi = "-".join(soabi.split("-")[:3])
+    elif soabi:
+        abi = soabi
+    else:
+        return []
+    return [_normalize_string(abi)]
 
 
 def generic_tags(
@@ -252,8 +274,9 @@ def generic_tags(
         interpreter = "".join([interp_name, interp_version])
     if abis is None:
         abis = _generic_abi()
+    else:
+        abis = list(abis)
     platforms = list(platforms or platform_tags())
-    abis = list(abis)
     if "none" not in abis:
         abis.append("none")
     for abi in abis:
@@ -462,7 +485,7 @@ def platform_tags() -> Iterator[str]:
 
 def interpreter_name() -> str:
     """
-    Returns the name of the running interpreter.
+    Returns the name of the running interpreter, usually as two characters.
     """
     name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
