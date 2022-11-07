@@ -94,9 +94,24 @@ def test_canonicalize_version_no_strip_trailing_zero(version):
             (1000, "abc"),
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo-2-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "foo",
+            Version("2"),
+            (),
+            {
+                Tag("py2", "none", "manylinux_2_17_x86_64"),
+                Tag("py2", "none", "manylinux2014_x86_64"),
+                Tag("py3", "none", "manylinux_2_17_x86_64"),
+                Tag("py3", "none", "manylinux2014_x86_64"),
+            },
+        ),
     ],
 )
 def test_parse_wheel_filename(filename, name, version, build, tags):
+    """
+    See https://peps.python.org/pep-0427/#file-name-convention for the spec
+    """
     assert parse_wheel_filename(filename) == (name, version, build, tags)
 
 
@@ -113,6 +128,9 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
     ],
 )
 def test_parse_wheel_invalid_filename(filename):
+    """
+    See https://peps.python.org/pep-0427/#file-name-convention for the spec
+    """
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
 
@@ -122,10 +140,24 @@ def test_parse_wheel_invalid_filename(filename):
     [("foo-1.0.tar.gz", "foo", Version("1.0")), ("foo-1.0.zip", "foo", Version("1.0"))],
 )
 def test_parse_sdist_filename(filename, name, version):
+    """
+    See https://peps.python.org/pep-0625/#specification for the spec
+    """
     assert parse_sdist_filename(filename) == (name, version)
 
 
-@pytest.mark.parametrize(("filename"), [("foo-1.0.xz"), ("foo1.0.tar.gz")])
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        "foo-1.0.xz",  # no .tar.gz ending
+        "foo1.0.tar.gz",  # no dash for package name / version separator
+        "foo",  # missing file extension
+        "foo-1.9",  # missing file extension
+    ],
+)
 def test_parse_sdist_invalid_filename(filename):
+    """
+    See https://peps.python.org/pep-0625/#specification for the spec
+    """
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
