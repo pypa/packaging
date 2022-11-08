@@ -28,7 +28,7 @@ def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
-    session.install("coverage[toml]>=5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
+    session.install("-r", "tests/requirements.txt")
     session.install(".")
 
     if "pypy" not in session.python:
@@ -69,7 +69,7 @@ def lint(session):
 @nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install("furo")
+    session.install("-r", "docs/requirements.txt")
     session.install("-e", ".")
 
     variants = [
