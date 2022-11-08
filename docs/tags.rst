@@ -84,6 +84,8 @@ to the implementation to provide.
 
 .. autofunction:: interpreter_version
 
+.. autofunction:: interpreter_abi
+
 .. autofunction:: mac_platforms
 
 .. autofunction:: ios_platforms
