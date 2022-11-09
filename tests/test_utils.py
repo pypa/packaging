@@ -126,9 +126,7 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
     ],
 )
 def test_parse_wheel_invalid_filename(filename):
-    """
-    See https://peps.python.org/pep-0427/#file-name-convention for the spec
-    """
+    # See https://peps.python.org/pep-0427/#file-name-convention for the spec.
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
 
