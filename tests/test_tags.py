@@ -166,6 +166,21 @@ class TestInterpreterVersion:
         assert tags.interpreter_version() == version_str
 
 
+class TestInterpreterTag:
+    def test_interpreter_tag_cpython(self, monkeypatch):
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert tags.interpreter_tag() == "cp311"
+
+    def test_interpreter_tag_pypy(self, monkeypatch):
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+        assert tags.interpreter_tag() == "pp3"
+
+    def test_interpreter_tag_unknown(self, monkeypatch):
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "unknown")
+        assert tags.interpreter_tag() is None
+
+
 class TestMacOSPlatforms:
     @pytest.mark.parametrize(
         "arch, is_32bit, expected",
