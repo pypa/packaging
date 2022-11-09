@@ -138,9 +138,7 @@ def test_parse_wheel_invalid_filename(filename):
     [("foo-1.0.tar.gz", "foo", Version("1.0")), ("foo-1.0.zip", "foo", Version("1.0"))],
 )
 def test_parse_sdist_filename(filename, name, version):
-    """
-    See https://peps.python.org/pep-0625/#specification for the spec
-    """
+    # See https://peps.python.org/pep-0625/#specification for the spec.
     assert parse_sdist_filename(filename) == (name, version)
 
 
