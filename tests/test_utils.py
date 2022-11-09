@@ -109,9 +109,7 @@ def test_canonicalize_version_no_strip_trailing_zero(version):
     ],
 )
 def test_parse_wheel_filename(filename, name, version, build, tags):
-    """
-    See https://peps.python.org/pep-0427/#file-name-convention for the spec
-    """
+    # See https://peps.python.org/pep-0427/#file-name-convention for the spec.
     assert parse_wheel_filename(filename) == (name, version, build, tags)
 
 
