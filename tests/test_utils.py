@@ -154,8 +154,6 @@ def test_parse_sdist_filename(filename, name, version):
     ],
 )
 def test_parse_sdist_invalid_filename(filename):
-    """
-    See https://peps.python.org/pep-0625/#specification for the spec
-    """
+    # See https://peps.python.org/pep-0625/#specification for the spec.
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
