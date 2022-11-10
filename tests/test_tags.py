@@ -875,6 +875,15 @@ class TestGenericTags:
         monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
         assert tags._generic_abi() == ["pypy39_pp73"]
 
+    def test__generic_abi_old_windows(self, monkeypatch):
+        config = {
+            "EXT_SUFFIX": ".pyd",
+            "Py_DEBUG": 0,
+            "WITH_PYMALLOC": 0,
+        }
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
+
     def test_generic_platforms(self):
         platform = sysconfig.get_platform().replace("-", "_")
         platform = platform.replace(".", "_")

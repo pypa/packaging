@@ -240,7 +240,11 @@ def _generic_abi() -> List[str]:
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
     if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
         raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
-    _, soabi, ext = ext_suffix.split(".")
+    parts = ext_suffix.split(".")
+    if len(parts) < 3:
+        # CPython3.7 and earlier uses ".pyd" on windows
+        return _cpython_abis(sys.version_info[:2])
+    soabi = parts[1]
     if soabi.startswith("cpython"):
         abi = "cp" + soabi.split("-")[1]
     elif soabi.startswith("pypy"):
