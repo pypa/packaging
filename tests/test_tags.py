@@ -845,8 +845,25 @@ class TestGenericTags:
     def test__generic_abi_jp(self, monkeypatch):
         config = {"EXT_SUFFIX": ".return exactly this.so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        monkeypatch.setattr(tags, "interpreter_name", lambda: "other")
         assert tags._generic_abi() == ["return exactly this"]
+
+    def test__generic_abi_graal(self, monkeypatch):
+        config = {"EXT_SUFFIX": ".graalpy-38-native-x86_64-darwin.so"}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        assert tags._generic_abi() == ["graalpy_38_native"]
+
+    def test__generic_abi_none(self, monkeypatch):
+        config = {"EXT_SUFFIX": "..so"}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        assert tags._generic_abi() == []
+
+    @pytest.mark.parametrize("ext_suffix", ["invalid", None])
+    def test__generic_abi_error(self, ext_suffix, monkeypatch):
+        config = {"EXT_SUFFIX": ext_suffix}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        with pytest.raises(SystemError) as e:
+            tags._generic_abi()
+        assert "EXT_SUFFIX" in str(e.value)
 
     def test__generic_abi_linux_pypy(self, monkeypatch):
         # issue gh-606

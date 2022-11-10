@@ -233,12 +233,13 @@ def _generic_abi() -> List[str]:
     # - linux:   '.cpython-310-x86_64-linux-gnu.so' => cp310
     # - mac:     '.cpython-310-darwin.so'           => cp310
     # - win:     '.cp310-win_amd64.pyd'             => cp310
-    # - pypy:    '.pypy38-pp73-x86_64-linux-gnu.so' => pypy38-pp73
+    # - pypy:    '.pypy38-pp73-x86_64-linux-gnu.so' => pypy38_pp73
     # - graalpy: '.graalpy-38-native-x86_64-darwin.dylib'
-    #                                               => graalpy-38-native
+    #                                               => graalpy_38_native
 
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
-    assert ext_suffix[0] == "."
+    if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
+        raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
     _, soabi, ext = ext_suffix.split(".")
     if soabi.startswith("cpython"):
         abi = "cp" + soabi.split("-")[1]
