@@ -4,6 +4,7 @@
 
 import logging
 import platform
+import struct
 import subprocess
 import sys
 import sysconfig
