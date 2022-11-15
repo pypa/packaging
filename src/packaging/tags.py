@@ -233,6 +233,7 @@ def _generic_abi() -> List[str]:
     # - linux:   '.cpython-310-x86_64-linux-gnu.so' => cp310
     # - mac:     '.cpython-310-darwin.so'           => cp310
     # - win:     '.cp310-win_amd64.pyd'             => cp310
+    # - win:     '.pyd'                             => cp37 (uses _cpython_abis())
     # - pypy:    '.pypy38-pp73-x86_64-linux-gnu.so' => pypy38_pp73
     # - graalpy: '.graalpy-38-native-x86_64-darwin.dylib'
     #                                               => graalpy_38_native
@@ -246,12 +247,17 @@ def _generic_abi() -> List[str]:
         return _cpython_abis(sys.version_info[:2])
     soabi = parts[1]
     if soabi.startswith("cpython"):
+        # non-windows
         abi = "cp" + soabi.split("-")[1]
+    elif soabi.startswith("cp"):
+        # windows
+        abi = soabi.split("-")[0]
     elif soabi.startswith("pypy"):
         abi = "-".join(soabi.split("-")[:2])
     elif soabi.startswith("graalpy"):
         abi = "-".join(soabi.split("-")[:3])
     elif soabi:
+        # pyston, ironpython, others?
         abi = soabi
     else:
         return []

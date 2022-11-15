@@ -884,6 +884,12 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
 
+    @pytest.mark.skipif(sys.implementation.name != "cpython", reason="CPython-only")
+    def test__generic_abi_windows(self):
+        """Test that the two methods of finding the abi tag agree
+        """
+        assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
+
     def test_generic_platforms(self):
         platform = sysconfig.get_platform().replace("-", "_")
         platform = platform.replace(".", "_")
