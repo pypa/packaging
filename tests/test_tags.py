@@ -884,10 +884,16 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
 
+    def test__generic_abi_windows(self, monkeypatch):
+        config = {
+            "EXT_SUFFIX": ".cp310-win_amd64.pyd",
+        }
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        assert tags._generic_abi() == ["cp310"]
+
     @pytest.mark.skipif(sys.implementation.name != "cpython", reason="CPython-only")
-    def test__generic_abi_windows(self):
-        """Test that the two methods of finding the abi tag agree
-        """
+    def test__generic_abi_agree(self):
+        """Test that the two methods of finding the abi tag agree"""
         assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
 
     def test_generic_platforms(self):
