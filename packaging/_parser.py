@@ -12,7 +12,7 @@
 from ast import literal_eval
 from typing import Any, List, NamedTuple, Tuple, Union
 
-from ._tokenizer import MARKER_VAR_SUITABLE_TOKENS, Tokenizer
+from ._tokenizer import MARKER_VAR_SUITABLE_TOKENS, NAME_SUITABLE_TOKENS, Tokenizer
 
 
 class Node:
@@ -67,9 +67,30 @@ def parse_named_requirement(requirement: str) -> Requirement:
     named_requirement:
         IDENTIFIER extras (URL_SPEC | specifier) (SEMICOLON marker_expr)? END
     """
-    tokens = Tokenizer(requirement)
-    tokens.expect("IDENTIFIER", error_message="Expression must begin with package name")
-    name = tokens.read("IDENTIFIER").text
+    tokens = Tokenizer(requirement.strip())
+    identifier_rule = tokens.rules["IDENTIFIER"]
+    name_tokens = []
+    tokens.peek({})
+    while tokens.next_token:
+        nt = tokens.next_token
+        tt = nt.text
+        if nt.name in NAME_SUITABLE_TOKENS or identifier_rule.fullmatch(tt):
+            name_tokens.append(tt)
+            tokens.next_token = None
+            tokens.peek({})
+        else:
+            break
+
+    if not name_tokens:
+        tokens.raise_syntax_error(message="Expression must begin with package name")
+    else:
+        name = "".join(name_tokens)
+
+    tokens.peek({})
+    if tokens.next_token.name == "WS":
+        tokens.next_token = None
+        tokens.peek()
+
     extras = parse_extras(tokens)
     specifier = ""
     url = ""
