@@ -11,9 +11,13 @@ class Token:
         self.position = position
 
     def matches(self, name: str = "") -> bool:
-        if name and self.name != name:
-            return False
-        return True
+        if not name:
+            return True
+
+        if self.name == name:
+            return True
+
+        return False
 
 
 class ParseExceptionError(Exception):
