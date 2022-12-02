@@ -33,15 +33,14 @@ class ParseExceptionError(Exception):
 
 
 DEFAULT_RULES = {
-    "LPAREN": r"\s*\(",
-    "RPAREN": r"\s*\)",
-    "LBRACKET": r"\s*\[",
-    "RBRACKET": r"\s*\]",
-    "SEMICOLON": r"\s*;",
-    "COMMA": r"\s*,",
+    "LPAREN": r"\(",
+    "RPAREN": r"\)",
+    "LBRACKET": r"\[",
+    "RBRACKET": r"\]",
+    "SEMICOLON": r";",
+    "COMMA": r",",
     "QUOTED_STRING": re.compile(
         r"""
-            \s*
             (
                 ('[^']*')
                 |
@@ -50,13 +49,12 @@ DEFAULT_RULES = {
         """,
         re.VERBOSE,
     ),
-    "OP": r"\s*(===|==|~=|!=|<=|>=|<|>)",
-    "BOOLOP": r"\s*(or|and)",
-    "IN": r"\s*in",
-    "NOT": r"\s*not",
+    "OP": "(===|==|~=|!=|<=|>=|<|>)",
+    "BOOLOP": "(or|and)",
+    "IN": "in",
+    "NOT": "not",
     "VARIABLE": re.compile(
         r"""
-            \s*
             (
                 python_version
                 |python_full_version
@@ -72,9 +70,12 @@ DEFAULT_RULES = {
         re.VERBOSE,
     ),
     "VERSION": re.compile(Specifier._version_regex_str, re.VERBOSE | re.IGNORECASE),
-    "URL_SPEC": r"\s*@ *[^ ]+",
-    "IDENTIFIER": r"\s*[a-zA-Z0-9._-]+",
+    "URL_SPEC": "@ *[^ ]+",
+    "IDENTIFIER": "[a-zA-Z0-9._-]+",
+    "WS": "\\s+",
 }
+WHITESPACE_TOKENS = "WS"
+MARKER_VAR_SUITABLE_TOKENS = {"VARIABLE", "VERSION"}
 
 
 class Tokenizer:
@@ -88,51 +89,69 @@ class Tokenizer:
 
     def __init__(self, source: str, rules: Dict[str, object] = DEFAULT_RULES) -> None:
         self.source = source
-        self.rules = {name: re.compile(pattern) for name, pattern in rules.items()}
+        self.rules = {name: re.compile(pattern) for (name, pattern) in rules.items()}
         self.next_token = None
         self.generator = self._tokenize()
         self.position = 0
 
-    def peek(self) -> Token:
+    def peek(self, skip: TokenNameMatchT = WHITESPACE_TOKENS) -> Token:
         """
         Return the next token to be read.
         """
-        if not self.next_token:
+        while not self.next_token:
             self.next_token = next(self.generator)
+            if self.next_token and self.next_token.matches(skip):
+                # print("skip", self.next_token)
+                self.next_token = None
+        # print("peek", self.next_token)
         return self.next_token
 
-    def match(self, name: TokenNameMatchT) -> bool:
+    def match(
+        self, name: TokenNameMatchT, skip: TokenNameMatchT = WHITESPACE_TOKENS
+    ) -> bool:
         """
         Return True if the next token matches the given arguments.
         """
-        token = self.peek()
+        token = self.peek(skip)
         return token.matches(name)
 
-    def expect(self, name: TokenNameMatchT, error_message: str) -> Token:
+    def expect(
+        self,
+        name: TokenNameMatchT,
+        error_message: str,
+        skip: TokenNameMatchT = WHITESPACE_TOKENS,
+    ) -> Token:
         """
         Raise SyntaxError if the next token doesn't match given arguments.
         """
-        token = self.peek()
+        token = self.peek(skip)
         if not token.matches(name):
             raise self.raise_syntax_error(message=error_message)
         return token
 
-    def read(self, name: TokenNameMatchT, error_message: str = "") -> Token:
+    def read(
+        self,
+        name: TokenNameMatchT,
+        error_message: str = "",
+        skip: TokenNameMatchT = WHITESPACE_TOKENS,
+    ) -> Token:
         """Return the next token and advance to the next token.
 
         Raise SyntaxError if the token doesn't match.
         """
-        result = self.expect(name, error_message=error_message)
+        result = self.expect(name, error_message=error_message, skip=skip)
         self.next_token = None
         return result
 
-    def try_read(self, name: TokenNameMatchT) -> Optional[Token]:
+    def try_read(
+        self, name: TokenNameMatchT, skip: TokenNameMatchT = WHITESPACE_TOKENS
+    ) -> Optional[Token]:
         """read() if the next token matches the given arguments.
 
         Do nothing if it does not match.
         """
-        if self.match(name):
-            return self.read(self.rules)
+        if self.match(name, skip=skip):
+            return self.read(self.rules, skip=skip)
         return None
 
     def raise_syntax_error(self, *, message: str) -> NoReturn:
@@ -162,7 +181,7 @@ class Tokenizer:
                 if match:
                     token_text = match[0]
 
-                    yield self._make_token(name, token_text.strip())
+                    yield self._make_token(name, token_text)
                     self.position += len(token_text)
                     break
             else:

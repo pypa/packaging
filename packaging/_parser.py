@@ -12,7 +12,7 @@
 from ast import literal_eval
 from typing import Any, List, NamedTuple, Tuple, Union
 
-from ._tokenizer import Tokenizer
+from ._tokenizer import MARKER_VAR_SUITABLE_TOKENS, Tokenizer
 
 
 class Node:
@@ -130,7 +130,7 @@ def parse_version_many(tokens: Tokenizer) -> str:
     while tokens.match("OP"):
         parsed_specifiers += tokens.read("OP").text
         if tokens.match("VERSION"):
-            parsed_specifiers += tokens.read("VERSION").text
+            parsed_specifiers += tokens.read("VERSION").text.strip()
         else:
             tokens.raise_syntax_error(message="Missing version")
         if not tokens.match("COMMA"):
@@ -178,7 +178,7 @@ def parse_marker_var(tokens: Tokenizer) -> MarkerVar:
     """
     marker_var: env_var | python_str
     """
-    if tokens.match("VARIABLE"):
+    if tokens.match(MARKER_VAR_SUITABLE_TOKENS):
         return parse_env_var(tokens)
     else:
         return parse_python_str(tokens)
@@ -188,7 +188,7 @@ def parse_env_var(tokens: Tokenizer) -> Variable:
     """
     env_var: VARIABLE
     """
-    env_var = tokens.read("VARIABLE").text.replace(".", "_")
+    env_var = tokens.read(MARKER_VAR_SUITABLE_TOKENS).text.strip().replace(".", "_")
     if (
         env_var == "platform_python_implementation"
         or env_var == "python_implementation"
