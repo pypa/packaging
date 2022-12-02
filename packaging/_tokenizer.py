@@ -1,14 +1,32 @@
 import re
-from typing import Dict, Generator, NoReturn, Optional
+from typing import Dict, Generator, NoReturn, Optional, Tuple
 
 from .specifiers import Specifier
 
 
 class Token:
+    __slots__ = __match_args__ = ("name", "text", "position")
+
     def __init__(self, name: str, text: str, position: int) -> None:
         self.name = name
         self.text = text
         self.position = position
+
+    def to_tuple(self) -> Tuple[str, str, int]:
+        return tuple(getattr(self, k) for k in self.__class__.__match_args__)
+
+    def __repr__(self):
+        return (
+            self.__class__.__name__
+            + "("
+            + ", ".join(repr(getattr(self, k)) for k in self.__class__.__match_args__)
+            + ")"
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, Token):
+            return NotImplemented
+        return self.to_tuple == other.to_tuple
 
     def matches(self, name: str = "") -> bool:
         if name and self.name != name:
