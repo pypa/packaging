@@ -29,6 +29,42 @@ class TestRequirements:
         req = Requirement("name")
         assert repr(req) == "<Requirement('name')>"
 
+    def test_installer(self):
+        req = Requirement("installer")
+        assert repr(req) == "<Requirement('installer')>"
+
+    def test_notabene(self):
+        req = Requirement("notabene")
+        assert repr(req) == "<Requirement('notabene')>"
+
+    def test_andor(self):
+        req = Requirement("andor")
+        assert repr(req) == "<Requirement('andor')>"
+
+    def test_orator(self):
+        req = Requirement("orator")
+        assert repr(req) == "<Requirement('orator')>"
+
+    def test_extractor(self):
+        req = Requirement("extractor")
+        assert repr(req) == "<Requirement('extractor')>"
+
+    def test_a0(self):
+        req = Requirement("a0")
+        assert repr(req) == "<Requirement('a0')>"
+
+    def test_v1(self):
+        req = Requirement("v1")
+        assert repr(req) == "<Requirement('v1')>"
+
+    def test_trailing_space(self):
+        req = Requirement("a ")
+        assert repr(req) == "<Requirement('a')>"
+
+    def test_preceeding_space(self):
+        req = Requirement(" a")
+        assert repr(req) == "<Requirement('a')>"
+
     def _assert_requirement(
         self, req, name, url=None, extras=[], specifier="", marker=None
     ):
