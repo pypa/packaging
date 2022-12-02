@@ -1,7 +1,9 @@
 import re
-from typing import Dict, Generator, NoReturn, Optional
+from typing import Any, Dict, Generator, NoReturn, Optional, Set, Union
 
 from .specifiers import Specifier
+
+TokenNameMatchT = Union[str, Set[str], Dict[str, Any]]
 
 
 class Token:
@@ -10,11 +12,11 @@ class Token:
         self.text = text
         self.position = position
 
-    def matches(self, name: str = "") -> bool:
-        if not name:
-            return True
+    def matches(self, name: TokenNameMatchT = "") -> bool:
+        if isinstance(name, str):
+            name = {name}
 
-        if self.name == name:
+        if self.name in name:
             return True
 
         return False
@@ -99,14 +101,14 @@ class Tokenizer:
             self.next_token = next(self.generator)
         return self.next_token
 
-    def match(self, name: str) -> bool:
+    def match(self, name: TokenNameMatchT) -> bool:
         """
         Return True if the next token matches the given arguments.
         """
         token = self.peek()
         return token.matches(name)
 
-    def expect(self, name: str, error_message: str) -> Token:
+    def expect(self, name: TokenNameMatchT, error_message: str) -> Token:
         """
         Raise SyntaxError if the next token doesn't match given arguments.
         """
@@ -115,7 +117,7 @@ class Tokenizer:
             raise self.raise_syntax_error(message=error_message)
         return token
 
-    def read(self, name: str, error_message: str = "") -> Token:
+    def read(self, name: TokenNameMatchT, error_message: str = "") -> Token:
         """Return the next token and advance to the next token.
 
         Raise SyntaxError if the token doesn't match.
@@ -124,13 +126,13 @@ class Tokenizer:
         self.next_token = None
         return result
 
-    def try_read(self, name: str) -> Optional[Token]:
+    def try_read(self, name: TokenNameMatchT) -> Optional[Token]:
         """read() if the next token matches the given arguments.
 
         Do nothing if it does not match.
         """
         if self.match(name):
-            return self.read(None)
+            return self.read(self.rules)
         return None
 
     def raise_syntax_error(self, *, message: str) -> NoReturn:
@@ -144,7 +146,7 @@ class Tokenizer:
             self.position,
         )
 
-    def _make_token(self, name: str, text: str) -> Token:
+    def _make_token(self, name: TokenNameMatchT, text: str) -> Token:
         """
         Make a token with the current position.
         """

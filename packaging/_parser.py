@@ -74,7 +74,7 @@ def parse_named_requirement(requirement: str) -> Requirement:
     specifier = ""
     url = ""
     if tokens.match("URL_SPEC"):
-        url = tokens.read(None).text[1:].strip()
+        url = tokens.read(tokens.rules).text[1:].strip()
     elif not tokens.match("END"):
         specifier = parse_specifier(tokens)
     if tokens.try_read("SEMICOLON"):
@@ -82,7 +82,7 @@ def parse_named_requirement(requirement: str) -> Requirement:
         while not tokens.match("END"):
             # we don't validate markers here, it's done later as part of
             # packaging/requirements.py
-            marker += tokens.read(None).text
+            marker += tokens.read(tokens.rules).text
     else:
         marker = ""
         tokens.expect(
@@ -220,7 +220,7 @@ def parse_marker_op(tokens: Tokenizer) -> Op:
         tokens.read("IN", error_message="NOT token must be follewed by IN token")
         return Op("not in")
     elif tokens.match("OP"):
-        return Op(tokens.read(None).text)
+        return Op(tokens.read(tokens.rules).text)
     else:
         return tokens.raise_syntax_error(
             message='Couldn\'t parse marker operator. Expecting one of \
