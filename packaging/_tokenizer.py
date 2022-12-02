@@ -95,38 +95,38 @@ class Tokenizer:
             self.next_token = next(self.generator)
         return self.next_token
 
-    def match(self, *name: str) -> bool:
+    def match(self, name: str) -> bool:
         """
         Return True if the next token matches the given arguments.
         """
         token = self.peek()
-        return token.matches(*name)
+        return token.matches(name)
 
-    def expect(self, *name: str, error_message: str) -> Token:
+    def expect(self, name: str, error_message: str) -> Token:
         """
         Raise SyntaxError if the next token doesn't match given arguments.
         """
         token = self.peek()
-        if not token.matches(*name):
+        if not token.matches(name):
             raise self.raise_syntax_error(message=error_message)
         return token
 
-    def read(self, *name: str, error_message: str = "") -> Token:
+    def read(self, name: str, error_message: str = "") -> Token:
         """Return the next token and advance to the next token.
 
         Raise SyntaxError if the token doesn't match.
         """
-        result = self.expect(*name, error_message=error_message)
+        result = self.expect(name, error_message=error_message)
         self.next_token = None
         return result
 
-    def try_read(self, *name: str) -> Optional[Token]:
+    def try_read(self, name: str) -> Optional[Token]:
         """read() if the next token matches the given arguments.
 
         Do nothing if it does not match.
         """
-        if self.match(*name):
-            return self.read()
+        if self.match(name):
+            return self.read(None)
         return None
 
     def raise_syntax_error(self, *, message: str) -> NoReturn:
