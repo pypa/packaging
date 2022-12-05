@@ -62,22 +62,22 @@ class TestRequirements:
     def test_with_legacy_version(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name==1.0.org1")
-        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+        assert "Expected semicolon" in str(e)
 
     def test_with_legacy_version_and_marker(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name>=1.x.y;python_version=='2.6'")
-        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+        assert "Expected semicolon" in str(e)
 
     def test_missing_name(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("@ http://example.com")
-        assert "Expression must begin with package name" in str(e)
+        assert "package name" in str(e)
 
     def test_name_with_missing_version(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name>=")
-        assert "Missing version" in str(e)
+        assert "Expected version after operator" in str(e)
 
     def test_version_with_parens_and_whitespace(self):
         req = Requirement("name (==4)")
@@ -86,7 +86,7 @@ class TestRequirements:
     def test_version_with_missing_closing_paren(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("name(==4")
-        assert "Closing right parenthesis is missing" in str(e)
+        assert "Expected closing RIGHT_PARENTHESIS" in str(e)
 
     def test_name_with_multiple_versions(self):
         req = Requirement("name>=3,<2")
@@ -123,12 +123,12 @@ class TestRequirements:
     def test_unclosed_extras(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("foo[")
-        assert "Closing square bracket is missing" in str(e)
+        assert "Expected closing RIGHT_BRACKET" in str(e)
 
     def test_extras_without_comma(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("foobar[quux bar]")
-        assert "Missing comma after extra" in str(e)
+        assert "Expected comma between extra names" in str(e)
 
     def test_url(self):
         url_section = "test @ http://example.com"
@@ -194,7 +194,7 @@ class TestRequirements:
     def test_marker_with_missing_semicolon(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement('name[bar]>=3 python_version == "2.7"')
-        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+        assert "Expected semicolon" in str(e)
 
     def test_types(self):
         req = Requirement("foobar[quux]<2,>=3; os_name=='a'")
@@ -239,7 +239,7 @@ class TestRequirements:
     def test_parseexception_error_msg(self):
         with pytest.raises(InvalidRequirement) as e:
             Requirement("toto 42")
-        assert "Expected semicolon (followed by markers) or end of string" in str(e)
+        assert "Expected semicolon" in str(e)
 
     EQUAL_DEPENDENCIES = [
         ("packaging>20.1", "packaging>20.1"),
