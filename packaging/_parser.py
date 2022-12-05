@@ -1,15 +1,10 @@
-# The docstring for each parse function contains the grammar for the rule.
-# The grammar uses a simple EBNF-inspired syntax:
-#
-# - Uppercase names are tokens
-# - Lowercase names are rules (parsed with a parse_* function)
-# - Parentheses are used for grouping
-# - A | means either-or
-# - A * means 0 or more
-# - A + means 1 or more
-# - A ? means 0 or 1
+"""Handwritten parser of dependency specifiers.
 
-from ast import literal_eval
+The docstring for each __parse_* function contains ENBF-inspired grammar representing
+the implementation.
+"""
+
+import ast
 from typing import Any, List, NamedTuple, Tuple, Union
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
@@ -62,140 +57,218 @@ class ParsedRequirement(NamedTuple):
     marker: str
 
 
+# --------------------------------------------------------------------------------------
+# Recursive descent parser for dependency specifier
+# --------------------------------------------------------------------------------------
 def parse_requirement(source: str) -> ParsedRequirement:
     return _parse_requirement(Tokenizer(source, rules=DEFAULT_RULES))
 
 
-def _parse_requirement(tokens: Tokenizer) -> Requirement:
+def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
     """
-    named_requirement:
-        IDENTIFIER extras (URL_SPEC | specifier) (SEMICOLON marker_expr)? END
+    requirement = WS? IDENTIFIER WS? extras WS? requirement_details
     """
-    tokens.expect("IDENTIFIER", error_message="Expression must begin with package name")
-    name = tokens.read("IDENTIFIER").text
-    extras = parse_extras(tokens)
+    tokenizer.consume("WS")
+
+    name_token = tokenizer.expect(
+        "IDENTIFIER", expected="package name at the start of dependency specifier"
+    )
+    name = name_token.text
+    tokenizer.consume("WS")
+
+    extras = _parse_extras(tokenizer)
+    tokenizer.consume("WS")
+
+    url, specifier, marker = _parse_requirement_details(tokenizer)
+    tokenizer.expect("END", expected="end of dependency specifier")
+
+    return ParsedRequirement(name, url, extras, specifier, marker)
+
+
+def _parse_requirement_details(
+    tokenizer: Tokenizer,
+) -> Tuple[str, str, str]:
+    """
+    requirement_details = AT URL (WS SEMICOLON marker WS?)?
+                        | specifier WS? (SEMICOLON marker WS?)?
+    """
+
     specifier = ""
     url = ""
-    if tokens.match("URL_SPEC"):
-        url = tokens.read().text[1:].strip()
-    elif not tokens.match("END"):
-        specifier = parse_specifier(tokens)
-    if tokens.try_read("SEMICOLON"):
-        marker = ""
-        while not tokens.match("END"):
-            # we don't validate markers here, it's done later as part of
-            # packaging/requirements.py
-            marker += tokens.read().text
+    marker = ""
+
+    if tokenizer.check("AT"):
+        tokenizer.read()
+        tokenizer.consume("WS")
+        url_start = tokenizer.position
+        url = tokenizer.expect("URL", expected="URL after @").text
+        if tokenizer.check("END", peek=True):
+            return (url, specifier, marker)
+
+        tokenizer.expect("WS", expected="whitespace after URL")
+        if not tokenizer.check("SEMICOLON"):
+            tokenizer.raise_syntax_error(
+                "Expected semicolon after URL (followed by environment markers)",
+                span_start=url_start,
+            )
+        else:
+            tokenizer.read()
     else:
-        marker = ""
-        tokens.expect(
-            "END",
-            error_message="Expected semicolon (followed by markers) or end of string",
+        specifier = _parse_specifier(tokenizer)
+        tokenizer.consume("WS")
+
+        if tokenizer.check("END", peek=True):
+            return (url, specifier, marker)
+
+        tokenizer.expect(
+            "SEMICOLON", expected="semicolon (followed by environment markers)"
         )
-    return Requirement(name, url, extras, specifier, marker)
+    marker = tokenizer.read_remaining_text()
+
+    return (url, specifier, marker)
 
 
-def parse_extras(tokens: Tokenizer) -> List[str]:
+def _parse_extras(tokenizer: Tokenizer) -> List[str]:
     """
-    extras: LBRACKET (IDENTIFIER (COMMA IDENTIFIER)*)? RBRACKET
+    extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
-    extras = []
-    if tokens.try_read("LBRACKET"):
-        while tokens.match("IDENTIFIER"):
-            extras.append(tokens.read("IDENTIFIER").text)
-            if not tokens.match("RBRACKET"):
-                tokens.read("COMMA", error_message="Missing comma after extra")
-            if not tokens.match("COMMA") and tokens.match("RBRACKET"):
-                break
-        tokens.read("RBRACKET", error_message="Closing square bracket is missing")
+    if not tokenizer.check("LEFT_BRACKET", peek=True):
+        return []
+
+    with tokenizer.enclosing_tokens("LEFT_BRACKET", "RIGHT_BRACKET"):
+        tokenizer.consume("WS")
+        extras = _parse_extras_list(tokenizer)
+        tokenizer.consume("WS")
+
     return extras
 
 
-def parse_specifier(tokens: Tokenizer) -> str:
+def _parse_extras_list(tokenizer: Tokenizer) -> List[str]:
     """
-    specifier:
-        LPAREN version_many? RPAREN | version_many
+    extras_list = identifier (wsp* ',' wsp* identifier)*
     """
-    lparen = False
-    if tokens.try_read("LPAREN"):
-        lparen = True
-    parsed_specifiers = parse_version_many(tokens)
-    if lparen and not tokens.try_read("RPAREN"):
-        tokens.raise_syntax_error(message="Closing right parenthesis is missing")
+    extras: List[str] = []
+
+    if not tokenizer.check("IDENTIFIER"):
+        return extras
+
+    extras.append(tokenizer.read().text)
+
+    while True:
+        tokenizer.consume("WS")
+        if not tokenizer.check("COMMA"):
+            if tokenizer.check("IDENTIFIER", peek=True):
+                tokenizer.raise_syntax_error("Expected comma between extra names")
+            break
+
+        tokenizer.read()
+        tokenizer.consume("WS")
+        extra_token = tokenizer.expect("IDENTIFIER", expected="extra name after comma")
+        extras.append(extra_token.text)
+
+    return extras
+
+
+def _parse_specifier(tokenizer: Tokenizer) -> str:
+    """
+    specifier = LEFT_PARENTHESIS version_many? RIGHT_PARENTHESIS
+              | version_many
+    """
+    with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
+        parsed_specifiers = _parse_version_many(tokenizer)
+
     return parsed_specifiers
 
 
-def parse_version_many(tokens: Tokenizer) -> str:
+def _parse_version_many(tokenizer: Tokenizer) -> str:
     """
-    version_many: OP VERSION (COMMA OP VERSION)*
+    version_many = OP VERSION (COMMA OP VERSION)*
     """
     parsed_specifiers = ""
-    while tokens.match("OP"):
-        parsed_specifiers += tokens.read("OP").text
-        if tokens.match("VERSION"):
-            parsed_specifiers += tokens.read("VERSION").text
-        else:
-            tokens.raise_syntax_error(message="Missing version")
-        if not tokens.match("COMMA"):
+    while tokenizer.check("OP"):
+        parsed_specifiers += tokenizer.read().text
+
+        # We intentionally do not consume whitespace here, since the regular expression
+        # for `VERSION` uses a lookback for the operator, to determine what
+        # corresponding syntax is permitted.
+
+        version_token = tokenizer.expect("VERSION", expected="version after operator")
+        parsed_specifiers += version_token.text
+        tokenizer.consume("WS")
+
+        if not tokenizer.check("COMMA"):
             break
-        tokens.expect("COMMA", error_message="Missing comma after version")
-        parsed_specifiers += tokens.read("COMMA").text
+        parsed_specifiers += tokenizer.read().text
+        tokenizer.consume("WS")
+
     return parsed_specifiers
 
 
+# --------------------------------------------------------------------------------------
+# Recursive descent parser for marker expression
+# --------------------------------------------------------------------------------------
 def parse_marker(source: str) -> MarkerList:
     return _parse_marker_expr(Tokenizer(source, rules=DEFAULT_RULES))
 
 
-def _parse_marker_expr(tokens: Tokenizer) -> MarkerList:
+def _parse_marker_expr(tokenizer: Tokenizer) -> MarkerList:
     """
-    marker_expr: MARKER_ATOM (BOOLOP + MARKER_ATOM)+
+    marker_expr = marker_atom (BOOLOP WS? marker_atom)+
     """
-    expression = [parse_marker_atom(tokens)]
-    while tokens.match("BOOLOP"):
-        tok = tokens.read("BOOLOP")
-        expr_right = parse_marker_atom(tokens)
-        expression.extend((tok.text, expr_right))
+    expression = [_parse_marker_atom(tokenizer)]
+    while tokenizer.check("BOOLOP"):
+        token = tokenizer.read()
+        tokenizer.consume("WS")
+        expr_right = _parse_marker_atom(tokenizer)
+        expression.extend((token.text, expr_right))
     return expression
 
 
-def parse_marker_atom(tokens: Tokenizer) -> MarkerAtom:
+def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
-    marker_atom: LPAREN marker_expr RPAREN | marker_item
+    marker_atom = LEFT_PARENTHESIS WS? marker_expr WS? RIGHT_PARENTHESIS
+                | marker_item
     """
-    if tokens.try_read("LPAREN"):
-        marker = parse_marker_expr(tokens)
-        tokens.read("RPAREN", error_message="Closing right parenthesis is missing")
-        return marker
+
+    if tokenizer.check("LEFT_PARENTHESIS", peek=True):
+        with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
+            tokenizer.consume("WS")
+            marker: MarkerAtom = _parse_marker_expr(tokenizer)
+            tokenizer.consume("WS")
     else:
-        return parse_marker_item(tokens)
+        marker = _parse_marker_item(tokenizer)
+    return marker
 
 
-def parse_marker_item(tokens: Tokenizer) -> MarkerItem:
+def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
     """
-    marker_item: marker_var marker_op marker_var
+    marker_item = WS? marker_var WS? marker_op WS? marker_var WS?
     """
-    marker_var_left = parse_marker_var(tokens)
-    marker_op = parse_marker_op(tokens)
-    marker_var_right = parse_marker_var(tokens)
+    tokenizer.consume("WS")
+    marker_var_left = _parse_marker_var(tokenizer)
+    tokenizer.consume("WS")
+    marker_op = _parse_marker_op(tokenizer)
+    tokenizer.consume("WS")
+    marker_var_right = _parse_marker_var(tokenizer)
+    tokenizer.consume("WS")
     return (marker_var_left, marker_op, marker_var_right)
 
 
-def parse_marker_var(tokens: Tokenizer) -> MarkerVar:
+def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:
     """
-    marker_var: env_var | python_str
+    marker_var = VARIABLE | QUOTED_STRING
     """
-    if tokens.match("VARIABLE"):
-        return parse_env_var(tokens)
+    if tokenizer.check("VARIABLE"):
+        return process_env_var(tokenizer.read().text.replace(".", "_"))
+    elif tokenizer.check("QUOTED_STRING"):
+        return process_python_str(tokenizer.read().text)
     else:
-        return parse_python_str(tokens)
+        tokenizer.raise_syntax_error(
+            message="Expected a marker variable or quoted string"
+        )
 
 
-def parse_env_var(tokens: Tokenizer) -> Variable:
-    """
-    env_var: VARIABLE
-    """
-    env_var = tokens.read("VARIABLE").text.replace(".", "_")
+def process_env_var(env_var: str) -> Variable:
     if (
         env_var == "platform_python_implementation"
         or env_var == "python_implementation"
@@ -205,31 +278,27 @@ def parse_env_var(tokens: Tokenizer) -> Variable:
         return Variable(env_var)
 
 
-def parse_python_str(tokens: Tokenizer) -> Value:
-    """
-    python_str: QUOTED_STRING
-    """
-    token = tokens.read(
-        "QUOTED_STRING",
-        error_message="String with single or double quote at the beginning is expected",
-    ).text
-    python_str = literal_eval(token)
-    return Value(str(python_str))
+def process_python_str(python_str: str) -> Value:
+    value = ast.literal_eval(python_str)
+    return Value(str(value))
 
 
-def parse_marker_op(tokens: Tokenizer) -> Op:
+def _parse_marker_op(tokenizer: Tokenizer) -> Op:
     """
-    marker_op: IN | NOT IN | OP
+    marker_op = IN | NOT IN | OP
     """
-    if tokens.try_read("IN"):
+    if tokenizer.check("IN"):
+        tokenizer.read()
         return Op("in")
-    elif tokens.try_read("NOT"):
-        tokens.read("IN", error_message="NOT token must be follewed by IN token")
+    elif tokenizer.check("NOT"):
+        tokenizer.read()
+        tokenizer.expect("WS", expected="whitespace after 'not'")
+        tokenizer.expect("IN", expected="'in' after 'not'")
         return Op("not in")
-    elif tokens.match("OP"):
-        return Op(tokens.read().text)
+    elif tokenizer.check("OP"):
+        return Op(tokenizer.read().text)
     else:
-        return tokens.raise_syntax_error(
-            message='Couldn\'t parse marker operator. Expecting one of \
-            "<=, <, !=, ==, >=, >, ~=, ===, not, not in"'
+        return tokenizer.raise_syntax_error(
+            "Expected marker operator, one of "
+            "<=, <, !=, ==, >=, >, ~=, ===, not, not in"
         )

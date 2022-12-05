@@ -1,6 +1,7 @@
+import contextlib
 import re
 from dataclasses import dataclass
-from typing import Dict, Generator, NoReturn, Optional, Union
+from typing import Dict, Iterator, NoReturn, Optional, Tuple, Union
 
 from .specifiers import Specifier
 
@@ -11,10 +12,6 @@ class Token:
     text: str
     position: int
 
-    def matches(self, name: str = "") -> bool:
-        if name and self.name != name:
-            return False
-        return True
 
 class ParserSyntaxError(Exception):
     """The provided source text could not be parsed correctly."""
@@ -39,14 +36,14 @@ class ParserSyntaxError(Exception):
 
 DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
     "LPAREN": r"\s*\(",
-    "RPAREN": r"\s*\)",
-    "LBRACKET": r"\s*\[",
-    "RBRACKET": r"\s*\]",
-    "SEMICOLON": r"\s*;",
-    "COMMA": r"\s*,",
+    "LEFT_PARENTHESIS": r"\(",
+    "RIGHT_PARENTHESIS": r"\)",
+    "LEFT_BRACKET": r"\[",
+    "RIGHT_BRACKET": r"\]",
+    "SEMICOLON": r";",
+    "COMMA": r",",
     "QUOTED_STRING": re.compile(
         r"""
-            \s*
             (
                 ('[^']*')
                 |
@@ -55,13 +52,12 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
         """,
         re.VERBOSE,
     ),
-    "OP": r"\s*(===|==|~=|!=|<=|>=|<|>)",
-    "BOOLOP": r"\s*(or|and)",
-    "IN": r"\s*in",
-    "NOT": r"\s*not",
+    "OP": r"(===|==|~=|!=|<=|>=|<|>)",
+    "BOOLOP": r"(or|and)",
+    "IN": r"in",
+    "NOT": r"not",
     "VARIABLE": re.compile(
         r"""
-            \s*
             (
                 python_version
                 |python_full_version
@@ -77,71 +73,78 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
         re.VERBOSE,
     ),
     "VERSION": re.compile(Specifier._version_regex_str, re.VERBOSE | re.IGNORECASE),
-    "URL_SPEC": r"\s*@ *[^ ]+",
-    "IDENTIFIER": r"\s*[a-zA-Z0-9._-]+",
+    "AT": r"\@",
+    "URL": r"[^ ]+",
+    "IDENTIFIER": r"[a-zA-Z0-9._-]+",
+    "WS": r"[ \t]+",
+    "END": r"$",
 }
 
 
 class Tokenizer:
-    """Stream of tokens for a LL(1) parser.
+    """Context-sensitive token parsing.
 
-    Provides methods to examine the next token to be read, and to read it
-    (advance to the next token).
+    Provides methods to examine the input stream to check whether the next token
+    matches.
     """
 
     def __init__(
         self,
         source: str,
         *,
-        rules: "Dict[str, Union[str, re.Pattern[str]]]" = DEFAULT_RULES,
+        rules: "Dict[str, Union[str, re.Pattern[str]]]",
     ) -> None:
         self.source = source
-        self.rules = {name: re.compile(pattern) for name, pattern in rules.items()}
-        self.next_token = None
-        self.generator = self._tokenize()
+        self.rules: Dict[str, re.Pattern[str]] = {
+            name: re.compile(pattern) for name, pattern in rules.items()
+        }
+        self.next_token: Optional[Token] = None
         self.position = 0
 
-    def peek(self) -> Token:
-        """
-        Return the next token to be read.
-        """
-        if not self.next_token:
-            self.next_token = next(self.generator)
-        return self.next_token
+    def consume(self, name: str) -> None:
+        """Move beyond provided token name, if at current position."""
+        if self.check(name):
+            self.read()
 
-    def match(self, *name: str) -> bool:
-        """
-        Return True if the next token matches the given arguments.
-        """
-        token = self.peek()
-        return token.matches(*name)
+    def check(self, name: str, *, peek: bool = False) -> bool:
+        """Check whether the next token has the provided name.
 
-    def expect(self, *name: str, error_message: str) -> Token:
+        By default, if the check succeeds, the token *must* be read before
+        another check. If `peek` is set to `True`, the token is not loaded and
+        would need to be checked again.
         """
-        Raise SyntaxError if the next token doesn't match given arguments.
-        """
-        token = self.peek()
-        if not token.matches(*name):
-            raise self.raise_syntax_error(message=error_message)
-        return token
+        assert (
+            self.next_token is None
+        ), f"Cannot check for {name!r}, already have {self.next_token!r}"
+        assert name in self.rules, f"Unknown token name: {name!r}"
 
-    def read(self, *name: str, error_message: str = "") -> Token:
-        """Return the next token and advance to the next token.
+        expression = self.rules[name]
 
-        Raise SyntaxError if the token doesn't match.
+        match = expression.match(self.source, self.position)
+        if match is None:
+            return False
+        if not peek:
+            self.next_token = Token(name, match[0], self.position)
+        return True
+
+    def expect(self, name: str, *, expected: str) -> Token:
+        """Expect a certain token name next, failing with a syntax error otherwise.
+
+        The token is *not* read.
         """
-        result = self.expect(*name, error_message=error_message)
+        if not self.check(name):
+            raise self.raise_syntax_error(f"Expected {expected}")
+        return self.read()
+
+    def read(self) -> Token:
+        """Consume the next token and return it."""
+        token = self.next_token
+        assert token is not None
+
+        self.position += len(token.text)
         self.next_token = None
-        return result
 
-    def try_read(self, *name: str) -> Optional[Token]:
-        """read() if the next token matches the given arguments.
-
-        Do nothing if it does not match.
-        """
-        if self.match(*name):
-            return self.read()
-        return None
+        return token
 
     def raise_syntax_error(
         self,
@@ -161,25 +164,32 @@ class Tokenizer:
             span=span,
         )
 
-    def _make_token(self, name: str, text: str) -> Token:
-        """
-        Make a token with the current position.
-        """
-        return Token(name, text, self.position)
+    @contextlib.contextmanager
+    def enclosing_tokens(self, open_token: str, close_token: str) -> Iterator[bool]:
+        if self.check(open_token):
+            open_position = self.position
+            self.read()
+        else:
+            open_position = None
 
-    def _tokenize(self) -> Generator[Token, Token, None]:
-        """
-        The main generator of tokens.
-        """
-        while self.position < len(self.source):
-            for name, expression in self.rules.items():
-                match = expression.match(self.source, self.position)
-                if match:
-                    token_text = match[0]
+        yield open_position is not None
 
-                    yield self._make_token(name, token_text.strip())
-                    self.position += len(token_text)
-                    break
-            else:
-                raise self.raise_syntax_error(message="Unrecognized token")
-        yield self._make_token("END", "")
+        if open_position is None:
+            return
+
+        if not self.check(close_token):
+            self.raise_syntax_error(
+                f"Expected closing {close_token}",
+                span_start=open_position,
+            )
+
+        self.read()
+
+    def read_remaining_text(self) -> str:
+        index = self.position
+        assert index <= len(self.source)
+
+        # move forward to the end, preventing future reads.
+        self.position = len(self.source)
+
+        return self.source[index:]
