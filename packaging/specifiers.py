@@ -116,8 +116,10 @@ class Specifier(BaseSpecifier):
                 # but included entirely as an escape hatch.
                 (?<====)  # Only match for the identity operator
                 \s*
-                [^\s]*    # We just match everything, except for whitespace
-                          # since we are only testing for strict identity.
+                [^\s;)]*  # The arbitrary version can be just about anything,
+                          # we match everything except for whitespace, a
+                          # semi-colon for marker support, and a closing paren
+                          # since versions can be enclosed in them.
             )
             |
             (?:
