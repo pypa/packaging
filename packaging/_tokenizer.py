@@ -30,7 +30,7 @@ class ParserSyntaxError(Exception):
         super().__init__()
 
     def __str__(self) -> str:
-        marker = " " * self.span[0] + "^" * (self.span[1] - self.span[0] + 1)
+        marker = " " * self.span[0] + "~" * (self.span[1] - self.span[0]) + "^"
         return "\n    ".join([self.message, self.source, marker])
 
 
