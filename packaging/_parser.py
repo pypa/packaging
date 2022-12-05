@@ -175,13 +175,14 @@ def _parse_extras_list(tokenizer: Tokenizer) -> List[str]:
 
     while True:
         tokenizer.consume("WS")
-        if not tokenizer.check("COMMA"):
-            if tokenizer.check("IDENTIFIER", peek=True):
-                tokenizer.raise_syntax_error("Expected comma between extra names")
+        if tokenizer.check("IDENTIFIER", peek=True):
+            tokenizer.raise_syntax_error("Expected comma between extra names")
+        elif not tokenizer.check("COMMA"):
             break
 
         tokenizer.read()
         tokenizer.consume("WS")
+
         extra_token = tokenizer.expect("IDENTIFIER", expected="extra name after comma")
         extras.append(extra_token.text)
 
