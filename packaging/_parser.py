@@ -54,7 +54,7 @@ MarkerAtom = Any
 MarkerList = List[Any]
 
 
-class Requirement(NamedTuple):
+class ParsedRequirement(NamedTuple):
     name: str
     url: str
     extras: List[str]
@@ -62,7 +62,7 @@ class Requirement(NamedTuple):
     marker: str
 
 
-def parse_requirement(source: str) -> Requirement:
+def parse_requirement(source: str) -> ParsedRequirement:
     return _parse_requirement(Tokenizer(source, rules=DEFAULT_RULES))
 
 
