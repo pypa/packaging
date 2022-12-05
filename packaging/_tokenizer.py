@@ -184,12 +184,3 @@ class Tokenizer:
             )
 
         self.read()
-
-    def read_remaining_text(self) -> str:
-        index = self.position
-        assert index <= len(self.source)
-
-        # move forward to the end, preventing future reads.
-        self.position = len(self.source)
-
-        return self.source[index:]
