@@ -6,7 +6,7 @@ import urllib.parse
 from typing import Any, List, Optional, Set
 
 from ._parser import parse_named_requirement
-from ._tokenizer import ParseExceptionError
+from ._tokenizer import ParserSyntaxError
 from .markers import InvalidMarker, Marker
 from .specifiers import SpecifierSet
 
@@ -33,7 +33,7 @@ class Requirement:
     def __init__(self, requirement_string: str) -> None:
         try:
             req = parse_named_requirement(requirement_string)
-        except ParseExceptionError as e:
+        except ParserSyntaxError as e:
             raise InvalidRequirement(str(e))
 
         self.name: str = req.name
