@@ -12,7 +12,7 @@
 from ast import literal_eval
 from typing import Any, List, NamedTuple, Tuple, Union
 
-from ._tokenizer import Tokenizer
+from ._tokenizer import DEFAULT_RULES, Tokenizer
 
 
 class Node:
@@ -62,12 +62,15 @@ class Requirement(NamedTuple):
     marker: str
 
 
-def parse_named_requirement(requirement: str) -> Requirement:
+def parse_requirement(source: str) -> Requirement:
+    return _parse_requirement(Tokenizer(source, rules=DEFAULT_RULES))
+
+
+def _parse_requirement(tokens: Tokenizer) -> Requirement:
     """
     named_requirement:
         IDENTIFIER extras (URL_SPEC | specifier) (SEMICOLON marker_expr)? END
     """
-    tokens = Tokenizer(requirement)
     tokens.expect("IDENTIFIER", error_message="Expression must begin with package name")
     name = tokens.read("IDENTIFIER").text
     extras = parse_extras(tokens)
@@ -140,7 +143,11 @@ def parse_version_many(tokens: Tokenizer) -> str:
     return parsed_specifiers
 
 
-def parse_marker_expr(tokens: Tokenizer) -> MarkerList:
+def parse_marker(source: str) -> MarkerList:
+    return _parse_marker_expr(Tokenizer(source, rules=DEFAULT_RULES))
+
+
+def _parse_marker_expr(tokens: Tokenizer) -> MarkerList:
     """
     marker_expr: MARKER_ATOM (BOOLOP + MARKER_ATOM)+
     """
