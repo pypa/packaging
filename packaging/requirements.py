@@ -7,7 +7,7 @@ from typing import Any, List, Optional, Set
 
 from ._parser import parse_requirement
 from ._tokenizer import ParserSyntaxError
-from .markers import InvalidMarker, Marker
+from .markers import Marker, _normalize_extra_values
 from .specifiers import SpecifierSet
 
 
@@ -51,12 +51,10 @@ class Requirement:
             self.url = None
         self.extras: Set[str] = set(parsed.extras if parsed.extras else [])
         self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
-        try:
-            self.marker: Optional[Marker] = (
-                Marker(parsed.marker) if parsed.marker else None
-            )
-        except InvalidMarker as e:
-            raise InvalidRequirement(str(e))
+        self.marker: Optional[Marker] = None
+        if parsed.marker is not None:
+            self.marker = Marker.__new__(Marker)
+            self.marker._markers = _normalize_extra_values(parsed.marker)
 
     def __str__(self) -> str:
         parts: List[str] = [self.name]

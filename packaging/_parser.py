@@ -5,7 +5,7 @@ the implementation.
 """
 
 import ast
-from typing import Any, List, NamedTuple, Tuple, Union
+from typing import Any, List, NamedTuple, Optional, Tuple, Union
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
 
@@ -54,7 +54,7 @@ class ParsedRequirement(NamedTuple):
     url: str
     extras: List[str]
     specifier: str
-    marker: str
+    marker: Optional[MarkerList]
 
 
 # --------------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
 
 def _parse_requirement_details(
     tokenizer: Tokenizer,
-) -> Tuple[str, str, str]:
+) -> Tuple[str, str, Optional[MarkerList]]:
     """
     requirement_details = AT URL (WS SEMICOLON marker WS?)?
                         | specifier WS? (SEMICOLON marker WS?)?
@@ -95,7 +95,7 @@ def _parse_requirement_details(
 
     specifier = ""
     url = ""
-    marker = ""
+    marker = None
 
     if tokenizer.check("AT"):
         tokenizer.read()
@@ -113,6 +113,8 @@ def _parse_requirement_details(
             )
         else:
             tokenizer.read()
+        marker = _parse_marker_expr(tokenizer)
+        tokenizer.consume("WS")
     else:
         specifier = _parse_specifier(tokenizer)
         tokenizer.consume("WS")
@@ -123,7 +125,8 @@ def _parse_requirement_details(
         tokenizer.expect(
             "SEMICOLON", expected="semicolon (followed by environment markers)"
         )
-    marker = tokenizer.read_remaining_text()
+        marker = _parse_marker_expr(tokenizer)
+        tokenizer.consume("WS")
 
     return (url, specifier, marker)
 
