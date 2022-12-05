@@ -190,7 +190,7 @@ def _parse_extras_list(tokenizer: Tokenizer) -> List[str]:
 
 def _parse_specifier(tokenizer: Tokenizer) -> str:
     """
-    specifier = LEFT_PARENTHESIS version_many? RIGHT_PARENTHESIS
+    specifier = LEFT_PARENTHESIS version_many RIGHT_PARENTHESIS
               | version_many
     """
     with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
@@ -201,7 +201,7 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
 
 def _parse_version_many(tokenizer: Tokenizer) -> str:
     """
-    version_many = OP VERSION (COMMA OP VERSION)*
+    version_many = (OP VERSION (COMMA OP VERSION)*)?
     """
     parsed_specifiers = ""
     while tokenizer.check("OP"):
