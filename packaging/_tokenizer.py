@@ -1,14 +1,15 @@
 import re
+from dataclasses import dataclass
 from typing import Dict, Generator, NoReturn, Optional
 
 from .specifiers import Specifier
 
 
+@dataclass
 class Token:
-    def __init__(self, name: str, text: str, position: int) -> None:
-        self.name = name
-        self.text = text
-        self.position = position
+    name: str
+    text: str
+    position: int
 
     def matches(self, name: str = "") -> bool:
         if name and self.name != name:
