@@ -16,15 +16,25 @@ class Token:
             return False
         return True
 
+class ParserSyntaxError(Exception):
+    """The provided source text could not be parsed correctly."""
 
-class ParseExceptionError(Exception):
-    """
-    Parsing failed.
-    """
+    def __init__(
+        self,
+        message: str,
+        *,
+        source: str,
+        span: Tuple[int, int],
+    ) -> None:
+        self.span = span
+        self.message = message
+        self.source = source
 
-    def __init__(self, message: str, position: int) -> None:
-        super().__init__(message)
-        self.position = position
+        super().__init__()
+
+    def __str__(self) -> str:
+        marker = " " * self.span[0] + "^" * (self.span[1] - self.span[0] + 1)
+        return "\n    ".join([self.message, self.source, marker])
 
 
 DEFAULT_RULES = {
@@ -130,15 +140,22 @@ class Tokenizer:
             return self.read()
         return None
 
-    def raise_syntax_error(self, *, message: str) -> NoReturn:
-        """
-        Raise SyntaxError at the given position in the marker.
-        """
-        at = f"at position {self.position}:"
-        marker = " " * self.position + "^"
-        raise ParseExceptionError(
-            f"{message}\n{at}\n    {self.source}\n    {marker}",
-            self.position,
+    def raise_syntax_error(
+        self,
+        message: str,
+        *,
+        span_start: Optional[int] = None,
+        span_end: Optional[int] = None,
+    ) -> NoReturn:
+        """Raise ParserSyntaxError at the given position."""
+        span = (
+            self.position if span_start is None else span_start,
+            self.position if span_end is None else span_end,
+        )
+        raise ParserSyntaxError(
+            message,
+            source=self.source,
+            span=span,
         )
 
     def _make_token(self, name: str, text: str) -> Token:

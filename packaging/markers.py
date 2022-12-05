@@ -9,7 +9,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable, parse_marker_expr
-from ._tokenizer import ParseExceptionError, Tokenizer
+from ._tokenizer import ParserSyntaxError, Tokenizer
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
@@ -205,11 +205,8 @@ class Marker:
             #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
             #     ]
             # ]
-        except ParseExceptionError as e:
-            raise InvalidMarker(
-                f"Invalid marker: {marker!r}, parse error at "
-                f"{marker[e.position : e.position + 8]!r}"
-            )
+        except ParserSyntaxError as e:
+            raise InvalidMarker(str(e))
 
     def __str__(self) -> str:
         return _format_marker(self._markers)
