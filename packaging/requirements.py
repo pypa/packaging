@@ -32,27 +32,29 @@ class Requirement:
 
     def __init__(self, requirement_string: str) -> None:
         try:
-            req = parse_requirement(requirement_string)
+            parsed = parse_requirement(requirement_string)
         except ParserSyntaxError as e:
             raise InvalidRequirement(str(e))
 
-        self.name: str = req.name
-        if req.url:
-            parsed_url = urllib.parse.urlparse(req.url)
+        self.name: str = parsed.name
+        if parsed.url:
+            parsed_url = urllib.parse.urlparse(parsed.url)
             if parsed_url.scheme == "file":
-                if urllib.parse.urlunparse(parsed_url) != req.url:
+                if urllib.parse.urlunparse(parsed_url) != parsed.url:
                     raise InvalidRequirement("Invalid URL given")
             elif not (parsed_url.scheme and parsed_url.netloc) or (
                 not parsed_url.scheme and not parsed_url.netloc
             ):
-                raise InvalidRequirement(f"Invalid URL: {req.url}")
-            self.url: Optional[str] = req.url
+                raise InvalidRequirement(f"Invalid URL: {parsed.url}")
+            self.url: Optional[str] = parsed.url
         else:
             self.url = None
-        self.extras: Set[str] = set(req.extras if req.extras else [])
-        self.specifier: SpecifierSet = SpecifierSet(req.specifier)
+        self.extras: Set[str] = set(parsed.extras if parsed.extras else [])
+        self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
         try:
-            self.marker: Optional[Marker] = Marker(req.marker) if req.marker else None
+            self.marker: Optional[Marker] = (
+                Marker(parsed.marker) if parsed.marker else None
+            )
         except InvalidMarker as e:
             raise InvalidRequirement(str(e))
 
