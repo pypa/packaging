@@ -74,7 +74,7 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
     ),
     "VERSION": re.compile(Specifier._version_regex_str, re.VERBOSE | re.IGNORECASE),
     "AT": r"\@",
-    "URL": r"[^ ]+",
+    "URL": r"[^ \t]+",
     "IDENTIFIER": r"[a-zA-Z0-9._-]+",
     "WS": r"[ \t]+",
     "END": r"$",
