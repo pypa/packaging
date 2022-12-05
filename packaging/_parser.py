@@ -89,8 +89,8 @@ def _parse_requirement_details(
     tokenizer: Tokenizer,
 ) -> Tuple[str, str, Optional[MarkerList]]:
     """
-    requirement_details = AT URL (WS SEMICOLON marker WS?)?
-                        | specifier WS? (SEMICOLON marker WS?)?
+    requirement_details = AT URL (WS requirement_marker)?
+                        | specifier WS? (requirement_marker)?
     """
 
     specifier = ""
@@ -100,35 +100,51 @@ def _parse_requirement_details(
     if tokenizer.check("AT"):
         tokenizer.read()
         tokenizer.consume("WS")
+
         url_start = tokenizer.position
         url = tokenizer.expect("URL", expected="URL after @").text
         if tokenizer.check("END", peek=True):
             return (url, specifier, marker)
 
         tokenizer.expect("WS", expected="whitespace after URL")
-        if not tokenizer.check("SEMICOLON"):
-            tokenizer.raise_syntax_error(
-                "Expected semicolon after URL (followed by environment markers)",
-                span_start=url_start,
-            )
-        else:
-            tokenizer.read()
-        marker = _parse_marker_expr(tokenizer)
-        tokenizer.consume("WS")
+
+        marker = _parse_requirement_marker(
+            tokenizer, span_start=url_start, after="URL and whitespace"
+        )
     else:
+        specifier_start = tokenizer.position
         specifier = _parse_specifier(tokenizer)
         tokenizer.consume("WS")
 
         if tokenizer.check("END", peek=True):
             return (url, specifier, marker)
 
-        tokenizer.expect(
-            "SEMICOLON", expected="semicolon (followed by environment markers)"
+        marker = _parse_requirement_marker(
+            tokenizer, span_start=specifier_start, after="version specifier"
         )
-        marker = _parse_marker_expr(tokenizer)
-        tokenizer.consume("WS")
 
     return (url, specifier, marker)
+
+
+def _parse_requirement_marker(
+    tokenizer: Tokenizer, *, span_start: int, after: str
+) -> MarkerList:
+    """
+    requirement_marker = SEMICOLON marker WS?
+    """
+
+    if not tokenizer.check("SEMICOLON"):
+        tokenizer.raise_syntax_error(
+            f"Expected end or semicolon (after {after})",
+            span_start=span_start,
+        )
+    else:
+        tokenizer.read()
+
+    marker = _parse_marker_expr(tokenizer)
+    tokenizer.consume("WS")
+
+    return marker
 
 
 def _parse_extras(tokenizer: Tokenizer) -> List[str]:
