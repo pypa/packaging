@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Dict, Generator, NoReturn, Optional
+from typing import Dict, Generator, NoReturn, Optional, Union
 
 from .specifiers import Specifier
 
@@ -37,7 +37,7 @@ class ParserSyntaxError(Exception):
         return "\n    ".join([self.message, self.source, marker])
 
 
-DEFAULT_RULES = {
+DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
     "LPAREN": r"\s*\(",
     "RPAREN": r"\s*\)",
     "LBRACKET": r"\s*\[",
@@ -89,9 +89,12 @@ class Tokenizer:
     (advance to the next token).
     """
 
-    next_token: Optional[Token]
-
-    def __init__(self, source: str, rules: Dict[str, object] = DEFAULT_RULES) -> None:
+    def __init__(
+        self,
+        source: str,
+        *,
+        rules: "Dict[str, Union[str, re.Pattern[str]]]" = DEFAULT_RULES,
+    ) -> None:
         self.source = source
         self.rules = {name: re.compile(pattern) for name, pattern in rules.items()}
         self.next_token = None
