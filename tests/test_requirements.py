@@ -489,9 +489,25 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after version specifier)\n"
+            "Expected end or semicolon (after name and no valid version specifier)\n"
             "    name 1.0\n"
             "         ^"
+        )
+
+    def test_error_on_random_char_after_specifier(self) -> None:
+        # GIVEN
+        to_parse = "name >= 1.0 #"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Expected end or semicolon (after version specifier)\n"
+            "    name >= 1.0 #\n"
+            "         ~~~~~~~^"
         )
 
 

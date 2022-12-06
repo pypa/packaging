@@ -120,7 +120,13 @@ def _parse_requirement_details(
             return (url, specifier, marker)
 
         marker = _parse_requirement_marker(
-            tokenizer, span_start=specifier_start, after="version specifier"
+            tokenizer,
+            span_start=specifier_start,
+            after=(
+                "version specifier"
+                if specifier
+                else "name and no valid version specifier"
+            ),
         )
 
     return (url, specifier, marker)
