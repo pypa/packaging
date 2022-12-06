@@ -34,7 +34,7 @@ class Requirement:
         try:
             parsed = parse_requirement(requirement_string)
         except ParserSyntaxError as e:
-            raise InvalidRequirement(str(e))
+            raise InvalidRequirement(str(e)) from e
 
         self.name: str = parsed.name
         if parsed.url:
