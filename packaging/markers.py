@@ -207,7 +207,7 @@ class Marker:
             #     ]
             # ]
         except ParserSyntaxError as e:
-            raise InvalidMarker(str(e))
+            raise InvalidMarker(str(e)) from e
 
     def __str__(self) -> str:
         return _format_marker(self._markers)
