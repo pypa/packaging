@@ -53,12 +53,12 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
         re.VERBOSE,
     ),
     "OP": r"(===|==|~=|!=|<=|>=|<|>)",
-    "BOOLOP": r"(or|and)",
-    "IN": r"in",
-    "NOT": r"not",
+    "BOOLOP": r"\b(or|and)\b",
+    "IN": r"\bin\b",
+    "NOT": r"\bnot\b",
     "VARIABLE": re.compile(
         r"""
-            (
+            \b(
                 python_version
                 |python_full_version
                 |os[._]name
@@ -68,14 +68,14 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
                 |python_implementation
                 |implementation_(name|version)
                 |extra
-            )
+            )\b
         """,
         re.VERBOSE,
     ),
     "VERSION": re.compile(Specifier._version_regex_str, re.VERBOSE | re.IGNORECASE),
     "AT": r"\@",
     "URL": r"[^ \t]+",
-    "IDENTIFIER": r"[a-zA-Z0-9][a-zA-Z0-9._-]*",
+    "IDENTIFIER": r"\b[a-zA-Z0-9][a-zA-Z0-9._-]*\b",
     "WS": r"[ \t]+",
     "END": r"$",
 }
