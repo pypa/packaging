@@ -391,7 +391,7 @@ class TestRequirementParsing:
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
             "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, "
-            "not, not in\n"
+            "in, not in\n"
             "    name; '3.7' notin python_version\n"
             "                ^"
         )
@@ -408,7 +408,7 @@ class TestRequirementParsing:
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
             "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, "
-            "not, not in\n"
+            "in, not in\n"
             "    name; '3.6'inpython_version\n"
             "               ^"
         )
@@ -441,7 +441,7 @@ class TestRequirementParsing:
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
             "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, "
-            "not, not in\n"
+            "in, not in\n"
             "    name; '3.7' ~ python_version\n"
             "                ^"
         )
