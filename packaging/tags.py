@@ -398,9 +398,16 @@ def mac_platforms(
             compat_version = major_version, 0
             binary_formats = _mac_binary_formats(compat_version, arch)
             for binary_format in binary_formats:
-                yield "macosx_{major}_{minor}_{binary_format}".format(
-                    major=major_version, minor=0, binary_format=binary_format
+                yield "macosx_{major}_{binary_format}".format(
+                    major=major_version, binary_format=binary_format
                 )
+                # Mac OS 11 and 12 seem to omit the minor version, we will keep
+                # them for backwards compatibility and avoid generating tags
+                # with it in the future
+                if major_version <= 12:
+                    yield "macosx_{major}_{minor}_{binary_format}".format(
+                        major=major_version, minor=0, binary_format=binary_format
+                    )
 
     if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
