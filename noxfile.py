@@ -35,7 +35,7 @@ def tests(session):
         coverage(
             "run",
             "--source",
-            "packaging/",
+            "packaging",
             "-m",
             "pytest",
             "--strict-markers",
@@ -95,7 +95,7 @@ def docs(session):
 @nox.session
 def release(session):
     package_name = "packaging"
-    version_file = Path(f"{package_name}/__init__.py")
+    version_file = Path(f"src/{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
 
     try:
