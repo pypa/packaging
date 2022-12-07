@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "packaging"
 description = "Core utilities for Python packages"
-version = "22.0"
+dynamic = ["version"]
 readme = "README.rst"
 requires-python = ">=3.7"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
