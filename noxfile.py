@@ -95,7 +95,7 @@ def docs(session):
 @nox.session
 def release(session):
     package_name = "packaging"
-    version_file = Path(f"{package_name}/__about__.py")
+    version_file = Path(f"{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
 
     try:

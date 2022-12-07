@@ -8,7 +8,7 @@ import os
 
 ABOUT = {}
 _BASE_DIR = os.path.join(os.path.dirname(__file__), os.pardir)
-with open(os.path.join(_BASE_DIR, "packaging", "__about__.py")) as f:
+with open(os.path.join(_BASE_DIR, "packaging", "__init__.py")) as f:
     exec(f.read(), ABOUT)
 
 # -- General configuration ----------------------------------------------------
