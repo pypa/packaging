@@ -480,6 +480,15 @@ def interpreter_version(*, warn: bool = False) -> str:
     return version
 
 
+def interpreter_tag(*, warn: bool = False) -> Optional[str]:
+    interp_name = interpreter_name()
+    if interp_name == "pp":
+        return "pp3"
+    elif interp_name == "cp":
+        return "cp" + interpreter_version(warn=warn)
+    return None
+
+
 def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
 
@@ -498,10 +507,4 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     else:
         yield from generic_tags()
 
-    if interp_name == "pp":
-        interp = "pp3"
-    elif interp_name == "cp":
-        interp = "cp" + interpreter_version(warn=warn)
-    else:
-        interp = None
-    yield from compatible_tags(interpreter=interp)
+    yield from compatible_tags(interpreter=interpreter_tag(warn=warn))
