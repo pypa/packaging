@@ -92,6 +92,7 @@ DIFFERENT_DEPENDENCIES = [
     [
         None,
         "python_version{ws}>={ws}'3.3'",
+        '({ws}python_version{ws}>={ws}"3.4"{ws}){ws}and extra{ws}=={ws}"oursql"',
         (
             "sys_platform{ws}!={ws}'linux' and(os_name{ws}=={ws}'linux' or "
             "python_version{ws}>={ws}'3.3'{ws}){ws}"

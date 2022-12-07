@@ -239,12 +239,11 @@ def parse_marker(source: str) -> MarkerList:
 
 def _parse_marker_expr(tokenizer: Tokenizer) -> MarkerList:
     """
-    marker_expr = marker_atom (BOOLOP WS? marker_atom)+
+    marker_expr = marker_atom (BOOLOP marker_atom)+
     """
     expression = [_parse_marker_atom(tokenizer)]
     while tokenizer.check("BOOLOP"):
         token = tokenizer.read()
-        tokenizer.consume("WS")
         expr_right = _parse_marker_atom(tokenizer)
         expression.extend((token.text, expr_right))
     return expression
@@ -252,10 +251,11 @@ def _parse_marker_expr(tokenizer: Tokenizer) -> MarkerList:
 
 def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
-    marker_atom = LEFT_PARENTHESIS WS? marker_expr WS? RIGHT_PARENTHESIS
-                | marker_item
+    marker_atom = WS? LEFT_PARENTHESIS WS? marker_expr WS? RIGHT_PARENTHESIS WS?
+                | WS? marker_item WS?
     """
 
+    tokenizer.consume("WS")
     if tokenizer.check("LEFT_PARENTHESIS", peek=True):
         with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
             tokenizer.consume("WS")
@@ -263,6 +263,7 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
             tokenizer.consume("WS")
     else:
         marker = _parse_marker_item(tokenizer)
+    tokenizer.consume("WS")
     return marker
 
 
