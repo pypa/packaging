@@ -147,7 +147,7 @@ def _parse_requirement_marker(
     else:
         tokenizer.read()
 
-    marker = _parse_marker_expr(tokenizer)
+    marker = _parse_marker(tokenizer)
     tokenizer.consume("WS")
 
     return marker
@@ -234,12 +234,12 @@ def _parse_version_many(tokenizer: Tokenizer) -> str:
 # Recursive descent parser for marker expression
 # --------------------------------------------------------------------------------------
 def parse_marker(source: str) -> MarkerList:
-    return _parse_marker_expr(Tokenizer(source, rules=DEFAULT_RULES))
+    return _parse_marker(Tokenizer(source, rules=DEFAULT_RULES))
 
 
-def _parse_marker_expr(tokenizer: Tokenizer) -> MarkerList:
+def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     """
-    marker_expr = marker_atom (BOOLOP marker_atom)+
+    marker = marker_atom (BOOLOP marker_atom)+
     """
     expression = [_parse_marker_atom(tokenizer)]
     while tokenizer.check("BOOLOP"):
@@ -251,7 +251,7 @@ def _parse_marker_expr(tokenizer: Tokenizer) -> MarkerList:
 
 def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
-    marker_atom = WS? LEFT_PARENTHESIS WS? marker_expr WS? RIGHT_PARENTHESIS WS?
+    marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
                 | WS? marker_item WS?
     """
 
@@ -259,7 +259,7 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     if tokenizer.check("LEFT_PARENTHESIS", peek=True):
         with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
             tokenizer.consume("WS")
-            marker: MarkerAtom = _parse_marker_expr(tokenizer)
+            marker: MarkerAtom = _parse_marker(tokenizer)
             tokenizer.consume("WS")
     else:
         marker = _parse_marker_item(tokenizer)
