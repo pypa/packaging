@@ -390,9 +390,27 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected whitespace after 'not'\n"
+            "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, "
+            "not, not in\n"
             "    name; '3.7' notin python_version\n"
-            "                   ^"
+            "                ^"
+        )
+
+    def test_error_when_no_word_boundary(self) -> None:
+        # GIVEN
+        to_parse = "name; '3.6'inpython_version"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, "
+            "not, not in\n"
+            "    name; '3.6'inpython_version\n"
+            "               ^"
         )
 
     def test_error_invalid_marker_not_without_in(self) -> None:
