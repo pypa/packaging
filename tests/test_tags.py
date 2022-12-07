@@ -1239,3 +1239,18 @@ class TestSysTags:
 
         interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
+
+
+def test_interpreter_abi(monkeypatch):
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+    monkeypatch.setattr(
+        sysconfig, "get_config_var", {"SOABI": "pypy39-pp73"}.__getitem__
+    )
+    assert tags.interpreter_abi() == "pypy39_pp73"
+
+    config = {"Py_DEBUG": 0, "WITH_PYMALLOC": 0, "Py_UNICODE_SIZE": 2}
+    monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+    assert (
+        tags.interpreter_abi() == f"cp{sys.version_info.major}{sys.version_info.minor}"
+    )

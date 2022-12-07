@@ -484,6 +484,12 @@ def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
 
 
+def interpreter_abi() -> str:
+    if interpreter_name() == "cp":
+        return _cpython_abis(sys.version_info[:2])[0]
+    return next(_generic_abi())
+
+
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     """
     Returns the sequence of tag triples for the running interpreter.
