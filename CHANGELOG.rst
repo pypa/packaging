@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 22.0 - 2022-12-07
 ~~~~~~~~~~~~~~~~~
 
