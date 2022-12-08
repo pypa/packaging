@@ -35,7 +35,6 @@ class ParserSyntaxError(Exception):
 
 
 DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
-    "LPAREN": r"\s*\(",
     "LEFT_PARENTHESIS": r"\(",
     "RIGHT_PARENTHESIS": r"\)",
     "LEFT_BRACKET": r"\[",
