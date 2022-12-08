@@ -492,9 +492,9 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected version after operator\n"
+            "Expected end or semicolon (after name and no valid version specifier)\n"
             "    name==\n"
-            "          ^"
+            "        ^"
         )
 
     def test_error_on_missing_op_after_name(self) -> None:
