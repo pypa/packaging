@@ -140,7 +140,7 @@ class Specifier(BaseSpecifier):
                     |
                     (?:                                  # pre release
                         [-_\.]?
-                        (a|b|c|rc|alpha|beta|pre|preview)
+                        (alpha|beta|preview|pre|a|b|c|rc)
                         [-_\.]?
                         [0-9]*
                     )?
@@ -163,7 +163,7 @@ class Specifier(BaseSpecifier):
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
                 (?:                   # pre release
                     [-_\.]?
-                    (a|b|c|rc|alpha|beta|pre|preview)
+                    (alpha|beta|preview|pre|a|b|c|rc)
                     [-_\.]?
                     [0-9]*
                 )?
@@ -188,7 +188,7 @@ class Specifier(BaseSpecifier):
                 [0-9]+(?:\.[0-9]+)*   # release
                 (?:                   # pre release
                     [-_\.]?
-                    (a|b|c|rc|alpha|beta|pre|preview)
+                    (alpha|beta|preview|pre|a|b|c|rc)
                     [-_\.]?
                     [0-9]*
                 )?
