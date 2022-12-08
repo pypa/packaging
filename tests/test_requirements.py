@@ -82,6 +82,7 @@ DIFFERENT_DEPENDENCIES = [
         (None, "({ws}==={ws}arbitrarystring{ws})"),
         (None, "=={ws}1.0"),
         (None, "({ws}=={ws}1.0{ws})"),
+        (None, "=={ws}1.0-alpha"),
         (None, "<={ws}1!3.0.0.rc2"),
         (None, ">{ws}2.2{ws},{ws}<{ws}3"),
         (None, "(>{ws}2.2{ws},{ws}<{ws}3)"),
