@@ -210,20 +210,12 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
 
 def _parse_version_many(tokenizer: Tokenizer) -> str:
     """
-    version_many = (OP VERSION (COMMA OP VERSION)*)?
+    version_many = (SPECIFIER (WS? COMMA WS? SPECIFIER)*)?
     """
     parsed_specifiers = ""
-    while tokenizer.check("OP"):
+    while tokenizer.check("SPECIFIER"):
         parsed_specifiers += tokenizer.read().text
-
-        # We intentionally do not consume whitespace here, since the regular expression
-        # for `VERSION` uses a lookback for the operator, to determine what
-        # corresponding syntax is permitted.
-
-        version_token = tokenizer.expect("VERSION", expected="version after operator")
-        parsed_specifiers += version_token.text
         tokenizer.consume("WS")
-
         if not tokenizer.check("COMMA"):
             break
         parsed_specifiers += tokenizer.read().text
