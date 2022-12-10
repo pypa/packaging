@@ -226,10 +226,12 @@ def cpython_tags(
 
 
 def _generic_abi() -> List[str]:
-    """Return the ABI tag based on EXT_SUFFIX"""
-    # ext_suffix is something like this. We want to keep the parts which are
-    # related to the ABI and remove the parts which are related to the
-    # platform:
+    """
+    Return the ABI tag based on EXT_SUFFIX.
+    """
+    # The following are examples of `EXT_SUFFIX`.
+    # We want to keep the parts which are related to the ABI and remove the
+    # parts which are related to the platform:
     # - linux:   '.cpython-310-x86_64-linux-gnu.so' => cp310
     # - mac:     '.cpython-310-darwin.so'           => cp310
     # - win:     '.cp310-win_amd64.pyd'             => cp310
@@ -243,7 +245,7 @@ def _generic_abi() -> List[str]:
         raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
     parts = ext_suffix.split(".")
     if len(parts) < 3:
-        # CPython3.7 and earlier uses ".pyd" on windows
+        # CPython3.7 and earlier uses ".pyd" on Windows.
         return _cpython_abis(sys.version_info[:2])
     soabi = parts[1]
     if soabi.startswith("cpython"):
@@ -496,7 +498,10 @@ def platform_tags() -> Iterator[str]:
 
 def interpreter_name() -> str:
     """
-    Returns the name of the running interpreter, usually as two characters.
+    Returns the name of the running interpreter.
+
+    Some implementations have a reserved, two-letter abbreviation which will
+    be returned when appropriate.
     """
     name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
