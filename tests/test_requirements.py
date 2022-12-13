@@ -581,14 +581,14 @@ class TestRequirementBehaviour:
         self, extras: str, url_or_specifier: str, marker: str
     ) -> None:
         # GIVEN
-        to_parse = f"name{extras}{url_or_specifier}{marker}".strip()
+        to_parse = f"name{extras}{url_or_specifier}{marker}"
 
         # WHEN
         req = Requirement(to_parse)
 
         # THEN
-        assert str(req) == to_parse
-        assert repr(req) == f"<Requirement({to_parse!r})>"
+        assert str(req) == to_parse.strip()
+        assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
 
     @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
