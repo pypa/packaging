@@ -148,8 +148,7 @@ def _parse_requirement_marker(
             f"Expected end or semicolon (after {after})",
             span_start=span_start,
         )
-    else:
-        tokenizer.read()
+    tokenizer.read()
 
     marker = _parse_marker(tokenizer)
     tokenizer.consume("WS")
