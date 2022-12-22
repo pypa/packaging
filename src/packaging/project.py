@@ -3,12 +3,12 @@
 See https://www.python.org/dev/peps/pep-0621/, and
 https://packaging.python.org/en/latest/specifications/declaring-project-metadata
 """
-import re
 import typing as t
 from pathlib import Path
 
 from .requirements import InvalidRequirement, Requirement
 from .specifiers import InvalidSpecifier, SpecifierSet
+from .utils import NormalizedName, canonicalize_name
 from .version import InvalidVersion, Version, parse as parse_version
 
 __all__ = ("parse",)
@@ -66,7 +66,7 @@ class Author(t.TypedDict, total=False):
 class ProjectData(t.TypedDict, total=False):
     """The validated PEP 621 project metadata from the pyproject.toml file."""
 
-    name: str  # TODO ideally this would be t.Required[str] in py3.11
+    name: NormalizedName  # TODO ideally t.Required[NormalizedName] in py3.11
     dynamic: t.List[DYNAMIC_KEY_TYPE]
     version: Version
     description: str
@@ -108,7 +108,7 @@ def parse(data: t.Dict[str, t.Any], root: Path) -> ParseResult:
     :param data: The data from the pyproject.toml file.
     :param root: The folder containing the pyproject.toml file.
     """
-    output: ProjectData = {"name": ""}
+    output: ProjectData = {"name": canonicalize_name("")}
     errors: t.List[VError] = []
 
     if "project" not in data:
@@ -157,8 +157,7 @@ def parse(data: t.Dict[str, t.Any], root: Path) -> ParseResult:
         else:
             if not name:
                 errors.append(VError("project.name", "value", "must not be empty"))
-            # normalize the name by PEP 503
-            output["name"] = re.sub(r"[-_.]+", "-", name).lower()
+            output["name"] = canonicalize_name(name)
     else:
         errors.append(VError("project.name", "key", "missing"))
 
