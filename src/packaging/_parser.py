@@ -89,7 +89,7 @@ def _parse_requirement_details(
     tokenizer: Tokenizer,
 ) -> Tuple[str, str, Optional[MarkerList]]:
     """
-    requirement_details = AT URL (WS requirement_marker)?
+    requirement_details = AT URL (WS requirement_marker?)?
                         | specifier WS? (requirement_marker)?
     """
 
@@ -107,6 +107,10 @@ def _parse_requirement_details(
             return (url, specifier, marker)
 
         tokenizer.expect("WS", expected="whitespace after URL")
+
+        # The input might end after whitespace.
+        if tokenizer.check("END", peek=True):
+            return (url, specifier, marker)
 
         marker = _parse_requirement_marker(
             tokenizer, span_start=url_start, after="URL and whitespace"
@@ -144,8 +148,7 @@ def _parse_requirement_marker(
             f"Expected end or semicolon (after {after})",
             span_start=span_start,
         )
-    else:
-        tokenizer.read()
+    tokenizer.read()
 
     marker = _parse_marker(tokenizer)
     tokenizer.consume("WS")
