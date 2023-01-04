@@ -43,7 +43,7 @@ MarkerVar = Union[Variable, Value]
 MarkerItem = Tuple[MarkerVar, Op, MarkerVar]
 # MarkerAtom = Union[MarkerItem, List["MarkerAtom"]]
 # MarkerList = List[Union["MarkerList", MarkerAtom, str]]
-# mypy does not suport recursive type definition
+# mypy does not support recursive type definition
 # https://github.com/python/mypy/issues/731
 MarkerAtom = Any
 MarkerList = List[Any]
