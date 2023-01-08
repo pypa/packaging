@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+23.0 - 2023-01-08
+~~~~~~~~~~~~~~~~~
 
 * Allow ``"extra"`` to be ``None`` in the marker environment (:issue:`650`)
 * Refactor ``tags._generic_api`` to use ``EXT_SUFFIX`` (:issue:`607`)
