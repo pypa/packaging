@@ -6,6 +6,18 @@ Changelog
 
 No unreleased changes.
 
+23.0 - 2023-01-08
+~~~~~~~~~~~~~~~~~
+
+* Allow ``"extra"`` to be ``None`` in the marker environment (:issue:`650`)
+* Refactor ``tags._generic_api`` to use ``EXT_SUFFIX`` (:issue:`607`)
+* Correctly handle trailing whitespace on URL requirements (:issue:`642`)
+* Fix typing for ``specifiers.BaseSpecifier.filter()`` (:issue:`643`)
+* Use stable Python 3.11 in tests (:issue:`641`)
+* Correctly handle non-normalised specifiers in requirements (:issue:`634`)
+* Move to ``src/`` layout (:issue:`626`)
+* Remove ``__about__`` file, in favour of keeping constants in ``__init__`` (:issue:`626`)
+
 22.0 - 2022-12-07
 ~~~~~~~~~~~~~~~~~
 
