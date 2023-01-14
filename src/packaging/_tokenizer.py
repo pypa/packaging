@@ -167,7 +167,9 @@ class Tokenizer:
         )
 
     @contextlib.contextmanager
-    def enclosing_tokens(self, open_token: str, close_token: str) -> Iterator[None]:
+    def enclosing_tokens(
+        self, open_token: str, close_token: str, *, around: str
+    ) -> Iterator[None]:
         if self.check(open_token):
             open_position = self.position
             self.read()
@@ -181,7 +183,7 @@ class Tokenizer:
 
         if not self.check(close_token):
             self.raise_syntax_error(
-                f"Expected closing {close_token}",
+                f"Expected matching {close_token} for {open_token}, after {around}",
                 span_start=open_position,
             )
 

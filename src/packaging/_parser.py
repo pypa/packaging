@@ -163,7 +163,11 @@ def _parse_extras(tokenizer: Tokenizer) -> List[str]:
     if not tokenizer.check("LEFT_BRACKET", peek=True):
         return []
 
-    with tokenizer.enclosing_tokens("LEFT_BRACKET", "RIGHT_BRACKET"):
+    with tokenizer.enclosing_tokens(
+        "LEFT_BRACKET",
+        "RIGHT_BRACKET",
+        around="extras",
+    ):
         tokenizer.consume("WS")
         extras = _parse_extras_list(tokenizer)
         tokenizer.consume("WS")
@@ -203,7 +207,11 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
     """
-    with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
+    with tokenizer.enclosing_tokens(
+        "LEFT_PARENTHESIS",
+        "RIGHT_PARENTHESIS",
+        around="version specifier",
+    ):
         tokenizer.consume("WS")
         parsed_specifiers = _parse_version_many(tokenizer)
         tokenizer.consume("WS")
@@ -254,7 +262,11 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
 
     tokenizer.consume("WS")
     if tokenizer.check("LEFT_PARENTHESIS", peek=True):
-        with tokenizer.enclosing_tokens("LEFT_PARENTHESIS", "RIGHT_PARENTHESIS"):
+        with tokenizer.enclosing_tokens(
+            "LEFT_PARENTHESIS",
+            "RIGHT_PARENTHESIS",
+            around="marker expression",
+        ):
             tokenizer.consume("WS")
             marker: MarkerAtom = _parse_marker(tokenizer)
             tokenizer.consume("WS")
