@@ -285,6 +285,22 @@ class TestRequirementParsing:
             "         ~~~~~~~^"
         )
 
+    def test_error_when_prefix_match_is_used_incorrectly(self) -> None:
+        # GIVEN
+        to_parse = "black (>=20.*) ; extra == 'format'"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix can only be used with `==` or `!=` operators\n"
+            "    black (>=20.*) ; extra == 'format'\n"
+            "           ~~~~~^"
+        )
+
     def test_error_when_bracket_not_closed_correctly(self) -> None:
         # GIVEN
         to_parse = "name[bar, baz >= 1.0"
