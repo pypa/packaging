@@ -78,6 +78,7 @@ DEFAULT_RULES: "Dict[str, Union[str, re.Pattern[str]]]" = {
     "AT": r"\@",
     "URL": r"[^ \t]+",
     "IDENTIFIER": r"\b[a-zA-Z0-9][a-zA-Z0-9._-]*\b",
+    "VERSION_PREFIX_TRAIL": r"\.\*",
     "WS": r"[ \t]+",
     "END": r"$",
 }
