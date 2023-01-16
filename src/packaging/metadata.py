@@ -175,7 +175,7 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
 # class, some light touch ups can make a massive different in usability.
 
 # Map METADATA fields to RawMetadata.
-_EMAIL_FIELD_MAPPING = {
+_EMAIL_TO_RAW_MAPPING = {
     "author": "author",
     "author-email": "author_email",
     "classifier": "classifiers",
@@ -276,7 +276,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
                 # Header object do the right thing to turn them into a
                 # string for us.
                 value.append(str(email.header.make_header(chunks)))
-            # This is already a string, so just add it
+            # This is already a string, so just add it.
             else:
                 value.append(h)
 
@@ -287,7 +287,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
             unparsed[name] = value
             continue
 
-        raw_name = _EMAIL_FIELD_MAPPING.get(name)
+        raw_name = _EMAIL_TO_RAW_MAPPING.get(name)
         if raw_name is None:
             # This is a bit of a weird situation, we've encountered a key that
             # we don't know what it means, so we don't know whether it's meant
@@ -347,7 +347,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
     try:
         payload = _get_payload(parsed, data)
     except ValueError:
-        unparsed.setdefault("Description", []).append(
+        unparsed.setdefault("description", []).append(
             parsed.get_payload(decode=isinstance(data, bytes))
         )
     else:
@@ -356,7 +356,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
             # it, and this body move to unparseable.
             if "description" in raw:
                 description_header = cast(str, raw.pop("description"))
-                unparsed.setdefault("Description", []).extend(
+                unparsed.setdefault("description", []).extend(
                     [description_header, payload]
                 )
             else:
