@@ -52,3 +52,36 @@ class TestRawMetadata:
         assert len(raw) == 1
         assert raw_field in raw
         assert raw[raw_field] == [data] * 2
+
+    @pytest.mark.parametrize(
+        ["given", "expected"],
+        [
+            ("A", ["A"]),
+            ("A ", ["A"]),
+            (" A", ["A"]),
+            ("A, B", ["A", "B"]),
+            ("A,B", ["A", "B"]),
+            (" A, B", ["A", "B"]),
+            ("A,B ", ["A", "B"]),
+            ("A B", ["A B"]),
+        ],
+    )
+    def test_keywords(self, given, expected):
+        header = f"Keywords: {given}"
+        raw, unparsed = metadata.parse_email(header)
+        assert not unparsed
+        assert len(raw) == 1
+        assert "keywords" in raw
+        assert raw["keywords"] == expected
+
+
+# _parse_project_urls
+# _get_payload
+# _EMAIL_FIELD_MAPPING
+# str input
+# bytes input
+# surrogate escape that isn't UTF-8
+# Description header
+# Description header and body
+# Multiple Description headers and body
+# Keys all lower case
