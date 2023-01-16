@@ -74,6 +74,34 @@ class TestRawMetadata:
         assert "keywords" in raw
         assert raw["keywords"] == expected
 
+    @pytest.mark.parametrize(
+        ["given", "expected"],
+        [
+            ("", {"": ""}),
+            ("A", {"A": ""}),
+            ("A,B", {"A": "B"}),
+            ("A, B", {"A": "B"}),
+            (" A,B", {"A": "B"}),
+            ("A,B ", {"A": "B"}),
+            ("A,B,C", {"A": "B,C"}),
+        ],
+    )
+    def test_project_urls_parsing(self, given, expected):
+        header = f"project-url: {given}"
+        raw, unparsed = metadata.parse_email(header)
+        assert not unparsed
+        assert len(raw) == 1
+        assert "project_urls" in raw
+        assert raw["project_urls"] == expected
+
+    def test_duplicate_project_urls(self):
+        header = "project-url: A, B\nproject-url: A, C"
+        raw, unparsed = metadata.parse_email(header)
+        assert not raw
+        assert len(unparsed) == 1
+        assert "project-url" in unparsed
+        assert unparsed["project-url"] == ["A, B", "A, C"]
+
 
 # _parse_project_urls
 # _get_payload

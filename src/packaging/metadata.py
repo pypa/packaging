@@ -127,8 +127,8 @@ def _parse_project_urls(data: List[str]) -> Dict[str, str]:
 
         # TODO: The spec doesn't say anything about if the keys should be
         #       considered case sensitive or not... logically they should
-        #       be case preserving, but case insensitive, but doing that
-        #       would open up more cases where we might have duplicated
+        #       be case-preserving and case-insensitive, but doing that
+        #       would open up more cases where we might have duplicate
         #       entries.
         label, url = parts
         if label in urls:
@@ -333,7 +333,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         elif raw_name == "project_urls":
             try:
                 raw[raw_name] = _parse_project_urls(value)
-            except ValueError:
+            except KeyError:
                 unparsed[name] = value
         # Nothing that we've done has managed to parse this, so it'll just
         # throw it in our unparseable data and move on.
