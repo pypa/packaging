@@ -102,13 +102,27 @@ class TestRawMetadata:
         assert "project-url" in unparsed
         assert unparsed["project-url"] == ["A, B", "A, C"]
 
+    def test_str_input(self):
+        name = "Tarek Ziadé"
+        header = f"author: {name}"
+        raw, unparsed = metadata.parse_email(header)
+        assert not unparsed
+        assert len(raw) == 1
+        assert "author" in raw
+        assert raw["author"] == name
 
-# _parse_project_urls
+    def test_bytes_input(self):
+        name = "Tarek Ziadé"
+        header = f"author: {name}".encode("utf-8")
+        raw, unparsed = metadata.parse_email(header)
+        assert not unparsed
+        assert len(raw) == 1
+        assert "author" in raw
+        assert raw["author"] == name
+
+
 # _get_payload
-# _EMAIL_FIELD_MAPPING
-# str input
-# bytes input
-# surrogate escape that isn't UTF-8
+# surrogate escapes
 # Description header
 # Description header and body
 # Multiple Description headers and body
