@@ -111,7 +111,7 @@ def parse_tag(tag: str) -> FrozenSet[Tag]:
 
 
 def _get_config_var(name: str, warn: bool = False) -> Union[int, str, None]:
-    value = sysconfig.get_config_var(name)
+    value: Union[int, str, None] = sysconfig.get_config_var(name)
     if value is None and warn:
         logger.debug(
             "Config variable '%s' is unset, Python ABI tag may be incorrect", name
