@@ -359,6 +359,8 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
                 unparsed.setdefault("description", []).extend(
                     [description_header, payload]
                 )
+            elif "description" in unparsed:
+                unparsed["description"].append(payload)
             else:
                 raw["description"] = payload
 

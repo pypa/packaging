@@ -120,10 +120,54 @@ class TestRawMetadata:
         assert "author" in raw
         assert raw["author"] == name
 
+    def test_header_mojibake(self):
+        value = "\xc0msterdam"
+        header_name = "value"
+        header_bytes = f"{header_name}: {value}".encode("latin1")
+        raw, unparsed = metadata.parse_email(header_bytes)
+        # Sanity check
+        with pytest.raises(UnicodeDecodeError):
+            header_bytes.decode("utf-8")
+        assert not raw
+        assert len(unparsed) == 1
+        assert header_name in unparsed
+        assert unparsed[header_name] == [value]
+
+    @pytest.mark.parametrize(
+        ["given"], [("hello",), ("description: hello",), ("hello".encode("utf-8"),)]
+    )
+    def test_description(self, given):
+        raw, unparsed = metadata.parse_email(given)
+        assert not unparsed
+        assert len(raw) == 1
+        assert "description" in raw
+        assert raw["description"] == "hello"
+
+    def test_description_non_utf8(self):
+        header = "\xc0msterdam"
+        header_bytes = header.encode("latin1")
+        raw, unparsed = metadata.parse_email(header_bytes)
+        assert not raw
+        assert len(unparsed) == 1
+        assert "description" in unparsed
+        assert unparsed["description"] == [header_bytes]
+
+    @pytest.mark.parametrize(
+        ["given", "expected"],
+        [
+            ("description: 1\ndescription: 2", ["1", "2"]),
+            ("description: 1\n\n2", ["1", "2"]),
+            ("description: 1\ndescription: 2\n\n3", ["1", "2", "3"]),
+        ],
+    )
+    def test_description_multiple(self, given, expected):
+        raw, unparsed = metadata.parse_email(given)
+        assert not raw
+        assert len(unparsed) == 1
+        assert "description" in unparsed
+        assert unparsed["description"] == expected
+
 
 # _get_payload
-# surrogate escapes
-# Description header
-# Description header and body
-# Multiple Description headers and body
+#   multipart
 # Keys all lower case
