@@ -167,7 +167,13 @@ class TestRawMetadata:
         assert "description" in unparsed
         assert unparsed["description"] == expected
 
+    def test_lowercase_keys(self):
+        header = "AUTHOR: Tarek Ziadé\nWhatever: Else"
+        raw, unparsed = metadata.parse_email(header)
+        assert len(raw) == 1
+        assert "author" in raw
+        assert len(unparsed) == 1
+        assert "whatever" in unparsed
 
-# _get_payload
-#   multipart
-# Keys all lower case
+
+# A single, exhaustive test of every field
