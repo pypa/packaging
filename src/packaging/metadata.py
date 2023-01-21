@@ -146,17 +146,12 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
     # If our source is a str, then our caller has managed encodings for us,
     # and we don't need to deal with it.
     if isinstance(source, str):
-        payload: Union[List[str], str] = msg.get_payload()
-        if isinstance(payload, list):
-            raise ValueError("payload is a multi-part")
+        payload: str = msg.get_payload()
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
     else:
-        bpayload: Union[List[bytes], bytes] = msg.get_payload(decode=True)
-        if isinstance(bpayload, list):
-            raise ValueError("payload is a multi-part")
-
+        bpayload: bytes = msg.get_payload(decode=True)
         try:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError:
