@@ -3,6 +3,7 @@ try:
 except ImportError:
     ctypes = None
 import os
+import pathlib
 import platform
 import sys
 import types
@@ -10,7 +11,6 @@ import warnings
 
 import pretend
 import pytest
-
 from packaging import _manylinux
 from packaging._manylinux import (
     _get_glibc_version,
@@ -169,11 +169,7 @@ def test_glibc_version_string_none(monkeypatch):
 )
 def test_parse_elf_bad_executable(monkeypatch, content):
     if content:
-        path = os.path.join(
-            os.path.dirname(__file__),
-            "manylinux",
-            f"hello-world-{content}",
-        )
+        path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
     else:
         path = None
     with _parse_elf(path) as ef:

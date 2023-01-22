@@ -5,7 +5,7 @@ import os
 import re
 import sys
 import warnings
-from typing import Dict, Generator, Iterator, NamedTuple, Optional, Tuple
+from typing import Dict, Generator, Iterator, NamedTuple, Optional, Tuple, Union
 
 from ._elffile import EIClass, EIData, ELFFile, EMachine
 
@@ -15,7 +15,9 @@ EF_ARM_ABI_FLOAT_HARD = 0x00000400
 
 
 @contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[Optional[ELFFile], None, None]:
+def _parse_elf(
+    path: Union[str, os.PathLike[str]]
+) -> Generator[Optional[ELFFile], None, None]:
     try:
         with open(path, "rb") as f:
             yield ELFFile(f)
