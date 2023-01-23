@@ -203,19 +203,20 @@ class TestRawMetadata:
         assert raw["keywords"] == ["dog", "puppy", "voting", "election"]
         assert raw["home_page"] == "http://www.example.com/~cschultz/bvote/"
         assert raw["download_url"] == "…/BeagleVote-0.45.tgz"
-        assert (
-            raw["author"]
-            == "C. Schultz, Universal Features Syndicate,\n        Los Angeles, CA <cschultz@peanuts.example.com>"
+        assert raw["author"] == (
+            "C. Schultz, Universal Features Syndicate,\n"
+            "        Los Angeles, CA <cschultz@peanuts.example.com>"
         )
         assert raw["author_email"] == '"C. Schultz" <cschultz@example.com>'
-        assert (
-            raw["maintainer"]
-            == "C. Schultz, Universal Features Syndicate,\n        Los Angeles, CA <cschultz@peanuts.example.com>"
+        assert raw["maintainer"] == (
+            "C. Schultz, Universal Features Syndicate,\n"
+            "        Los Angeles, CA <cschultz@peanuts.example.com>"
         )
         assert raw["maintainer_email"] == '"C. Schultz" <cschultz@example.com>'
-        assert (
-            raw["license"]
-            == "This software may only be obtained by sending the\n        author a postcard, and then the user promises not\n        to redistribute it."
+        assert raw["license"] == (
+            "This software may only be obtained by sending the\n"
+            "        author a postcard, and then the user promises not\n"
+            "        to redistribute it."
         )
         assert raw["classifiers"] == [
             "Development Status :: 4 - Beta",
