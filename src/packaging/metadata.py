@@ -3,7 +3,7 @@ import email.header
 import email.message
 import email.parser
 import email.policy
-from typing import Dict, List, Tuple, TypedDict, Union, cast
+from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast
 
 
 # The RawMetadata class attempts to make as few assumptions about the underlying
@@ -252,7 +252,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
                 # The Header object stores it's data as chunks, and each chunk
                 # can be independently encoded, so we'll need to check each
                 # of them.
-                chunks = []
+                chunks: List[Tuple[bytes, Optional[str]]] = []
                 for bin, encoding in email.header.decode_header(h):
                     try:
                         bin.decode("utf8", "strict")
