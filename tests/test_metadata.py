@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 from packaging import metadata
 
@@ -175,5 +177,71 @@ class TestRawMetadata:
         assert len(unparsed) == 1
         assert "whatever" in unparsed
 
+    def test_complete(self):
+        """Test all fields (except `Obsoletes-Dist`).
 
-# A single, exhaustive test of every field
+        `Obsoletes-Dist` was sacrificed to provide a value for `Dynamic`.
+        """
+        path = pathlib.Path(__file__).parent / "metadata" / "everything.metadata"
+        with path.open("r", encoding="utf-8") as file:
+            metadata_contents = file.read()
+        raw, unparsed = metadata.parse_email(metadata_contents)
+        assert len(unparsed) == 1
+        assert unparsed["thisisnotreal"] == ["Hello!"]
+        assert len(raw) == 24
+        assert raw["metadata_version"] == "2.3"
+        assert raw["name"] == "BeagleVote"
+        assert raw["version"] == "1.0a2"
+        assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
+        assert raw["supported_platforms"] == ["RedHat 7.2", "i386-win32-2791"]
+        assert raw["summary"] == "A module for collecting votes from beagles."
+        assert (
+            raw["description_content_type"]
+            == "text/markdown; charset=UTF-8; variant=GFM"
+        )
+        assert raw["keywords"] == ["dog", "puppy", "voting", "election"]
+        assert raw["home_page"] == "http://www.example.com/~cschultz/bvote/"
+        assert raw["download_url"] == "…/BeagleVote-0.45.tgz"
+        assert (
+            raw["author"]
+            == "C. Schultz, Universal Features Syndicate,\n        Los Angeles, CA <cschultz@peanuts.example.com>"
+        )
+        assert raw["author_email"] == '"C. Schultz" <cschultz@example.com>'
+        assert (
+            raw["maintainer"]
+            == "C. Schultz, Universal Features Syndicate,\n        Los Angeles, CA <cschultz@peanuts.example.com>"
+        )
+        assert raw["maintainer_email"] == '"C. Schultz" <cschultz@example.com>'
+        assert (
+            raw["license"]
+            == "This software may only be obtained by sending the\n        author a postcard, and then the user promises not\n        to redistribute it."
+        )
+        assert raw["classifiers"] == [
+            "Development Status :: 4 - Beta",
+            "Environment :: Console (Text Based)",
+        ]
+        assert raw["provides_extra"] == ["pdf"]
+        assert raw["requires_dist"] == [
+            "reportlab; extra == 'pdf'",
+            "pkginfo",
+            "PasteDeploy",
+            "zope.interface (>3.5.0)",
+            "pywin32 >1.0; sys_platform == 'win32'",
+        ]
+        assert raw["requires_python"] == ">=3"
+        assert raw["requires_external"] == [
+            "C",
+            "libpng (>=1.5)",
+            'make; sys_platform != "win32"',
+        ]
+        assert raw["project_urls"] == {
+            "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
+            "Documentation": "https://example.com/BeagleVote",
+        }
+        assert raw["provides_dist"] == [
+            "OtherProject",
+            "AnotherProject (3.4)",
+            'virtual_package; python_version >= "3.4"',
+        ]
+        assert raw["dynamic"] == ["Obsoletes-Dist"]
+        assert raw["description"] == "This description intentionaly left blank.\n"
