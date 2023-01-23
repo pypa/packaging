@@ -170,6 +170,7 @@ def test_glibc_version_string_none(monkeypatch):
 def test_parse_elf_bad_executable(monkeypatch, content):
     if content:
         path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
+        path = os.fsdecode(path)
     else:
         path = None
     with _parse_elf(path) as ef:
