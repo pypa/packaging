@@ -11,6 +11,7 @@ import warnings
 
 import pretend
 import pytest
+
 from packaging import _manylinux
 from packaging._manylinux import (
     _get_glibc_version,

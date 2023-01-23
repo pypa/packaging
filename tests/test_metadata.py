@@ -1,6 +1,7 @@
 import pathlib
 
 import pytest
+
 from packaging import metadata
 
 _RAW_TO_EMAIL_MAPPING = {
@@ -115,7 +116,7 @@ class TestRawMetadata:
 
     def test_bytes_input(self):
         name = "Tarek Ziadé"
-        header = f"author: {name}".encode("utf-8")
+        header = f"author: {name}".encode()
         raw, unparsed = metadata.parse_email(header)
         assert not unparsed
         assert len(raw) == 1
@@ -136,7 +137,7 @@ class TestRawMetadata:
         assert unparsed[header_name] == [value]
 
     @pytest.mark.parametrize(
-        ["given"], [("hello",), ("description: hello",), ("hello".encode("utf-8"),)]
+        ["given"], [("hello",), ("description: hello",), (b"hello",)]
     )
     def test_description(self, given):
         raw, unparsed = metadata.parse_email(given)
