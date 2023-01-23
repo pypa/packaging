@@ -254,17 +254,14 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
                 # of them.
                 chunks = []
                 for bin, encoding in email.header.decode_header(h):
-                    # This means it found a surrogate escape that could be
-                    # valid data (if the source was utf8), or invalid.
-                    if encoding == "unknown-8bit":
-                        try:
-                            bin.decode("utf8", "strict")
-                        except UnicodeDecodeError:
-                            # Enable mojibake.
-                            encoding = "latin1"
-                            valid_encoding = False
-                        else:
-                            encoding = "utf8"
+                    try:
+                        bin.decode("utf8", "strict")
+                    except UnicodeDecodeError:
+                        # Enable mojibake.
+                        encoding = "latin1"
+                        valid_encoding = False
+                    else:
+                        encoding = "utf8"
                     chunks.append((bin, encoding))
 
                 # Turn our chunks back into a Header object, then let that
