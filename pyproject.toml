@@ -8,7 +8,7 @@ name = "packaging"
 description = "Core utilities for Python packages"
 dynamic = ["version"]
 readme = "README.rst"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
