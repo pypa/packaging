@@ -181,7 +181,7 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
 # that make valid data awkward to work with.
 #
 # While this is a lower level, intermediate format than our ``Metadata``
-# class, some light touch ups can make a massive different in usability.
+# class, some light touch ups can make a massive difference in usability.
 
 # Map METADATA fields to RawMetadata.
 _EMAIL_TO_RAW_MAPPING = {
@@ -222,12 +222,12 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
     This function returns a two-item tuple of dicts. The first dict is of
     recognized fields from the core metadata specification. Fields that can be
     parsed and translated into Python's built-in types are converted
-    appropriately. All other fields are last as-is. Fields that are allowed to
+    appropriately. All other fields are left as-is. Fields that are allowed to
     appear multiple times are stored as lists.
 
     The second dict contains all other fields from the metadata. This includes
     any unrecognized fields. It also includes any fields which are expected to
-    be parsed into a built-in type were not formatted appropriately. Finally,
+    be parsed into a built-in type but were not formatted appropriately. Finally,
     any fields that are expected to appear only once but are repeated are
     included in this dict.
 
@@ -330,7 +330,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         # of unparsed stuff.
         if raw_name in _STRING_FIELDS and len(value) == 1:
             raw[raw_name] = value[0]
-        # If this is one our list of string fields, then we can just assign
+        # If this is one of our list of string fields, then we can just assign
         # the value, since email *only* has strings, and our get_all() call
         # above ensures that this is a list.
         elif raw_name in _LIST_STRING_FIELDS:
