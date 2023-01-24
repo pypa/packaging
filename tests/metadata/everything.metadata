@@ -39,4 +39,4 @@ Provides-Dist: virtual_package; python_version >= "3.4"
 Dynamic: Obsoletes-Dist
 ThisIsNotReal: Hello!
 
-This description intentionaly left blank.
+This description intentionally left blank.
