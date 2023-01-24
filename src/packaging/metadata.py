@@ -11,6 +11,20 @@ from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast
 # formats offer some very basic primitives in *some* way then we can support
 # serializing to and from that format.
 class RawMetadata(TypedDict, total=False):
+    """A dictionary of raw core metadata.
+
+    Each field in core metadata maps to a key of this dictionary (when data is
+    provided). The key is lower-case and underscores are used instead of dashes
+    compared to the equivalent core metadata field. Any core metadata field that
+    can be specified multiple times or can hold multiple values in a single
+    field have a key with a plural name.
+
+    Core metadata fields that can be specified multiple times are stored as a
+    list or dict depending on which is appropriate for the field. Any fields
+    which hold multiple values in a single field are stored as a list.
+
+    """
+
     # Metadata 1.0 - PEP 241
     metadata_version: str
     name: str
@@ -203,6 +217,21 @@ _EMAIL_TO_RAW_MAPPING = {
 
 
 def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[str]]]:
+    """Parse a distribution's metadata.
+
+    This function returns a two-item tuple of dicts. The first dict is of
+    recognized fields from the core metadata specification. Fields that can be
+    parsed and translated into Python's built-in types are converted
+    appropriately. All other fields are last as-is. Fields that are allowed to
+    appear multiple times are stored as lists.
+
+    The second dict contains all other fields from the metadata. This includes
+    any unrecognized fields. It also includes any fields which are expected to
+    be parsed into a built-in type were not formatted appropriately. Finally,
+    any fields that are expected to appear only once but are repeated are
+    included in this dict.
+
+    """
     raw: Dict[str, Union[str, List[str], Dict[str, str]]] = {}
     unparsed: Dict[str, List[str]] = {}
 
