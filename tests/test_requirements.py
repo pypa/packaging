@@ -279,9 +279,26 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected closing RIGHT_PARENTHESIS\n"
+            "Expected matching RIGHT_PARENTHESIS for LEFT_PARENTHESIS, "
+            "after version specifier\n"
             "    name (>= 1.0\n"
             "         ~~~~~~~^"
+        )
+
+    def test_error_when_prefix_match_is_used_incorrectly(self) -> None:
+        # GIVEN
+        to_parse = "black (>=20.*) ; extra == 'format'"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix can only be used with `==` or `!=` operators\n"
+            "    black (>=20.*) ; extra == 'format'\n"
+            "           ~~~~~^"
         )
 
     def test_error_when_bracket_not_closed_correctly(self) -> None:
@@ -295,7 +312,8 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected closing RIGHT_BRACKET\n"
+            "Expected matching RIGHT_BRACKET for LEFT_BRACKET, "
+            "after extras\n"
             "    name[bar, baz >= 1.0\n"
             "        ~~~~~~~~~~^"
         )
@@ -311,7 +329,8 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected closing RIGHT_BRACKET\n"
+            "Expected matching RIGHT_BRACKET for LEFT_BRACKET, "
+            "after extras\n"
             "    name[bar, baz\n"
             "        ~~~~~~~~~^"
         )
@@ -330,6 +349,23 @@ class TestRequirementParsing:
             "Expected end or semicolon (after URL and whitespace)\n"
             "    name @ https://example.com/; extra == 'example'\n"
             "           ~~~~~~~~~~~~~~~~~~~~~~^"
+        )
+
+    def test_error_marker_bracket_unclosed(self) -> None:
+        # GIVEN
+        to_parse = "name; (extra == 'example'"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Expected matching RIGHT_PARENTHESIS for LEFT_PARENTHESIS, "
+            "after marker expression\n"
+            "    name; (extra == 'example'\n"
+            "          ~~~~~~~~~~~~~~~~~~~^"
         )
 
     def test_error_no_url_after_at(self) -> None:
