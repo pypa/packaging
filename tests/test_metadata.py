@@ -1,6 +1,7 @@
 import pathlib
 
 import pytest
+
 from packaging import metadata
 
 _RAW_TO_EMAIL_MAPPING = {
