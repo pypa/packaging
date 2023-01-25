@@ -1,7 +1,6 @@
 import pathlib
 
 import pytest
-
 from packaging import metadata
 
 _RAW_TO_EMAIL_MAPPING = {
@@ -246,4 +245,4 @@ class TestRawMetadata:
             'virtual_package; python_version >= "3.4"',
         ]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
-        assert raw["description"] == "This description intentionaly left blank.\n"
+        assert raw["description"] == "This description intentionally left blank.\n"
