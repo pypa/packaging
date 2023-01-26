@@ -234,7 +234,6 @@ class TestMacOSPlatforms:
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
         if (major, minor) == ("10", "16"):
-            print(platforms, "macosx_11+")
             # For 10.16, the real version is at least 11.0.
             prefix, major, minor, _ = platforms[0].split("_", maxsplit=3)
             assert prefix == "macosx"
@@ -242,7 +241,6 @@ class TestMacOSPlatforms:
             assert minor == "0"
         else:
             expected = f"macosx_{major}_{minor}_"
-            print(platforms, expected)
             assert platforms[0].startswith(expected)
 
     def test_version_detection_10_15(self, monkeypatch):
@@ -252,7 +250,6 @@ class TestMacOSPlatforms:
         expected = "macosx_10_15_"
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
-        print(platforms, expected)
         assert platforms[0].startswith(expected)
 
     def test_version_detection_compatibility(self, monkeypatch):
@@ -270,7 +267,6 @@ class TestMacOSPlatforms:
         unexpected = "macosx_10_16_"
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
-        print(platforms, unexpected)
         assert not platforms[0].startswith(unexpected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
