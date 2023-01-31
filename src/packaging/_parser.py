@@ -233,6 +233,12 @@ def _parse_version_many(tokenizer: Tokenizer) -> str:
                 span_start=span_start,
                 span_end=tokenizer.position + 1,
             )
+        if tokenizer.check("VERSION_LOCAL_LABEL_TRAIL", peek=True):
+            tokenizer.raise_syntax_error(
+                "Local version label can only be used with `==` or `!=` operators",
+                span_start=span_start,
+                span_end=tokenizer.position,
+            )
         tokenizer.consume("WS")
         if not tokenizer.check("COMMA"):
             break
