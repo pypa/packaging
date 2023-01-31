@@ -52,7 +52,7 @@ def tests(session):
         )
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.9")
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
@@ -64,7 +64,7 @@ def lint(session):
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")
