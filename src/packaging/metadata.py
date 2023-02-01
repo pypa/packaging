@@ -3,84 +3,94 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import sys
 import typing
 from typing import Dict, List, Optional, Tuple, Union, cast
 
-if typing.TYPE_CHECKING:  # pragma: no cover
-    from typing_extensions import TypedDict
+if sys.version_info >= (3, 8):  # pragma: no cover
+    from typing import TypedDict
+else:  # pragma: no cover
+    if typing.TYPE_CHECKING:
+        from typing_extensions import TypedDict
+    else:
+        try:
+            from typing_extensions import TypedDict
+        except ImportError:
 
-    # The RawMetadata class attempts to make as few assumptions about the underlying
-    # serialization formats as possible. The idea is that as long as a serialization
-    # formats offer some very basic primitives in *some* way then we can support
-    # serializing to and from that format.
-    class RawMetadata(TypedDict, total=False):
-        """A dictionary of raw core metadata.
+            class TypedDict:
+                def __init_subclass__(*_args, **_kwargs):
+                    pass
 
-        Each field in core metadata maps to a key of this dictionary (when data is
-        provided). The key is lower-case and underscores are used instead of dashes
-        compared to the equivalent core metadata field. Any core metadata field that
-        can be specified multiple times or can hold multiple values in a single
-        field have a key with a plural name.
 
-        Core metadata fields that can be specified multiple times are stored as a
-        list or dict depending on which is appropriate for the field. Any fields
-        which hold multiple values in a single field are stored as a list.
+# The RawMetadata class attempts to make as few assumptions about the underlying
+# serialization formats as possible. The idea is that as long as a serialization
+# formats offer some very basic primitives in *some* way then we can support
+# serializing to and from that format.
+class RawMetadata(TypedDict, total=False):
+    """A dictionary of raw core metadata.
 
-        """
+    Each field in core metadata maps to a key of this dictionary (when data is
+    provided). The key is lower-case and underscores are used instead of dashes
+    compared to the equivalent core metadata field. Any core metadata field that
+    can be specified multiple times or can hold multiple values in a single
+    field have a key with a plural name.
 
-        # Metadata 1.0 - PEP 241
-        metadata_version: str
-        name: str
-        version: str
-        platforms: List[str]
-        summary: str
-        description: str
-        keywords: List[str]
-        home_page: str
-        author: str
-        author_email: str
-        license: str
+    Core metadata fields that can be specified multiple times are stored as a
+    list or dict depending on which is appropriate for the field. Any fields
+    which hold multiple values in a single field are stored as a list.
 
-        # Metadata 1.1 - PEP 314
-        supported_platforms: List[str]
-        download_url: str
-        classifiers: List[str]
-        requires: List[str]
-        provides: List[str]
-        obsoletes: List[str]
+    """
 
-        # Metadata 1.2 - PEP 345
-        maintainer: str
-        maintainer_email: str
-        requires_dist: List[str]
-        provides_dist: List[str]
-        obsoletes_dist: List[str]
-        requires_python: str
-        requires_external: List[str]
-        project_urls: Dict[str, str]
+    # Metadata 1.0 - PEP 241
+    metadata_version: str
+    name: str
+    version: str
+    platforms: List[str]
+    summary: str
+    description: str
+    keywords: List[str]
+    home_page: str
+    author: str
+    author_email: str
+    license: str
 
-        # Metadata 2.0
-        # PEP 426 attempted to completely revamp the metadata format
-        # but got stuck without ever being able to build consensus on
-        # it and ultimately ended up withdrawn.
-        #
-        # However, a number of tools had started emiting METADATA with
-        # `2.0` Metadata-Version, so for historical reasons, this version
-        # was skipped.
+    # Metadata 1.1 - PEP 314
+    supported_platforms: List[str]
+    download_url: str
+    classifiers: List[str]
+    requires: List[str]
+    provides: List[str]
+    obsoletes: List[str]
 
-        # Metadata 2.1 - PEP 566
-        description_content_type: str
-        provides_extra: List[str]
+    # Metadata 1.2 - PEP 345
+    maintainer: str
+    maintainer_email: str
+    requires_dist: List[str]
+    provides_dist: List[str]
+    obsoletes_dist: List[str]
+    requires_python: str
+    requires_external: List[str]
+    project_urls: Dict[str, str]
 
-        # Metadata 2.2 - PEP 643
-        dynamic: List[str]
+    # Metadata 2.0
+    # PEP 426 attempted to completely revamp the metadata format
+    # but got stuck without ever being able to build consensus on
+    # it and ultimately ended up withdrawn.
+    #
+    # However, a number of tools had started emiting METADATA with
+    # `2.0` Metadata-Version, so for historical reasons, this version
+    # was skipped.
 
-        # Metadata 2.3 - PEP 685
-        # No new fields were added in PEP 685, just some edge case were
-        # tightened up to provide better interoptability.
+    # Metadata 2.1 - PEP 566
+    description_content_type: str
+    provides_extra: List[str]
 
-else:
-    RawMetadata = Dict[str, Union[str, List[str], Dict[str, str]]]
+    # Metadata 2.2 - PEP 643
+    dynamic: List[str]
+
+    # Metadata 2.3 - PEP 685
+    # No new fields were added in PEP 685, just some edge case were
+    # tightened up to provide better interoptability.
 
 
 _STRING_FIELDS = {
