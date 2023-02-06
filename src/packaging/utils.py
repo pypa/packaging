@@ -100,7 +100,7 @@ def parse_wheel_filename(
 
     parts = filename.split("-", dashes - 2)
     name_part = parts[0]
-    # See PEP 427 for the rules on escaping the project name
+    # See PEP 427 for the rules on escaping the project name.
     if "__" in name_part or re.match(r"^[\w\d._]*$", name_part, re.UNICODE) is None:
         raise InvalidWheelFilename(f"Invalid project name: {filename}")
     name = canonicalize_name(name_part)
