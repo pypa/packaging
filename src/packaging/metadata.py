@@ -3,9 +3,14 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import inspect
 import sys
 import typing
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
+
+from . import version as version_module
+
+T = typing.TypeVar("T")
 
 if sys.version_info >= (3, 8):  # pragma: no cover
     from typing import TypedDict
@@ -20,6 +25,14 @@ else:  # pragma: no cover
             class TypedDict:
                 def __init_subclass__(*_args, **_kwargs):
                     pass
+
+
+class InvalidMetadata(ValueError):
+    """A metadata field contains invalid data."""
+
+    def __init__(self, field: str, message: str) -> None:
+        self.field = field
+        super().__init__(message)
 
 
 # The RawMetadata class attempts to make as few assumptions about the underlying
@@ -230,6 +243,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "supported-platform": "supported_platforms",
     "version": "version",
 }
+_RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
 
 
 def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[str]]]:
@@ -406,3 +420,107 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
     # way this function is implemented, our `TypedDict` can only have valid key
     # names.
     return cast(RawMetadata, raw), unparsed
+
+
+def _required(field: str, value: Any) -> Any:
+    """Check that the field has a value."""
+    print(field, value)
+    if not value:
+        raise InvalidMetadata(field, f"{field!r} is a required field")
+    return value
+
+
+def _single_line(field: str, value: str) -> str:
+    """Check the field contains no newlines."""
+    if "\n" in value:
+        raise InvalidMetadata(field, f"{field!r} must be a single line")
+    return value
+
+
+_NOT_FOUND = object()
+
+
+class _Validator(Generic[T]):
+    name: str
+    raw_name: str
+
+    def __init__(
+        self,
+        *validators: Union[Callable[[str, Any], Any], Callable[[Any], Any]],
+    ) -> None:
+        self.validators = validators
+
+    def __set_name__(self, _owner: "Metadata", name: str) -> None:
+        self.name = name
+        self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
+
+    def _validate(self, value: Any) -> T:
+        """Check the value is valid."""
+        # Rely on RawMetadata enforcing that repeated fields are represented as
+        # a list.
+        for validator in self.validators:
+            signature = inspect.signature(validator)
+            if len(signature.parameters) == 2:
+                value = validator(self.raw_name, value)
+            elif len(signature.parameters) == 1:
+                value = validator(value)
+            else:
+                raise ValueError("Validator must take 1 or 2 arguments")
+        return value
+
+    def __get__(self, instance: "Metadata", _owner: type["Metadata"]) -> Optional[T]:
+        # With Python 3.8, the caching can be replaced with functools.cached_property().
+        cache = instance.__dict__
+        value = cache.get(self.name, _NOT_FOUND)
+        if value is _NOT_FOUND:
+            raw_value = instance._raw.get(self.raw_name)
+            value = self._validate(raw_value)
+            cache[self.name] = value
+            try:
+                del instance._raw[self.raw_name]
+            except KeyError:
+                pass
+        return value
+
+
+class Metadata:
+
+    _raw: RawMetadata
+
+    @classmethod
+    def from_email(cls, data: Union[bytes, str], *, validate=False) -> "Metadata":
+        """Parse metadata from an email message."""
+        raw, unparsed = parse_email(data)
+        ins = cls()
+        ins._raw = raw
+        if validate:
+            # XXX check `unparsed` for stuff that shouldn't be there.
+            # XXX check every field.
+            pass
+        return ins
+
+    # XXX metadata_version
+    # name = _Validator(_required)  # XXX
+    version = _Validator(_required, version_module.parse)
+    # dynamic = _Validator()  # XXX
+    # platforms = _Validator()
+    # supported_platforms = _Validator()
+    summary = _Validator(_single_line)
+    # description = _Validator()
+    # description_content_type = _Validator()  # XXX
+    # keywords = _Validator()
+    # home_page = _Validator()
+    # download_url = _Validator()
+    # author = _Validator()
+    # author_email = _Validator()
+    # maintainer = _Validator()
+    # maintainer_email = _Validator()
+    # license = _Validator()
+    # classifiers = _Validator()
+    # requires_dists = _Validator()  # XXX
+    # requires_python = _Validator()  # XXX
+    # requires_externals = _Validator()  # XXX
+    # project_urls = _Validator()
+    # provides_extras = _Validator()  # XXX
+    # provides_dists = _Validator()
+    # obsoletes_dists = _Validator()

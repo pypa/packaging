@@ -2,18 +2,14 @@ import pathlib
 
 import pytest
 
-from packaging import metadata
-
-_RAW_TO_EMAIL_MAPPING = {
-    raw: email for email, raw in metadata._EMAIL_TO_RAW_MAPPING.items()
-}
+from packaging import metadata, version
 
 
 class TestRawMetadata:
     @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
-    def test_non_repeating_fields_only_once(self, raw_field):
+    def test_non_repeating_fields_only_once(self, raw_field: set[str]):
         data = "VaLuE"
-        header_field = _RAW_TO_EMAIL_MAPPING[raw_field]
+        header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
         raw, unparsed = metadata.parse_email(single_header)
         assert not unparsed
@@ -22,8 +18,8 @@ class TestRawMetadata:
         assert raw[raw_field] == data
 
     @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
-    def test_non_repeating_fields_repeated(self, raw_field):
-        header_field = _RAW_TO_EMAIL_MAPPING[raw_field]
+    def test_non_repeating_fields_repeated(self, raw_field: set[str]):
+        header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"
         repeated_header = "\n".join([single_header] * 2)
@@ -34,9 +30,9 @@ class TestRawMetadata:
         assert unparsed[header_field] == [data] * 2
 
     @pytest.mark.parametrize("raw_field", metadata._LIST_STRING_FIELDS)
-    def test_repeating_fields_only_once(self, raw_field):
+    def test_repeating_fields_only_once(self, raw_field: set[str]):
         data = "VaLuE"
-        header_field = _RAW_TO_EMAIL_MAPPING[raw_field]
+        header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
         raw, unparsed = metadata.parse_email(single_header)
         assert not unparsed
@@ -45,8 +41,8 @@ class TestRawMetadata:
         assert raw[raw_field] == [data]
 
     @pytest.mark.parametrize("raw_field", metadata._LIST_STRING_FIELDS)
-    def test_repeating_fields_repeated(self, raw_field):
-        header_field = _RAW_TO_EMAIL_MAPPING[raw_field]
+    def test_repeating_fields_repeated(self, raw_field: set[str]):
+        header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"
         repeated_header = "\n".join([single_header] * 2)
@@ -247,3 +243,33 @@ class TestRawMetadata:
         ]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
         assert raw["description"] == "This description intentionally left blank.\n"
+
+
+class TestMetadata:
+    def test_valid_version(self):
+        version_str = "1.2.3"
+        meta = metadata.Metadata.from_email(f"Version: {version_str}")
+        assert meta.version == version.parse(version_str)
+
+    def test_missing_version(self):
+        meta = metadata.Metadata.from_email("")
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            meta.version
+        assert exc_info.value.field == "version"
+
+    def test_invalid_version(self):
+        meta = metadata.Metadata.from_email("Version: a.b.c")
+        with pytest.raises(version.InvalidVersion):
+            meta.version
+
+    def test_valid_summary(self):
+        summary = "Hello"
+        meta = metadata.Metadata.from_email(f"Summary: {summary}")
+        assert meta.summary == summary
+
+    def test_invalid_summary(self):
+        summary = "Hello"
+        meta = metadata.Metadata.from_email(f"Summary: {summary}\n    Again")
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            meta.summary
+        assert exc_info.value.field == "summary"
