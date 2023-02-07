@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from packaging import metadata, version
+from packaging import metadata, utils, version
 
 
 class TestRawMetadata:
@@ -273,3 +273,14 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
             meta.summary
         assert exc_info.value.field == "summary"
+
+    def test_valid_name(self):
+        name = "Hello_World"
+        meta = metadata.Metadata.from_email(f"Name: {name}")
+        assert meta.name == utils.canonicalize_name(name)
+
+    def test_invalid_name(self):
+        name = "-not-legal"
+        meta = metadata.Metadata.from_email(f"Name: {name}")
+        with pytest.raises(utils.InvalidName):
+            meta.name

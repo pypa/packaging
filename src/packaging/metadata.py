@@ -3,12 +3,12 @@ import email.header
 import email.message
 import email.parser
 import email.policy
-import inspect
+import functools
 import sys
 import typing
 from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
 
-from . import version as version_module
+from . import utils, version as version_module
 
 T = typing.TypeVar("T")
 
@@ -422,7 +422,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
     return cast(RawMetadata, raw), unparsed
 
 
-def _required(field: str, value: Any) -> Any:
+def _required(field: str, value: Any) -> None:
     """Check that the field has a value."""
     print(field, value)
     if not value:
@@ -430,7 +430,7 @@ def _required(field: str, value: Any) -> Any:
     return value
 
 
-def _single_line(field: str, value: str) -> str:
+def _single_line(field: str, value: str) -> None:
     """Check the field contains no newlines."""
     if "\n" in value:
         raise InvalidMetadata(field, f"{field!r} must be a single line")
@@ -446,27 +446,16 @@ class _Validator(Generic[T]):
 
     def __init__(
         self,
-        *validators: Union[Callable[[str, Any], Any], Callable[[Any], Any]],
+        *,
+        validators: List[Callable[[str, Any], None]] = [],
+        converters: List[Callable[[Any], Any]] = [],
     ) -> None:
         self.validators = validators
+        self.converters = converters
 
     def __set_name__(self, _owner: "Metadata", name: str) -> None:
         self.name = name
         self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
-
-    def _validate(self, value: Any) -> T:
-        """Check the value is valid."""
-        # Rely on RawMetadata enforcing that repeated fields are represented as
-        # a list.
-        for validator in self.validators:
-            signature = inspect.signature(validator)
-            if len(signature.parameters) == 2:
-                value = validator(self.raw_name, value)
-            elif len(signature.parameters) == 1:
-                value = validator(value)
-            else:
-                raise ValueError("Validator must take 1 or 2 arguments")
-        return value
 
     def __get__(self, instance: "Metadata", _owner: type["Metadata"]) -> Optional[T]:
         # With Python 3.8, the caching can be replaced with functools.cached_property().
@@ -474,7 +463,11 @@ class _Validator(Generic[T]):
         value = cache.get(self.name, _NOT_FOUND)
         if value is _NOT_FOUND:
             raw_value = instance._raw.get(self.raw_name)
-            value = self._validate(raw_value)
+            for validator in self.validators:
+                validator(self.raw_name, raw_value)
+            value = raw_value
+            for converter in self.converters:
+                value = converter(value)
             cache[self.name] = value
             try:
                 del instance._raw[self.raw_name]
@@ -500,12 +493,15 @@ class Metadata:
         return ins
 
     # XXX metadata_version
-    # name = _Validator(_required)  # XXX
-    version = _Validator(_required, version_module.parse)
+    name = _Validator(
+        validators=[_required],
+        converters=[functools.partial(utils.canonicalize_name, validate=True)],
+    )
+    version = _Validator(validators=[_required], converters=[version_module.parse])
     # dynamic = _Validator()  # XXX
     # platforms = _Validator()
     # supported_platforms = _Validator()
-    summary = _Validator(_single_line)
+    summary = _Validator(validators=[_single_line])
     # description = _Validator()
     # description_content_type = _Validator()  # XXX
     # keywords = _Validator()
