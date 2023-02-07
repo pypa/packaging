@@ -6,6 +6,7 @@ import pytest
 
 from packaging.tags import Tag
 from packaging.utils import (
+    InvalidName,
     InvalidSdistFilename,
     InvalidWheelFilename,
     canonicalize_name,
@@ -33,6 +34,12 @@ from packaging.version import Version
 )
 def test_canonicalize_name(name, expected):
     assert canonicalize_name(name) == expected
+
+
+def test_canonicalize_name_invalid():
+    with pytest.raises(InvalidName):
+        canonicalize_name("_not_legal", validate=True)
+    assert canonicalize_name("_not_legal") == "-not-legal"
 
 
 @pytest.mark.parametrize(

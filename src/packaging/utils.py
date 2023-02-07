@@ -12,6 +12,12 @@ BuildTag = Union[Tuple[()], Tuple[int, str]]
 NormalizedName = NewType("NormalizedName", str)
 
 
+class InvalidName(ValueError):
+    """
+    An invalid distribution name; users should refer to the packaging user guide.
+    """
+
+
 class InvalidWheelFilename(ValueError):
     """
     An invalid wheel filename was found, users should refer to PEP 427.
@@ -24,12 +30,18 @@ class InvalidSdistFilename(ValueError):
     """
 
 
+# Core metadata spec for `Name`
+_validate_regex = re.compile(
+    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$", re.IGNORECASE
+)
 _canonicalize_regex = re.compile(r"[-_.]+")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
-def canonicalize_name(name: str) -> NormalizedName:
+def canonicalize_name(name: str, validate: bool = False) -> NormalizedName:
+    if validate and not _validate_regex.match(name):
+        raise InvalidName(f"distribution name is invalid: {name!r}")
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
     return cast(NormalizedName, value)
