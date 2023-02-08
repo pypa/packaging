@@ -284,3 +284,11 @@ class TestMetadata:
         meta = metadata.Metadata.from_email(f"Name: {name}")
         with pytest.raises(utils.InvalidName):
             meta.name
+
+    def test_platforms(self):
+        platform1 = "ObscureUnix"
+        platform2 = "RareDOS"
+        meta = metadata.Metadata.from_email(
+            f"Platform: {platform1}\nPlatform: {platform2}"
+        )
+        assert meta.platforms == [platform1, platform2]

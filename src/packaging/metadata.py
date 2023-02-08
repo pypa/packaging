@@ -462,7 +462,7 @@ class _Validator(Generic[T]):
         cache = instance.__dict__
         value = cache.get(self.name, _NOT_FOUND)
         if value is _NOT_FOUND:
-            raw_value = instance._raw.get(self.raw_name)
+            raw_value = instance._raw.get(self.name)
             for validator in self.validators:
                 validator(self.raw_name, raw_value)
             value = raw_value
@@ -470,7 +470,7 @@ class _Validator(Generic[T]):
                 value = converter(value)
             cache[self.name] = value
             try:
-                del instance._raw[self.raw_name]
+                del instance._raw[self.name]
             except KeyError:
                 pass
         return value
@@ -499,7 +499,7 @@ class Metadata:
     )
     version = _Validator(validators=[_required], converters=[version_module.parse])
     # dynamic = _Validator()  # XXX
-    # platforms = _Validator()
+    platforms = _Validator()
     # supported_platforms = _Validator()
     summary = _Validator(validators=[_single_line])
     # description = _Validator()
