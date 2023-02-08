@@ -300,3 +300,42 @@ class TestMetadata:
             f"Platform: {platform1}\nPlatform: {platform2}"
         )
         assert meta.platforms == [platform1, platform2]
+
+    def test_description(self):
+        description = "This description intentionally left blank."
+        meta = metadata.Metadata.from_email(f"Description: {description}")
+        assert meta.description == description
+
+    @pytest.mark.parametrize(
+        "content_type",
+        [
+            "text/plain",
+            "text/x-rst",
+            "text/markdown",
+            "text/plain; charset=UTF-8",
+            "text/x-rst; charset=UTF-8",
+            "text/markdown; charset=UTF-8; variant=GFM",
+            "text/markdown; charset=UTF-8; variant=CommonMark",
+            "text/markdown; variant=GFM",
+            "text/markdown; variant=CommonMark",
+        ],
+    )
+    def test_valid_description_content_type(self, content_type):
+        meta = metadata.Metadata.from_email(f"description-content-type: {content_type}")
+        assert meta.description_content_type == content_type
+
+    @pytest.mark.parametrize(
+        "content_type",
+        [
+            "application/json",
+            "TEXT/PLAIN",
+            "text/plain; charset=ascii",
+            "text/plain; charset=utf-8",
+            "text/markdown; variant=gfm",
+            "text/markdown; variant=commonmark",
+        ],
+    )
+    def test_invalid_description_content_type(self, content_type):
+        meta = metadata.Metadata.from_email(f"description-content-type: {content_type}")
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.description_content_type

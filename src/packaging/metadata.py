@@ -437,6 +437,37 @@ def _single_line(field: str, value: str) -> None:
     return value
 
 
+def _valid_content_type(field: str, value: str) -> None:
+    content_types = {"text/plain", "text/x-rst", "text/markdown"}
+    message = email.message.EmailMessage()
+    message["content-type"] = value
+    content_type, parameters = (
+        message.get_content_type(),  # Defaults to `text/plain` if not parseable.
+        message["content-type"].params,
+    )
+    # Check if content-type is valid or defaulted to `text/plain` and thus was
+    # not parseable.
+    if content_type not in content_types or content_type not in value:
+        raise InvalidMetadata(
+            field, f"{field} must be one of {content_types}, not {value}"
+        )
+
+    charset = parameters.get("charset", "UTF-8")
+    if charset != "UTF-8":
+        raise InvalidMetadata(
+            field, f"{field} can only specify a UTF-8 charset, not {charset}"
+        )
+
+    markdown_variants = {"GFM", "CommonMark"}
+    variant = parameters.get("variant", "GFM")  # Use an acceptable default.
+    if content_type == "text/markdown" and variant not in markdown_variants:
+        raise InvalidMetadata(
+            field,
+            f"valid Markdown variants for {field} are {markdown_variants}, "
+            f"not {variant}",
+        )
+
+
 _NOT_FOUND = object()
 
 
@@ -502,8 +533,9 @@ class Metadata:
     platforms = _Validator()
     supported_platforms = _Validator()
     summary = _Validator(validators=[_single_line])
-    # description = _Validator()
-    # description_content_type = _Validator()  # XXX
+    description = _Validator()
+    # TODO are the various parts of description_content_type case-insensitive?
+    description_content_type = _Validator(validators=[_valid_content_type])
     # keywords = _Validator()
     # home_page = _Validator()
     # download_url = _Validator()
