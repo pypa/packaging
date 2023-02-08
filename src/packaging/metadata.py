@@ -500,7 +500,7 @@ class Metadata:
     version = _Validator(validators=[_required], converters=[version_module.parse])
     # dynamic = _Validator()  # XXX
     platforms = _Validator()
-    # supported_platforms = _Validator()
+    supported_platforms = _Validator()
     summary = _Validator(validators=[_single_line])
     # description = _Validator()
     # description_content_type = _Validator()  # XXX

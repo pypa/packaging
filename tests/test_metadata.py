@@ -285,6 +285,14 @@ class TestMetadata:
         with pytest.raises(utils.InvalidName):
             meta.name
 
+    def test_supported_platforms(self):
+        platform1 = "RedHat 7.2"
+        platform2 = "i386-win32-2791"
+        meta = metadata.Metadata.from_email(
+            f"Supported-Platform: {platform1}\nSupported-Platform: {platform2}"
+        )
+        assert meta.supported_platforms == [platform1, platform2]
+
     def test_platforms(self):
         platform1 = "ObscureUnix"
         platform2 = "RareDOS"
