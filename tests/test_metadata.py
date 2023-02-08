@@ -246,6 +246,44 @@ class TestRawMetadata:
 
 
 class TestMetadata:
+    @pytest.mark.parametrize(
+        "attribute",
+        [
+            "description",
+            "home_page",
+            "download_url",
+            "author",
+            "author_email",
+            "maintainer",
+            "maintainer_email",
+            "license",
+        ],
+    )
+    def test_single_value_unvalidated_attribute(self, attribute):
+        value = "Not important"
+        meta = metadata.Metadata.from_email(
+            f"{metadata._RAW_TO_EMAIL_MAPPING[attribute]}: {value}"
+        )
+        assert getattr(meta, attribute) == value
+
+    @pytest.mark.parametrize(
+        "attribute",
+        [
+            "supported_platforms",
+            "platforms",
+            "classifiers",
+            "provides_dist",
+            "obsoletes_dist",
+        ],
+    )
+    def test_multi_value_unvalidated_attribute(self, attribute):
+        values = ["Not important", "Still not important"]
+        parts = [
+            f"{metadata._RAW_TO_EMAIL_MAPPING[attribute]}: {value}" for value in values
+        ]
+        meta = metadata.Metadata.from_email("\n".join(parts))
+        assert getattr(meta, attribute) == values
+
     def test_valid_version(self):
         version_str = "1.2.3"
         meta = metadata.Metadata.from_email(f"Version: {version_str}")
@@ -285,27 +323,6 @@ class TestMetadata:
         with pytest.raises(utils.InvalidName):
             meta.name
 
-    def test_supported_platforms(self):
-        platform1 = "RedHat 7.2"
-        platform2 = "i386-win32-2791"
-        meta = metadata.Metadata.from_email(
-            f"Supported-Platform: {platform1}\nSupported-Platform: {platform2}"
-        )
-        assert meta.supported_platforms == [platform1, platform2]
-
-    def test_platforms(self):
-        platform1 = "ObscureUnix"
-        platform2 = "RareDOS"
-        meta = metadata.Metadata.from_email(
-            f"Platform: {platform1}\nPlatform: {platform2}"
-        )
-        assert meta.platforms == [platform1, platform2]
-
-    def test_description(self):
-        description = "This description intentionally left blank."
-        meta = metadata.Metadata.from_email(f"Description: {description}")
-        assert meta.description == description
-
     @pytest.mark.parametrize(
         "content_type",
         [
@@ -339,3 +356,8 @@ class TestMetadata:
         meta = metadata.Metadata.from_email(f"description-content-type: {content_type}")
         with pytest.raises(metadata.InvalidMetadata):
             meta.description_content_type
+
+    def test_keywords(self):
+        keywords = ["hello", "world"]
+        meta = metadata.Metadata.from_email(f"Keywords: {','.join(keywords)}")
+        assert meta.keywords == keywords

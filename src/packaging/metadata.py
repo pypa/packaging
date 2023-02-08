@@ -536,19 +536,19 @@ class Metadata:
     description = _Validator()
     # TODO are the various parts of description_content_type case-insensitive?
     description_content_type = _Validator(validators=[_valid_content_type])
-    # keywords = _Validator()
-    # home_page = _Validator()
-    # download_url = _Validator()
-    # author = _Validator()
-    # author_email = _Validator()
-    # maintainer = _Validator()
-    # maintainer_email = _Validator()
-    # license = _Validator()
-    # classifiers = _Validator()
+    keywords = _Validator()
+    home_page = _Validator()
+    download_url = _Validator()
+    author = _Validator()
+    author_email = _Validator()
+    maintainer = _Validator()
+    maintainer_email = _Validator()
+    license = _Validator()
+    classifiers = _Validator()
     # requires_dists = _Validator()  # XXX
     # requires_python = _Validator()  # XXX
     # requires_externals = _Validator()  # XXX
     # project_urls = _Validator()
     # provides_extras = _Validator()  # XXX
-    # provides_dists = _Validator()
-    # obsoletes_dists = _Validator()
+    provides_dist = _Validator()
+    obsoletes_dist = _Validator()
