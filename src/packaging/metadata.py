@@ -545,10 +545,10 @@ class Metadata:
     maintainer_email = _Validator()
     license = _Validator()
     classifiers = _Validator()
-    # requires_dists = _Validator()  # XXX
+    # requires_dist = _Validator()  # XXX
     # requires_python = _Validator()  # XXX
-    # requires_externals = _Validator()  # XXX
+    # requires_external = _Validator()  # XXX
     # project_urls = _Validator()
-    # provides_extras = _Validator()  # XXX
+    # provides_extra = _Validator()  # XXX
     provides_dist = _Validator()
     obsoletes_dist = _Validator()
