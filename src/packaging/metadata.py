@@ -508,7 +508,6 @@ class _Validator(Generic[T]):
 
 
 class Metadata:
-
     _raw: RawMetadata
 
     @classmethod
@@ -548,7 +547,7 @@ class Metadata:
     # requires_dist = _Validator()  # XXX
     # requires_python = _Validator()  # XXX
     # requires_external = _Validator()  # XXX
-    # project_urls = _Validator()
+    project_urls = _Validator()
     # provides_extra = _Validator()  # XXX
     provides_dist = _Validator()
     obsoletes_dist = _Validator()

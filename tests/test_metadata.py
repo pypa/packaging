@@ -361,3 +361,14 @@ class TestMetadata:
         keywords = ["hello", "world"]
         meta = metadata.Metadata.from_email(f"Keywords: {','.join(keywords)}")
         assert meta.keywords == keywords
+
+    def test_project_urls(self):
+        urls = {
+            "Documentation": "https://example.com/BeagleVote",
+            "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
+        }
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Project-URL: {k}, {v}" for k, v in urls.items())
+        )
+
+        assert meta.project_urls == urls
