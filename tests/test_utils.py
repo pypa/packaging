@@ -11,6 +11,7 @@ from packaging.utils import (
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
+    is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
 )
@@ -40,6 +41,27 @@ def test_canonicalize_name_invalid():
     with pytest.raises(InvalidName):
         canonicalize_name("_not_legal", validate=True)
     assert canonicalize_name("_not_legal") == "-not-legal"
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("fOo", "foo"),
+        ("foo.bar", "foo-bar"),
+        ("Foo.Bar", "foo-bar"),
+        ("Foo.....Bar", "foo-bar"),
+        ("foo_bar", "foo-bar"),
+        ("foo___bar", "foo-bar"),
+        ("foo-bar", "foo-bar"),
+        ("foo----bar", "foo-bar"),
+    ],
+)
+def test_is_normalized_name(name, expected):
+    assert is_normalized_name(expected)
+    if name != expected:
+        assert not is_normalized_name(name)
 
 
 @pytest.mark.parametrize(
