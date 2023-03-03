@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from packaging import metadata, utils, version
+from packaging import metadata, specifiers, utils, version
 
 
 class TestRawMetadata:
@@ -372,3 +372,9 @@ class TestMetadata:
         )
 
         assert meta.project_urls == urls
+
+    @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
+    def test_valid_requires_python(self, specifier):
+        expected = specifiers.SpecifierSet(specifier)
+        meta = metadata.Metadata.from_email(f"Requires-Python: {specifier}")
+        assert meta.requires_python == expected

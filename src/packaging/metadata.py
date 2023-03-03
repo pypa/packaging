@@ -8,7 +8,7 @@ import sys
 import typing
 from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
 
-from . import utils, version as version_module
+from . import specifiers, utils, version as version_module
 
 T = typing.TypeVar("T")
 
@@ -545,7 +545,7 @@ class Metadata:
     license = _Validator()
     classifiers = _Validator()
     # requires_dist = _Validator()  # XXX
-    # requires_python = _Validator()  # XXX
+    requires_python = _Validator(converters=[specifiers.SpecifierSet])
     # requires_external = _Validator()  # XXX
     project_urls = _Validator()
     # provides_extra = _Validator()  # XXX
