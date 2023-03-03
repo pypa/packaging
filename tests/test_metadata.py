@@ -377,9 +377,23 @@ class TestMetadata:
     def test_valid_requires_python(self, specifier):
         expected = specifiers.SpecifierSet(specifier)
         meta = metadata.Metadata.from_email(f"Requires-Python: {specifier}")
+
         assert meta.requires_python == expected
 
     def test_invalid_requires_python(self):
         meta = metadata.Metadata.from_email("Requires-Python: NotReal")
         with pytest.raises(specifiers.InvalidSpecifier):
             meta.requires_python
+
+    def test_requires_external(self):
+        externals = [
+            "C",
+            "libpng (>=1.5)",
+            'make; sys_platform != "win32"',
+            "libjpeg (>6b)",
+        ]
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Requires-External: {e}" for e in externals)
+        )
+
+        assert meta.requires_external == externals

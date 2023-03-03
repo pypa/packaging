@@ -546,7 +546,9 @@ class Metadata:
     classifiers = _Validator()
     # requires_dist = _Validator()  # XXX
     requires_python = _Validator(converters=[specifiers.SpecifierSet])
-    # requires_external = _Validator()  # XXX
+    # Because `Requires-External` allows for non-PEP 440 version specifiers, we
+    # don't do any processing on the values.
+    requires_external = _Validator()
     project_urls = _Validator()
     # provides_extra = _Validator()  # XXX
     provides_dist = _Validator()
