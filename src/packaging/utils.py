@@ -42,7 +42,7 @@ _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 def canonicalize_name(name: str, validate: bool = False) -> NormalizedName:
     if validate and not _validate_regex.match(name):
-        raise InvalidName(f"distribution name is invalid: {name!r}")
+        raise InvalidName(f"name is invalid: {name!r}")
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
     return cast(NormalizedName, value)
