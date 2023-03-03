@@ -378,3 +378,8 @@ class TestMetadata:
         expected = specifiers.SpecifierSet(specifier)
         meta = metadata.Metadata.from_email(f"Requires-Python: {specifier}")
         assert meta.requires_python == expected
+
+    def test_invalid_requires_python(self):
+        meta = metadata.Metadata.from_email("Requires-Python: NotReal")
+        with pytest.raises(specifiers.InvalidSpecifier):
+            meta.requires_python
