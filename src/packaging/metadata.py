@@ -550,6 +550,14 @@ class Metadata:
     # don't do any processing on the values.
     requires_external = _Validator()
     project_urls = _Validator()
-    # provides_extra = _Validator()  # XXX
+    # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
+    # regardless of metadata version.
+    provides_extra = _Validator(
+        validators=[
+            lambda field, names: [
+                utils.canonicalize_name(name, validate=True) for name in names
+            ]
+        ]
+    )
     provides_dist = _Validator()
     obsoletes_dist = _Validator()

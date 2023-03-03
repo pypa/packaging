@@ -397,3 +397,20 @@ class TestMetadata:
         )
 
         assert meta.requires_external == externals
+
+    def test_valid_provides_extra(self):
+        extras = ["dev", "test"]
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Provides-Extra: {e}" for e in extras)
+        )
+
+        assert meta.provides_extra == extras
+
+    def test_invalid_provides_extra(self):
+        extras = ["pdf", "-Not-Valid", "ok"]
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Provides-Extra: {e}" for e in extras)
+        )
+
+        with pytest.raises(utils.InvalidName):
+            meta.provides_extra
