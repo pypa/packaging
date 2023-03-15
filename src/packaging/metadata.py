@@ -8,7 +8,7 @@ import sys
 import typing
 from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
 
-from . import specifiers, utils, version as version_module
+from . import requirements, specifiers, utils, version as version_module
 
 T = typing.TypeVar("T")
 
@@ -510,6 +510,8 @@ class _Validator(Generic[T]):
 class Metadata:
     _raw: RawMetadata
 
+    # XXX from_raw(cls, data: RawMetadata, *, validate=False) -> "Metadata":
+
     @classmethod
     def from_email(cls, data: Union[bytes, str], *, validate=False) -> "Metadata":
         """Parse metadata from an email message."""
@@ -544,7 +546,9 @@ class Metadata:
     maintainer_email = _Validator()
     license = _Validator()
     classifiers = _Validator()
-    # requires_dist = _Validator()  # XXX
+    requires_dist = _Validator(
+        converters=[lambda reqs: list(map(requirements.Requirement, reqs))]
+    )
     requires_python = _Validator(converters=[specifiers.SpecifierSet])
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.

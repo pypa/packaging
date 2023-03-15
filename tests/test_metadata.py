@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from packaging import metadata, specifiers, utils, version
+from packaging import metadata, requirements, specifiers, utils, version
 
 
 class TestRawMetadata:
@@ -414,3 +414,26 @@ class TestMetadata:
 
         with pytest.raises(utils.InvalidName):
             meta.provides_extra
+
+    def test_valid_requires_dist(self):
+        requires = [
+            "pkginfo",
+            "PasteDeploy",
+            "zope.interface (>3.5.0)",
+            "pywin32 >1.0; sys_platform == 'win32'",
+        ]
+        expected_requires = list(map(requirements.Requirement, requires))
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Requires-Dist: {r}" for r in requires)
+        )
+
+        assert meta.requires_dist == expected_requires
+
+    def test_invalid_requires_dist(self):
+        requires = ["pkginfo", "-not-real", "zope.interface (>3.5.0)"]
+        meta = metadata.Metadata.from_email(
+            "\n".join(f"Requires-Dist: {r}" for r in requires)
+        )
+
+        with pytest.raises(requirements.InvalidRequirement):
+            meta.requires_dist
