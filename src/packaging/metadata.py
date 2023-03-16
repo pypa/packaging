@@ -13,14 +13,18 @@ from . import requirements, specifiers, utils, version as version_module
 T = typing.TypeVar("T")
 
 if sys.version_info >= (3, 8):  # pragma: no cover
-    from typing import TypedDict
+    from typing import Literal, TypedDict
 else:  # pragma: no cover
     if typing.TYPE_CHECKING:
-        from typing_extensions import TypedDict
+        from typing_extensions import Literal, TypedDict
     else:
         try:
-            from typing_extensions import TypedDict
+            from typing_extensions import Literal, TypedDict
         except ImportError:
+
+            class Literal:
+                def __init_subclass__(*_args, **_kwargs):
+                    pass
 
             class TypedDict:
                 def __init_subclass__(*_args, **_kwargs):
@@ -483,6 +487,16 @@ def _valid_dynamic(field: str, value: str) -> None:
 
 _NOT_FOUND = object()
 
+_MetadataVersion = Union[
+    Literal["1.0"],
+    Literal["1.1"],
+    Literal["1.2"],
+    Literal["2.0"],  # Technically invalid, but people used it while waiting for "2.0".
+    Literal["2.1"],
+    Literal["2.2"],
+    Literal["2.3"],
+]
+
 
 class _Validator(Generic[T]):
     name: str
@@ -493,9 +507,11 @@ class _Validator(Generic[T]):
         *,
         validators: List[Callable[[str, Any], None]] = [],
         converters: List[Callable[[Any], Any]] = [],
+        added: _MetadataVersion = "1.0",
     ) -> None:
         self.validators = validators
         self.converters = converters
+        self.added = _MetadataVersion
 
     def __set_name__(self, _owner: "Metadata", name: str) -> None:
         self.name = name
@@ -536,7 +552,8 @@ class Metadata:
         return cls.from_raw(raw)
         # XXX Check `unparsed` for valid keys
 
-    # XXX Check fields that are specified in an invalid version?
+    # TODO Check that fields are specified in a valid metadata version?
+
     metadata_version = _Validator(
         # Allow for "2.0" as that basically became "2.1".
         validators=[_valid_metadata_version]
@@ -549,30 +566,31 @@ class Metadata:
     dynamic = _Validator(
         validators=[_valid_dynamic],
         converters=[lambda fields: list(map(str.lower, fields))],
+        added="2.2",
     )
     platforms = _Validator()
-    supported_platforms = _Validator()
+    supported_platforms = _Validator(added="1.1")
     summary = _Validator(validators=[_single_line])
-    description = _Validator()
+    description = _Validator()  # XXX 2.1: can be in body
     # TODO are the various parts of description_content_type case-insensitive?
-    description_content_type = _Validator(validators=[_valid_content_type])
+    description_content_type = _Validator(validators=[_valid_content_type], added="2.1")
     keywords = _Validator()
     home_page = _Validator()
-    download_url = _Validator()
+    download_url = _Validator(added="1.1")
     author = _Validator()
     author_email = _Validator()
-    maintainer = _Validator()
-    maintainer_email = _Validator()
+    maintainer = _Validator(added="1.2")
+    maintainer_email = _Validator(added="1.2")
     license = _Validator()
-    classifiers = _Validator()
+    classifiers = _Validator(added="1.1")
     requires_dist = _Validator(
-        converters=[lambda reqs: list(map(requirements.Requirement, reqs))]
+        converters=[lambda reqs: list(map(requirements.Requirement, reqs))], added="1.2"
     )
-    requires_python = _Validator(converters=[specifiers.SpecifierSet])
+    requires_python = _Validator(converters=[specifiers.SpecifierSet], added="1.2")
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
-    requires_external = _Validator()
-    project_urls = _Validator()
+    requires_external = _Validator(added="1.2")
+    project_urls = _Validator(added="1.2")
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
     provides_extra = _Validator(
@@ -580,7 +598,8 @@ class Metadata:
             lambda field, names: [
                 utils.canonicalize_name(name, validate=True) for name in names
             ]
-        ]
+        ],
+        added="2.1",
     )
-    provides_dist = _Validator()
-    obsoletes_dist = _Validator()
+    provides_dist = _Validator(added="1.2")
+    obsoletes_dist = _Validator(added="1.2")
