@@ -437,3 +437,23 @@ class TestMetadata:
 
         with pytest.raises(requirements.InvalidRequirement):
             meta.requires_dist
+
+    def test_valid_dynamic(self):
+        dynamic = ["Keywords", "Home-Page", "Author"]
+        meta = metadata.Metadata.from_email("\n".join(f"Dynamic: {d}" for d in dynamic))
+
+        assert meta.dynamic == [d.lower() for d in dynamic]
+
+    def test_invalid_dynamic(self):
+        dynamic = ["Keywords", "NotReal", "Author"]
+        meta = metadata.Metadata.from_email("\n".join(f"Dynamic: {d}" for d in dynamic))
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.dynamic
+
+    @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
+    def test_disallowed_dynamic(self, field_name):
+        meta = metadata.Metadata.from_email(f"Dynamic: {field_name}")
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.dynamic

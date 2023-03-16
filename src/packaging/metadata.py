@@ -468,6 +468,14 @@ def _valid_content_type(field: str, value: str) -> None:
         )
 
 
+def _valid_dynamic(field: str, value: str) -> None:
+    for dynamic_field in map(str.lower, value):
+        if dynamic_field in {"name", "version", "metadata-version"}:
+            raise InvalidMetadata(field, f"{value!r} is not allowed as a dynamic field")
+        elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
+            raise InvalidMetadata(field, f"{value!r} is not a valid dynamic field")
+
+
 _NOT_FOUND = object()
 
 
@@ -530,7 +538,10 @@ class Metadata:
         converters=[functools.partial(utils.canonicalize_name, validate=True)],
     )
     version = _Validator(validators=[_required], converters=[version_module.parse])
-    # dynamic = _Validator()  # XXX
+    dynamic = _Validator(
+        validators=[_valid_dynamic],
+        converters=[lambda fields: list(map(str.lower, fields))],
+    )
     platforms = _Validator()
     supported_platforms = _Validator()
     summary = _Validator(validators=[_single_line])
