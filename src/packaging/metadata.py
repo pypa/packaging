@@ -523,15 +523,18 @@ class _Validator(Generic[T]):
 class Metadata:
     _raw: RawMetadata
 
-    # XXX from_raw(cls, data: RawMetadata, *, validate=False) -> "Metadata":
+    @classmethod
+    def from_raw(cls, data: RawMetadata) -> "Metadata":
+        ins = cls()
+        ins._raw = data
+        return ins
 
     @classmethod
     def from_email(cls, data: Union[bytes, str]) -> "Metadata":
         """Parse metadata from an email message."""
         raw, unparsed = parse_email(data)
-        ins = cls()
-        ins._raw = raw
-        return ins
+        return cls.from_raw(raw)
+        # XXX Check `unparsed` for valid keys
 
     # XXX Check fields that are specified in an invalid version?
     metadata_version = _Validator(
