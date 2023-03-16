@@ -550,7 +550,7 @@ class Metadata:
         """Parse metadata from an email message."""
         raw, unparsed = parse_email(data)
         return cls.from_raw(raw)
-        # XXX Check `unparsed` for valid keys
+        # TODO Check `unparsed` for valid keys?
 
     # TODO Check that fields are specified in a valid metadata version?
 
