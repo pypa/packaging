@@ -437,6 +437,11 @@ def _single_line(field: str, value: str) -> None:
     return value
 
 
+def _valid_metadata_version(field: str, value: str) -> None:
+    if value not in {"1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"}:
+        raise InvalidMetadata(field, f"{value!r} not a valid metadata version")
+
+
 def _valid_content_type(field: str, value: str) -> None:
     content_types = {"text/plain", "text/x-rst", "text/markdown"}
     message = email.message.EmailMessage()
@@ -521,18 +526,18 @@ class Metadata:
     # XXX from_raw(cls, data: RawMetadata, *, validate=False) -> "Metadata":
 
     @classmethod
-    def from_email(cls, data: Union[bytes, str], *, validate=False) -> "Metadata":
+    def from_email(cls, data: Union[bytes, str]) -> "Metadata":
         """Parse metadata from an email message."""
         raw, unparsed = parse_email(data)
         ins = cls()
         ins._raw = raw
-        if validate:
-            # XXX check `unparsed` for stuff that shouldn't be there.
-            # XXX check every field.
-            pass
         return ins
 
-    # XXX metadata_version
+    # XXX Check fields that are specified in an invalid version?
+    metadata_version = _Validator(
+        # Allow for "2.0" as that basically became "2.1".
+        validators=[_valid_metadata_version]
+    )
     name = _Validator(
         validators=[_required],
         converters=[functools.partial(utils.canonicalize_name, validate=True)],

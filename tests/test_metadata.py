@@ -284,6 +284,20 @@ class TestMetadata:
         meta = metadata.Metadata.from_email("\n".join(parts))
         assert getattr(meta, attribute) == values
 
+    @pytest.mark.parametrize(
+        "version", ["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
+    )
+    def test_valid_metadata_version(self, version):
+        meta = metadata.Metadata.from_email(f"Metadata-Version: {version}")
+
+        assert meta.metadata_version == version
+
+    def test_invalid_metadata_version(self):
+        meta = metadata.Metadata.from_email("Metadata-Version: 1.3")
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.metadata_version
+
     def test_valid_version(self):
         version_str = "1.2.3"
         meta = metadata.Metadata.from_email(f"Version: {version_str}")
