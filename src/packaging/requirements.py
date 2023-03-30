@@ -2,7 +2,6 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import urllib.parse
 from typing import Any, List, Optional, Set
 
 from ._parser import parse_requirement as _parse_requirement
@@ -37,18 +36,7 @@ class Requirement:
             raise InvalidRequirement(str(e)) from e
 
         self.name: str = parsed.name
-        if parsed.url:
-            parsed_url = urllib.parse.urlparse(parsed.url)
-            if parsed_url.scheme == "file":
-                if urllib.parse.urlunparse(parsed_url) != parsed.url:
-                    raise InvalidRequirement("Invalid URL given")
-            elif not (parsed_url.scheme and parsed_url.netloc) or (
-                not parsed_url.scheme and not parsed_url.netloc
-            ):
-                raise InvalidRequirement(f"Invalid URL: {parsed.url}")
-            self.url: Optional[str] = parsed.url
-        else:
-            self.url = None
+        self.url: Optional[str] = parsed.url or None
         self.extras: Set[str] = set(parsed.extras if parsed.extras else [])
         self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
         self.marker: Optional[Marker] = None
