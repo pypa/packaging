@@ -428,17 +428,14 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
 
 def _required(field: str, value: Any) -> None:
     """Check that the field has a value."""
-    print(field, value)
     if not value:
         raise InvalidMetadata(field, f"{field!r} is a required field")
-    return value
 
 
 def _single_line(field: str, value: str) -> None:
     """Check the field contains no newlines."""
     if "\n" in value:
         raise InvalidMetadata(field, f"{field!r} must be a single line")
-    return value
 
 
 def _valid_metadata_version(field: str, value: str) -> None:
@@ -487,15 +484,8 @@ def _valid_dynamic(field: str, value: str) -> None:
 
 _NOT_FOUND = object()
 
-_MetadataVersion = Union[
-    Literal["1.0"],
-    Literal["1.1"],
-    Literal["1.2"],
-    Literal["2.0"],  # Technically invalid, but people used it while waiting for "2.0".
-    Literal["2.1"],
-    Literal["2.2"],
-    Literal["2.3"],
-]
+# "2.0" is technically invalid, but people used it while waiting for "2.1".
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
 
 
 class _Validator(Generic[T]):
@@ -522,6 +512,7 @@ class _Validator(Generic[T]):
         cache = instance.__dict__
         value = cache.get(self.name, _NOT_FOUND)
         if value is _NOT_FOUND:
+            # XXX Is None always the best "missing" value?
             raw_value = instance._raw.get(self.name)
             for validator in self.validators:
                 validator(self.raw_name, raw_value)
@@ -530,10 +521,10 @@ class _Validator(Generic[T]):
                 value = converter(value)
             cache[self.name] = value
             try:
-                del instance._raw[self.name]
+                del instance._raw[self.name]  # type: ignore[misc]
             except KeyError:
                 pass
-        return value
+        return cast(Optional[T], value)
 
 
 class Metadata:
@@ -554,52 +545,59 @@ class Metadata:
 
     # TODO Check that fields are specified in a valid metadata version?
 
-    metadata_version = _Validator(
+    metadata_version: _Validator[_MetadataVersion] = _Validator(
         # Allow for "2.0" as that basically became "2.1".
         validators=[_valid_metadata_version]
     )
-    name = _Validator(
+    name: _Validator[utils.NormalizedName] = _Validator(
         validators=[_required],
         converters=[functools.partial(utils.canonicalize_name, validate=True)],
     )
-    version = _Validator(validators=[_required], converters=[version_module.parse])
-    dynamic = _Validator(
+    version: _Validator[version_module.Version] = _Validator(
+        validators=[_required], converters=[version_module.parse]
+    )
+    dynamic: _Validator[List[str]] = _Validator(
         validators=[_valid_dynamic],
         converters=[lambda fields: list(map(str.lower, fields))],
         added="2.2",
     )
-    platforms = _Validator()
-    supported_platforms = _Validator(added="1.1")
-    summary = _Validator(validators=[_single_line])
-    description = _Validator()  # XXX 2.1: can be in body
+    platforms: _Validator[str] = _Validator()
+    supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
+    summary: _Validator[str] = _Validator(validators=[_single_line])
+    description: _Validator[str] = _Validator()  # XXX 2.1: can be in body
     # TODO are the various parts of description_content_type case-insensitive?
-    description_content_type = _Validator(validators=[_valid_content_type], added="2.1")
-    keywords = _Validator()
-    home_page = _Validator()
-    download_url = _Validator(added="1.1")
-    author = _Validator()
-    author_email = _Validator()
-    maintainer = _Validator(added="1.2")
-    maintainer_email = _Validator(added="1.2")
-    license = _Validator()
-    classifiers = _Validator(added="1.1")
-    requires_dist = _Validator(
+    description_content_type: _Validator[str] = _Validator(
+        validators=[_valid_content_type], added="2.1"
+    )
+    keywords: _Validator[List[str]] = _Validator()
+    home_page: _Validator[str] = _Validator()
+    download_url: _Validator[str] = _Validator(added="1.1")
+    author: _Validator[str] = _Validator()
+    author_email: _Validator[str] = _Validator()
+    maintainer: _Validator[str] = _Validator(added="1.2")
+    maintainer_email: _Validator[str] = _Validator(added="1.2")
+    license: _Validator[str] = _Validator()
+    classifiers: _Validator[List[str]] = _Validator(added="1.1")
+    requires_dist: _Validator[List[requirements.Requirement]] = _Validator(
         converters=[lambda reqs: list(map(requirements.Requirement, reqs))], added="1.2"
     )
-    requires_python = _Validator(converters=[specifiers.SpecifierSet], added="1.2")
+    requires_python: _Validator[specifiers.SpecifierSet] = _Validator(
+        converters=[specifiers.SpecifierSet], added="1.2"
+    )
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
-    requires_external = _Validator(added="1.2")
-    project_urls = _Validator(added="1.2")
+    requires_external: _Validator[List[str]] = _Validator(added="1.2")
+    project_urls: _Validator[Dict[str, str]] = _Validator(added="1.2")
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
-    provides_extra = _Validator(
+    provides_extra: _Validator[List[utils.NormalizedName]] = _Validator(
         validators=[
-            lambda field, names: [
+            # XXX `type: ignore`
+            lambda field, names: [  # type: ignore[list-item]
                 utils.canonicalize_name(name, validate=True) for name in names
             ]
         ],
         added="2.1",
     )
-    provides_dist = _Validator(added="1.2")
-    obsoletes_dist = _Validator(added="1.2")
+    provides_dist: _Validator[List[str]] = _Validator(added="1.2")
+    obsoletes_dist: _Validator[List[str]] = _Validator(added="1.2")
