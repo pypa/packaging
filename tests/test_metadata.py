@@ -29,7 +29,7 @@ class TestRawMetadata:
         assert header_field in unparsed
         assert unparsed[header_field] == [data] * 2
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
     def test_repeating_fields_only_once(self, raw_field: set[str]):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
@@ -40,7 +40,7 @@ class TestRawMetadata:
         assert raw_field in raw
         assert raw[raw_field] == [data]
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
     def test_repeating_fields_repeated(self, raw_field: set[str]):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"

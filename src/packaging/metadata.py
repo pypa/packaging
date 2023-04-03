@@ -126,7 +126,7 @@ _STRING_FIELDS = {
     "version",
 }
 
-_LIST_STRING_FIELDS = {
+_LIST_FIELDS = {
     "classifiers",
     "dynamic",
     "obsoletes",
@@ -366,7 +366,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         # If this is one of our list of string fields, then we can just assign
         # the value, since email *only* has strings, and our get_all() call
         # above ensures that this is a list.
-        elif raw_name in _LIST_STRING_FIELDS:
+        elif raw_name in _LIST_FIELDS:
             raw[raw_name] = value
         # Special Case: Keywords
         # The keywords field is implemented in the metadata spec as a str,
