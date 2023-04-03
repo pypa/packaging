@@ -491,17 +491,20 @@ _MetadataVersion = Literal["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
 class _Validator(Generic[T]):
     name: str
     raw_name: str
+    validators: List[Callable[[str, Any], None]]
+    converters: List[Callable[[Any], T]]
+    added: _MetadataVersion
 
     def __init__(
         self,
         *,
         validators: List[Callable[[str, Any], None]] = [],
-        converters: List[Callable[[Any], Any]] = [],
+        converters: List[Callable[[Any], T]] = [],
         added: _MetadataVersion = "1.0",
     ) -> None:
         self.validators = validators
         self.converters = converters
-        self.added = _MetadataVersion
+        self.added = added
 
     def __set_name__(self, _owner: "Metadata", name: str) -> None:
         self.name = name
@@ -592,7 +595,7 @@ class Metadata:
     # regardless of metadata version.
     provides_extra: _Validator[List[utils.NormalizedName]] = _Validator(
         validators=[
-            # XXX `type: ignore`
+            # XXX Remove the `type: ignore`
             lambda field, names: [  # type: ignore[list-item]
                 utils.canonicalize_name(name, validate=True) for name in names
             ]
