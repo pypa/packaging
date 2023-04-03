@@ -3,7 +3,6 @@ import email.header
 import email.message
 import email.parser
 import email.policy
-import functools
 import sys
 import typing
 from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
