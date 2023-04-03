@@ -426,24 +426,37 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
     return cast(RawMetadata, raw), unparsed
 
 
-def _required(field: str, value: Any) -> None:
-    """Check that the field has a value."""
+def _process_name(value: Optional[str]) -> utils.NormalizedName:
     if not value:
-        raise InvalidMetadata(field, f"{field!r} is a required field")
+        raise InvalidMetadata("name", "'name' is a required field")
+    return utils.canonicalize_name(value, validate=True)
 
 
-def _single_line(field: str, value: str) -> None:
+def _process_version(value: Optional[str]) -> version_module.Version:
+    if not value:
+        raise InvalidMetadata("version", "'version' is a required field")
+    return version_module.parse(value)
+
+
+def _process_summary(value: Optional[str]) -> Optional[str]:
     """Check the field contains no newlines."""
-    if "\n" in value:
-        raise InvalidMetadata(field, f"{field!r} must be a single line")
+    if value and "\n" in value:
+        raise InvalidMetadata("summary", "'summary' must be a single line")
+    return value
 
 
-def _valid_metadata_version(field: str, value: str) -> None:
+def _process_metadata_version(value: Optional[str]) -> Optional[str]:
     if value not in {"1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"}:
-        raise InvalidMetadata(field, f"{value!r} not a valid metadata version")
+        raise InvalidMetadata(
+            "metadata-version", "'metadata-version' is not a valid metadata version"
+        )
+    return value
 
 
-def _valid_content_type(field: str, value: str) -> None:
+def _process_description_content_type(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return
+    field = "description-content-type"
     content_types = {"text/plain", "text/x-rst", "text/markdown"}
     message = email.message.EmailMessage()
     message["content-type"] = value
@@ -472,14 +485,26 @@ def _valid_content_type(field: str, value: str) -> None:
             f"valid Markdown variants for {field} are {markdown_variants}, "
             f"not {variant}",
         )
+    return value
 
 
-def _valid_dynamic(field: str, value: str) -> None:
+def _process_dynamic(value: Optional[List[str]]) -> Optional[List[str]]:
     for dynamic_field in map(str.lower, value):
         if dynamic_field in {"name", "version", "metadata-version"}:
-            raise InvalidMetadata(field, f"{value!r} is not allowed as a dynamic field")
+            raise InvalidMetadata(
+                "dynamic", f"{value!r} is not allowed as a dynamic field"
+            )
         elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
-            raise InvalidMetadata(field, f"{value!r} is not a valid dynamic field")
+            raise InvalidMetadata("dynamic", f"{value!r} is not a valid dynamic field")
+    return list(map(str.lower, value))
+
+
+def _process_provides_extra(
+    value: Optional[List[str]],
+) -> Optional[List[utils.NormalizedName]]:
+    if not value:
+        return value
+    return [utils.canonicalize_name(name, validate=True) for name in value]
 
 
 _NOT_FOUND = object()
@@ -491,18 +516,15 @@ _MetadataVersion = Literal["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
 class _Validator(Generic[T]):
     name: str
     raw_name: str
-    validators: List[Callable[[str, Any], None]]
     converters: List[Callable[[Any], T]]
     added: _MetadataVersion
 
     def __init__(
         self,
         *,
-        validators: List[Callable[[str, Any], None]] = [],
         converters: List[Callable[[Any], T]] = [],
         added: _MetadataVersion = "1.0",
     ) -> None:
-        self.validators = validators
         self.converters = converters
         self.added = added
 
@@ -517,9 +539,8 @@ class _Validator(Generic[T]):
         if value is _NOT_FOUND:
             # XXX Is None always the best "missing" value?
             raw_value = instance._raw.get(self.name)
-            for validator in self.validators:
-                validator(self.raw_name, raw_value)
             value = raw_value
+            # XXX Dynamic dispatch to `_process_{self.name}()`?
             for converter in self.converters:
                 value = converter(value)
             cache[self.name] = value
@@ -550,27 +571,25 @@ class Metadata:
 
     metadata_version: _Validator[_MetadataVersion] = _Validator(
         # Allow for "2.0" as that basically became "2.1".
-        validators=[_valid_metadata_version]
+        converters=[_process_metadata_version]
     )
     name: _Validator[utils.NormalizedName] = _Validator(
-        validators=[_required],
-        converters=[functools.partial(utils.canonicalize_name, validate=True)],
+        converters=[_process_name],
     )
     version: _Validator[version_module.Version] = _Validator(
-        validators=[_required], converters=[version_module.parse]
+        converters=[_process_version]
     )
     dynamic: _Validator[List[str]] = _Validator(
-        validators=[_valid_dynamic],
-        converters=[lambda fields: list(map(str.lower, fields))],
+        converters=[_process_dynamic],
         added="2.2",
     )
     platforms: _Validator[str] = _Validator()
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
-    summary: _Validator[str] = _Validator(validators=[_single_line])
+    summary: _Validator[str] = _Validator(converters=[_process_summary])
     description: _Validator[str] = _Validator()  # XXX 2.1: can be in body
     # TODO are the various parts of description_content_type case-insensitive?
     description_content_type: _Validator[str] = _Validator(
-        validators=[_valid_content_type], added="2.1"
+        converters=[_process_description_content_type], added="2.1"
     )
     keywords: _Validator[List[str]] = _Validator()
     home_page: _Validator[str] = _Validator()
@@ -594,12 +613,7 @@ class Metadata:
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
     provides_extra: _Validator[List[utils.NormalizedName]] = _Validator(
-        validators=[
-            # XXX Remove the `type: ignore`
-            lambda field, names: [  # type: ignore[list-item]
-                utils.canonicalize_name(name, validate=True) for name in names
-            ]
-        ],
+        converters=[_process_provides_extra],
         added="2.1",
     )
     provides_dist: _Validator[List[str]] = _Validator(added="1.2")
