@@ -515,16 +515,13 @@ _MetadataVersion = Literal["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
 class _Validator(Generic[T]):
     name: str
     raw_name: str
-    converters: List[Callable[[Any], T]]
     added: _MetadataVersion
 
     def __init__(
         self,
         *,
-        converters: List[Callable[[Any], T]] = [],
         added: _MetadataVersion = "1.0",
     ) -> None:
-        self.converters = converters
         self.added = added
 
     def __set_name__(self, _owner: "Metadata", name: str) -> None:
@@ -539,8 +536,11 @@ class _Validator(Generic[T]):
             # XXX Is None always the best "missing" value?
             raw_value = instance._raw.get(self.name)
             value = raw_value
-            # XXX Dynamic dispatch to `_process_{self.name}()`?
-            for converter in self.converters:
+            try:
+                converter = getattr(self, f"_process_{self.name}")
+            except AttributeError:
+                pass
+            else:
                 value = converter(value)
             cache[self.name] = value
             try:
@@ -548,6 +548,97 @@ class _Validator(Generic[T]):
             except KeyError:
                 pass
         return cast(Optional[T], value)
+
+    @staticmethod
+    def _process_name(value: Optional[str]) -> utils.NormalizedName:
+        if not value:
+            raise InvalidMetadata("name", "'name' is a required field")
+        return utils.canonicalize_name(value, validate=True)
+
+    @staticmethod
+    def _process_version(value: Optional[str]) -> version_module.Version:
+        if not value:
+            raise InvalidMetadata("version", "'version' is a required field")
+        return version_module.parse(value)
+
+    @staticmethod
+    def _process_summary(value: Optional[str]) -> Optional[str]:
+        """Check the field contains no newlines."""
+        if value and "\n" in value:
+            raise InvalidMetadata("summary", "'summary' must be a single line")
+        return value
+
+    @staticmethod
+    def _process_metadata_version(value: Optional[str]) -> Optional[str]:
+        if value not in {"1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"}:
+            raise InvalidMetadata(
+                "metadata-version", "'metadata-version' is not a valid metadata version"
+            )
+        return value
+
+    @staticmethod
+    def _process_description_content_type(value: Optional[str]) -> Optional[str]:
+        if not value:
+            return
+        field = "description-content-type"
+        content_types = {"text/plain", "text/x-rst", "text/markdown"}
+        message = email.message.EmailMessage()
+        message["content-type"] = value
+        content_type, parameters = (
+            message.get_content_type(),  # Defaults to `text/plain` if not parseable.
+            message["content-type"].params,
+        )
+        # Check if content-type is valid or defaulted to `text/plain` and thus was
+        # not parseable.
+        if content_type not in content_types or content_type not in value:
+            raise InvalidMetadata(
+                field, f"{field} must be one of {content_types}, not {value}"
+            )
+
+        charset = parameters.get("charset", "UTF-8")
+        if charset != "UTF-8":
+            raise InvalidMetadata(
+                field, f"{field} can only specify a UTF-8 charset, not {charset}"
+            )
+
+        markdown_variants = {"GFM", "CommonMark"}
+        variant = parameters.get("variant", "GFM")  # Use an acceptable default.
+        if content_type == "text/markdown" and variant not in markdown_variants:
+            raise InvalidMetadata(
+                field,
+                f"valid Markdown variants for {field} are {markdown_variants}, "
+                f"not {variant}",
+            )
+        return value
+
+    @staticmethod
+    def _process_dynamic(value: Optional[List[str]]) -> Optional[List[str]]:
+        for dynamic_field in map(str.lower, value):
+            if dynamic_field in {"name", "version", "metadata-version"}:
+                raise InvalidMetadata(
+                    "dynamic", f"{value!r} is not allowed as a dynamic field"
+                )
+            elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
+                raise InvalidMetadata(
+                    "dynamic", f"{value!r} is not a valid dynamic field"
+                )
+        return list(map(str.lower, value))
+
+    @staticmethod
+    def _process_provides_extra(
+        value: Optional[List[str]],
+    ) -> Optional[List[utils.NormalizedName]]:
+        if not value:
+            return value
+        return [utils.canonicalize_name(name, validate=True) for name in value]
+
+    _process_requires_python = staticmethod(specifiers.SpecifierSet)
+
+    @staticmethod
+    def _process_requires_dist(value: Optional[List[str]]) -> Optional[List[str]]:
+        if not value:
+            return value
+        return list(map(requirements.Requirement, value))
 
 
 class Metadata:
@@ -568,28 +659,18 @@ class Metadata:
 
     # TODO Check that fields are specified in a valid metadata version?
 
-    metadata_version: _Validator[_MetadataVersion] = _Validator(
-        # Allow for "2.0" as that basically became "2.1".
-        converters=[_process_metadata_version]
-    )
-    name: _Validator[utils.NormalizedName] = _Validator(
-        converters=[_process_name],
-    )
-    version: _Validator[version_module.Version] = _Validator(
-        converters=[_process_version]
-    )
+    metadata_version: _Validator[_MetadataVersion] = _Validator()
+    name: _Validator[utils.NormalizedName] = _Validator()
+    version: _Validator[version_module.Version] = _Validator()
     dynamic: _Validator[List[str]] = _Validator(
-        converters=[_process_dynamic],
         added="2.2",
     )
     platforms: _Validator[str] = _Validator()
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
-    summary: _Validator[str] = _Validator(converters=[_process_summary])
+    summary: _Validator[str] = _Validator()
     description: _Validator[str] = _Validator()  # XXX 2.1: can be in body
     # TODO are the various parts of description_content_type case-insensitive?
-    description_content_type: _Validator[str] = _Validator(
-        converters=[_process_description_content_type], added="2.1"
-    )
+    description_content_type: _Validator[str] = _Validator(added="2.1")
     keywords: _Validator[List[str]] = _Validator()
     home_page: _Validator[str] = _Validator()
     download_url: _Validator[str] = _Validator(added="1.1")
@@ -599,12 +680,8 @@ class Metadata:
     maintainer_email: _Validator[str] = _Validator(added="1.2")
     license: _Validator[str] = _Validator()
     classifiers: _Validator[List[str]] = _Validator(added="1.1")
-    requires_dist: _Validator[List[requirements.Requirement]] = _Validator(
-        converters=[lambda reqs: list(map(requirements.Requirement, reqs))], added="1.2"
-    )
-    requires_python: _Validator[specifiers.SpecifierSet] = _Validator(
-        converters=[specifiers.SpecifierSet], added="1.2"
-    )
+    requires_dist: _Validator[List[requirements.Requirement]] = _Validator(added="1.2")
+    requires_python: _Validator[specifiers.SpecifierSet] = _Validator(added="1.2")
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
     requires_external: _Validator[List[str]] = _Validator(added="1.2")
@@ -612,7 +689,6 @@ class Metadata:
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
     provides_extra: _Validator[List[utils.NormalizedName]] = _Validator(
-        converters=[_process_provides_extra],
         added="2.1",
     )
     provides_dist: _Validator[List[str]] = _Validator(added="1.2")
