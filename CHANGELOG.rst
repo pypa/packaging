@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+23.1 - 2023-04-12
+~~~~~~~~~~~~~~~~~
 
 * Parse raw metadata (:issue:`671`)
 * Import underlying parser functions as an underscored variable (:issue:`663`)
