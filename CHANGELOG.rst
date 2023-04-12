@@ -4,7 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Enforce that the entire marker string is parsed (:issue:`687`)
 
 23.1 - 2023-04-12
 ~~~~~~~~~~~~~~~~~

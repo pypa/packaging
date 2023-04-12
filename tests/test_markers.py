@@ -167,6 +167,7 @@ class TestMarker:
             "(python_version)",
             "python_version >= 1.0 and (python_version)",
             '(python_version == "2.7" and os_name == "linux"',
+            '(python_version == "2.7") with random text',
         ],
     )
     def test_parses_invalid(self, marker_string):
