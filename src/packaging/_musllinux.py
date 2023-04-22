@@ -63,6 +63,10 @@ def platform_tags(arch: str) -> Iterator[str]:
     sys_musl = _get_musl_version(sys.executable)
     if sys_musl is None:  # Python not dynamically linked against musl.
         return
+    if arch == "armv8l":
+        # armv8l wheels are not accepted on PyPI
+        # The armv7l wheels can be installed.
+        arch = "armv7l"
     for minor in range(sys_musl.minor, -1, -1):
         yield f"musllinux_{sys_musl.major}_{minor}_{arch}"
 

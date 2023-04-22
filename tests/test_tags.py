@@ -363,7 +363,7 @@ class TestManylinuxPlatform:
             ("linux-x86_64", False, "linux_x86_64"),
             ("linux-x86_64", True, "linux_i686"),
             ("linux-aarch64", False, "linux_aarch64"),
-            ("linux-aarch64", True, "linux_armv7l"),
+            ("linux-aarch64", True, "linux_armv8l"),
         ],
     )
     def test_linux_platforms_32_64bit_on_64bit_os(
@@ -445,14 +445,20 @@ class TestManylinuxPlatform:
         ]
         assert platforms == expected
 
-    def test_linux_platforms_manylinux2014_armhf_abi(self, monkeypatch):
+    @pytest.mark.parametrize(
+        "native_arch, cross_arch",
+        [("armv7l", "armv7l"), ("armv8l", "armv8l"), ("aarch64", "armv8l")],
+    )
+    def test_linux_platforms_manylinux2014_armhf_abi(
+        self, native_arch, cross_arch, monkeypatch
+    ):
         monkeypatch.setattr(tags._manylinux, "_glibc_version_string", lambda: "2.30")
         monkeypatch.setattr(
             tags._manylinux,
             "_is_compatible",
             lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
         )
-        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv7l")
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{native_arch}")
         monkeypatch.setattr(
             sys,
             "executable",
@@ -463,7 +469,7 @@ class TestManylinuxPlatform:
             ),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["manylinux_2_17_armv7l", "manylinux2014_armv7l", "linux_armv7l"]
+        expected = ["manylinux_2_17_armv7l", "manylinux2014_armv7l", f"linux_{cross_arch}"]
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(self, monkeypatch):
@@ -525,7 +531,8 @@ class TestManylinuxPlatform:
     @pytest.mark.parametrize(
         "native_arch, cross32_arch, musl_version",
         [
-            ("aarch64", "armv7l", _MuslVersion(1, 1)),
+            ("armv7l", "armv7l", _MuslVersion(1, 1)),
+            ("aarch64", "armv8l", _MuslVersion(1, 1)),
             ("i386", "i386", _MuslVersion(1, 2)),
             ("x86_64", "i686", _MuslVersion(1, 2)),
         ],
@@ -548,8 +555,9 @@ class TestManylinuxPlatform:
 
         platforms = list(tags._linux_platforms(is_32bit=cross32))
         target_arch = cross32_arch if cross32 else native_arch
+        target_arch_musl = "armv7l" if target_arch == "armv8l" else target_arch
         expected = [
-            f"musllinux_{musl_version[0]}_{minor}_{target_arch}"
+            f"musllinux_{musl_version[0]}_{minor}_{target_arch_musl}"
             for minor in range(musl_version[1], -1, -1)
         ] + [f"linux_{target_arch}"]
         assert platforms == expected

@@ -204,6 +204,11 @@ _LEGACY_MANYLINUX_MAP = {
 
 
 def platform_tags(linux: str, arch: str) -> Iterator[str]:
+    if arch == "armv8l":
+        # armv8l wheels are not accepted on PyPI
+        # As long as we pass the the ABI check below,
+        # the armv7l wheels can be installed.
+        arch = "armv7l"
     if not _have_compatible_abi(sys.executable, arch):
         return
     # Oldest glibc to be supported regardless of architecture is (2, 17).
@@ -232,9 +237,9 @@ def platform_tags(linux: str, arch: str) -> Iterator[str]:
             glibc_version = _GLibCVersion(glibc_max.major, glibc_minor)
             tag = "manylinux_{}_{}".format(*glibc_version)
             if _is_compatible(arch, glibc_version):
-                yield linux.replace("linux", tag)
+                yield f"{tag}_{arch}"
             # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.
             if glibc_version in _LEGACY_MANYLINUX_MAP:
                 legacy_tag = _LEGACY_MANYLINUX_MAP[glibc_version]
                 if _is_compatible(arch, glibc_version):
-                    yield linux.replace("linux", legacy_tag)
+                    yield f"{legacy_tag}_{arch}"

@@ -473,7 +473,7 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         if linux == "linux_x86_64":
             linux = "linux_i686"
         elif linux == "linux_aarch64":
-            linux = "linux_armv7l"
+            linux = "linux_armv8l"
     _, arch = linux.split("_", 1)
     yield from _manylinux.platform_tags(linux, arch)
     yield from _musllinux.platform_tags(arch)
