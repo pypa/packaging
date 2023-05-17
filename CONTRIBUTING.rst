@@ -17,7 +17,6 @@ https://packaging.pypa.io/en/latest/development/
 Security issues
 ---------------
 
-To report a security issue, please follow the special `security reporting
-guidelines`_, do not report them in the public issue tracker.
+See `Security Policy`_ for informations about how to report security issues.
 
-.. _`security reporting guidelines`: https://packaging.pypa.io/en/latest/security/
+.. _`Security Policy`: https://github.com/pypa/packaging/security
