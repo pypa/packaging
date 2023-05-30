@@ -9,7 +9,7 @@
 
 import itertools
 import re
-from typing import Callable, NamedTuple, Optional, SupportsInt, Tuple, Union
+from typing import Any, Callable, NamedTuple, Optional, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
@@ -65,7 +65,7 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion:
-    _key: CmpKey
+    _key: Tuple[Any, ...]
 
     def __hash__(self) -> int:
         return hash(self._key)
@@ -181,6 +181,7 @@ class Version(_BaseVersion):
     """
 
     _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _key: CmpKey
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.

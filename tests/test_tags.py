@@ -234,7 +234,6 @@ class TestMacOSPlatforms:
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
         if (major, minor) == ("10", "16"):
-            print(platforms, "macosx_11+")
             # For 10.16, the real version is at least 11.0.
             prefix, major, minor, _ = platforms[0].split("_", maxsplit=3)
             assert prefix == "macosx"
@@ -242,7 +241,6 @@ class TestMacOSPlatforms:
             assert minor == "0"
         else:
             expected = f"macosx_{major}_{minor}_"
-            print(platforms, expected)
             assert platforms[0].startswith(expected)
 
     def test_version_detection_10_15(self, monkeypatch):
@@ -252,7 +250,6 @@ class TestMacOSPlatforms:
         expected = "macosx_10_15_"
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
-        print(platforms, expected)
         assert platforms[0].startswith(expected)
 
     def test_version_detection_compatibility(self, monkeypatch):
@@ -270,7 +267,6 @@ class TestMacOSPlatforms:
         unexpected = "macosx_10_16_"
 
         platforms = list(tags.mac_platforms(arch="x86_64"))
-        print(platforms, unexpected)
         assert not platforms[0].startswith(unexpected)
 
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
@@ -603,6 +599,13 @@ def test_platform_tags(platform_name, dispatch_func, monkeypatch):
     assert tags.platform_tags() == expected
 
 
+def test_platform_tags_space(monkeypatch):
+    """Ensure spaces in platform tags are normalized to underscores."""
+    monkeypatch.setattr(platform, "system", lambda: "Isilon OneFS")
+    monkeypatch.setattr(sysconfig, "get_platform", lambda: "isilon onefs")
+    assert list(tags.platform_tags()) == ["isilon_onefs"]
+
+
 class TestCPythonABI:
     @pytest.mark.parametrize(
         "py_debug,gettotalrefcount,result",
@@ -774,6 +777,12 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 11), abis=["whatever"]))
         assert tags.Tag("cp311", "whatever", "plat1") in result
 
+    def test_platform_name_space_normalization(self, monkeypatch):
+        """Ensure that spaces are translated to underscores in platform names."""
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "isilon onefs")
+        for tag in tags.cpython_tags():
+            assert " " not in tag.platform
+
     def test_major_only_python_version(self):
         result = list(tags.cpython_tags((3,), ["abi"], ["plat"]))
         assert result == [
@@ -843,9 +852,9 @@ class TestGenericTags:
         assert tags._generic_abi() == ["cp37m"]
 
     def test__generic_abi_jp(self, monkeypatch):
-        config = {"EXT_SUFFIX": ".return exactly this.so"}
+        config = {"EXT_SUFFIX": ".return_exactly_this.so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == ["return exactly this"]
+        assert tags._generic_abi() == ["return_exactly_this"]
 
     def test__generic_abi_graal(self, monkeypatch):
         config = {"EXT_SUFFIX": ".graalpy-38-native-x86_64-darwin.so"}
@@ -900,6 +909,12 @@ class TestGenericTags:
         platform = sysconfig.get_platform().replace("-", "_")
         platform = platform.replace(".", "_")
         assert list(tags._generic_platforms()) == [platform]
+
+    def test_generic_platforms_space(self, monkeypatch):
+        """Ensure platform tags normalize spaces to underscores."""
+        platform_ = "isilon onefs"
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: platform_)
+        assert list(tags._generic_platforms()) == [platform_.replace(" ", "_")]
 
     def test_iterator_returned(self):
         result_iterator = tags.generic_tags("sillywalk33", ["abi"], ["plat1", "plat2"])

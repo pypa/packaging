@@ -301,6 +301,26 @@ class TestRequirementParsing:
             "           ~~~~~^"
         )
 
+    @pytest.mark.parametrize("operator", [">=", "<=", ">", "<", "~="])
+    def test_error_when_local_version_label_is_used_incorrectly(
+        self, operator: str
+    ) -> None:
+        # GIVEN
+        to_parse = f"name {operator} 1.0+local.version.label"
+        op_tilde = len(operator) * "~"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Local version label can only be used with `==` or `!=` operators\n"
+            f"    name {operator} 1.0+local.version.label\n"
+            f"         {op_tilde}~~~~^"
+        )
+
     def test_error_when_bracket_not_closed_correctly(self) -> None:
         # GIVEN
         to_parse = "name[bar, baz >= 1.0"

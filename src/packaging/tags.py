@@ -120,7 +120,7 @@ def _get_config_var(name: str, warn: bool = False) -> Union[int, str, None]:
 
 
 def _normalize_string(string: str) -> str:
-    return string.replace(".", "_").replace("-", "_")
+    return string.replace(".", "_").replace("-", "_").replace(" ", "_")
 
 
 def _abi3_applies(python_version: PythonVersion) -> bool:

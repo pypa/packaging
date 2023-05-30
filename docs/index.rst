@@ -25,6 +25,7 @@ You can install packaging with ``pip``:
     specifiers
     markers
     requirements
+    metadata
     tags
     utils
 
