@@ -8,6 +8,7 @@ from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
 from .markers import Marker, _normalize_extra_values
 from .specifiers import SpecifierSet
+from .utils import canonicalize_name
 
 
 class InvalidRequirement(ValueError):
@@ -44,8 +45,12 @@ class Requirement:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
 
-    def __str__(self) -> str:
-        parts: List[str] = [self.name]
+    @property
+    def canonical_name(self) -> str:
+        return canonicalize_name(self.name)
+
+    def _to_str(self, name: str) -> str:
+        parts: List[str] = [name]
 
         if self.extras:
             formatted_extras = ",".join(sorted(self.extras))
@@ -64,18 +69,21 @@ class Requirement:
 
         return "".join(parts)
 
+    def __str__(self) -> str:
+        return self._to_str(self.name)
+
     def __repr__(self) -> str:
         return f"<Requirement('{self}')>"
 
     def __hash__(self) -> int:
-        return hash((self.__class__.__name__, str(self)))
+        return hash((self.__class__.__name__, self._to_str(self.canonical_name)))
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Requirement):
             return NotImplemented
 
         return (
-            self.name == other.name
+            self.canonical_name == other.canonical_name
             and self.extras == other.extras
             and self.specifier == other.specifier
             and self.url == other.url
