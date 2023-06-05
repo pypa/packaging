@@ -2,7 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from typing import Any, List, Optional, Set
+from typing import Any, Iterator, Optional, Set
 
 from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
@@ -45,35 +45,36 @@ class Requirement:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
 
-    def _to_str(self, name: str) -> str:
-        parts: List[str] = [name]
+    def _iter_parts(self, name: str) -> Iterator[str]:
+        yield name
 
         if self.extras:
             formatted_extras = ",".join(sorted(self.extras))
-            parts.append(f"[{formatted_extras}]")
+            yield f"[{formatted_extras}]"
 
         if self.specifier:
-            parts.append(str(self.specifier))
+            yield str(self.specifier)
 
         if self.url:
-            parts.append(f"@ {self.url}")
+            yield f"@ {self.url}"
             if self.marker:
-                parts.append(" ")
+                yield " "
 
         if self.marker:
-            parts.append(f"; {self.marker}")
-
-        return "".join(parts)
+            yield f"; {self.marker}"
 
     def __str__(self) -> str:
-        return self._to_str(self.name)
+        return "".join(self._iter_parts(self.name))
 
     def __repr__(self) -> str:
         return f"<Requirement('{self}')>"
 
     def __hash__(self) -> int:
         return hash(
-            (self.__class__.__name__, self._to_str(canonicalize_name(self.name)))
+            (
+                self.__class__.__name__,
+                tuple(self._iter_parts(canonicalize_name(self.name))),
+            )
         )
 
     def __eq__(self, other: Any) -> bool:
