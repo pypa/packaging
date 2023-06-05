@@ -73,7 +73,7 @@ class Requirement:
         return hash(
             (
                 self.__class__.__name__,
-                tuple(self._iter_parts(canonicalize_name(self.name))),
+                *self._iter_parts(canonicalize_name(self.name)),
             )
         )
 
