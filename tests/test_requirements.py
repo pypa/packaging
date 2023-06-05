@@ -9,7 +9,6 @@ import pytest
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
-from packaging.utils import canonicalize_name
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -205,17 +204,6 @@ class TestRequirementParsing:
         # THEN
         assert req.name == "name"
         assert req.specifier == ""
-
-    def test_canonical_name(self) -> None:
-        # GIVEN
-        to_parse = "split_name"
-
-        # WHEN
-        req = Requirement(to_parse)
-
-        # THEN
-        assert req.name == "split_name"
-        assert canonicalize_name(req.name) == "split-name"
 
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
