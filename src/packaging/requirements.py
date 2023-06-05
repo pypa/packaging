@@ -45,10 +45,6 @@ class Requirement:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
 
-    @property
-    def canonical_name(self) -> str:
-        return canonicalize_name(self.name)
-
     def _to_str(self, name: str) -> str:
         parts: List[str] = [name]
 
@@ -76,14 +72,16 @@ class Requirement:
         return f"<Requirement('{self}')>"
 
     def __hash__(self) -> int:
-        return hash((self.__class__.__name__, self._to_str(self.canonical_name)))
+        return hash(
+            (self.__class__.__name__, self._to_str(canonicalize_name(self.name)))
+        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Requirement):
             return NotImplemented
 
         return (
-            self.canonical_name == other.canonical_name
+            canonicalize_name(self.name) == canonicalize_name(other.name)
             and self.extras == other.extras
             and self.specifier == other.specifier
             and self.url == other.url
