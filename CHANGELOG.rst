@@ -5,6 +5,7 @@ Changelog
 ~~~~~~~~~~~~
 
 * Enforce that the entire marker string is parsed (:issue:`687`)
+* Requirement parsing no longer automatically validates the URL (:issue:`120`)
 
 23.1 - 2023-04-12
 ~~~~~~~~~~~~~~~~~
