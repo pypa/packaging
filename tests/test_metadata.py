@@ -288,15 +288,16 @@ class TestMetadata:
         assert getattr(meta, attribute) == values
 
     @pytest.mark.parametrize(
-        "version", ["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
+        "version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
     )
     def test_valid_metadata_version(self, version):
         meta = metadata.Metadata.from_raw({"metadata_version": version})
 
         assert meta.metadata_version == version
 
-    def test_invalid_metadata_version(self):
-        meta = metadata.Metadata.from_raw({"metadata_version": "1.3"})
+    @pytest.mark.parametrize("version", ["1.3", "2.0"])
+    def test_invalid_metadata_version(self, version):
+        meta = metadata.Metadata.from_raw({"metadata_version": version})
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.metadata_version

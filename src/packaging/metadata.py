@@ -431,8 +431,10 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
 
 _NOT_FOUND = object()
 
-# "2.0" is technically invalid, but people used it while waiting for "2.1".
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"]
+
+# Keep the two values in sync.
+_VALID_METADATA_VERSIONS = frozenset({"1.0", "1.1", "1.2", "2.1", "2.2", "2.3"})
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
 
 
 class _Validator(Generic[T]):
@@ -504,7 +506,7 @@ class _Validator(Generic[T]):
         return value
 
     def _process_metadata_version(self, value: str) -> _MetadataVersion:
-        if value not in {"1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3"}:
+        if value not in _VALID_METADATA_VERSIONS:
             raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
         return cast(_MetadataVersion, value)
 
