@@ -335,7 +335,7 @@ class TestMetadata:
     def test_valid_name(self):
         name = "Hello_World"
         meta = metadata.Metadata.from_raw({"name": name})
-        assert meta.name == utils.canonicalize_name(name)
+        assert meta.name == name
 
     def test_invalid_name(self):
         meta = metadata.Metadata.from_raw({"name": "-not-legal"})

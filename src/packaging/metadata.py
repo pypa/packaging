@@ -489,10 +489,12 @@ class _Validator(Generic[T]):
             self.raw_name, msg.format_map({"field": repr(self.raw_name)})
         )
 
-    def _process_name(self, value: str) -> utils.NormalizedName:
+    def _process_name(self, value: str) -> str:
         if not value:
             raise self._invalid_metadata("{field} is a required field")
-        return utils.canonicalize_name(value, validate=True)
+        # Validate the name as a side-effect.
+        utils.canonicalize_name(value, validate=True)
+        return value
 
     def _process_version(self, value: str) -> version_module.Version:
         if not value:
@@ -586,7 +588,7 @@ class Metadata:
     #      over-arching validate() method?
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
-    name: _Validator[utils.NormalizedName] = _Validator()
+    name: _Validator[str] = _Validator()
     version: _Validator[version_module.Version] = _Validator()
     dynamic: _Validator[List[str]] = _Validator(
         added="2.2",
