@@ -40,7 +40,7 @@ _normalized_regex = re.compile(r"^([a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9])$
 _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
-def canonicalize_name(name: str, validate: bool = False) -> NormalizedName:
+def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     if validate and not _validate_regex.match(name):
         raise InvalidName(f"name is invalid: {name!r}")
     # This is taken from PEP 503.
