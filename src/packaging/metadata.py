@@ -597,7 +597,6 @@ class Metadata:
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
     summary: _Validator[str] = _Validator()
     description: _Validator[str] = _Validator()  # TODO 2.1: can be in body
-    # TODO are the various parts of description_content_type case-insensitive?
     description_content_type: _Validator[str] = _Validator(added="2.1")
     keywords: _Validator[List[str]] = _Validator()
     home_page: _Validator[str] = _Validator()
