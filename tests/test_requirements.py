@@ -78,6 +78,7 @@ DIFFERENT_DEPENDENCIES = [
         ("git+https://git.example.com/MyProject.git@master", ""),
         ("git+https://git.example.com/MyProject.git@v1.0", ""),
         ("git+https://git.example.com/MyProject.git@refs/pull/123/head", ""),
+        ("gopher:/foo/com", ""),
         (None, "==={ws}arbitrarystring"),
         (None, "({ws}==={ws}arbitrarystring{ws})"),
         (None, "=={ws}1.0"),
@@ -164,6 +165,8 @@ class TestRequirementParsing:
         [
             "file:///absolute/path",
             "file://.",
+            "file:.",
+            "file:/.",
         ],
     )
     def test_file_url(self, url: str) -> None:
@@ -502,25 +505,6 @@ class TestRequirementParsing:
             "    name; '3.7' ~ python_version\n"
             "                ^"
         )
-
-    @pytest.mark.parametrize(
-        "url",
-        [
-            "gopher:/foo/com",
-            "file:.",
-            "file:/.",
-        ],
-    )
-    def test_error_on_invalid_url(self, url: str) -> None:
-        # GIVEN
-        to_parse = f"name @ {url}"
-
-        # WHEN
-        with pytest.raises(InvalidRequirement) as ctx:
-            Requirement(to_parse)
-
-        # THEN
-        assert "Invalid URL" in ctx.exconly()
 
     def test_error_on_legacy_version_outside_triple_equals(self) -> None:
         # GIVEN
