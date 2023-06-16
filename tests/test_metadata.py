@@ -346,6 +346,7 @@ class TestMetadata:
         "content_type",
         [
             "text/plain",
+            "TEXT/PLAIN",
             "text/x-rst",
             "text/markdown",
             "text/plain; charset=UTF-8",
@@ -365,7 +366,6 @@ class TestMetadata:
         "content_type",
         [
             "application/json",
-            "TEXT/PLAIN",
             "text/plain; charset=ascii",
             "text/plain; charset=utf-8",
             "text/markdown; variant=gfm",

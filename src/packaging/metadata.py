@@ -513,12 +513,12 @@ class _Validator(Generic[T]):
         message = email.message.EmailMessage()
         message["content-type"] = value
         content_type, parameters = (
-            message.get_content_type(),  # Defaults to `text/plain` if not parseable.
+            message.get_content_type().lower(),  # Defaults to `text/plain` if not parseable.
             message["content-type"].params,
         )
         # Check if content-type is valid or defaulted to `text/plain` and thus was
         # not parseable.
-        if content_type not in content_types or content_type not in value:
+        if content_type not in content_types or content_type not in value.lower():
             raise self._invalid_metadata(
                 f"{{field}} must be one of {list(content_types)}, not {value!r}"
             )
