@@ -155,6 +155,8 @@ flags set.
 :meta hide-value:
 """
 
+_SENTINEL: Any = object()
+
 
 class Version(_BaseVersion):
     """This class abstracts handling of a project's versions.
@@ -210,7 +212,9 @@ class Version(_BaseVersion):
             dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
             local=_parse_local_version(match.group("local")),
         )
+        self._set_key()
 
+    def _set_key(self) -> None:
         # Generate a key which will be used for sorting
         self._key = _cmpkey(
             self._version.epoch,
@@ -220,6 +224,45 @@ class Version(_BaseVersion):
             self._version.dev,
             self._version.local,
         )
+
+    def replace(
+        self,
+        release: Tuple[int, ...] = _SENTINEL,
+        pre: Optional[Tuple[str, int]] = _SENTINEL,
+        post: Optional[int] = _SENTINEL,
+        dev: Optional[int] = _SENTINEL,
+        local: Optional[str] = _SENTINEL,
+    ) -> "Version":
+        """Return a new Version object with the given version parts replaced.
+
+        >>> Version("1.0a1").replace(pre="b2")
+        <Version('1.0b2')>
+        >>> Version("1.0").replace(dev="0")
+        <Version('1.0.dev0')>
+        >>> Version("1.0").replace(local="foo")
+        <Version('1.0+foo')>
+        """
+
+        version = self._version
+        if release is not _SENTINEL:
+            version = version._replace(release=release)
+        if pre is not _SENTINEL:
+            version = version._replace(pre=pre)
+        if post is not _SENTINEL:
+            version = version._replace(
+                post=("post", post) if post is not None else None
+            )
+        if dev is not _SENTINEL:
+            version = version._replace(dev=("dev", dev) if dev is not None else None)
+        if local is not _SENTINEL:
+            version = version._replace(
+                local=_parse_local_version(local) if local is not None else None
+            )
+
+        ret = Version.__new__(Version)
+        ret._version = version
+        ret._set_key()
+        return ret
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
