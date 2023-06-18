@@ -360,10 +360,10 @@ class TestManylinuxPlatform:
     @pytest.mark.parametrize(
         "arch,is_32bit,expected",
         [
-            ("linux-x86_64", False, "linux_x86_64"),
-            ("linux-x86_64", True, "linux_i686"),
-            ("linux-aarch64", False, "linux_aarch64"),
-            ("linux-aarch64", True, "linux_armv8l"),
+            ("linux-x86_64", False, ["linux_x86_64"]),
+            ("linux-x86_64", True, ["linux_i686"]),
+            ("linux-aarch64", False, ["linux_aarch64"]),
+            ("linux-aarch64", True, ["linux_armv8l", "linux_armv7l"]),
         ],
     )
     def test_linux_platforms_32_64bit_on_64bit_os(
@@ -372,7 +372,9 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
         monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)
-        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[-1]
+        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[
+            -len(expected) :
+        ]
         assert linux_platform == expected
 
     def test_linux_platforms_manylinux_unsupported(self, monkeypatch):
@@ -469,7 +471,11 @@ class TestManylinuxPlatform:
             ),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = ["manylinux_2_17_armv7l", "manylinux2014_armv7l", f"linux_{cross_arch}"]
+        archs = {"armv8l": ["armv8l", "armv7l"]}.get(cross_arch, [cross_arch])
+        expected = []
+        for arch in archs:
+            expected.extend([f"manylinux_2_17_{arch}", f"manylinux2014_{arch}"])
+        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(self, monkeypatch):
@@ -555,11 +561,14 @@ class TestManylinuxPlatform:
 
         platforms = list(tags._linux_platforms(is_32bit=cross32))
         target_arch = cross32_arch if cross32 else native_arch
-        target_arch_musl = "armv7l" if target_arch == "armv8l" else target_arch
-        expected = [
-            f"musllinux_{musl_version[0]}_{minor}_{target_arch_musl}"
-            for minor in range(musl_version[1], -1, -1)
-        ] + [f"linux_{target_arch}"]
+        archs = {"armv8l": ["armv8l", "armv7l"]}.get(target_arch, [target_arch])
+        expected = []
+        for arch in archs:
+            expected.extend(
+                f"musllinux_{musl_version[0]}_{minor}_{arch}"
+                for minor in range(musl_version[1], -1, -1)
+            )
+        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
         assert recorder.calls == [pretend.call(fake_executable)]
@@ -597,6 +606,13 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = [f"linux_{alt_machine}"]
         assert platforms == expected
+
+    def test_linux_not_linux(self, monkeypatch):
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "not_linux_x86_64")
+        monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.17", raising=False)
+        platforms = list(tags._linux_platforms(is_32bit=False))
+        assert platforms == ["not_linux_x86_64"]
 
 
 @pytest.mark.parametrize(
