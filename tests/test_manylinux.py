@@ -46,7 +46,7 @@ def manylinux_module(monkeypatch):
 def test_module_declaration(monkeypatch, manylinux_module, attribute, glibc, tf):
     manylinux = f"manylinux{attribute}_compatible"
     monkeypatch.setattr(manylinux_module, manylinux, tf, raising=False)
-    res = _is_compatible(manylinux, "x86_64", glibc)
+    res = _is_compatible("x86_64", glibc)
     assert tf is res
 
 
@@ -58,7 +58,7 @@ def test_module_declaration_missing_attribute(
 ):
     manylinux = f"manylinux{attribute}_compatible"
     monkeypatch.delattr(manylinux_module, manylinux, raising=False)
-    assert _is_compatible(manylinux, "x86_64", glibc)
+    assert _is_compatible("x86_64", glibc)
 
 
 @pytest.mark.parametrize(
@@ -67,7 +67,7 @@ def test_module_declaration_missing_attribute(
 def test_is_manylinux_compatible_glibc_support(version, compatible, monkeypatch):
     monkeypatch.setitem(sys.modules, "_manylinux", None)
     monkeypatch.setattr(_manylinux, "_get_glibc_version", lambda: (2, 5))
-    assert bool(_is_compatible("manylinux1", "any", version)) == compatible
+    assert bool(_is_compatible("any", version)) == compatible
 
 
 @pytest.mark.parametrize("version_str", ["glibc-2.4.5", "2"])
@@ -152,17 +152,17 @@ def test_glibc_version_string_ctypes_raise_oserror(monkeypatch):
 def test_is_manylinux_compatible_old():
     # Assuming no one is running this test with a version of glibc released in
     # 1997.
-    assert _is_compatible("any", "any", (2, 0))
+    assert _is_compatible("any", (2, 0))
 
 
 def test_is_manylinux_compatible(monkeypatch):
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: "2.4")
-    assert _is_compatible("", "any", (2, 4))
+    assert _is_compatible("any", (2, 4))
 
 
 def test_glibc_version_string_none(monkeypatch):
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: None)
-    assert not _is_compatible("any", "any", (2, 4))
+    assert not _is_compatible("any", (2, 4))
 
 
 @pytest.mark.parametrize(
