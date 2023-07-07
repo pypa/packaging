@@ -56,6 +56,13 @@ Usage
     >>> requirements1 == requirements2
     True
 
+.. versionchanged:: 23.2
+
+    When a requirement is specified with a URL, the :class:`Requirement` class
+    used to check the URL and reject values containing invalid scheme and
+    netloc combinations. This is no longer performed since PEP 508 does not
+    specify such rules, and the check incorrectly disallows valid requirement
+    strings from being parsed.
 
 Reference
 ---------

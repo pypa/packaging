@@ -167,7 +167,7 @@ def _get_glibc_version() -> Tuple[int, int]:
 
 
 # From PEP 513, PEP 600
-def _is_compatible(name: str, arch: str, version: _GLibCVersion) -> bool:
+def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
     sys_glibc = _get_glibc_version()
     if sys_glibc < version:
         return False
@@ -231,10 +231,10 @@ def platform_tags(linux: str, arch: str) -> Iterator[str]:
         for glibc_minor in range(glibc_max.minor, min_minor, -1):
             glibc_version = _GLibCVersion(glibc_max.major, glibc_minor)
             tag = "manylinux_{}_{}".format(*glibc_version)
-            if _is_compatible(tag, arch, glibc_version):
+            if _is_compatible(arch, glibc_version):
                 yield linux.replace("linux", tag)
             # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.
             if glibc_version in _LEGACY_MANYLINUX_MAP:
                 legacy_tag = _LEGACY_MANYLINUX_MAP[glibc_version]
-                if _is_compatible(legacy_tag, arch, glibc_version):
+                if _is_compatible(arch, glibc_version):
                     yield linux.replace("linux", legacy_tag)
