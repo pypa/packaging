@@ -26,6 +26,10 @@ EQUAL_DEPENDENCIES = [
     ),
 ]
 
+EQUIVALENT_DEPENDENCIES = [
+    ("scikit-learn==1.0.1", "scikit_learn==1.0.1"),
+]
+
 DIFFERENT_DEPENDENCIES = [
     ("package_one", "package_two"),
     ("packaging>20.1", "packaging>=20.1"),
@@ -632,12 +636,25 @@ class TestRequirementBehaviour:
 
     @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
-        """Requirement objects created from equivalent strings should be equal."""
+        """Requirement objects created from equal strings should be equal."""
         # GIVEN / WHEN
         req1, req2 = Requirement(dep1), Requirement(dep2)
 
         assert req1 == req2
         assert hash(req1) == hash(req2)
+
+    @pytest.mark.parametrize("dep1, dep2", EQUIVALENT_DEPENDENCIES)
+    def test_equivalent_reqs_equal_hashes_unequal_strings(
+        self, dep1: str, dep2: str
+    ) -> None:
+        """Requirement objects created from equivalent strings should be equal,
+        even though their string representation will not."""
+        # GIVEN / WHEN
+        req1, req2 = Requirement(dep1), Requirement(dep2)
+
+        assert req1 == req2
+        assert hash(req1) == hash(req2)
+        assert str(req1) != str(req2)
 
     @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
     def test_different_reqs_different_hashes(self, dep1: str, dep2: str) -> None:
