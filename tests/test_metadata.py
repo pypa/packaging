@@ -245,10 +245,19 @@ class TestRawMetadata:
         assert raw["description"] == "This description intentionally left blank.\n"
 
 
+_RAW_EXAMPLE = {
+    "metadata_version": "2.3",
+    "name": "packaging",
+    "version": "2023.0.0",
+}
+
+
 class TestMetadata:
     def test_from_email(self):
         metadata_version = "2.3"
-        meta = metadata.Metadata.from_email(f"Metadata-Version: {metadata_version}")
+        meta = metadata.Metadata.from_email(
+            f"Metadata-Version: {metadata_version}", validate=False
+        )
 
         assert meta.metadata_version == metadata_version
 
@@ -258,6 +267,34 @@ class TestMetadata:
 
             assert len(exc_info.exceptions) == 1
             assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
+
+    def test_required_fields(self):
+        meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
+
+        assert meta.metadata_version == _RAW_EXAMPLE["metadata_version"]
+
+    @pytest.mark.parametrize("field", list(_RAW_EXAMPLE.keys()))
+    def test_required_fields_missing(self, field):
+        required_fields = _RAW_EXAMPLE.copy()
+
+        del required_fields[field]
+
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_raw(required_fields)
+
+    def test_raw_data_not_mutated(self):
+        raw = _RAW_EXAMPLE.copy()
+        meta = metadata.Metadata.from_raw(raw, validate=True)
+
+        assert meta.version == version.Version(_RAW_EXAMPLE["version"])
+        assert raw == _RAW_EXAMPLE
+
+    def test_validate(self):
+        required_fields = _RAW_EXAMPLE.copy()
+        required_fields["version"] = "-----"
+
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_raw(required_fields)
 
     @pytest.mark.parametrize(
         "attribute",
@@ -274,7 +311,7 @@ class TestMetadata:
     )
     def test_single_value_unvalidated_attribute(self, attribute):
         value = "Not important"
-        meta = metadata.Metadata.from_raw({attribute: value})
+        meta = metadata.Metadata.from_raw({attribute: value}, validate=False)
 
         assert getattr(meta, attribute) == value
 
@@ -290,48 +327,50 @@ class TestMetadata:
     )
     def test_multi_value_unvalidated_attribute(self, attribute):
         values = ["Not important", "Still not important"]
-        meta = metadata.Metadata.from_raw({attribute: values})
+        meta = metadata.Metadata.from_raw({attribute: values}, validate=False)
 
         assert getattr(meta, attribute) == values
 
     @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
     def test_valid_metadata_version(self, version):
-        meta = metadata.Metadata.from_raw({"metadata_version": version})
+        meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
         assert meta.metadata_version == version
 
     @pytest.mark.parametrize("version", ["1.3", "2.0"])
     def test_invalid_metadata_version(self, version):
-        meta = metadata.Metadata.from_raw({"metadata_version": version})
+        meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.metadata_version
 
     def test_valid_version(self):
         version_str = "1.2.3"
-        meta = metadata.Metadata.from_raw({"version": version_str})
+        meta = metadata.Metadata.from_raw({"version": version_str}, validate=False)
         assert meta.version == version.parse(version_str)
 
     def test_missing_version(self):
-        meta = metadata.Metadata.from_raw({})
+        meta = metadata.Metadata.from_raw({}, validate=False)
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
             meta.version
         assert exc_info.value.field == "version"
 
     def test_invalid_version(self):
-        meta = metadata.Metadata.from_raw({"version": "a.b.c"})
+        meta = metadata.Metadata.from_raw({"version": "a.b.c"}, validate=False)
 
         with pytest.raises(version.InvalidVersion):
             meta.version
 
     def test_valid_summary(self):
         summary = "Hello"
-        meta = metadata.Metadata.from_raw({"summary": summary})
+        meta = metadata.Metadata.from_raw({"summary": summary}, validate=False)
 
         assert meta.summary == summary
 
     def test_invalid_summary(self):
-        meta = metadata.Metadata.from_raw({"summary": "Hello\n    Again"})
+        meta = metadata.Metadata.from_raw(
+            {"summary": "Hello\n    Again"}, validate=False
+        )
 
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
             meta.summary
@@ -339,11 +378,11 @@ class TestMetadata:
 
     def test_valid_name(self):
         name = "Hello_World"
-        meta = metadata.Metadata.from_raw({"name": name})
+        meta = metadata.Metadata.from_raw({"name": name}, validate=False)
         assert meta.name == name
 
     def test_invalid_name(self):
-        meta = metadata.Metadata.from_raw({"name": "-not-legal"})
+        meta = metadata.Metadata.from_raw({"name": "-not-legal"}, validate=False)
 
         with pytest.raises(utils.InvalidName):
             meta.name
@@ -364,7 +403,9 @@ class TestMetadata:
         ],
     )
     def test_valid_description_content_type(self, content_type):
-        meta = metadata.Metadata.from_raw({"description_content_type": content_type})
+        meta = metadata.Metadata.from_raw(
+            {"description_content_type": content_type}, validate=False
+        )
 
         assert meta.description_content_type == content_type
 
@@ -379,14 +420,16 @@ class TestMetadata:
         ],
     )
     def test_invalid_description_content_type(self, content_type):
-        meta = metadata.Metadata.from_raw({"description_content_type": content_type})
+        meta = metadata.Metadata.from_raw(
+            {"description_content_type": content_type}, validate=False
+        )
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.description_content_type
 
     def test_keywords(self):
         keywords = ["hello", "world"]
-        meta = metadata.Metadata.from_raw({"keywords": keywords})
+        meta = metadata.Metadata.from_raw({"keywords": keywords}, validate=False)
 
         assert meta.keywords == keywords
 
@@ -395,19 +438,23 @@ class TestMetadata:
             "Documentation": "https://example.com/BeagleVote",
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
         }
-        meta = metadata.Metadata.from_raw({"project_urls": urls})
+        meta = metadata.Metadata.from_raw({"project_urls": urls}, validate=False)
 
         assert meta.project_urls == urls
 
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
     def test_valid_requires_python(self, specifier):
         expected = specifiers.SpecifierSet(specifier)
-        meta = metadata.Metadata.from_raw({"requires_python": specifier})
+        meta = metadata.Metadata.from_raw(
+            {"requires_python": specifier}, validate=False
+        )
 
         assert meta.requires_python == expected
 
     def test_invalid_requires_python(self):
-        meta = metadata.Metadata.from_raw({"requires_python": "NotReal"})
+        meta = metadata.Metadata.from_raw(
+            {"requires_python": "NotReal"}, validate=False
+        )
         with pytest.raises(specifiers.InvalidSpecifier):
             meta.requires_python
 
@@ -418,19 +465,21 @@ class TestMetadata:
             'make; sys_platform != "win32"',
             "libjpeg (>6b)",
         ]
-        meta = metadata.Metadata.from_raw({"requires_external": externals})
+        meta = metadata.Metadata.from_raw(
+            {"requires_external": externals}, validate=False
+        )
 
         assert meta.requires_external == externals
 
     def test_valid_provides_extra(self):
         extras = ["dev", "test"]
-        meta = metadata.Metadata.from_raw({"provides_extra": extras})
+        meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
 
         assert meta.provides_extra == extras
 
     def test_invalid_provides_extra(self):
         extras = ["pdf", "-Not-Valid", "ok"]
-        meta = metadata.Metadata.from_raw({"provides_extra": extras})
+        meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
 
         with pytest.raises(utils.InvalidName):
             meta.provides_extra
@@ -443,33 +492,33 @@ class TestMetadata:
             "pywin32 >1.0; sys_platform == 'win32'",
         ]
         expected_requires = list(map(requirements.Requirement, requires))
-        meta = metadata.Metadata.from_raw({"requires_dist": requires})
+        meta = metadata.Metadata.from_raw({"requires_dist": requires}, validate=False)
 
         assert meta.requires_dist == expected_requires
 
     def test_invalid_requires_dist(self):
         requires = ["pkginfo", "-not-real", "zope.interface (>3.5.0)"]
-        meta = metadata.Metadata.from_raw({"requires_dist": requires})
+        meta = metadata.Metadata.from_raw({"requires_dist": requires}, validate=False)
 
         with pytest.raises(requirements.InvalidRequirement):
             meta.requires_dist
 
     def test_valid_dynamic(self):
         dynamic = ["Keywords", "Home-Page", "Author"]
-        meta = metadata.Metadata.from_raw({"dynamic": dynamic})
+        meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
         assert meta.dynamic == [d.lower() for d in dynamic]
 
     def test_invalid_dynamic(self):
         dynamic = ["Keywords", "NotReal", "Author"]
-        meta = metadata.Metadata.from_raw({"dynamic": dynamic})
+        meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic
 
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
     def test_disallowed_dynamic(self, field_name):
-        meta = metadata.Metadata.from_raw({"dynamic": field_name})
+        meta = metadata.Metadata.from_raw({"dynamic": field_name}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic

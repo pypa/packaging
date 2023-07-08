@@ -435,6 +435,8 @@ _NOT_FOUND = object()
 _VALID_METADATA_VERSIONS = frozenset({"1.0", "1.1", "1.2", "2.1", "2.2", "2.3"})
 _MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
 
+_REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
+
 
 class _Validator(Generic[T]):
     name: str
@@ -489,6 +491,12 @@ class _Validator(Generic[T]):
             self.raw_name, msg.format_map({"field": repr(self.raw_name)})
         )
 
+    def _process_metadata_version(self, value: str) -> _MetadataVersion:
+        # Implicitly makes Metadata-Version required.
+        if value not in _VALID_METADATA_VERSIONS:
+            raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
+        return cast(_MetadataVersion, value)
+
     def _process_name(self, value: str) -> str:
         if not value:
             raise self._invalid_metadata("{field} is a required field")
@@ -506,11 +514,6 @@ class _Validator(Generic[T]):
         if "\n" in value:
             raise self._invalid_metadata("{field} must be a single line")
         return value
-
-    def _process_metadata_version(self, value: str) -> _MetadataVersion:
-        if value not in _VALID_METADATA_VERSIONS:
-            raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
-        return cast(_MetadataVersion, value)
 
     def _process_description_content_type(self, value: str) -> str:
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
@@ -573,7 +576,19 @@ class Metadata:
     @classmethod
     def from_raw(cls, data: RawMetadata, *, validate=True) -> "Metadata":
         ins = cls()
-        ins._raw = data
+        ins._raw = data.copy()  # Mutated as part of caching enriched values.
+
+        if validate:
+            exceptions = []
+            for key in frozenset(ins._raw) | _REQUIRED_ATTRS:
+                try:
+                    getattr(ins, key)
+                except Exception as exc:
+                    exceptions.append(exc)
+
+            if exceptions:
+                raise ExceptionGroup("invalid metadata", exceptions)
+
         return ins
 
     @classmethod
@@ -597,7 +612,7 @@ class Metadata:
             return cls.from_raw(raw, validate=validate)
         except ExceptionGroup as exc_group:
             exceptions.extend(exc_group.exceptions)
-            raise ExceptionGroup("metadata", exceptions) from None
+            raise ExceptionGroup("invalid or unparsed metadata", exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     name: _Validator[str] = _Validator()
