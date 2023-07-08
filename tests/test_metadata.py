@@ -252,6 +252,13 @@ class TestMetadata:
 
         assert meta.metadata_version == metadata_version
 
+    def test_from_email_unparsed(self):
+        with pytest.raises(ExceptionGroup) as exc_info:
+            meta = metadata.Metadata.from_email("Hello: PyPA")
+
+            assert len(exc_info.exceptions) == 1
+            assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
+
     @pytest.mark.parametrize(
         "attribute",
         [
@@ -287,9 +294,7 @@ class TestMetadata:
 
         assert getattr(meta, attribute) == values
 
-    @pytest.mark.parametrize(
-        "version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
-    )
+    @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
     def test_valid_metadata_version(self, version):
         meta = metadata.Metadata.from_raw({"metadata_version": version})
 

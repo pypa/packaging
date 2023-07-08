@@ -10,8 +10,7 @@ from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, c
 from . import requirements, specifiers, utils, version as version_module
 
 T = typing.TypeVar("T")
-
-if sys.version_info >= (3, 8):  # pragma: no cover
+if sys.version_info[:2] >= (3, 8):  # pragma: no cover
     from typing import Literal, TypedDict
 else:  # pragma: no cover
     if typing.TYPE_CHECKING:
@@ -454,6 +453,7 @@ class _Validator(Generic[T]):
         self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
 
     def __get__(self, instance: "Metadata", _owner: type["Metadata"]) -> T:
+        # TODO: validate the field is valid for the version of the metadata.
         # With Python 3.8, the caching can be replaced with functools.cached_property().
         cache = instance.__dict__
         value = cache.get(self.name, _NOT_FOUND)
@@ -571,21 +571,33 @@ class Metadata:
     _raw: RawMetadata
 
     @classmethod
-    def from_raw(cls, data: RawMetadata) -> "Metadata":
+    def from_raw(cls, data: RawMetadata, *, validate=True) -> "Metadata":
         ins = cls()
         ins._raw = data
         return ins
 
     @classmethod
-    def from_email(cls, data: Union[bytes, str]) -> "Metadata":
+    def from_email(cls, data: Union[bytes, str], *, validate=True) -> "Metadata":
         """Parse metadata from an email message."""
+        exceptions = []
         raw, unparsed = parse_email(data)
-        return cls.from_raw(raw)
-        # TODO Check `unparsed` for valid keys?
 
-    # TODO Check that fields are specified in a valid metadata version?
-    #      Should that be done per-field, or should it be done in a more
-    #      over-arching validate() method?
+        if validate:
+            for unparsed_key in unparsed:
+                if unparsed_key in _EMAIL_TO_RAW_MAPPING:
+                    message = f"{unparsed_key!r} has invalid data"
+                else:
+                    message = f"unrecognized field: {unparsed_key!r}"
+                exceptions.append(InvalidMetadata(unparsed_key, message))
+
+            if exceptions:
+                raise ExceptionGroup("unparsed", exceptions)
+
+        try:
+            return cls.from_raw(raw, validate=validate)
+        except ExceptionGroup as exc_group:
+            exceptions.extend(exc_group.exceptions)
+            raise ExceptionGroup("metadata", exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     name: _Validator[str] = _Validator()
