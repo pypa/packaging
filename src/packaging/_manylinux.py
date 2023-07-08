@@ -55,8 +55,8 @@ def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
         return _is_linux_armhf(executable)
     if "i686" in archs:
         return _is_linux_i686(executable)
-    other_archs = {"x86_64", "aarch64", "ppc64", "ppc64le", "s390x", "loongarch64"}
-    return len(set(archs) & other_archs) > 0
+    allowed_archs = {"x86_64", "aarch64", "ppc64", "ppc64le", "s390x", "loongarch64"}
+    return any(arch in allowed_archs for arch in archs)
 
 
 # If glibc ever changes its major version, we need to know what the last
