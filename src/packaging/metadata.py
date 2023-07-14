@@ -478,35 +478,35 @@ class _Validator(Generic[T]):
         self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
 
     def __get__(self, instance: "Metadata", _owner: Type["Metadata"]) -> T:
-        # TODO: validate the field is valid for the version of the metadata.
         # With Python 3.8, the caching can be replaced with functools.cached_property().
+        # No need to check the cache as attribute lookup will resolve into the
+        # instance's __dict__ before __get__ is called.
         cache = instance.__dict__
-        value = cache.get(self.name, _NOT_FOUND)
-        if value is _NOT_FOUND:
-            try:
-                value = instance._raw[self.name]  # type: ignore[literal-required]
-            except KeyError:
-                if self.name in _STRING_FIELDS:
-                    value = ""
-                elif self.name in _LIST_FIELDS:
-                    value = []
-                elif self.name in _DICT_FIELDS:
-                    value = {}
-                else:
-                    raise InvalidMetadata(
-                        self.raw_name, f"unrecognized field: {self.raw_name!r}"
-                    )
-            try:
-                converter: Callable[[Any], T] = getattr(self, f"_process_{self.name}")
-            except AttributeError:
-                pass
-            else:
-                value = converter(value)
-            cache[self.name] = value
-            try:
-                del instance._raw[self.name]  # type: ignore[misc]
-            except KeyError:
-                pass
+        try:
+            value = instance._raw[self.name]  # type: ignore[literal-required]
+        except KeyError:
+            if self.name in _STRING_FIELDS:
+                value = ""
+            elif self.name in _LIST_FIELDS:
+                value = []
+            elif self.name in _DICT_FIELDS:
+                value = {}
+            else:  # pragma: no cover
+                assert False
+
+        try:
+            converter: Callable[[Any], T] = getattr(self, f"_process_{self.name}")
+        except AttributeError:
+            pass
+        else:
+            value = converter(value)
+
+        cache[self.name] = value
+        try:
+            del instance._raw[self.name]  # type: ignore[misc]
+        except KeyError:
+            pass
+
         return cast(T, value)
 
     def _invalid_metadata(self, msg: str) -> InvalidMetadata:

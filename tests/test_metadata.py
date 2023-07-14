@@ -269,6 +269,17 @@ class TestMetadata:
             assert len(exc_info.exceptions) == 1
             assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
 
+    def test_from_email_validate(self):
+        with pytest.raises(ExceptionGroup):
+            # Lacking all required fields.
+            metadata.Metadata.from_email("Name: packaging", validate=True)
+
+    def test_from_email_unparsed_valid_field_name(self):
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_email(
+                "Project-URL: A, B\nProject-URL: A, C", validate=True
+            )
+
     def test_required_fields(self):
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
 
@@ -305,7 +316,12 @@ class TestMetadata:
         assert meta.version == version.Version(_RAW_EXAMPLE["version"])
         assert raw == _RAW_EXAMPLE
 
-    def test_validate(self):
+    def test_caching(self):
+        meta = metadata.Metadata.from_raw(_RAW_EXAMPLE, validate=True)
+
+        assert meta.version is meta.version
+
+    def test_rom_raw_validate(self):
         required_fields = _RAW_EXAMPLE.copy()
         required_fields["version"] = "-----"
 
@@ -315,7 +331,7 @@ class TestMetadata:
             metadata.Metadata.from_raw(required_fields)
 
     @pytest.mark.parametrize("meta_version", ["2.2", "2.3"])
-    def test_metadata_version_field_introduction_mismatch(self, meta_version):
+    def test_metadata_version_field_introduction(self, meta_version):
         raw = {
             "metadata_version": meta_version,
             "name": "packaging",
@@ -324,6 +340,24 @@ class TestMetadata:
         }
 
         assert metadata.Metadata.from_raw(raw, validate=True)
+
+    @pytest.mark.parametrize("meta_version", ["1.0", "1.1", "1.2", "2.1"])
+    def test_metadata_version_field_introduction_mismatch(self, meta_version):
+        raw = {
+            "metadata_version": meta_version,
+            "name": "packaging",
+            "version": "2023.0.0",
+            "dynamic": ["Obsoletes-Dist"],  # Introduced in 2.2.
+        }
+
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_raw(raw, validate=True)
+
+    @pytest.mark.parametrize("field", metadata._DICT_FIELDS)
+    def test_dict_default(self, field):
+        empty_meta = metadata.Metadata.from_raw({}, validate=False)
+
+        assert getattr(empty_meta, field) == {}
 
     @pytest.mark.parametrize(
         "attribute",
@@ -344,6 +378,10 @@ class TestMetadata:
 
         assert getattr(meta, attribute) == value
 
+        empty_meta = metadata.Metadata.from_raw({}, validate=False)
+
+        assert getattr(empty_meta, attribute) == ""
+
     @pytest.mark.parametrize(
         "attribute",
         [
@@ -359,6 +397,14 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({attribute: values}, validate=False)
 
         assert getattr(meta, attribute) == values
+
+        empty_meta = metadata.Metadata.from_raw({}, validate=False)
+        assert getattr(empty_meta, attribute) == []
+
+    def test_mapping_default_attribute(self):
+        empty_meta = metadata.Metadata.from_raw({}, validate=False)
+
+        assert empty_meta.project_urls == {}
 
     @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
     def test_valid_metadata_version(self, version):
@@ -462,7 +508,7 @@ class TestMetadata:
 
         assert meta.keywords == keywords
 
-    def test_project_urls(self):
+    def test_valid_project_urls(self):
         urls = {
             "Documentation": "https://example.com/BeagleVote",
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
@@ -538,7 +584,7 @@ class TestMetadata:
 
         assert meta.dynamic == [d.lower() for d in dynamic]
 
-    def test_invalid_dynamic(self):
+    def test_invalid_dynamic_value(self):
         dynamic = ["Keywords", "NotReal", "Author"]
         meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
@@ -547,7 +593,7 @@ class TestMetadata:
 
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
     def test_disallowed_dynamic(self, field_name):
-        meta = metadata.Metadata.from_raw({"dynamic": field_name}, validate=False)
+        meta = metadata.Metadata.from_raw({"dynamic": [field_name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic
