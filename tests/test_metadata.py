@@ -3,11 +3,12 @@ import pathlib
 import pytest
 
 from packaging import metadata, requirements, specifiers, utils, version
+from packaging.metadata import ExceptionGroup
 
 
 class TestRawMetadata:
     @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
-    def test_non_repeating_fields_only_once(self, raw_field: set[str]):
+    def test_non_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
@@ -18,7 +19,7 @@ class TestRawMetadata:
         assert raw[raw_field] == data
 
     @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
-    def test_non_repeating_fields_repeated(self, raw_field: set[str]):
+    def test_non_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"
@@ -30,7 +31,7 @@ class TestRawMetadata:
         assert unparsed[header_field] == [data] * 2
 
     @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
-    def test_repeating_fields_only_once(self, raw_field: set[str]):
+    def test_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
@@ -41,7 +42,7 @@ class TestRawMetadata:
         assert raw[raw_field] == [data]
 
     @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
-    def test_repeating_fields_repeated(self, raw_field: set[str]):
+    def test_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"

@@ -5,7 +5,18 @@ import email.parser
 import email.policy
 import sys
 import typing
-from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 from . import requirements, specifiers, utils, version as version_module
 
@@ -27,6 +38,18 @@ else:  # pragma: no cover
             class TypedDict:
                 def __init_subclass__(*_args, **_kwargs):
                     pass
+
+
+try:
+    ExceptionGroup = __builtins__.ExceptionGroup
+except AttributeError:
+
+    class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
+        """Minimal implementation of ExceptionGroup from Python 3.11."""
+
+        def __init__(self, message: str, exceptions: List[Exception], /) -> None:
+            self.message = message
+            self.exceptions = exceptions
 
 
 class InvalidMetadata(ValueError):
@@ -454,7 +477,7 @@ class _Validator(Generic[T]):
         self.name = name
         self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
 
-    def __get__(self, instance: "Metadata", _owner: type["Metadata"]) -> T:
+    def __get__(self, instance: "Metadata", _owner: Type["Metadata"]) -> T:
         # TODO: validate the field is valid for the version of the metadata.
         # With Python 3.8, the caching can be replaced with functools.cached_property().
         cache = instance.__dict__
