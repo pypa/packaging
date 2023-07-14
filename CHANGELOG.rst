@@ -4,7 +4,20 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Enforce that the entire marker string is parsed (:issue:`687`)
+* Requirement parsing no longer automatically validates the URL (:issue:`120`)
+* Canonicalize names for requirements comparison (:issue:`644`)
+
+23.1 - 2023-04-12
+~~~~~~~~~~~~~~~~~
+
+* Parse raw metadata (:issue:`671`)
+* Import underlying parser functions as an underscored variable (:issue:`663`)
+* Improve error for local version label with unsupported operators (:issue:`675`)
+* Add dedicated error for specifiers with incorrect `.*` suffix
+* Replace spaces in platform names with underscores (:issue:`620`)
+* Relax typing of ``_key`` on ``_BaseVersion`` (:issue:`669`)
+* Handle prefix match with zeros at end of prefix correctly (:issue:`674`)
 
 23.0 - 2023-01-08
 ~~~~~~~~~~~~~~~~~

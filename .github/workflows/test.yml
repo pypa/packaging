@@ -23,7 +23,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.7", "3.8", "3.9", "3.10", "3.11", "pypy3.8", "pypy3.9"]
+          ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "pypy3.8", "pypy3.9", "pypy3.10"]
 
     steps:
       - uses: actions/checkout@v3
@@ -33,11 +33,7 @@ jobs:
         with:
           python-version: ${{ matrix.python_version }}
           cache: "pip"
+          allow-prereleases: true
 
       - name: Run nox
-        run: |
-          # Need to remove "-dev" suffix
-          INTERPRETER=${{ matrix.python_version }}
-          INTERPRETER=${INTERPRETER/-dev/}
-          pipx run nox --error-on-missing-interpreters -s tests-${INTERPRETER}
-        shell: bash
+        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
