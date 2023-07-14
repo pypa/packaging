@@ -519,8 +519,10 @@ class _Validator(Generic[T]):
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
         message = email.message.EmailMessage()
         message["content-type"] = value
+
         content_type, parameters = (
-            message.get_content_type().lower(),  # Defaults to `text/plain` if not parseable.
+            # Defaults to `text/plain` if parsing failed.
+            message.get_content_type().lower(),
             message["content-type"].params,
         )
         # Check if content-type is valid or defaulted to `text/plain` and thus was
@@ -574,7 +576,7 @@ class Metadata:
     _raw: RawMetadata
 
     @classmethod
-    def from_raw(cls, data: RawMetadata, *, validate=True) -> "Metadata":
+    def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> "Metadata":
         ins = cls()
         ins._raw = data.copy()  # Mutated as part of caching enriched values.
 
@@ -592,9 +594,11 @@ class Metadata:
         return ins
 
     @classmethod
-    def from_email(cls, data: Union[bytes, str], *, validate=True) -> "Metadata":
+    def from_email(
+        cls, data: Union[bytes, str], *, validate: bool = True
+    ) -> "Metadata":
         """Parse metadata from an email message."""
-        exceptions = []
+        exceptions: list[Exception] = []
         raw, unparsed = parse_email(data)
 
         if validate:
