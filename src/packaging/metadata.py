@@ -585,8 +585,8 @@ class Metadata:
             try:
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
-            except Exception as exc:
-                exceptions.append(exc)
+            except Exception as metadata_version_exc:
+                exceptions.append(metadata_version_exc)
                 metadata_version = None
 
             for key in frozenset(ins._raw) | _REQUIRED_ATTRS:
