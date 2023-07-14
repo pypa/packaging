@@ -263,7 +263,7 @@ class TestMetadata:
 
     def test_from_email_unparsed(self):
         with pytest.raises(ExceptionGroup) as exc_info:
-            meta = metadata.Metadata.from_email("Hello: PyPA")
+            metadata.Metadata.from_email("Hello: PyPA")
 
             assert len(exc_info.exceptions) == 1
             assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
@@ -282,6 +282,21 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_raw(required_fields)
 
+    def test_raw_validate_unrecognized_field(self):
+        raw = {
+            "metadata_version": "2.3",
+            "name": "packaging",
+            "version": "2023.0.0",
+        }
+
+        # Safety check.
+        assert metadata.Metadata.from_raw(raw, validate=True)
+
+        raw["dynamc"] = ["Obsoletes-Dist"]  # Misspelled; missing an "i".
+
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_raw(raw, validate=True)
+
     def test_raw_data_not_mutated(self):
         raw = _RAW_EXAMPLE.copy()
         meta = metadata.Metadata.from_raw(raw, validate=True)
@@ -294,7 +309,20 @@ class TestMetadata:
         required_fields["version"] = "-----"
 
         with pytest.raises(ExceptionGroup):
+            # Multiple things to trigger a validation error:
+            # invalid version, missing keys, etc.
             metadata.Metadata.from_raw(required_fields)
+
+    @pytest.mark.parametrize("meta_version", ["2.2", "2.3"])
+    def test_metadata_version_field_introduction_mismatch(self, meta_version):
+        raw = {
+            "metadata_version": meta_version,
+            "name": "packaging",
+            "version": "2023.0.0",
+            "dynamic": ["Obsoletes-Dist"],  # Introduced in 2.2.
+        }
+
+        assert metadata.Metadata.from_raw(raw, validate=True)
 
     @pytest.mark.parametrize(
         "attribute",

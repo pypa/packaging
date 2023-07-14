@@ -432,7 +432,7 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = frozenset({"1.0", "1.1", "1.2", "2.1", "2.2", "2.3"})
+_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
 _MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
@@ -582,8 +582,36 @@ class Metadata:
 
         if validate:
             exceptions = []
+            try:
+                metadata_version = ins.metadata_version
+                metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
+            except Exception as exc:
+                exceptions.append(exc)
+                metadata_version = None
+
             for key in frozenset(ins._raw) | _REQUIRED_ATTRS:
                 try:
+                    if metadata_version:
+                        # Can't use getattr() as that triggers descriptor protocol which
+                        # will fail due to no value for the instance argument.
+                        try:
+                            field_metadata_version = cls.__dict__[key].added
+                        except KeyError:
+                            exc = InvalidMetadata(key, f"unrecognized field: {key!r}")
+                            exceptions.append(exc)
+                            continue
+                        field_age = _VALID_METADATA_VERSIONS.index(
+                            field_metadata_version
+                        )
+                        if field_age > metadata_age:
+                            field = _RAW_TO_EMAIL_MAPPING[key]
+                            exc = InvalidMetadata(
+                                field,
+                                "{field} introduced in metadata version "
+                                "{field_metadata_version}, not {metadata_version}",
+                            )
+                            exceptions.append(exc)
+                            continue
                     getattr(ins, key)
                 except Exception as exc:
                     exceptions.append(exc)
