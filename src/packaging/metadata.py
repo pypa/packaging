@@ -578,7 +578,7 @@ class Metadata:
     @classmethod
     def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> "Metadata":
         ins = cls()
-        ins._raw = data.copy()  # Mutated as part of caching enriched values.
+        ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
         if validate:
             exceptions = []
