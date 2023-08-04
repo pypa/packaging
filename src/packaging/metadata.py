@@ -47,7 +47,7 @@ except AttributeError:
     class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
         """Minimal implementation of ExceptionGroup from Python 3.11."""
 
-        def __init__(self, message: str, exceptions: List[Exception], /) -> None:
+        def __init__(self, message: str, exceptions: List[Exception]) -> None:
             self.message = message
             self.exceptions = exceptions
 
