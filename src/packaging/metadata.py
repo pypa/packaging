@@ -41,7 +41,7 @@ else:  # pragma: no cover
 
 
 try:
-    ExceptionGroup = __builtins__.ExceptionGroup
+    ExceptionGroup = __builtins__.ExceptionGroup  # type: ignore[attr-defined]
 except AttributeError:
 
     class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
@@ -310,7 +310,7 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         # We use get_all() here, even for fields that aren't multiple use,
         # because otherwise someone could have e.g. two Name fields, and we
         # would just silently ignore it rather than doing something about it.
-        headers = parsed.get_all(name)
+        headers = parsed.get_all(name) or []
 
         # The way the email module works when parsing bytes is that it
         # unconditionally decodes the bytes as ascii using the surrogateescape
