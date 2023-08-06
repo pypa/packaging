@@ -45,7 +45,14 @@ try:
 except AttributeError:
 
     class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
-        """Minimal implementation of ExceptionGroup from Python 3.11."""
+        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
+
+        If :external:exc:`ExceptionGroup` is already defined by Python itself,
+        that version is used instead.
+        """
+
+        message: str
+        exceptions: List[Exception]
 
         def __init__(self, message: str, exceptions: List[Exception]) -> None:
             self.message = message
@@ -54,6 +61,9 @@ except AttributeError:
 
 class InvalidMetadata(ValueError):
     """A metadata field contains invalid data."""
+
+    field: str
+    """The name of the field that contains invalid data."""
 
     def __init__(self, field: str, message: str) -> None:
         self.field = field
@@ -71,7 +81,8 @@ class RawMetadata(TypedDict, total=False):
     provided). The key is lower-case and underscores are used instead of dashes
     compared to the equivalent core metadata field. Any core metadata field that
     can be specified multiple times or can hold multiple values in a single
-    field have a key with a plural name.
+    field have a key with a plural name. See :class:`Metadata` whose attributes
+    match the keys of this dictionary.
 
     Core metadata fields that can be specified multiple times are stored as a
     list or dict depending on which is appropriate for the field. Any fields
@@ -276,7 +287,7 @@ _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.item
 
 
 def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[str]]]:
-    """Parse a distribution's metadata.
+    """Parse a distribution's metadata stored as email headers (e.g. from ``METADATA``).
 
     This function returns a two-item tuple of dicts. The first dict is of
     recognized fields from the core metadata specification. Fields that can be
@@ -596,10 +607,21 @@ class _Validator(Generic[T]):
 
 
 class Metadata:
+    """Representation of distribution metadata.
+
+    Compared to :class:`RawMetadata`, this class provides objects representing
+    metadata fields instead of only using built-in types.
+    """
+
     _raw: RawMetadata
 
     @classmethod
     def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> "Metadata":
+        """Create an instance from :class:`RawMetadata`.
+
+        If *validate* is true, all metadata will be validated. All exceptions
+        related to validation will be gathered and raised as an :class:`ExceptionGroup`.
+        """
         ins = cls()
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
@@ -648,7 +670,11 @@ class Metadata:
     def from_email(
         cls, data: Union[bytes, str], *, validate: bool = True
     ) -> "Metadata":
-        """Parse metadata from an email message."""
+        """Parse metadata from email headers.
+
+        If *validate* is true, the metadata will be validated. All exceptions
+        related to validation will be gathered and raised as an :class:`ExceptionGroup`.
+        """
         exceptions: list[Exception] = []
         raw, unparsed = parse_email(data)
 
@@ -670,35 +696,64 @@ class Metadata:
             raise ExceptionGroup("invalid or unparsed metadata", exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
+    """``Core-Metadata``
+    (required; validated to be a valid metadata version)"""
     name: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-name`
+    (required; validated using :func:`~packaging.utils.canonicalize_name` and its
+    *validate* parameter)"""
     version: _Validator[version_module.Version] = _Validator()
+    """:external:ref:`core-metadata-version` (required)"""
     dynamic: _Validator[List[str]] = _Validator(
         added="2.2",
     )
-    platforms: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-dynamic`
+    (validated against core metadata field names and lowercased)"""
+    platforms: _Validator[List[str]] = _Validator()
+    """``Platform``"""
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
+    """``Supported-Platform``"""
     summary: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-summary` (validated to contain no newlines)"""
     description: _Validator[str] = _Validator()  # TODO 2.1: can be in body
+    """:external:ref:`core-metadata-description`"""
     description_content_type: _Validator[str] = _Validator(added="2.1")
+    """:external:ref:`core-metadata-description-content-type` (validated)"""
     keywords: _Validator[List[str]] = _Validator()
+    """:external:ref:`core-metadata-keywords`"""
     home_page: _Validator[str] = _Validator()
+    """``Home-Page``"""
     download_url: _Validator[str] = _Validator(added="1.1")
+    """``Download-URL``"""
     author: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-author`"""
     author_email: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-author-email`"""
     maintainer: _Validator[str] = _Validator(added="1.2")
+    """:external:ref:`core-metadata-maintainer`"""
     maintainer_email: _Validator[str] = _Validator(added="1.2")
+    """:external:ref:`core-metadata-maintainer-email`"""
     license: _Validator[str] = _Validator()
+    """:external:ref:`core-metadata-license`"""
     classifiers: _Validator[List[str]] = _Validator(added="1.1")
+    """:external:ref:`core-metadata-classifier`"""
     requires_dist: _Validator[List[requirements.Requirement]] = _Validator(added="1.2")
+    """:external:ref:`core-metadata-requires-dist`"""
     requires_python: _Validator[specifiers.SpecifierSet] = _Validator(added="1.2")
+    """:external:ref:`core-metadata-requires-python`"""
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
     requires_external: _Validator[List[str]] = _Validator(added="1.2")
+    """``Requires-External``"""
     project_urls: _Validator[Dict[str, str]] = _Validator(added="1.2")
+    """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
     provides_extra: _Validator[List[utils.NormalizedName]] = _Validator(
         added="2.1",
     )
+    """:external:ref:`core-metadata-provides-extra`"""
     provides_dist: _Validator[List[str]] = _Validator(added="1.2")
+    """``Provides-Dist``"""
     obsoletes_dist: _Validator[List[str]] = _Validator(added="1.2")
+    """``Obsoletes-Dist``"""

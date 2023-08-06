@@ -25,15 +25,39 @@ Usage
     'packaging'
     >>> raw["version"]
     '24.0'
+    >>> from packaging.metadata import Metadata
+    >>> parsed = Metadata.from_raw(raw)
+    >>> parsed.name
+    'packaging'
+    >>> parsed.version
+    <Version('24.0')>
 
 
 Reference
 ---------
 
+High Level Interface
+''''''''''''''''''''
+
+.. autoclass:: packaging.metadata.Metadata
+    :members:
+
 Low Level Interface
 '''''''''''''''''''
 
-.. automodule:: packaging.metadata
+.. autoclass:: packaging.metadata.RawMetadata
+    :members:
+
+.. autofunction:: packaging.metadata.parse_email
+
+
+Exceptions
+''''''''''
+
+.. autoclass:: packaging.metadata.InvalidMetadata
+    :members:
+
+.. autoclass:: packaging.metadata.ExceptionGroup
     :members:
 
 
