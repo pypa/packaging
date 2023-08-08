@@ -712,7 +712,7 @@ class Metadata:
     platforms: _Validator[List[str]] = _Validator()
     """:external:ref:`core-metadata-platform`"""
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
-    """:external:ref:`core-metadata-supported-platform"""
+    """:external:ref:`core-metadata-supported-platform`"""
     summary: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-summary` (validated to contain no newlines)"""
     description: _Validator[str] = _Validator()  # TODO 2.1: can be in body
