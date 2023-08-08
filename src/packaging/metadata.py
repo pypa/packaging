@@ -696,7 +696,7 @@ class Metadata:
             raise ExceptionGroup("invalid or unparsed metadata", exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
-    """``Core-Metadata``
+    """:external:ref:`core-metadata-metadata-version`
     (required; validated to be a valid metadata version)"""
     name: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-name`
@@ -710,9 +710,9 @@ class Metadata:
     """:external:ref:`core-metadata-dynamic`
     (validated against core metadata field names and lowercased)"""
     platforms: _Validator[List[str]] = _Validator()
-    """``Platform``"""
+    """:external:ref:`core-metadata-platform`"""
     supported_platforms: _Validator[List[str]] = _Validator(added="1.1")
-    """``Supported-Platform``"""
+    """:external:ref:`core-metadata-supported-platform"""
     summary: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-summary` (validated to contain no newlines)"""
     description: _Validator[str] = _Validator()  # TODO 2.1: can be in body
@@ -722,9 +722,9 @@ class Metadata:
     keywords: _Validator[List[str]] = _Validator()
     """:external:ref:`core-metadata-keywords`"""
     home_page: _Validator[str] = _Validator()
-    """``Home-Page``"""
+    """:external:ref:`core-metadata-home-page`"""
     download_url: _Validator[str] = _Validator(added="1.1")
-    """``Download-URL``"""
+    """:external:ref:`core-metadata-download-url`"""
     author: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-author`"""
     author_email: _Validator[str] = _Validator()
@@ -744,7 +744,7 @@ class Metadata:
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
     requires_external: _Validator[List[str]] = _Validator(added="1.2")
-    """``Requires-External``"""
+    """:external:ref:`core-metadata-requires-external`"""
     project_urls: _Validator[Dict[str, str]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
@@ -754,6 +754,6 @@ class Metadata:
     )
     """:external:ref:`core-metadata-provides-extra`"""
     provides_dist: _Validator[List[str]] = _Validator(added="1.2")
-    """``Provides-Dist``"""
+    """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[List[str]] = _Validator(added="1.2")
-    """``Obsoletes-Dist``"""
+    """:external:ref:`core-metadata-obsoletes-dist`"""
