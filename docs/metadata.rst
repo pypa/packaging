@@ -1,14 +1,42 @@
 Metadata
-==========
+========
 
-A data representation for `core metadata`_.
+.. currentmodule:: packaging.markers
 
-.. _`core metadata`: https://packaging.python.org/en/latest/specifications/core-metadata/
+
+Both `source distributions`_ and `binary distributions`
+(_sdists_ and _wheels_, respectively) contain files recording the
+`core metadata`_ for the distribution. This information is used for
+everything from recording the name of the distribution to the
+installation dependencies.
+
+
+Usage
+-----
+
+.. doctest::
+
+    >>> from packaging.metadata import parse_email
+    >>> metadata = "Metadata-Version: 2.3\nName: packaging\nVersion: 24.0"
+    >>> raw, unparsed = parse_email(metadata)
+    >>> raw["metadata_version"]
+    '2.3'
+    >>> raw["name"]
+    'packaging'
+    >>> raw["version"]
+    '24.0'
 
 
 Reference
 ---------
 
+Low Level Interface
+'''''''''''''''''''
+
 .. automodule:: packaging.metadata
     :members:
-    :undoc-members:
+
+
+.. _source distributions: https://packaging.python.org/en/latest/specifications/source-distribution-format/
+.. _binary distributions: https://packaging.python.org/en/latest/specifications/binary-distribution-format/
+.. _core metadata: https://packaging.python.org/en/latest/specifications/core-metadata/

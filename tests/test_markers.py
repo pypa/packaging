@@ -7,6 +7,7 @@ import itertools
 import os
 import platform
 import sys
+from typing import cast
 
 import pytest
 
@@ -166,6 +167,7 @@ class TestMarker:
             "(python_version)",
             "python_version >= 1.0 and (python_version)",
             '(python_version == "2.7" and os_name == "linux"',
+            '(python_version == "2.7") with random text',
         ],
     )
     def test_parses_invalid(self, marker_string):
@@ -255,6 +257,20 @@ class TestMarker:
 
     def test_environment_assumes_empty_extra(self):
         assert Marker('extra == "im_valid"').evaluate() is False
+
+    def test_environment_with_extra_none(self):
+        # GIVEN
+        marker_str = 'extra == "im_valid"'
+
+        # Pretend that this is dict[str, str], even though it's not. This is a
+        # test for being bug-for-bug compatible with the older implementation.
+        environment = cast("dict[str, str]", {"extra": None})
+
+        # WHEN
+        marker = Marker(marker_str)
+
+        # THEN
+        assert marker.evaluate(environment) is False
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),

@@ -21,20 +21,31 @@ nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
 
-@nox.session(python=["3.7", "3.8", "3.9", "3.10", "pypy3.7", "pypy3.8", "pypy3.9"])
+@nox.session(
+    python=[
+        "3.7",
+        "3.8",
+        "3.9",
+        "3.10",
+        "3.11",
+        "3.12",
+        "pypy3.8",
+        "pypy3.9",
+        "pypy3.10",
+    ]
+)
 def tests(session):
     def coverage(*args):
         session.run("python", "-m", "coverage", *args)
 
-    # Once coverage 5 is used then `.coverage` can move into `pyproject.toml`.
-    session.install("coverage<5.0.0", "pretend", "pytest>=6.2.0", "pip>=9.0.2")
+    session.install("-r", "tests/requirements.txt")
     session.install(".")
 
     if "pypy" not in session.python:
         coverage(
             "run",
             "--source",
-            "packaging/",
+            "packaging",
             "-m",
             "pytest",
             "--strict-markers",
@@ -57,7 +68,7 @@ def tests(session):
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
-    session.run("pre-commit", "run", "--all-files")
+    session.run("pre-commit", "run", "--all-files", *session.posargs)
 
     # Check the distribution
     session.install("build", "twine")
@@ -68,7 +79,7 @@ def lint(session):
 @nox.session(python="3.9")
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install("furo")
+    session.install("-r", "docs/requirements.txt")
     session.install("-e", ".")
 
     variants = [
@@ -94,7 +105,7 @@ def docs(session):
 @nox.session
 def release(session):
     package_name = "packaging"
-    version_file = Path(f"{package_name}/__about__.py")
+    version_file = Path(f"src/{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
 
     try:

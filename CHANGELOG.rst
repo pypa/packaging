@@ -4,10 +4,59 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Enforce that the entire marker string is parsed (:issue:`687`)
+* Requirement parsing no longer automatically validates the URL (:issue:`120`)
+* Canonicalize names for requirements comparison (:issue:`644`)
+
+23.1 - 2023-04-12
+~~~~~~~~~~~~~~~~~
+
+* Parse raw metadata (:issue:`671`)
+* Import underlying parser functions as an underscored variable (:issue:`663`)
+* Improve error for local version label with unsupported operators (:issue:`675`)
+* Add dedicated error for specifiers with incorrect `.*` suffix
+* Replace spaces in platform names with underscores (:issue:`620`)
+* Relax typing of ``_key`` on ``_BaseVersion`` (:issue:`669`)
+* Handle prefix match with zeros at end of prefix correctly (:issue:`674`)
+
+23.0 - 2023-01-08
+~~~~~~~~~~~~~~~~~
+
+* Allow ``"extra"`` to be ``None`` in the marker environment (:issue:`650`)
+* Refactor ``tags._generic_api`` to use ``EXT_SUFFIX`` (:issue:`607`)
+* Correctly handle trailing whitespace on URL requirements (:issue:`642`)
+* Fix typing for ``specifiers.BaseSpecifier.filter()`` (:issue:`643`)
+* Use stable Python 3.11 in tests (:issue:`641`)
+* Correctly handle non-normalised specifiers in requirements (:issue:`634`)
+* Move to ``src/`` layout (:issue:`626`)
+* Remove ``__about__`` file, in favour of keeping constants in ``__init__`` (:issue:`626`)
+
+22.0 - 2022-12-07
+~~~~~~~~~~~~~~~~~
+
+* Explicitly declare support for Python 3.11 (:issue:`587`)
+* Remove support for Python 3.6 (:issue:`500`)
+* Remove ``LegacySpecifier`` and ``LegacyVersion`` (:issue:`407`)
+* Add ``__hash__`` and ``__eq__`` to ``Requirement`` (:issue:`499`)
+* Add a ``cpNNN-none-any`` tag (:issue:`541`)
+* Adhere to :pep:`685` when evaluating markers with extras (:issue:`545`)
+* Allow accepting locally installed prereleases with ``SpecifierSet``  (:issue:`515`)
+* Allow pre-release versions in marker evaluation (:issue:`523`)
+* Correctly parse ELF for musllinux on Big Endian (:issue:`538`)
+* Document ``packaging.utils.NormalizedName`` (:issue:`565`)
+* Document exceptions raised by functions in ``packaging.utils`` (:issue:`544`)
+* Fix compatible version specifier incorrectly strip trailing ``0`` (:issue:`493`)
+* Fix macOS platform tags with old macOS SDK (:issue:`513`)
+* Forbid prefix version matching on pre-release/post-release segments (:issue:`563`)
+* Normalize specifier version for prefix matching (:issue:`561`)
+* Improve documentation for ``packaging.specifiers`` and ``packaging.version``. (:issue:`572`)
 * ``Marker.evaluate`` will now assume evaluation environment with empty ``extra``.
   Evaluating markers like ``"extra == 'xyz'"`` without passing any extra in the
-  ``environment`` will no longer raise an exception.
-* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser. This package now has no runtime dependencies (:issue:`468`)
+  ``environment`` will no longer raise an exception (:issue:`550`)
+* Remove dependency on ``pyparsing``, by replacing it with a hand-written parser.
+  This package now has no runtime dependencies (:issue:`468`)
+* Update return type hint for ``Specifier.filter`` and ``SpecifierSet.filter``
+  to use ``Iterator`` instead of ``Iterable`` (:issue:`584`)
 
 21.3 - 2021-11-17
 ~~~~~~~~~~~~~~~~~

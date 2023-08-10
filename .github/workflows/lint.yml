@@ -31,7 +31,7 @@ jobs:
           cache: "pip"
 
       - name: Run `nox -s lint`
-        run: pipx run nox --error-on-missing-interpreters -s lint
+        run: pipx run nox --error-on-missing-interpreters -s lint -- --show-diff-on-failure
 
   build:
     name: Build sdist and wheel
@@ -39,7 +39,7 @@ jobs:
     # Linting verifies that the project is in an acceptable state to create files
     # for releasing.
     # And this action should be run whenever a release is ready to go public as
-    # the version number will be changed by editing __about__.py.
+    # the version number will be changed by editing __init__.py.
     needs: lint
 
     steps:

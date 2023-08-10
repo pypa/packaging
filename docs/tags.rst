@@ -98,6 +98,9 @@ items that applications should need to reference, in order to parse and check ta
 
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
 
+    .. versionchanged:: 21.3
+        Added the `pp3-none-any` tag (:issue:`311`).
+
 
 Low Level Interface
 '''''''''''''''''''
