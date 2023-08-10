@@ -139,7 +139,7 @@ def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
             pretend.call(
                 [ld_musl],
                 stderr=subprocess.PIPE,
-                text=True,
+                universal_newlines=True,
             )
         ]
     else:
