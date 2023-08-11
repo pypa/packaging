@@ -406,7 +406,7 @@ def mac_platforms(
                 check=True,
                 env={"SYSTEM_VERSION_COMPAT": "0"},
                 stdout=subprocess.PIPE,
-                universal_newlines=True,
+                text=True,
             ).stdout
             version = cast("MacVersion", tuple(map(int, version_str.split(".")[:2])))
     else:
