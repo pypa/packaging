@@ -390,6 +390,9 @@ class TestMetadata:
             "classifiers",
             "provides_dist",
             "obsoletes_dist",
+            "requires",
+            "provides",
+            "obsoletes",
         ],
     )
     def test_multi_value_unvalidated_attribute(self, attribute):

@@ -58,6 +58,9 @@ except AttributeError:
             self.message = message
             self.exceptions = exceptions
 
+        def __repr__(self) -> str:
+            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
+
 
 class InvalidMetadata(ValueError):
     """A metadata field contains invalid data."""
@@ -634,7 +637,13 @@ class Metadata:
                 exceptions.append(metadata_version_exc)
                 metadata_version = None
 
-            for key in frozenset(ins._raw) | _REQUIRED_ATTRS:
+            # Make sure to check for the fields that are present, the required
+            # fields (so their absence can be reported).
+            fields_to_check = frozenset(ins._raw) | _REQUIRED_ATTRS
+            # Remove fields that have already been checked.
+            fields_to_check -= {"metadata_version"}
+
+            for key in fields_to_check:
                 try:
                     if metadata_version:
                         # Can't use getattr() as that triggers descriptor protocol which
@@ -757,3 +766,9 @@ class Metadata:
     """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[List[str]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
+    requires: _Validator[List[str]] = _Validator(added="1.1")
+    """``Requires`` (deprecated)"""
+    provides: _Validator[List[str]] = _Validator(added="1.1")
+    """``Provides`` (deprecated)"""
+    obsoletes: _Validator[List[str]] = _Validator(added="1.1")
+    """``Obsoletes`` (deprecated)"""
