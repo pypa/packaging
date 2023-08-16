@@ -17,6 +17,6 @@ https://packaging.pypa.io/en/latest/development/
 Security issues
 ---------------
 
-See `Security Policy`_ for informations about how to report security issues.
+See `Security Policy`_ for information about how to report security issues.
 
 .. _`Security Policy`: https://github.com/pypa/packaging/security

@@ -129,7 +129,7 @@ class RawMetadata(TypedDict, total=False):
     # but got stuck without ever being able to build consensus on
     # it and ultimately ended up withdrawn.
     #
-    # However, a number of tools had started emiting METADATA with
+    # However, a number of tools had started emitting METADATA with
     # `2.0` Metadata-Version, so for historical reasons, this version
     # was skipped.
 
