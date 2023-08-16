@@ -246,6 +246,19 @@ class TestRawMetadata:
         assert raw["description"] == "This description intentionally left blank.\n"
 
 
+class TestExceptionGroup:
+    def test_attributes(self):
+        individual_exception = Exception("not important")
+        exc = metadata.ExceptionGroup("message", [individual_exception])
+        assert exc.message == "message"
+        assert exc.exceptions == [individual_exception]
+
+    def test_repr(self):
+        individual_exception = RuntimeError("not important")
+        exc = metadata.ExceptionGroup("message", [individual_exception])
+        assert individual_exception.__class__.__name__ in repr(exc)
+
+
 _RAW_EXAMPLE = {
     "metadata_version": "2.3",
     "name": "packaging",
