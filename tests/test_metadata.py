@@ -267,7 +267,7 @@ _RAW_EXAMPLE = {
 
 
 class TestMetadata:
-    def _invalid_with_cause(self, meta, /, attr, cause=None, *, field=None):
+    def _invalid_with_cause(self, meta, attr, cause=None, *, field=None):
         if field is None:
             field = attr
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
