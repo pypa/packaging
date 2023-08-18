@@ -267,6 +267,18 @@ _RAW_EXAMPLE = {
 
 
 class TestMetadata:
+    def _invalid_with_cause(self, meta, /, attr, cause=None, *, field=None):
+        if field is None:
+            field = attr
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            getattr(meta, attr)
+        exc = exc_info.value
+        assert exc.field == field
+        if cause is None:
+            assert exc.__cause__ is None
+        else:
+            assert isinstance(exc.__cause__, cause)
+
     def test_from_email(self):
         metadata_version = "2.3"
         meta = metadata.Metadata.from_email(
@@ -334,7 +346,7 @@ class TestMetadata:
 
         assert meta.version is meta.version
 
-    def test_rom_raw_validate(self):
+    def test_from_raw_validate(self):
         required_fields = _RAW_EXAMPLE.copy()
         required_fields["version"] = "-----"
 
@@ -448,9 +460,7 @@ class TestMetadata:
 
     def test_invalid_version(self):
         meta = metadata.Metadata.from_raw({"version": "a.b.c"}, validate=False)
-
-        with pytest.raises(version.InvalidVersion):
-            meta.version
+        self._invalid_with_cause(meta, "version", version.InvalidVersion)
 
     def test_valid_summary(self):
         summary = "Hello"
@@ -474,9 +484,7 @@ class TestMetadata:
 
     def test_invalid_name(self):
         meta = metadata.Metadata.from_raw({"name": "-not-legal"}, validate=False)
-
-        with pytest.raises(utils.InvalidName):
-            meta.name
+        self._invalid_with_cause(meta, "name", utils.InvalidName)
 
     @pytest.mark.parametrize(
         "content_type",
@@ -546,8 +554,12 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw(
             {"requires_python": "NotReal"}, validate=False
         )
-        with pytest.raises(specifiers.InvalidSpecifier):
-            meta.requires_python
+        self._invalid_with_cause(
+            meta,
+            "requires_python",
+            specifiers.InvalidSpecifier,
+            field="requires-python",
+        )
 
     def test_requires_external(self):
         externals = [
@@ -571,9 +583,9 @@ class TestMetadata:
     def test_invalid_provides_extra(self):
         extras = ["pdf", "-Not-Valid", "ok"]
         meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
-
-        with pytest.raises(utils.InvalidName):
-            meta.provides_extra
+        self._invalid_with_cause(
+            meta, "provides_extra", utils.InvalidName, field="provides-extra"
+        )
 
     def test_valid_requires_dist(self):
         requires = [
@@ -590,9 +602,12 @@ class TestMetadata:
     def test_invalid_requires_dist(self):
         requires = ["pkginfo", "-not-real", "zope.interface (>3.5.0)"]
         meta = metadata.Metadata.from_raw({"requires_dist": requires}, validate=False)
-
-        with pytest.raises(requirements.InvalidRequirement):
-            meta.requires_dist
+        self._invalid_with_cause(
+            meta,
+            "requires_dist",
+            requirements.InvalidRequirement,
+            field="requires-dist",
+        )
 
     def test_valid_dynamic(self):
         dynamic = ["Keywords", "Home-Page", "Author"]

@@ -476,6 +476,15 @@ _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
 
 class _Validator(Generic[T]):
+    """Validate a metadata field.
+
+    All _process_*() methods correspond to a core metadata field. The method is
+    called with the field's raw value. If the raw value is valid it is returned
+    in its "enriched" form (e.g. ``version.Version`` for the ``Version`` field).
+    If the raw value is invalid, :exc:`InvalidMetadata` is raised (with a cause
+    as appropriate).
+    """
+
     name: str
     raw_name: str
     added: _MetadataVersion
@@ -523,10 +532,14 @@ class _Validator(Generic[T]):
 
         return cast(T, value)
 
-    def _invalid_metadata(self, msg: str) -> InvalidMetadata:
-        return InvalidMetadata(
+    def _invalid_metadata(
+        self, msg: str, cause: Optional[Exception] = None
+    ) -> InvalidMetadata:
+        exc = InvalidMetadata(
             self.raw_name, msg.format_map({"field": repr(self.raw_name)})
         )
+        exc.__cause__ = cause
+        return exc
 
     def _process_metadata_version(self, value: str) -> _MetadataVersion:
         # Implicitly makes Metadata-Version required.
@@ -538,13 +551,24 @@ class _Validator(Generic[T]):
         if not value:
             raise self._invalid_metadata("{field} is a required field")
         # Validate the name as a side-effect.
-        utils.canonicalize_name(value, validate=True)
-        return value
+        try:
+            utils.canonicalize_name(value, validate=True)
+        except utils.InvalidName as exc:
+            raise self._invalid_metadata(
+                f"{value!r} is invalid for {{field}}", cause=exc
+            )
+        else:
+            return value
 
     def _process_version(self, value: str) -> version_module.Version:
         if not value:
             raise self._invalid_metadata("{field} is a required field")
-        return version_module.parse(value)
+        try:
+            return version_module.parse(value)
+        except version_module.InvalidVersion as exc:
+            raise self._invalid_metadata(
+                f"{value!r} is invalid for {{field}}", cause=exc
+            )
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
@@ -594,26 +618,50 @@ class _Validator(Generic[T]):
                 raise self._invalid_metadata(f"{value!r} is not a valid dynamic field")
         return list(map(str.lower, value))
 
-    @staticmethod
     def _process_provides_extra(
+        self,
         value: List[str],
     ) -> List[utils.NormalizedName]:
-        return [utils.canonicalize_name(name, validate=True) for name in value]
+        normalized_names = []
+        try:
+            for name in value:
+                normalized_names.append(utils.canonicalize_name(name, validate=True))
+        except utils.InvalidName as exc:
+            raise self._invalid_metadata(
+                f"{name!r} is invalid for {{field}}", cause=exc
+            )
+        else:
+            return normalized_names
 
-    _process_requires_python = staticmethod(specifiers.SpecifierSet)
+    def _process_requires_python(self, value: str) -> specifiers.SpecifierSet:
+        try:
+            return specifiers.SpecifierSet(value)
+        except specifiers.InvalidSpecifier as exc:
+            raise self._invalid_metadata(
+                f"{value!r} is invalid for {{field}}", cause=exc
+            )
 
-    @staticmethod
     def _process_requires_dist(
+        self,
         value: List[str],
     ) -> List[requirements.Requirement]:
-        return list(map(requirements.Requirement, value))
+        reqs = []
+        try:
+            for req in value:
+                reqs.append(requirements.Requirement(req))
+        except requirements.InvalidRequirement as exc:
+            raise self._invalid_metadata(f"{req!r} is invalid for {{field}}", cause=exc)
+        else:
+            return reqs
 
 
 class Metadata:
     """Representation of distribution metadata.
 
     Compared to :class:`RawMetadata`, this class provides objects representing
-    metadata fields instead of only using built-in types.
+    metadata fields instead of only using built-in types. Any invalid metadata
+    will cause :exc:`InvalidMetadata` to be raised (with a
+    :py:attr:`~BaseException.__cause__` attribute as appropriate).
     """
 
     _raw: RawMetadata
@@ -629,11 +677,11 @@ class Metadata:
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
         if validate:
-            exceptions = []
+            exceptions: List[InvalidMetadata] = []
             try:
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
-            except Exception as metadata_version_exc:
+            except InvalidMetadata as metadata_version_exc:
                 exceptions.append(metadata_version_exc)
                 metadata_version = None
 
@@ -667,7 +715,7 @@ class Metadata:
                             exceptions.append(exc)
                             continue
                     getattr(ins, key)
-                except Exception as exc:
+                except InvalidMetadata as exc:
                     exceptions.append(exc)
 
             if exceptions:
@@ -684,7 +732,7 @@ class Metadata:
         If *validate* is true, the metadata will be validated. All exceptions
         related to validation will be gathered and raised as an :class:`ExceptionGroup`.
         """
-        exceptions: list[Exception] = []
+        exceptions: list[InvalidMetadata] = []
         raw, unparsed = parse_email(data)
 
         if validate:
