@@ -14,7 +14,7 @@ Reference
 
     A :class:`typing.NewType` of :class:`str`, representing a normalized name.
 
-.. function:: canonicalize_name(name)
+.. function:: canonicalize_name(name, validate=False)
 
     This function takes a valid Python package or extra name, and returns the
     normalized form of it.
@@ -23,7 +23,13 @@ Reference
     checkers to help require that a string has passed through this function
     before use.
 
+    If **validate** is true, then the function will check if **name** is a valid
+    distribution name before normalizing.
+
     :param str name: The name to normalize.
+    :param bool validate: Check whether the name is a valid distribution name.
+    :raises InvalidName: If **validate** is true and the name is not an
+        acceptable distribution name.
 
     .. doctest::
 
@@ -34,6 +40,21 @@ Reference
         'oslo-concurrency'
         >>> canonicalize_name("requests")
         'requests'
+
+.. function:: is_normalized_name(name)
+
+    Check if a name is already normalized (i.e. :func:`canonicalize_name` would
+    roundtrip to the same value).
+
+    :param str name: The name to check.
+
+    .. doctest::
+
+        >>> from packaging.utils import is_normalized_name
+        >>> is_normalized_name("requests")
+        True
+        >>> is_normalized_name("Django")
+        False
 
 .. function:: canonicalize_version(version)
 
@@ -103,6 +124,9 @@ Reference
         >>> ver == Version('1.0')
         True
 
+.. exception:: InvalidName
+
+    Raised when a distribution name is invalid.
 
 .. exception:: InvalidWheelFilename
 
