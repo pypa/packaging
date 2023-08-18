@@ -7,6 +7,9 @@ Changelog
 * Enforce that the entire marker string is parsed (:issue:`687`)
 * Requirement parsing no longer automatically validates the URL (:issue:`120`)
 * Canonicalize names for requirements comparison (:issue:`644`)
+* Introduce `metadata.Metadata` (along with `metadata.ExceptionGroup` and `metadata.InvalidMetadata`; :issue:`570`)
+* Introduce the `validate` keyword parameter to `utils.validate_name()` (:issue:`570`)
+* Introduce `utils.is_normalized_name()` (:issue:`570`)
 
 23.1 - 2023-04-12
 ~~~~~~~~~~~~~~~~~
