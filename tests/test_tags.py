@@ -10,9 +10,11 @@ try:
     import ctypes
 except ImportError:
     ctypes = None
+import importlib
 import os
 import pathlib
 import platform
+import struct
 import sys
 import sysconfig
 import types
@@ -1341,3 +1343,29 @@ class TestSysTags:
 
         interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
+
+
+class TestBitness:
+    def teardown_method(self):
+        importlib.reload(tags)
+
+    @pytest.mark.parametrize(
+        "maxsize, sizeof_voidp, expected",
+        [
+            # CPython, PyPy, pyston 64bit
+            (9223372036854775807, 8, False),
+            # GraalPy, IronPython, Jython 64bit
+            (2147483647, 8, False),
+            # CPython, PyPy, IronPython, Jython, pyodide 32bit
+            (2147483647, 4, True),
+        ],
+    )
+    def test_32bit_interpreter(self, maxsize, sizeof_voidp, expected, monkeypatch):
+        def _calcsize(fmt):
+            assert fmt == "P"
+            return sizeof_voidp
+
+        monkeypatch.setattr(sys, "maxsize", maxsize)
+        monkeypatch.setattr(struct, "calcsize", _calcsize)
+        importlib.reload(tags)
+        assert tags._32_BIT_INTERPRETER == expected
