@@ -4,7 +4,8 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Do specifier matching correctly when the specifier contains an epoch number
+  and has more components than the version (:issue:`683`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
