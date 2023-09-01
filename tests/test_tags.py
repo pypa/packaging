@@ -1352,12 +1352,12 @@ class TestBitness:
     @pytest.mark.parametrize(
         "maxsize, sizeof_voidp, expected",
         [
-            # CPython, PyPy, pyston 64bit
+            # 64-bit
             (9223372036854775807, 8, False),
-            # GraalPy, IronPython, Jython 64bit
-            (2147483647, 8, False),
-            # CPython, PyPy, IronPython, Jython, pyodide 32bit
+            # 32-bit
             (2147483647, 4, True),
+            # 64-bit w/ 32-bit sys.maxsize: GraalPy, IronPython, Jython
+            (2147483647, 8, False),
         ],
     )
     def test_32bit_interpreter(self, maxsize, sizeof_voidp, expected, monkeypatch):
