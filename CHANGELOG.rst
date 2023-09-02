@@ -4,6 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Document calendar-based versioning scheme (:issue:`716`)
 * Enforce that the entire marker string is parsed (:issue:`687`)
 * Requirement parsing no longer automatically validates the URL (:issue:`120`)
 * Canonicalize names for requirements comparison (:issue:`644`)
