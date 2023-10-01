@@ -121,7 +121,14 @@ def parse_wheel_filename(
     if "__" in name_part or re.match(r"^[\w\d._]*$", name_part, re.UNICODE) is None:
         raise InvalidWheelFilename(f"Invalid project name: {filename}")
     name = canonicalize_name(name_part)
-    version = Version(parts[1])
+
+    try:
+        version = Version(parts[1])
+    except InvalidVersion as e:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (invalid version): {filename}"
+        ) from e
+
     if dashes == 5:
         build_part = parts[2]
         build_match = _build_tag_regex.match(build_part)
@@ -154,5 +161,12 @@ def parse_sdist_filename(filename: str) -> Tuple[NormalizedName, Version]:
         raise InvalidSdistFilename(f"Invalid sdist filename: {filename}")
 
     name = canonicalize_name(name_part)
-    version = Version(version_part)
+
+    try:
+        version = Version(version_part)
+    except InvalidVersion as e:
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (invalid version): {filename}"
+        ) from e
+
     return (name, version)

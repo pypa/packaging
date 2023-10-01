@@ -136,6 +136,7 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
+        ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
@@ -154,7 +155,14 @@ def test_parse_sdist_filename(filename, name, version):
     assert parse_sdist_filename(filename) == (name, version)
 
 
-@pytest.mark.parametrize(("filename"), [("foo-1.0.xz"), ("foo1.0.tar.gz")])
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        ("foo-1.0.xz"),  # Incorrect extension
+        ("foo1.0.tar.gz"),  # Missing separator
+        ("foo-1.x.tar.gz"),  # Invalid version
+    ],
+)
 def test_parse_sdist_invalid_filename(filename):
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
