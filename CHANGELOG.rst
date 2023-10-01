@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+23.2 - 2023-10-01
+~~~~~~~~~~~~~~~~~
 
 * Document calendar-based versioning scheme (:issue:`716`)
 * Enforce that the entire marker string is parsed (:issue:`687`)
