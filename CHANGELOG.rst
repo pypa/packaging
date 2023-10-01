@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
 
