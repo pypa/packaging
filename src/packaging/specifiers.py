@@ -644,14 +644,17 @@ _prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
 
 
 def _version_split(version: str) -> List[str]:
+    """Split version into components.
+
+    The split components are intended for version comparison. The logic does
+    not attempt to retain the original version string, so joining the
+    components back with :func:`_version_join` may not produce the original
+    version string.
+    """
     result: List[str] = []
 
-    epoch, sep, rest = version.rpartition("!")
-
-    if sep:
-        result.append(epoch)
-    else:
-        result.append("0")
+    epoch, _, rest = version.rpartition("!")
+    result.append(epoch or "0")
 
     for item in rest.split("."):
         match = _prefix_regex.search(item)
@@ -663,12 +666,14 @@ def _version_split(version: str) -> List[str]:
 
 
 def _version_join(components: List[str]) -> str:
-    # This function only works with numeric components.
-    assert all(c.isdigit() for c in components)
+    """Join split version components into a version string.
 
+    This function assumes the input came from :func:`_version_split`, where the
+    first component must be the epoch (either empty or numeric), and all other
+    components numeric.
+    """
     epoch, *rest = components
-
-    return epoch + "!" + ".".join(rest)
+    return f"{epoch}!{'.'.join(rest)}"
 
 
 def _is_not_suffix(segment: str) -> bool:
