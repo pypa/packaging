@@ -24,7 +24,7 @@ from typing import (
 )
 
 from .utils import canonicalize_version
-from .version import Version
+from .version import Version, parse
 
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
@@ -33,7 +33,7 @@ CallableOperator = Callable[[Version, str], bool]
 
 def _coerce_version(version: UnparsedVersion) -> Version:
     if not isinstance(version, Version):
-        version = Version(version)
+        return parse(version)
     return version
 
 
@@ -272,7 +272,7 @@ class Specifier(BaseSpecifier):
 
             # Parse the version, and if it is a pre-release than this
             # specifier allows pre-releases.
-            if Version(version).is_prerelease:
+            if parse(version).is_prerelease:
                 return True
 
         return False
@@ -425,13 +425,13 @@ class Specifier(BaseSpecifier):
             return shortened_prospective == split_spec
         else:
             # Convert our spec string into a Version
-            spec_version = Version(spec)
+            spec_version = parse(spec)
 
             # If the specifier does not have a local segment, then we want to
             # act as if the prospective version also does not have a local
             # segment.
             if not spec_version.local:
-                prospective = Version(prospective.public)
+                prospective = parse(prospective.public)
 
             return prospective == spec_version
 
@@ -443,20 +443,20 @@ class Specifier(BaseSpecifier):
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return Version(prospective.public) <= Version(spec)
+        return parse(prospective.public) <= parse(spec)
 
     def _compare_greater_than_equal(self, prospective: Version, spec: str) -> bool:
 
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return Version(prospective.public) >= Version(spec)
+        return parse(prospective.public) >= parse(spec)
 
     def _compare_less_than(self, prospective: Version, spec_str: str) -> bool:
 
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = parse(spec_str)
 
         # Check to see if the prospective version is less than the spec
         # version. If it's not we can short circuit and just return False now
@@ -469,7 +469,7 @@ class Specifier(BaseSpecifier):
         # versions for the version mentioned in the specifier (e.g. <3.1 should
         # not match 3.1.dev0, but should match 3.0.dev0).
         if not spec.is_prerelease and prospective.is_prerelease:
-            if Version(prospective.base_version) == Version(spec.base_version):
+            if parse(prospective.base_version) == parse(spec.base_version):
                 return False
 
         # If we've gotten to here, it means that prospective version is both
@@ -481,7 +481,7 @@ class Specifier(BaseSpecifier):
 
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = parse(spec_str)
 
         # Check to see if the prospective version is greater than the spec
         # version. If it's not we can short circuit and just return False now
@@ -494,13 +494,13 @@ class Specifier(BaseSpecifier):
         # post-release versions for the version mentioned in the specifier
         # (e.g. >3.1 should not match 3.0.post0, but should match 3.2.post0).
         if not spec.is_postrelease and prospective.is_postrelease:
-            if Version(prospective.base_version) == Version(spec.base_version):
+            if parse(prospective.base_version) == parse(spec.base_version):
                 return False
 
         # Ensure that we do not allow a local version of the version mentioned
         # in the specifier, which is technically greater than, to match.
         if prospective.local is not None:
-            if Version(prospective.base_version) == Version(spec.base_version):
+            if parse(prospective.base_version) == parse(spec.base_version):
                 return False
 
         # If we've gotten to here, it means that prospective version is both
@@ -924,7 +924,7 @@ class SpecifierSet(BaseSpecifier):
         """
         # Ensure that our item is a Version instance.
         if not isinstance(item, Version):
-            item = Version(item)
+            item = parse(item)
 
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
@@ -942,7 +942,7 @@ class SpecifierSet(BaseSpecifier):
             return False
 
         if installed and item.is_prerelease:
-            item = Version(item.base_version)
+            item = parse(item.base_version)
 
         # We simply dispatch to the underlying specs here to make sure that the
         # given version is contained within all of them.

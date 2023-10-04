@@ -7,6 +7,7 @@
     from packaging.version import parse, Version
 """
 
+import functools
 import itertools
 import re
 from typing import Any, Callable, NamedTuple, Optional, SupportsInt, Tuple, Union
@@ -42,6 +43,7 @@ class _Version(NamedTuple):
     local: Optional[LocalType]
 
 
+@functools.lru_cache(maxsize=4096)
 def parse(version: str) -> "Version":
     """Parse the given version string.
 
@@ -220,6 +222,12 @@ class Version(_BaseVersion):
             self._version.dev,
             self._version.local,
         )
+        # Pre-compute the version string since
+        # its almost always called anyways because
+        # public will stringify the object and
+        # we want to cache it to avoid the cost
+        # of re-computing it.
+        self._str = self._version_string()
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
@@ -235,6 +243,10 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
+        return self._str
+
+    def _version_string(self) -> str:
+        """Build the version string to be used for __str__."""
         parts = []
 
         # Epoch
@@ -393,7 +405,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3dev1").is_prerelease
         True
         """
-        return self.dev is not None or self.pre is not None
+        return self._version.dev is not None or self._version.pre is not None
 
     @property
     def is_postrelease(self) -> bool:
@@ -404,7 +416,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.post1").is_postrelease
         True
         """
-        return self.post is not None
+        return self._version.post is not None
 
     @property
     def is_devrelease(self) -> bool:
@@ -415,7 +427,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.dev1").is_devrelease
         True
         """
-        return self.dev is not None
+        return self._version.dev is not None
 
     @property
     def major(self) -> int:

@@ -2,11 +2,12 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+import functools
 import re
 from typing import FrozenSet, NewType, Tuple, Union, cast
 
 from .tags import Tag, parse_tag
-from .version import InvalidVersion, Version
+from .version import InvalidVersion, Version, parse
 
 BuildTag = Union[Tuple[()], Tuple[int, str]]
 NormalizedName = NewType("NormalizedName", str)
@@ -40,6 +41,7 @@ _normalized_regex = re.compile(r"^([a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9])$
 _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
+@functools.lru_cache(maxsize=4096)
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     if validate and not _validate_regex.match(name):
         raise InvalidName(f"name is invalid: {name!r}")
@@ -52,6 +54,7 @@ def is_normalized_name(name: str) -> bool:
     return _normalized_regex.match(name) is not None
 
 
+@functools.lru_cache(maxsize=4096)
 def canonicalize_version(
     version: Union[Version, str], *, strip_trailing_zero: bool = True
 ) -> str:
@@ -61,7 +64,7 @@ def canonicalize_version(
     """
     if isinstance(version, str):
         try:
-            parsed = Version(version)
+            parsed = parse(version)
         except InvalidVersion:
             # Legacy versions cannot be normalized
             return version
