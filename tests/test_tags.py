@@ -781,6 +781,14 @@ class TestCPythonTags:
             tags.Tag("cp32", "abi3", "plat2"),
         ]
 
+        result = list(tags.cpython_tags((3, 13), ["cp313t"], ["plat1", "plat2"]))
+        assert result == [
+            tags.Tag("cp313", "cp313t", "plat1"),
+            tags.Tag("cp313", "cp313t", "plat2"),
+            tags.Tag("cp313", "none", "plat1"),
+            tags.Tag("cp313", "none", "plat2"),
+        ]
+
     def test_python_version_defaults(self):
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
         interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
@@ -894,6 +902,11 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == ["graalpy_38_native"]
 
+    def test__generic_abi_disable_gil(self, monkeypatch):
+        config = {"EXT_SUFFIX": ".cpython-313t-x86_64-linux-gnu.so"}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        assert tags._generic_abi() == ["cp313t"]
+
     def test__generic_abi_none(self, monkeypatch):
         config = {"EXT_SUFFIX": "..so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
@@ -922,6 +935,7 @@ class TestGenericTags:
             "EXT_SUFFIX": ".pyd",
             "Py_DEBUG": 0,
             "WITH_PYMALLOC": 0,
+            "Py_NOGIL": 0,
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])

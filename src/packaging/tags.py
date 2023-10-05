@@ -124,20 +124,23 @@ def _normalize_string(string: str) -> str:
     return string.replace(".", "_").replace("-", "_").replace(" ", "_")
 
 
-def _abi3_applies(python_version: PythonVersion) -> bool:
+def _abi3_applies(python_version: PythonVersion, abis: List[str]) -> bool:
     """
     Determine if the Python version supports abi3.
 
-    PEP 384 was first implemented in Python 3.2.
+    PEP 384 was first implemented in Python 3.2. The `--disable-gil` builds
+    do not support abi3 and are indicated by a "t" (for "threading") in their
+    abi tags.
     """
-    return len(python_version) > 1 and tuple(python_version) >= (3, 2)
+    return (len(python_version) > 1 and tuple(python_version) >= (3, 2) and
+            (len(abis) == 0 or "t" not in abis[0]))
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
     py_version = tuple(py_version)  # To allow for version comparison.
     abis = []
     version = _version_nodot(py_version[:2])
-    debug = pymalloc = ucs4 = ""
+    threading = debug = pymalloc = ucs4 = ""
     with_debug = _get_config_var("Py_DEBUG", warn)
     has_refcount = hasattr(sys, "gettotalrefcount")
     # Windows doesn't set Py_DEBUG, so checking for support of debug-compiled
@@ -146,6 +149,9 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
     has_ext = "_d.pyd" in EXTENSION_SUFFIXES
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
+    if py_version >= (3, 13):
+        if _get_config_var("Py_NOGIL", warn):
+            threading = "t"
     if py_version < (3, 8):
         with_pymalloc = _get_config_var("WITH_PYMALLOC", warn)
         if with_pymalloc or with_pymalloc is None:
@@ -159,13 +165,8 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
     elif debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
-        abis.append(f"cp{version}")
-    abis.insert(
-        0,
-        "cp{version}{debug}{pymalloc}{ucs4}".format(
-            version=version, debug=debug, pymalloc=pymalloc, ucs4=ucs4
-        ),
-    )
+        abis.append(f"cp{version}{threading}")
+    abis.insert(0, f"cp{version}{threading}{debug}{pymalloc}{ucs4}")
     return abis
 
 
@@ -213,11 +214,13 @@ def cpython_tags(
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
-    if _abi3_applies(python_version):
+
+    use_abi3 = _abi3_applies(python_version, abis)
+    if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
     yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
 
-    if _abi3_applies(python_version):
+    if use_abi3:
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 interpreter = "cp{version}".format(

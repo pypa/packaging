@@ -6,6 +6,8 @@ Changelog
 
 * Do specifier matching correctly when the specifier contains an epoch number
   and has more components than the version (:issue:`683`)
+* Support the experimental ``--disable-gil`` builds in packaging.tags
+  (:issue:`727`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
