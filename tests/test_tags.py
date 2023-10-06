@@ -903,9 +903,15 @@ class TestGenericTags:
         assert tags._generic_abi() == ["graalpy_38_native"]
 
     def test__generic_abi_disable_gil(self, monkeypatch):
-        config = {"EXT_SUFFIX": ".cpython-313t-x86_64-linux-gnu.so"}
+        config = {
+            "Py_DEBUG": False,
+            "EXT_SUFFIX": ".cpython-313t-x86_64-linux-gnu.so",
+            "WITH_PYMALLOC": 0,
+            "Py_NOGIL": 1,
+        }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == ["cp313t"]
+        assert tags._generic_abi() == tags._cpython_abis((3, 13))
 
     def test__generic_abi_none(self, monkeypatch):
         config = {"EXT_SUFFIX": "..so"}

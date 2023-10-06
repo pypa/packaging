@@ -4,6 +4,7 @@
 
 import logging
 import platform
+import re
 import struct
 import subprocess
 import sys
@@ -124,16 +125,30 @@ def _normalize_string(string: str) -> str:
     return string.replace(".", "_").replace("-", "_").replace(" ", "_")
 
 
-def _abi3_applies(python_version: PythonVersion, abis: List[str]) -> bool:
+def _is_threaded_cpython(abis: List[str]) -> bool:
+    """
+    Determine if the ABI corresponds to a threaded (`--disable-gil`) build.
+
+    The threaded builds are indicated by a "t" in the abiflags.
+    """
+    if len(abis) == 0:
+        return False
+    # expect e.g., cp313
+    m = re.match(r"cp\d+(.*)", abis[0])
+    if not m:
+        return False
+    abiflags = m.group(1)
+    return "t" in abiflags
+
+
+def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:
     """
     Determine if the Python version supports abi3.
 
-    PEP 384 was first implemented in Python 3.2. The `--disable-gil` builds
-    do not support abi3 and are indicated by a "t" (for "threading") in their
-    abi tags.
+    PEP 384 was first implemented in Python 3.2. The threaded (`--disable-gil`)
+    builds do not support abi3.
     """
-    return (len(python_version) > 1 and tuple(python_version) >= (3, 2) and
-            (len(abis) == 0 or "t" not in abis[0]))
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2) and not threading
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
@@ -149,9 +164,8 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
     has_ext = "_d.pyd" in EXTENSION_SUFFIXES
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
-    if py_version >= (3, 13):
-        if _get_config_var("Py_NOGIL", warn):
-            threading = "t"
+    if py_version >= (3, 13) and _get_config_var("Py_NOGIL", warn):
+        threading = "t"
     if py_version < (3, 8):
         with_pymalloc = _get_config_var("WITH_PYMALLOC", warn)
         if with_pymalloc or with_pymalloc is None:
@@ -215,7 +229,8 @@ def cpython_tags(
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
 
-    use_abi3 = _abi3_applies(python_version, abis)
+    threading = _is_threaded_cpython(abis)
+    use_abi3 = _abi3_applies(python_version, threading)
     if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
     yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
