@@ -44,7 +44,7 @@ try:
     ExceptionGroup
 except NameError:  # pragma: no cover
 
-    class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
+    class ExceptionGroup(Exception):
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
 
         If :external:exc:`ExceptionGroup` is already defined by Python itself,
@@ -680,7 +680,7 @@ class Metadata:
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
         if validate:
-            exceptions: List[InvalidMetadata] = []
+            exceptions: List[Exception] = []
             try:
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
@@ -738,7 +738,7 @@ class Metadata:
         raw, unparsed = parse_email(data)
 
         if validate:
-            exceptions: list[InvalidMetadata] = []
+            exceptions: list[Exception] = []
             for unparsed_key in unparsed:
                 if unparsed_key in _EMAIL_TO_RAW_MAPPING:
                     message = f"{unparsed_key!r} has invalid data"
