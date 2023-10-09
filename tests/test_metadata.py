@@ -251,7 +251,7 @@ class TestExceptionGroup:
         individual_exception = Exception("not important")
         exc = metadata.ExceptionGroup("message", [individual_exception])
         assert exc.message == "message"
-        assert exc.exceptions == [individual_exception]
+        assert list(exc.exceptions) == [individual_exception]
 
     def test_repr(self):
         individual_exception = RuntimeError("not important")

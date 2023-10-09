@@ -6,6 +6,8 @@ Changelog
 
 * Do specifier matching correctly when the specifier contains an epoch number
   and has more components than the version (:issue:`683`)
+* Fix a bug preventing the use of the built in ``ExceptionGroup`` on versions of
+  Python that support it (:issue:`725`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~

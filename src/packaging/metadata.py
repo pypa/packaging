@@ -41,8 +41,8 @@ else:  # pragma: no cover
 
 
 try:
-    ExceptionGroup = __builtins__.ExceptionGroup  # type: ignore[attr-defined]
-except AttributeError:
+    ExceptionGroup
+except NameError:  # pragma: no cover
 
     class ExceptionGroup(Exception):  # type: ignore[no-redef]  # noqa: N818
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
@@ -60,6 +60,9 @@ except AttributeError:
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
+
+else:  # pragma: no cover
+    ExceptionGroup = ExceptionGroup
 
 
 class InvalidMetadata(ValueError):
@@ -732,10 +735,10 @@ class Metadata:
         If *validate* is true, the metadata will be validated. All exceptions
         related to validation will be gathered and raised as an :class:`ExceptionGroup`.
         """
-        exceptions: list[InvalidMetadata] = []
         raw, unparsed = parse_email(data)
 
         if validate:
+            exceptions: list[InvalidMetadata] = []
             for unparsed_key in unparsed:
                 if unparsed_key in _EMAIL_TO_RAW_MAPPING:
                     message = f"{unparsed_key!r} has invalid data"
@@ -749,8 +752,9 @@ class Metadata:
         try:
             return cls.from_raw(raw, validate=validate)
         except ExceptionGroup as exc_group:
-            exceptions.extend(exc_group.exceptions)
-            raise ExceptionGroup("invalid or unparsed metadata", exceptions) from None
+            raise ExceptionGroup(
+                "invalid or unparsed metadata", exc_group.exceptions
+            ) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     """:external:ref:`core-metadata-metadata-version`
