@@ -756,66 +756,66 @@ class Metadata:
     *validate* parameter)"""
     version: _Validator[version_module.Version] = _Validator()
     """:external:ref:`core-metadata-version` (required)"""
-    dynamic: _Validator[Union[List[str], None]] = _Validator(
+    dynamic: _Validator[Optional[List[str]]] = _Validator(
         added="2.2",
     )
     """:external:ref:`core-metadata-dynamic`
     (validated against core metadata field names and lowercased)"""
-    platforms: _Validator[Union[List[str], None]] = _Validator()
+    platforms: _Validator[Optional[List[str]]] = _Validator()
     """:external:ref:`core-metadata-platform`"""
-    supported_platforms: _Validator[Union[List[str], None]] = _Validator(added="1.1")
+    supported_platforms: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """:external:ref:`core-metadata-supported-platform`"""
-    summary: _Validator[Union[str, None]] = _Validator()
+    summary: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-summary` (validated to contain no newlines)"""
-    description: _Validator[Union[str, None]] = _Validator()  # TODO 2.1: can be in body
+    description: _Validator[Optional[str]] = _Validator()  # TODO 2.1: can be in body
     """:external:ref:`core-metadata-description`"""
-    description_content_type: _Validator[Union[str, None]] = _Validator(added="2.1")
+    description_content_type: _Validator[Optional[str]] = _Validator(added="2.1")
     """:external:ref:`core-metadata-description-content-type` (validated)"""
-    keywords: _Validator[Union[List[str], None]] = _Validator()
+    keywords: _Validator[Optional[List[str]]] = _Validator()
     """:external:ref:`core-metadata-keywords`"""
-    home_page: _Validator[Union[str, None]] = _Validator()
+    home_page: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-home-page`"""
-    download_url: _Validator[Union[str, None]] = _Validator(added="1.1")
+    download_url: _Validator[Optional[str]] = _Validator(added="1.1")
     """:external:ref:`core-metadata-download-url`"""
-    author: _Validator[Union[str, None]] = _Validator()
+    author: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-author`"""
-    author_email: _Validator[Union[str, None]] = _Validator()
+    author_email: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-author-email`"""
-    maintainer: _Validator[Union[str, None]] = _Validator(added="1.2")
+    maintainer: _Validator[Optional[str]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-maintainer`"""
-    maintainer_email: _Validator[Union[str, None]] = _Validator(added="1.2")
+    maintainer_email: _Validator[Optional[str]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-maintainer-email`"""
-    license: _Validator[Union[str, None]] = _Validator()
+    license: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-license`"""
-    classifiers: _Validator[Union[List[str], None]] = _Validator(added="1.1")
+    classifiers: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
-    requires_dist: _Validator[Union[List[requirements.Requirement], None]] = _Validator(
+    requires_dist: _Validator[Optional[List[requirements.Requirement]]] = _Validator(
         added="1.2"
     )
     """:external:ref:`core-metadata-requires-dist`"""
-    requires_python: _Validator[Union[specifiers.SpecifierSet, None]] = _Validator(
+    requires_python: _Validator[Optional[specifiers.SpecifierSet]] = _Validator(
         added="1.2"
     )
     """:external:ref:`core-metadata-requires-python`"""
     # Because `Requires-External` allows for non-PEP 440 version specifiers, we
     # don't do any processing on the values.
-    requires_external: _Validator[Union[List[str], None]] = _Validator(added="1.2")
+    requires_external: _Validator[Optional[List[str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-requires-external`"""
-    project_urls: _Validator[Union[Dict[str, str], None]] = _Validator(added="1.2")
+    project_urls: _Validator[Optional[Dict[str, str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
-    provides_extra: _Validator[Union[List[utils.NormalizedName], None]] = _Validator(
+    provides_extra: _Validator[Optional[List[utils.NormalizedName]]] = _Validator(
         added="2.1",
     )
     """:external:ref:`core-metadata-provides-extra`"""
-    provides_dist: _Validator[Union[List[str], None]] = _Validator(added="1.2")
+    provides_dist: _Validator[Optional[List[str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-provides-dist`"""
-    obsoletes_dist: _Validator[Union[List[str], None]] = _Validator(added="1.2")
+    obsoletes_dist: _Validator[Optional[List[str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
-    requires: _Validator[Union[List[str], None]] = _Validator(added="1.1")
+    requires: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
-    provides: _Validator[Union[List[str], None]] = _Validator(added="1.1")
+    provides: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """``Provides`` (deprecated)"""
-    obsoletes: _Validator[Union[List[str], None]] = _Validator(added="1.1")
+    obsoletes: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """``Obsoletes`` (deprecated)"""
