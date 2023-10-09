@@ -44,7 +44,7 @@ try:
     ExceptionGroup
 except NameError:  # pragma: no cover
 
-    class ExceptionGroup(Exception):
+    class ExceptionGroup(Exception):  # noqa: N818
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
 
         If :external:exc:`ExceptionGroup` is already defined by Python itself,
