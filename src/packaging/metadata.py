@@ -505,7 +505,7 @@ class _Validator(Generic[T]):
         # No need to check the cache as attribute lookup will resolve into the
         # instance's __dict__ before __get__ is called.
         cache = instance.__dict__
-        value = instance._raw.get(self.name)  # type: ignore[literal-required]
+        value = instance._raw.get(self.name)
 
         # To make the _process_* methods easier, we'll check if the value is None
         # and if this field is NOT a required attribute, and if both of those
