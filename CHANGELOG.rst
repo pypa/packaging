@@ -6,7 +6,7 @@ Changelog
 
 * Do specifier matching correctly when the specifier contains an epoch number
   and has more components than the version (:issue:`683`)
-* Make optional ``metadata.Metadata`` attributes default to ``None`` (:issue:`733`)
+* BREAKING: Make optional ``metadata.Metadata`` attributes default to ``None`` (:issue:`733`)
 * Fix errors when trying to access the ``description_content_type``, ``keywords``,
   and ``requires_python`` attributes on ``metadata.Metadata`` when those values
   have not been provided (:issue:`733`)
