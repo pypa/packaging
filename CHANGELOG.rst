@@ -10,6 +10,8 @@ Changelog
 * Fix errors when trying to access the ``description_content_type``, ``keywords``,
   and ``requires_python`` attributes on ``metadata.Metadata`` when those values
   have not been provided (:issue:`733`)
+* Fix a bug preventing the use of the built in ``ExceptionGroup`` on versions of
+  Python that support it (:issue:`725`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
