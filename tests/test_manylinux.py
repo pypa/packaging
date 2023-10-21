@@ -140,6 +140,7 @@ def test_glibc_version_string_ctypes_missing(monkeypatch):
     assert _glibc_version_string_ctypes() is None
 
 
+@pytest.mark.skipif(not ctypes, reason="requires ctypes")
 def test_glibc_version_string_ctypes_raise_oserror(monkeypatch):
     def patched_cdll(name):
         raise OSError("Dynamic loading not supported")
