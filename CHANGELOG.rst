@@ -8,6 +8,12 @@ Changelog
   and has more components than the version (:issue:`683`)
 * Support the experimental ``--disable-gil`` builds in packaging.tags
   (:issue:`727`)
+* BREAKING: Make optional ``metadata.Metadata`` attributes default to ``None`` (:issue:`733`)
+* Fix errors when trying to access the ``description_content_type``, ``keywords``,
+  and ``requires_python`` attributes on ``metadata.Metadata`` when those values
+  have not been provided (:issue:`733`)
+* Fix a bug preventing the use of the built in ``ExceptionGroup`` on versions of
+  Python that support it (:issue:`725`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
@@ -17,7 +23,7 @@ Changelog
 * Requirement parsing no longer automatically validates the URL (:issue:`120`)
 * Canonicalize names for requirements comparison (:issue:`644`)
 * Introduce ``metadata.Metadata`` (along with ``metadata.ExceptionGroup`` and ``metadata.InvalidMetadata``; :issue:`570`)
-* Introduce the ``validate`` keyword parameter to ``utils.validate_name()`` (:issue:`570`)
+* Introduce the ``validate`` keyword parameter to ``utils.normalize_name()`` (:issue:`570`)
 * Introduce ``utils.is_normalized_name()`` (:issue:`570`)
 * Make ``utils.parse_sdist_filename()`` and ``utils.parse_wheel_filename()``
   raise ``InvalidSdistFilename`` and ``InvalidWheelFilename``, respectively,

@@ -251,7 +251,7 @@ class TestExceptionGroup:
         individual_exception = Exception("not important")
         exc = metadata.ExceptionGroup("message", [individual_exception])
         assert exc.message == "message"
-        assert exc.exceptions == [individual_exception]
+        assert list(exc.exceptions) == [individual_exception]
 
     def test_repr(self):
         individual_exception = RuntimeError("not important")
@@ -378,12 +378,6 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_raw(raw, validate=True)
 
-    @pytest.mark.parametrize("field", metadata._DICT_FIELDS)
-    def test_dict_default(self, field):
-        empty_meta = metadata.Metadata.from_raw({}, validate=False)
-
-        assert getattr(empty_meta, field) == {}
-
     @pytest.mark.parametrize(
         "attribute",
         [
@@ -403,10 +397,6 @@ class TestMetadata:
 
         assert getattr(meta, attribute) == value
 
-        empty_meta = metadata.Metadata.from_raw({}, validate=False)
-
-        assert getattr(empty_meta, attribute) == ""
-
     @pytest.mark.parametrize(
         "attribute",
         [
@@ -425,14 +415,6 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({attribute: values}, validate=False)
 
         assert getattr(meta, attribute) == values
-
-        empty_meta = metadata.Metadata.from_raw({}, validate=False)
-        assert getattr(empty_meta, attribute) == []
-
-    def test_mapping_default_attribute(self):
-        empty_meta = metadata.Metadata.from_raw({}, validate=False)
-
-        assert empty_meta.project_urls == {}
 
     @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
     def test_valid_metadata_version(self, version):
@@ -628,3 +610,11 @@ class TestMetadata:
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic
+
+    @pytest.mark.parametrize(
+        "field_name",
+        sorted(metadata._RAW_TO_EMAIL_MAPPING.keys() - metadata._REQUIRED_ATTRS),
+    )
+    def test_optional_defaults_to_none(self, field_name):
+        meta = metadata.Metadata.from_raw({}, validate=False)
+        assert getattr(meta, field_name) is None
