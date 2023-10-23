@@ -6,6 +6,8 @@ Changelog
 
 * Do specifier matching correctly when the specifier contains an epoch number
   and has more components than the version (:issue:`683`)
+* Support the experimental ``--disable-gil`` builds in packaging.tags
+  (:issue:`727`)
 * BREAKING: Make optional ``metadata.Metadata`` attributes default to ``None`` (:issue:`733`)
 * Fix errors when trying to access the ``description_content_type``, ``keywords``,
   and ``requires_python`` attributes on ``metadata.Metadata`` when those values
