@@ -5,9 +5,13 @@ import pytest
 from packaging import metadata, requirements, specifiers, utils, version
 from packaging.metadata import ExceptionGroup
 
+_TYPE_FIELDS = {}
+for key, cls in metadata._FIELD_TYPES.items():
+    _TYPE_FIELDS.setdefault(cls, set()).add(key)
+
 
 class TestRawMetadata:
-    @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", _TYPE_FIELDS[str])
     def test_non_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
@@ -18,7 +22,7 @@ class TestRawMetadata:
         assert raw_field in raw
         assert raw[raw_field] == data
 
-    @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", _TYPE_FIELDS[str])
     def test_non_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
@@ -30,7 +34,7 @@ class TestRawMetadata:
         assert header_field in unparsed
         assert unparsed[header_field] == [data] * 2
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
+    @pytest.mark.parametrize("raw_field", _TYPE_FIELDS[list])
     def test_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
@@ -41,7 +45,7 @@ class TestRawMetadata:
         assert raw_field in raw
         assert raw[raw_field] == [data]
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
+    @pytest.mark.parametrize("raw_field", _TYPE_FIELDS[list])
     def test_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"

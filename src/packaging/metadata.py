@@ -148,41 +148,11 @@ class RawMetadata(TypedDict, total=False):
     # tightened up to provide better interoptability.
 
 
-_STRING_FIELDS = {
-    "author",
-    "author_email",
-    "description",
-    "description_content_type",
-    "download_url",
-    "home_page",
-    "license",
-    "maintainer",
-    "maintainer_email",
-    "metadata_version",
-    "name",
-    "requires_python",
-    "summary",
-    "version",
-}
+# py <= 3.9 compat
+# https://docs.python.org/3/howto/annotations.html#accessing-the-annotations-dict-of-an-object-in-python-3-9-and-older
+_RAW_ANNOTATIONS = getattr(RawMetadata, "__annotations__", RawMetadata.__dict__["__annotations__"])
 
-_LIST_FIELDS = {
-    "classifiers",
-    "dynamic",
-    "obsoletes",
-    "obsoletes_dist",
-    "platforms",
-    "provides",
-    "provides_dist",
-    "provides_extra",
-    "requires",
-    "requires_dist",
-    "requires_external",
-    "supported_platforms",
-}
-
-_DICT_FIELDS = {
-    "project_urls",
-}
+_FIELD_TYPES = {key: getattr(value, "__origin__", value) for key, value in _RAW_ANNOTATIONS.items()}
 
 
 def _parse_keywords(data: str) -> List[str]:
@@ -259,37 +229,8 @@ def _get_payload(msg: email.message.Message, source: Union[bytes, str]) -> str:
 # class, some light touch ups can make a massive difference in usability.
 
 # Map METADATA fields to RawMetadata.
-_EMAIL_TO_RAW_MAPPING = {
-    "author": "author",
-    "author-email": "author_email",
-    "classifier": "classifiers",
-    "description": "description",
-    "description-content-type": "description_content_type",
-    "download-url": "download_url",
-    "dynamic": "dynamic",
-    "home-page": "home_page",
-    "keywords": "keywords",
-    "license": "license",
-    "maintainer": "maintainer",
-    "maintainer-email": "maintainer_email",
-    "metadata-version": "metadata_version",
-    "name": "name",
-    "obsoletes": "obsoletes",
-    "obsoletes-dist": "obsoletes_dist",
-    "platform": "platforms",
-    "project-url": "project_urls",
-    "provides": "provides",
-    "provides-dist": "provides_dist",
-    "provides-extra": "provides_extra",
-    "requires": "requires",
-    "requires-dist": "requires_dist",
-    "requires-external": "requires_external",
-    "requires-python": "requires_python",
-    "summary": "summary",
-    "supported-platform": "supported_platforms",
-    "version": "version",
-}
-_RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
+_RAW_TO_EMAIL_MAPPING = {key: key.replace("_", "-") for key in _RAW_ANNOTATIONS}
+_EMAIL_TO_RAW_MAPPING = {email: raw for raw, email in _RAW_TO_EMAIL_MAPPING.items()}
 
 
 def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[str]]]:
@@ -404,20 +345,20 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         # If it's any other kind of data, then we haven't the faintest clue
         # what we should parse it as, and we have to just add it to our list
         # of unparsed stuff.
-        if raw_name in _STRING_FIELDS and len(value) == 1:
+        if _FIELD_TYPES[raw_name] is str and len(value) == 1:
             raw[raw_name] = value[0]
         # If this is one of our list of string fields, then we can just assign
         # the value, since email *only* has strings, and our get_all() call
         # above ensures that this is a list.
-        elif raw_name in _LIST_FIELDS:
+        elif _FIELD_TYPES[raw_name] is list:
+            # Special Case: Keywords
+            # The keywords field is implemented in the metadata spec as a str,
+            # but it conceptually is a list of strings, and is serialized using
+            # ", ".join(keywords), so we'll do some light data massaging to turn
+            # this into what it logically is.
+            if raw_name == "keywords" and len(value) == 1:
+                value = _parse_keywords(value[0])
             raw[raw_name] = value
-        # Special Case: Keywords
-        # The keywords field is implemented in the metadata spec as a str,
-        # but it conceptually is a list of strings, and is serialized using
-        # ", ".join(keywords), so we'll do some light data massaging to turn
-        # this into what it logically is.
-        elif raw_name == "keywords" and len(value) == 1:
-            raw[raw_name] = _parse_keywords(value[0])
         # Special Case: Project-URL
         # The project urls is implemented in the metadata spec as a list of
         # specially-formatted strings that represent a key and a value, which
