@@ -100,7 +100,7 @@ class RawMetadata(TypedDict, total=False):
     metadata_version: str
     name: str
     version: str
-    platforms: List[str]
+    platform: List[str]
     summary: str
     description: str
     keywords: List[str]
@@ -110,9 +110,9 @@ class RawMetadata(TypedDict, total=False):
     license: str
 
     # Metadata 1.1 - PEP 314
-    supported_platforms: List[str]
+    supported_platform: List[str]
     download_url: str
-    classifiers: List[str]
+    classifier: List[str]
     requires: List[str]
     provides: List[str]
     obsoletes: List[str]
@@ -125,7 +125,7 @@ class RawMetadata(TypedDict, total=False):
     obsoletes_dist: List[str]
     requires_python: str
     requires_external: List[str]
-    project_urls: Dict[str, str]
+    project_url: Dict[str, str]
 
     # Metadata 2.0
     # PEP 426 attempted to completely revamp the metadata format
@@ -160,7 +160,7 @@ def _parse_keywords(data: str) -> List[str]:
     return [k.strip() for k in data.split(",")]
 
 
-def _parse_project_urls(data: List[str]) -> Dict[str, str]:
+def _parse_project_url(data: List[str]) -> Dict[str, str]:
     """Parse a list of label/URL string pairings separated by a comma."""
     urls = {}
     for pair in data:
@@ -368,9 +368,9 @@ def parse_email(data: Union[bytes, str]) -> Tuple[RawMetadata, Dict[str, List[st
         #
         # We will do a little light data massaging to turn this into a map as
         # it logically should be.
-        elif raw_name == "project_urls":
+        elif raw_name == "project_url":
             try:
-                raw[raw_name] = _parse_project_urls(value)
+                raw[raw_name] = _parse_project_url(value)
             except KeyError:
                 unparsed[name] = value
         # Nothing that we've done has managed to parse this, so it'll just
@@ -706,9 +706,9 @@ class Metadata:
     )
     """:external:ref:`core-metadata-dynamic`
     (validated against core metadata field names and lowercased)"""
-    platforms: _Validator[Optional[List[str]]] = _Validator()
+    platform: _Validator[Optional[List[str]]] = _Validator()
     """:external:ref:`core-metadata-platform`"""
-    supported_platforms: _Validator[Optional[List[str]]] = _Validator(added="1.1")
+    supported_platform: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """:external:ref:`core-metadata-supported-platform`"""
     summary: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-summary` (validated to contain no newlines)"""
@@ -732,7 +732,7 @@ class Metadata:
     """:external:ref:`core-metadata-maintainer-email`"""
     license: _Validator[Optional[str]] = _Validator()
     """:external:ref:`core-metadata-license`"""
-    classifiers: _Validator[Optional[List[str]]] = _Validator(added="1.1")
+    classifier: _Validator[Optional[List[str]]] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
     requires_dist: _Validator[Optional[List[requirements.Requirement]]] = _Validator(
         added="1.2"
@@ -746,7 +746,7 @@ class Metadata:
     # don't do any processing on the values.
     requires_external: _Validator[Optional[List[str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-requires-external`"""
-    project_urls: _Validator[Optional[Dict[str, str]]] = _Validator(added="1.2")
+    project_url: _Validator[Optional[Dict[str, str]]] = _Validator(added="1.2")
     """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.

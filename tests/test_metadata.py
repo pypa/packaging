@@ -90,13 +90,13 @@ class TestRawMetadata:
             ("A,B,C", {"A": "B,C"}),
         ],
     )
-    def test_project_urls_parsing(self, given, expected):
+    def test_project_url_parsing(self, given, expected):
         header = f"project-url: {given}"
         raw, unparsed = metadata.parse_email(header)
         assert not unparsed
         assert len(raw) == 1
-        assert "project_urls" in raw
-        assert raw["project_urls"] == expected
+        assert "project_url" in raw
+        assert raw["project_url"] == expected
 
     def test_duplicate_project_urls(self):
         header = "project-url: A, B\nproject-url: A, C"
@@ -194,8 +194,8 @@ class TestRawMetadata:
         assert raw["metadata_version"] == "2.3"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
-        assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
-        assert raw["supported_platforms"] == ["RedHat 7.2", "i386-win32-2791"]
+        assert raw["platform"] == ["ObscureUnix", "RareDOS"]
+        assert raw["supported_platform"] == ["RedHat 7.2", "i386-win32-2791"]
         assert raw["summary"] == "A module for collecting votes from beagles."
         assert (
             raw["description_content_type"]
@@ -219,7 +219,7 @@ class TestRawMetadata:
             "        author a postcard, and then the user promises not\n"
             "        to redistribute it."
         )
-        assert raw["classifiers"] == [
+        assert raw["classifier"] == [
             "Development Status :: 4 - Beta",
             "Environment :: Console (Text Based)",
         ]
@@ -237,7 +237,7 @@ class TestRawMetadata:
             "libpng (>=1.5)",
             'make; sys_platform != "win32"',
         ]
-        assert raw["project_urls"] == {
+        assert raw["project_url"] == {
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
             "Documentation": "https://example.com/BeagleVote",
         }
@@ -404,9 +404,9 @@ class TestMetadata:
     @pytest.mark.parametrize(
         "attribute",
         [
-            "supported_platforms",
-            "platforms",
-            "classifiers",
+            "supported_platform",
+            "platform",
+            "classifier",
             "provides_dist",
             "obsoletes_dist",
             "requires",
@@ -523,9 +523,9 @@ class TestMetadata:
             "Documentation": "https://example.com/BeagleVote",
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
         }
-        meta = metadata.Metadata.from_raw({"project_urls": urls}, validate=False)
+        meta = metadata.Metadata.from_raw({"project_url": urls}, validate=False)
 
-        assert meta.project_urls == urls
+        assert meta.project_url == urls
 
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
     def test_valid_requires_python(self, specifier):
