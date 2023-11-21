@@ -164,7 +164,7 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> List[str]:
     has_ext = "_d.pyd" in EXTENSION_SUFFIXES
     if with_debug or (with_debug is None and (has_refcount or has_ext)):
         debug = "d"
-    if py_version >= (3, 13) and _get_config_var("Py_NOGIL", warn):
+    if py_version >= (3, 13) and _get_config_var("Py_GIL_DISABLED", warn):
         threading = "t"
     if py_version < (3, 8):
         with_pymalloc = _get_config_var("WITH_PYMALLOC", warn)

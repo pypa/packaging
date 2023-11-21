@@ -907,7 +907,7 @@ class TestGenericTags:
             "Py_DEBUG": False,
             "EXT_SUFFIX": ".cpython-313t-x86_64-linux-gnu.so",
             "WITH_PYMALLOC": 0,
-            "Py_NOGIL": 1,
+            "Py_GIL_DISABLED": 1,
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == ["cp313t"]
@@ -941,7 +941,7 @@ class TestGenericTags:
             "EXT_SUFFIX": ".pyd",
             "Py_DEBUG": 0,
             "WITH_PYMALLOC": 0,
-            "Py_NOGIL": 0,
+            "Py_GIL_DISABLED": 0,
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
