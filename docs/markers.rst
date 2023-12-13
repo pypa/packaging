@@ -5,7 +5,8 @@ Markers
 
 One extra requirement of dealing with dependencies is the ability to specify
 if it is required depending on the operating system or Python version in use.
-`PEP 508`_ defines the scheme which has been implemented by this module.
+The :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`
+defines the scheme which has been implemented by this module.
 
 Usage
 -----
@@ -51,7 +52,7 @@ Reference
 
     This class abstracts handling markers for dependencies of a project. It can
     be passed a single marker or multiple markers that are ANDed or ORed
-    together. Each marker will be parsed according to PEP 508.
+    together. Each marker will be parsed according to the specification.
 
     :param str markers: The string representation of a marker or markers.
     :raises InvalidMarker: If the given ``markers`` are not parseable, then
@@ -63,8 +64,10 @@ Reference
 
     :param dict environment: A dictionary containing keys and values to
                              override the detected environment.
-    :raises: UndefinedComparison: If the marker uses a PEP 440 comparison on
-                                  strings which are not valid PEP 440 versions.
+    :raises: UndefinedComparison: If the marker uses a comparison on strings
+                                  which are not valid versions per the
+                                  :ref:`specification of version specifiers
+                                  <pypug:version-specifiers>`.
     :raises: UndefinedEnvironmentName: If the marker accesses a value that
                                        isn't present inside of the environment
                                        dictionary.
@@ -72,19 +75,18 @@ Reference
 .. exception:: InvalidMarker
 
     Raised when attempting to create a :class:`Marker` with a string that
-    does not conform to PEP 508.
+    does not conform to the specification.
 
 
 .. exception:: UndefinedComparison
 
-    Raised when attempting to evaluate a :class:`Marker` with a PEP 440
-    comparison operator against values that are not valid PEP 440 versions.
+    Raised when attempting to evaluate a :class:`Marker` with a
+    comparison operator against values that are not valid
+    versions per the :ref:`specification of version specifiers
+    <pypug:version-specifiers>`.
 
 
 .. exception:: UndefinedEnvironmentName
 
     Raised when attempting to evaluate a :class:`Marker` with a value that is
     missing from the evaluation environment.
-
-
-.. _`PEP 508`: https://www.python.org/dev/peps/pep-0508/

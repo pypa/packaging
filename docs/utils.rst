@@ -85,7 +85,8 @@ Reference
 
     :param str filename: The name of the wheel file.
     :raises InvalidWheelFilename: If the filename in question
-        does not follow conventions outlined in `PEP 427`_.
+        does not follow the :ref:`wheel specification
+        <pypug:binary-distribution-format>`.
 
     .. doctest::
 
@@ -137,4 +138,3 @@ Reference
     Raised when a source distribution file name is considered invalid.
 
 .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
-.. _`PEP 427`: https://peps.python.org/pep-0427/#file-name-convention
