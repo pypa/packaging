@@ -4,8 +4,9 @@ Requirements
 .. currentmodule:: packaging.requirements
 
 Parse a given requirements line for specifying dependencies of a Python
-project, using `PEP 508`_ which defines the scheme that has been implemented
-by this module.
+project, using the :ref:`specification of dependency specifiers
+<pypug:dependency-specifiers>`, which defines the scheme that has been
+implemented by this module.
 
 Usage
 -----
@@ -60,8 +61,8 @@ Usage
 
     When a requirement is specified with a URL, the :class:`Requirement` class
     used to check the URL and reject values containing invalid scheme and
-    netloc combinations. This is no longer performed since PEP 508 does not
-    specify such rules, and the check incorrectly disallows valid requirement
+    netloc combinations. This is no longer performed since the specification does
+    not have such rules, and the check incorrectly disallows valid requirement
     strings from being parsed.
 
 Reference
@@ -70,7 +71,7 @@ Reference
 .. class:: Requirement(requirement)
 
     This class abstracts handling the details of a requirement for a project.
-    Each requirement will be parsed according to PEP 508.
+    Each requirement will be parsed according to the specification.
 
     :param str requirement: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement`` is not parseable,
@@ -99,6 +100,4 @@ Reference
 .. exception:: InvalidRequirement
 
     Raised when attempting to create a :class:`Requirement` with a string that
-    does not conform to PEP 508.
-
-.. _`PEP 508`: https://www.python.org/dev/peps/pep-0508/
+    does not conform to the specification.
