@@ -62,8 +62,8 @@ Reference
 
     Evaluate the marker given the context of the current Python process.
 
-    :param dict environment: A dictionary containing keys and values to
-                             override the detected environment.
+    :param Environment environment: A dictionary containing keys and values to
+                                    override the detected environment.
     :raises: UndefinedComparison: If the marker uses a comparison on strings
                                   which are not valid versions per the
                                   :ref:`specification of version specifiers
@@ -71,6 +71,19 @@ Reference
     :raises: UndefinedEnvironmentName: If the marker accesses a value that
                                        isn't present inside of the environment
                                        dictionary.
+    :rtype: bool
+
+.. autotypeddict:: packaging.markers.Environment
+
+    A dictionary that represents a Python environment.
+
+.. function:: default_environment()
+
+    Returns a dictionary representing the current Python process. This is the
+    base environment that is used when evaluating markers in
+    :meth:`Marker.evaluate`.
+
+    :rtype: Environment
 
 .. exception:: InvalidMarker
 

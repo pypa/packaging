@@ -3,7 +3,6 @@ import email.header
 import email.message
 import email.parser
 import email.policy
-import sys
 import typing
 from typing import (
     Any,
@@ -19,25 +18,9 @@ from typing import (
 )
 
 from . import requirements, specifiers, utils, version as version_module
+from ._compat import Literal, TypedDict
 
 T = typing.TypeVar("T")
-if sys.version_info[:2] >= (3, 8):  # pragma: no cover
-    from typing import Literal, TypedDict
-else:  # pragma: no cover
-    if typing.TYPE_CHECKING:
-        from typing_extensions import Literal, TypedDict
-    else:
-        try:
-            from typing_extensions import Literal, TypedDict
-        except ImportError:
-
-            class Literal:
-                def __init_subclass__(*_args, **_kwargs):
-                    pass
-
-            class TypedDict:
-                def __init_subclass__(*_args, **_kwargs):
-                    pass
 
 
 try:

@@ -8,6 +8,7 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from ._compat import TypedDict
 from ._parser import (
     MarkerAtom,
     MarkerList,
@@ -47,6 +48,89 @@ class UndefinedEnvironmentName(ValueError):
     """
     A name was attempted to be used that does not exist inside of the
     environment.
+    """
+
+
+class Environment(TypedDict, total=False):
+    implementation_name: str
+    """The implementation's identifier, e.g. ``'cpython'``."""
+
+    implementation_version: str
+    """
+    The implementation's version, e.g. ``'3.13.0a2'`` for CPython 3.13.0a2, or
+    ``'7.3.13'`` for PyPy3.10 v7.3.13.
+    """
+
+    os_name: str
+    """
+    The value of :py:data:`os.name`. The name of the operating system dependent module
+    imported, e.g. ``'posix'``.
+    """
+
+    platform_machine: str
+    """
+    Returns the machine type, e.g. ``'i386'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_release: str
+    """
+    The system's release, e.g. ``'2.2.0'`` or ``'NT'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_system: str
+    """
+    The system/OS name, e.g. ``'Linux'``, ``'Windows'`` or ``'Java'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_version: str
+    """
+    The system's release version, e.g. ``'#3 on degas'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    python_full_version: str
+    """
+    The Python version as string ``'major.minor.patchlevel'``.
+
+    Note that unlike the Python :py:data:`sys.version`, this value will always include
+    the patchlevel (it defaults to 0).
+    """
+
+    platform_python_implementation: str
+    """
+    A string identifying the Python implementation.
+
+    Currently, the following implementations are identified: ``'CPython'`` (C
+    implementation of Python), ``'IronPython'`` (.NET implementation of Python),
+    ``'Jython'`` (Java implementation of Python), ``'PyPy'`` (Python implementation of
+    Python).
+    """
+
+    python_version: str
+    """The Python version as string ``'major.minor'``."""
+
+    sys_platform: str
+    """
+    This string contains a platform identifier that can be used to append
+    platform-specific components to :py:data:`sys.path`, for instance.
+
+    For Unix systems, except on Linux and AIX, this is the lowercased OS name as
+    returned by ``uname -s`` with the first part of the version as returned by
+    ``uname -r`` appended, e.g. ``'sunos5'`` or ``'freebsd8'``, at the time when Python
+    was built.
+    """
+
+    extra: Optional[str]
+    """
+    An optional string used by wheels to signal which specifications apply to a given
+    extra in the wheel ``METADATA`` file.
     """
 
 
@@ -134,10 +218,11 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     return values
 
 
-def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
+def _evaluate_markers(markers: MarkerList, environment: Environment) -> bool:
     groups: List[List[bool]] = [[]]
 
     for marker in markers:
+
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
@@ -147,12 +232,12 @@ def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
 
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
-                lhs_value = environment[environment_key]
+                lhs_value = environment[environment_key]  # type: ignore[literal-required] # noqa: E501
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
-                rhs_value = environment[environment_key]
+                rhs_value = environment[environment_key]  # type: ignore[literal-required] # noqa: E501
 
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
@@ -172,7 +257,7 @@ def format_full_version(info: "sys._version_info") -> str:
     return version
 
 
-def default_environment() -> Dict[str, str]:
+def default_environment() -> Environment:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
@@ -231,7 +316,7 @@ class Marker:
 
         return str(self) == str(other)
 
-    def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
+    def evaluate(self, environment: Optional[Environment] = None) -> bool:
         """Evaluate a marker.
 
         Return the boolean from evaluating the given marker against the
