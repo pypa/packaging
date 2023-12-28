@@ -1,24 +1,21 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
+from __future__ import annotations
 
 import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable
 
-from ._parser import (
-    MarkerAtom,
-    MarkerList,
-    Op,
-    Value,
-    Variable,
-    parse_marker as _parse_marker,
-)
+from ._parser import Op, Value, Variable, parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+
+if TYPE_CHECKING:
+    from ._types import MarkerAtom, MarkerList
 
 __all__ = [
     "InvalidMarker",
@@ -67,7 +64,7 @@ def _normalize_extra_values(results: Any) -> Any:
 
 
 def _format_marker(
-    marker: Union[List[str], MarkerAtom, str], first: Optional[bool] = True
+    marker: list[str] | MarkerAtom | str, first: bool | None = True
 ) -> str:
 
     assert isinstance(marker, (list, tuple, str))
@@ -95,7 +92,7 @@ def _format_marker(
         return marker
 
 
-_operators: Dict[str, Operator] = {
+_operators: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
     "<": operator.lt,
@@ -115,14 +112,14 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     else:
         return spec.contains(lhs, prereleases=True)
 
-    oper: Optional[Operator] = _operators.get(op.serialize())
+    oper: Operator | None = _operators.get(op.serialize())
     if oper is None:
         raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
 
     return oper(lhs, rhs)
 
 
-def _normalize(*values: str, key: str) -> Tuple[str, ...]:
+def _normalize(*values: str, key: str) -> tuple[str, ...]:
     # PEP 685 – Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
@@ -134,8 +131,8 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     return values
 
 
-def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
-    groups: List[List[bool]] = [[]]
+def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
+    groups: list[list[bool]] = [[]]
 
     for marker in markers:
         assert isinstance(marker, (list, tuple, str))
@@ -164,7 +161,7 @@ def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
     return any(all(item) for item in groups)
 
 
-def format_full_version(info: "sys._version_info") -> str:
+def format_full_version(info: sys._version_info) -> str:
     version = "{0.major}.{0.minor}.{0.micro}".format(info)
     kind = info.releaselevel
     if kind != "final":
@@ -172,7 +169,7 @@ def format_full_version(info: "sys._version_info") -> str:
     return version
 
 
-def default_environment() -> Dict[str, str]:
+def default_environment() -> dict[str, str]:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
@@ -231,7 +228,7 @@ class Marker:
 
         return str(self) == str(other)
 
-    def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
+    def evaluate(self, environment: dict[str, str] | None = None) -> bool:
         """Evaluate a marker.
 
         Return the boolean from evaluating the given marker against the

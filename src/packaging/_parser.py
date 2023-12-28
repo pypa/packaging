@@ -3,11 +3,15 @@
 The docstring for each __parse_* function contains ENBF-inspired grammar representing
 the implementation.
 """
+from __future__ import annotations
 
 import ast
-from typing import Any, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, NamedTuple
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
+
+if TYPE_CHECKING:
+    from ._types import MarkerAtom, MarkerItem, MarkerList, MarkerVar
 
 
 class Node:
@@ -39,22 +43,12 @@ class Op(Node):
         return str(self)
 
 
-MarkerVar = Union[Variable, Value]
-MarkerItem = Tuple[MarkerVar, Op, MarkerVar]
-# MarkerAtom = Union[MarkerItem, List["MarkerAtom"]]
-# MarkerList = List[Union["MarkerList", MarkerAtom, str]]
-# mypy does not support recursive type definition
-# https://github.com/python/mypy/issues/731
-MarkerAtom = Any
-MarkerList = List[Any]
-
-
 class ParsedRequirement(NamedTuple):
     name: str
     url: str
-    extras: List[str]
+    extras: list[str]
     specifier: str
-    marker: Optional[MarkerList]
+    marker: MarkerList | None
 
 
 # --------------------------------------------------------------------------------------
@@ -87,7 +81,7 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
 
 def _parse_requirement_details(
     tokenizer: Tokenizer,
-) -> Tuple[str, str, Optional[MarkerList]]:
+) -> tuple[str, str, MarkerList | None]:
     """
     requirement_details = AT URL (WS requirement_marker?)?
                         | specifier WS? (requirement_marker)?
@@ -156,7 +150,7 @@ def _parse_requirement_marker(
     return marker
 
 
-def _parse_extras(tokenizer: Tokenizer) -> List[str]:
+def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     """
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
@@ -175,11 +169,11 @@ def _parse_extras(tokenizer: Tokenizer) -> List[str]:
     return extras
 
 
-def _parse_extras_list(tokenizer: Tokenizer) -> List[str]:
+def _parse_extras_list(tokenizer: Tokenizer) -> list[str]:
     """
     extras_list = identifier (wsp* ',' wsp* identifier)*
     """
-    extras: List[str] = []
+    extras: list[str] = []
 
     if not tokenizer.check("IDENTIFIER"):
         return extras

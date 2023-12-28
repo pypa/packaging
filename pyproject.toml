@@ -42,9 +42,10 @@ exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllin
 
 [tool.coverage.run]
 branch = true
+omit = ["_types.py"]
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
+exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty", "if TYPE_CHECKING:"]
 
 
 [tool.mypy]

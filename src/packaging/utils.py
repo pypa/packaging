@@ -1,15 +1,16 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
+from __future__ import annotations
 
 import re
-from typing import FrozenSet, NewType, Tuple, Union, cast
+from typing import TYPE_CHECKING
 
 from .tags import Tag, parse_tag
 from .version import InvalidVersion, Version
 
-BuildTag = Union[Tuple[()], Tuple[int, str]]
-NormalizedName = NewType("NormalizedName", str)
+if TYPE_CHECKING:
+    from ._types import BuildTag, NormalizedName
 
 
 class InvalidName(ValueError):
@@ -45,7 +46,7 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
         raise InvalidName(f"name is invalid: {name!r}")
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
-    return cast(NormalizedName, value)
+    return value  # type: ignore[return-value]
 
 
 def is_normalized_name(name: str) -> bool:
@@ -53,7 +54,7 @@ def is_normalized_name(name: str) -> bool:
 
 
 def canonicalize_version(
-    version: Union[Version, str], *, strip_trailing_zero: bool = True
+    version: Version | str, *, strip_trailing_zero: bool = True
 ) -> str:
     """
     This is very similar to Version.__str__, but has one subtle difference
@@ -102,7 +103,7 @@ def canonicalize_version(
 
 def parse_wheel_filename(
     filename: str,
-) -> Tuple[NormalizedName, Version, BuildTag, FrozenSet[Tag]]:
+) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
             f"Invalid wheel filename (extension must be '.whl'): {filename}"
@@ -129,6 +130,7 @@ def parse_wheel_filename(
             f"Invalid wheel filename (invalid version): {filename}"
         ) from e
 
+    build: BuildTag
     if dashes == 5:
         build_part = parts[2]
         build_match = _build_tag_regex.match(build_part)
@@ -136,14 +138,14 @@ def parse_wheel_filename(
             raise InvalidWheelFilename(
                 f"Invalid build number: {build_part} in '{filename}'"
             )
-        build = cast(BuildTag, (int(build_match.group(1)), build_match.group(2)))
+        build = (int(build_match.group(1)), build_match.group(2))
     else:
         build = ()
     tags = parse_tag(parts[-1])
     return (name, version, build, tags)
 
 
-def parse_sdist_filename(filename: str) -> Tuple[NormalizedName, Version]:
+def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     if filename.endswith(".tar.gz"):
         file_stem = filename[: -len(".tar.gz")]
     elif filename.endswith(".zip"):
