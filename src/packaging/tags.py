@@ -103,13 +103,13 @@ def parse_tag(tag: str) -> FrozenSet[Tag]:
     Returning a set is required due to the possibility that the tag is a
     compressed tag set.
     """
-    tags = set()
     interpreters, abis, platforms = tag.split("-")
-    for interpreter in interpreters.split("."):
-        for abi in abis.split("."):
-            for platform_ in platforms.split("."):
-                tags.add(Tag(interpreter, abi, platform_))
-    return frozenset(tags)
+    return frozenset(
+        Tag(interpreter, abi, platform_)
+        for platform_ in platforms.split(".")
+        for abi in abis.split(".")
+        for interpreter in interpreters.split(".")
+    )
 
 
 def _get_config_var(name: str, warn: bool = False) -> Union[int, str, None]:
