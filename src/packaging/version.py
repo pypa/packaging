@@ -469,9 +469,9 @@ def _parse_letter_version(
             letter = "a"
         elif letter == "beta":
             letter = "b"
-        elif letter in ["c", "pre", "preview"]:
+        elif letter in ("c", "pre", "preview"):
             letter = "rc"
-        elif letter in ["rev", "r"]:
+        elif letter in ("rev", "r"):
             letter = "post"
 
         return letter, int(number)

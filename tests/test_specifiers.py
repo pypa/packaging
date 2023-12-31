@@ -287,7 +287,7 @@ class TestSpecifier:
         ("version", "spec", "expected"),
         [
             (v, s, True)
-            for v, s in [
+            for v, s in (
                 # Test the equality operation
                 ("2.0", "==2"),
                 ("2.0", "==2.0"),
@@ -379,11 +379,11 @@ class TestSpecifier:
                 ("2!1.0", ">2.0"),
                 # Test some normalization rules
                 ("2.0.5", ">2.0dev"),
-            ]
+            )
         ]
         + [
             (v, s, False)
-            for v, s in [
+            for v, s in (
                 # Test the equality operation
                 ("2.1", "==2"),
                 ("2.1", "==2.0"),
@@ -473,7 +473,7 @@ class TestSpecifier:
                 ("2!1.0", "==1.*"),
                 ("1.0", "==2!1.*"),
                 ("2!1.0", "!=2!1.0"),
-            ]
+            )
         ],
     )
     def test_specifiers(self, version, spec, expected):
