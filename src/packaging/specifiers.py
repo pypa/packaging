@@ -39,7 +39,7 @@ class InvalidSpecifier(ValueError):
     """
 
 
-class BaseSpecifier(metaclass=abc.ABCMeta):
+class BaseSpecifier(abc.ABC):
     @abc.abstractmethod
     def __str__(self) -> str:
         """
