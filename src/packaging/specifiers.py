@@ -687,7 +687,10 @@ def _pad_version(left: List[str], right: List[str]) -> Tuple[List[str], List[str
     left_split.insert(1, ["0"] * max(0, len(right_split[0]) - len(left_split[0])))
     right_split.insert(1, ["0"] * max(0, len(left_split[0]) - len(right_split[0])))
 
-    return (list(itertools.chain(*left_split)), list(itertools.chain(*right_split)))
+    return (
+        list(itertools.chain.from_iterable(left_split)),
+        list(itertools.chain.from_iterable(right_split)),
+    )
 
 
 class SpecifierSet(BaseSpecifier):
