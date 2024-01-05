@@ -222,7 +222,6 @@ def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
     groups: List[List[bool]] = [[]]
 
     for marker in markers:
-
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
