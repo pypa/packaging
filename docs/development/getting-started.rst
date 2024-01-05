@@ -73,5 +73,5 @@ The HTML documentation index can now be found at
 .. _`virtualenv`: https://pypi.org/project/virtualenv/
 .. _`pip`: https://pypi.org/project/pip/
 .. _`sphinx`: https://pypi.org/project/Sphinx/
-.. _`reStructured Text`: http://sphinx-doc.org/rest.html
+.. _`reStructured Text`: https://www.sphinx-doc.org/en/master/usage/restructuredtext/
 .. _`pre-commit`: https://pre-commit.com
