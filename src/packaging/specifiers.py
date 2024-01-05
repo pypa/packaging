@@ -723,7 +723,7 @@ class SpecifierSet(BaseSpecifier):
         split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
         # Make each individual specifier a Specifier and save in a frozen set for later.
-        self._specs = frozenset(Specifier(specifier) for specifier in split_specifiers)
+        self._specs = frozenset(map(Specifier, split_specifiers))
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
