@@ -62,8 +62,8 @@ Reference
 
     Evaluate the marker given the context of the current Python process.
 
-    :param Environment environment: A dictionary containing keys and values to
-                                    override the detected environment.
+    :param dict environment: A dictionary containing keys and values to
+                             override the detected environment.
     :raises: UndefinedComparison: If the marker uses a comparison on strings
                                   which are not valid versions per the
                                   :ref:`specification of version specifiers

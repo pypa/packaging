@@ -218,7 +218,7 @@ def _normalize(*values: str, key: str) -> Tuple[str, ...]:
     return values
 
 
-def _evaluate_markers(markers: MarkerList, environment: Environment) -> bool:
+def _evaluate_markers(markers: MarkerList, environment: Dict[str, str]) -> bool:
     groups: List[List[bool]] = [[]]
 
     for marker in markers:
@@ -232,12 +232,12 @@ def _evaluate_markers(markers: MarkerList, environment: Environment) -> bool:
 
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
-                lhs_value = environment[environment_key]  # type: ignore[literal-required] # noqa: E501
+                lhs_value = environment[environment_key]
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
-                rhs_value = environment[environment_key]  # type: ignore[literal-required] # noqa: E501
+                rhs_value = environment[environment_key]
 
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
@@ -316,7 +316,7 @@ class Marker:
 
         return str(self) == str(other)
 
-    def evaluate(self, environment: Optional[Environment] = None) -> bool:
+    def evaluate(self, environment: Optional[Dict[str, str]] = None) -> bool:
         """Evaluate a marker.
 
         Return the boolean from evaluating the given marker against the
@@ -328,10 +328,10 @@ class Marker:
         current_environment = default_environment()
         current_environment["extra"] = ""
         if environment is not None:
-            current_environment.update(environment)
+            current_environment.update(environment)  # type: ignore[typeddict-item]
             # The API used to allow setting extra to None. We need to handle this
             # case for backwards compatibility.
             if current_environment["extra"] is None:
                 current_environment["extra"] = ""
 
-        return _evaluate_markers(self._markers, current_environment)
+        return _evaluate_markers(self._markers, current_environment)  # type: ignore[arg-type] # noqa: E501
