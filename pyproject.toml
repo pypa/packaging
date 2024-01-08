@@ -55,8 +55,3 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
-
-
-[tool.isort]
-profile = "black"
-combine_as_imports = true
