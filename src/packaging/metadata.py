@@ -18,7 +18,8 @@ from typing import (
     cast,
 )
 
-from . import requirements, specifiers, utils, version as version_module
+from . import requirements, specifiers, utils
+from . import version as version_module
 
 T = typing.TypeVar("T")
 if sys.version_info[:2] >= (3, 8):  # pragma: no cover

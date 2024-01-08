@@ -14,6 +14,8 @@ from ._parser import (
     Op,
     Value,
     Variable,
+)
+from ._parser import (
     parse_marker as _parse_marker,
 )
 from ._tokenizer import ParserSyntaxError
