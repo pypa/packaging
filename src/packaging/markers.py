@@ -105,12 +105,7 @@ class Environment(TypedDict, total=False):
 
     platform_python_implementation: str
     """
-    A string identifying the Python implementation.
-
-    Currently, the following implementations are identified: ``'CPython'`` (C
-    implementation of Python), ``'IronPython'`` (.NET implementation of Python),
-    ``'Jython'`` (Java implementation of Python), ``'PyPy'`` (Python implementation of
-    Python).
+    A string identifying the Python implementation, e.g. ``'CPython'``.
     """
 
     python_version: str
