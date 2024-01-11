@@ -6,7 +6,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from ._compat import TypedDict
 from ._parser import (
@@ -120,12 +120,6 @@ class Environment(TypedDict, total=False):
     returned by ``uname -s`` with the first part of the version as returned by
     ``uname -r`` appended, e.g. ``'sunos5'`` or ``'freebsd8'``, at the time when Python
     was built.
-    """
-
-    extra: Optional[str]
-    """
-    An optional string used by wheels to signal which specifications apply to a given
-    extra in the wheel ``METADATA`` file.
     """
 
 
@@ -319,13 +313,13 @@ class Marker:
 
         The environment is determined from the current Python process.
         """
-        current_environment = default_environment()
+        current_environment = cast("dict[str, str]", default_environment())
         current_environment["extra"] = ""
         if environment is not None:
-            current_environment.update(environment)  # type: ignore[typeddict-item]
+            current_environment.update(environment)
             # The API used to allow setting extra to None. We need to handle this
             # case for backwards compatibility.
             if current_environment["extra"] is None:
                 current_environment["extra"] = ""
 
-        return _evaluate_markers(self._markers, current_environment)  # type: ignore[arg-type] # noqa: E501
+        return _evaluate_markers(self._markers, current_environment)
