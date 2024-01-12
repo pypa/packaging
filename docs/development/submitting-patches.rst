@@ -70,5 +70,5 @@ So, specifically:
 .. |black| replace:: ``black``
 .. _black: https://pypi.org/project/black/
 .. _`Write comments as complete sentences.`: https://nedbatchelder.com/blog/201401/comments_should_be_sentences.html
-.. _`syntax`: http://sphinx-doc.org/domains.html#info-field-lists
-.. _`Studies have shown`: http://www.ibm.com/developerworks/rational/library/11-proven-practices-for-peer-review/
+.. _`syntax`: https://www.sphinx-doc.org/en/master/usage/restructuredtext/field-lists.html
+.. _`Studies have shown`: https://www.microsoft.com/en-us/research/publication/characteristics-of-useful-code-reviews-an-empirical-study-at-microsoft/
