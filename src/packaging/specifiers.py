@@ -701,13 +701,17 @@ class SpecifierSet(BaseSpecifier):
     """
 
     def __init__(
-        self, specifiers: str = "", prereleases: Optional[bool] = None
+        self,
+        specifiers: Union[str, Iterable[Specifier]] = "",
+        prereleases: Optional[bool] = None,
     ) -> None:
         """Initialize a SpecifierSet instance.
 
         :param specifiers:
             The string representation of a specifier or a comma-separated list of
             specifiers which will be parsed and normalized before use.
+            May also be an iterable of ``Specifier`` instances, which will be used
+            as is.
         :param prereleases:
             This tells the SpecifierSet if it should accept prerelease versions if
             applicable or not. The default of ``None`` will autodetect it from the
@@ -718,12 +722,17 @@ class SpecifierSet(BaseSpecifier):
             raised.
         """
 
-        # Split on `,` to break each individual specifier into it's own item, and
-        # strip each item to remove leading/trailing whitespace.
-        split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
+        if isinstance(specifiers, str):
+            # Split on `,` to break each individual specifier into its own item, and
+            # strip each item to remove leading/trailing whitespace.
+            split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
-        # Make each individual specifier a Specifier and save in a frozen set for later.
-        self._specs = frozenset(map(Specifier, split_specifiers))
+            # Make each individual specifier a Specifier and save in a frozen set
+            # for later.
+            self._specs = frozenset(map(Specifier, split_specifiers))
+        else:
+            # Save the supplied specifiers in a frozen set.
+            self._specs = frozenset(specifiers)
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
