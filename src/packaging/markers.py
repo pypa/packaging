@@ -51,7 +51,7 @@ class UndefinedEnvironmentName(ValueError):
     """
 
 
-class Environment(TypedDict, total=False):
+class Environment(TypedDict):
     implementation_name: str
     """The implementation's identifier, e.g. ``'cpython'``."""
 
