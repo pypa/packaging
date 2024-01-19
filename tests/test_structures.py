@@ -8,11 +8,11 @@ from packaging._structures import Infinity, NegativeInfinity
 
 
 def test_infinity_repr():
-    repr(Infinity) == "Infinity"
+    assert repr(Infinity) == "Infinity"
 
 
 def test_negative_infinity_repr():
-    repr(NegativeInfinity) == "-Infinity"
+    assert repr(NegativeInfinity) == "-Infinity"
 
 
 def test_infinity_hash():
