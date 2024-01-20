@@ -18,7 +18,7 @@ from typing import (
 )
 
 from . import requirements, specifiers, utils, version as version_module
-from ._compat import Literal, TypedDict
+from ._typing import Literal, TypedDict
 
 T = typing.TypeVar("T")
 

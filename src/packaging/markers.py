@@ -8,7 +8,6 @@ import platform
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from ._compat import TypedDict
 from ._parser import (
     MarkerAtom,
     MarkerList,
@@ -18,6 +17,7 @@ from ._parser import (
     parse_marker as _parse_marker,
 )
 from ._tokenizer import ParserSyntaxError
+from ._typing import TypedDict
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
