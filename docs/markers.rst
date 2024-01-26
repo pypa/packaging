@@ -75,7 +75,8 @@ Reference
 
 .. autotypeddict:: packaging.markers.Environment
 
-    A dictionary that represents a Python environment.
+    A dictionary that represents a Python environment as captured by
+    :func:`default_environment`.
 
 .. function:: default_environment()
 
