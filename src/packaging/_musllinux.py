@@ -28,7 +28,7 @@ def _parse_musl_version(output: str) -> Optional[_MuslVersion]:
     return _MuslVersion(major=int(m.group(1)), minor=int(m.group(2)))
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _get_musl_version(executable: str) -> Optional[_MuslVersion]:
     """Detect currently-running musl runtime version.
 
