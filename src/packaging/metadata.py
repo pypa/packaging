@@ -224,8 +224,8 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
         bpayload: bytes = msg.get_payload(decode=True)
         try:
             return bpayload.decode("utf8", "strict")
-        except UnicodeDecodeError:
-            raise ValueError("payload in an invalid encoding")
+        except UnicodeDecodeError as exc:
+            raise ValueError("payload in an invalid encoding") from exc
 
 
 # The various parse_FORMAT functions here are intended to be as lenient as
@@ -535,7 +535,7 @@ class _Validator(Generic[T]):
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
         else:
             return value
 
@@ -547,7 +547,7 @@ class _Validator(Generic[T]):
         except version_module.InvalidVersion as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
@@ -608,7 +608,7 @@ class _Validator(Generic[T]):
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{name!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
         else:
             return normalized_names
 
@@ -618,7 +618,7 @@ class _Validator(Generic[T]):
         except specifiers.InvalidSpecifier as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
 
     def _process_requires_dist(
         self,
@@ -629,7 +629,9 @@ class _Validator(Generic[T]):
             for req in value:
                 reqs.append(requirements.Requirement(req))
         except requirements.InvalidRequirement as exc:
-            raise self._invalid_metadata(f"{req!r} is invalid for {{field}}", cause=exc)
+            raise self._invalid_metadata(
+                f"{req!r} is invalid for {{field}}", cause=exc
+            ) from exc
         else:
             return reqs
 
