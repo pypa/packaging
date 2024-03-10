@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import email.feedparser
 import email.header
 import email.message
@@ -21,9 +22,9 @@ from . import version as version_module
 T = typing.TypeVar("T")
 
 
-try:
-    ExceptionGroup
-except NameError:  # pragma: no cover
+if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
+    ExceptionGroup = ExceptionGroup
+else:  # pragma: no cover
 
     class ExceptionGroup(Exception):
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
@@ -41,9 +42,6 @@ except NameError:  # pragma: no cover
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
-
-else:  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
 
 
 class InvalidMetadata(ValueError):
