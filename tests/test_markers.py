@@ -103,10 +103,15 @@ class TestDefaultEnvironment:
     def test_matches_expected(self):
         environment = default_environment()
 
-        iver = "{0.major}.{0.minor}.{0.micro}".format(sys.implementation.version)
+        iver = (
+            f"{sys.implementation.version.major}."
+            f"{sys.implementation.version.minor}."
+            f"{sys.implementation.version.micro}"
+        )
         if sys.implementation.version.releaselevel != "final":
             iver = (
-                f"{iver}{sys.implementation.version.releaselevel[0]}{sys.implementation.version.serial}"
+                f"{iver}{sys.implementation.version.releaselevel[0]}"
+                f"{sys.implementation.version.serial}"
             )
 
         assert environment == {
