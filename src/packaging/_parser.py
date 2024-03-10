@@ -4,8 +4,10 @@ The docstring for each __parse_* function contains EBNF-inspired grammar represe
 the implementation.
 """
 
+from __future__ import annotations
+
 import ast
-from typing import Any, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, List, NamedTuple, Tuple, Union
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
 
@@ -52,9 +54,9 @@ MarkerList = List[Any]
 class ParsedRequirement(NamedTuple):
     name: str
     url: str
-    extras: List[str]
+    extras: list[str]
     specifier: str
-    marker: Optional[MarkerList]
+    marker: MarkerList | None
 
 
 # --------------------------------------------------------------------------------------
@@ -87,7 +89,7 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
 
 def _parse_requirement_details(
     tokenizer: Tokenizer,
-) -> Tuple[str, str, Optional[MarkerList]]:
+) -> tuple[str, str, MarkerList | None]:
     """
     requirement_details = AT URL (WS requirement_marker?)?
                         | specifier WS? (requirement_marker)?
@@ -156,7 +158,7 @@ def _parse_requirement_marker(
     return marker
 
 
-def _parse_extras(tokenizer: Tokenizer) -> List[str]:
+def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     """
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
@@ -175,11 +177,11 @@ def _parse_extras(tokenizer: Tokenizer) -> List[str]:
     return extras
 
 
-def _parse_extras_list(tokenizer: Tokenizer) -> List[str]:
+def _parse_extras_list(tokenizer: Tokenizer) -> list[str]:
     """
     extras_list = identifier (wsp* ',' wsp* identifier)*
     """
-    extras: List[str] = []
+    extras: list[str] = []
 
     if not tokenizer.check("IDENTIFIER"):
         return extras
