@@ -118,7 +118,7 @@ def test_basic_valid_requirement_parsing(
     parts = [name]
     if extras:
         parts.append("[")
-        parts.append("{ws},{ws}".format(ws=whitespace).join(sorted(extras)))
+        parts.append(f"{whitespace},{whitespace}".join(sorted(extras)))
         parts.append("]")
     if specifier:
         parts.append(specifier.format(ws=whitespace))

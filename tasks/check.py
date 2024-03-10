@@ -107,35 +107,22 @@ def pep440(cached=False):
 
     # Print out our findings
     print(
-        "Total Version Compatibility:              {}/{} ({:.2%})".format(
-            len(parsed_versions),
-            len(all_versions),
-            len(parsed_versions) / len(all_versions),
-        )
+        f"Total Version Compatibility:              {len(parsed_versions)}/"
+        f"{len(all_versions)} ({len(parsed_versions) / len(all_versions):.2%})"
     )
     print(
-        "Total Sorting Compatibility (Unfiltered): {}/{} ({:.2%})".format(
-            len(compatible_sorting), len(data), len(compatible_sorting) / len(data)
-        )
+        f"Total Sorting Compatibility (Unfiltered): {len(compatible_sorting)}/"
+        f"{len(data)} ({len(compatible_sorting) / len(data):.2%})"
     )
     print(
-        "Total Sorting Compatibility (Filtered):   {}/{} ({:.2%})".format(
-            len(filtered_compatible_sorting),
-            len(data),
-            len(filtered_compatible_sorting) / len(data),
-        )
+        f"Total Sorting Compatibility (Filtered):   {len(filtered_compatible_sorting)}/"
+        f"{len(data)} ({len(filtered_compatible_sorting) / len(data):.2%})"
     )
     print(
-        "Projects with No Compatible Versions:     {}/{} ({:.2%})".format(
-            len(only_invalid_versions),
-            len(data),
-            len(only_invalid_versions) / len(data),
-        )
+        f"Projects with No Compatible Versions:     {len(only_invalid_versions)}/"
+        f"{len(data)} ({len(only_invalid_versions) / len(data):.2%})"
     )
     print(
-        "Projects with Differing Latest Version:   {}/{} ({:.2%})".format(
-            len(differing_latest_versions),
-            len(data),
-            len(differing_latest_versions) / len(data),
-        )
+        f"Projects with Differing Latest Version:   {len(differing_latest_versions)}/"
+        f"{len(data)} ({len(differing_latest_versions) / len(data):.2%})"
     )
