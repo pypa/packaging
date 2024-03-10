@@ -74,7 +74,6 @@ extend-select = [
     "W"
 ]
 ignore = [
-    "B009",
     "B027",
     "N818",
     "RUF003",
