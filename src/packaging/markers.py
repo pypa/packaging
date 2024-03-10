@@ -6,7 +6,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypedDict, Union, cast
 
 from ._parser import (
     MarkerAtom,
@@ -14,10 +14,11 @@ from ._parser import (
     Op,
     Value,
     Variable,
+)
+from ._parser import (
     parse_marker as _parse_marker,
 )
 from ._tokenizer import ParserSyntaxError
-from ._typing import TypedDict
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
@@ -142,7 +143,6 @@ def _normalize_extra_values(results: Any) -> Any:
 def _format_marker(
     marker: Union[List[str], MarkerAtom, str], first: Optional[bool] = True
 ) -> str:
-
     assert isinstance(marker, (list, tuple, str))
 
     # Sometimes we have a structure like [[...]] which is a single item list

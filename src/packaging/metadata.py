@@ -10,15 +10,17 @@ from typing import (
     Dict,
     Generic,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
+    TypedDict,
     Union,
     cast,
 )
 
-from . import requirements, specifiers, utils, version as version_module
-from ._typing import Literal, TypedDict
+from . import requirements, specifiers, utils
+from . import version as version_module
 
 T = typing.TypeVar("T")
 
@@ -27,7 +29,7 @@ try:
     ExceptionGroup
 except NameError:  # pragma: no cover
 
-    class ExceptionGroup(Exception):  # noqa: N818
+    class ExceptionGroup(Exception):
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
 
         If :external:exc:`ExceptionGroup` is already defined by Python itself,
