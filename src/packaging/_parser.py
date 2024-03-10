@@ -7,7 +7,7 @@ the implementation.
 from __future__ import annotations
 
 import ast
-from typing import Any, List, NamedTuple, Tuple, Union
+from typing import NamedTuple, Sequence, Tuple, Union
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
 
@@ -43,12 +43,8 @@ class Op(Node):
 
 MarkerVar = Union[Variable, Value]
 MarkerItem = Tuple[MarkerVar, Op, MarkerVar]
-# MarkerAtom = Union[MarkerItem, List["MarkerAtom"]]
-# MarkerList = List[Union["MarkerList", MarkerAtom, str]]
-# mypy does not support recursive type definition
-# https://github.com/python/mypy/issues/731
-MarkerAtom = Any
-MarkerList = List[Any]
+MarkerAtom = Union[MarkerItem, Sequence["MarkerAtom"]]
+MarkerList = Sequence[Union["MarkerList", MarkerAtom, str]]
 
 
 class ParsedRequirement(NamedTuple):
