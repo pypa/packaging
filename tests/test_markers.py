@@ -104,7 +104,8 @@ class TestDefaultEnvironment:
         iver = "{0.major}.{0.minor}.{0.micro}".format(sys.implementation.version)
         if sys.implementation.version.releaselevel != "final":
             iver = (
-                f"{iver}{sys.implementation.version.releaselevel[0]}{sys.implementation.version.serial}"
+                f"{iver}{sys.implementation.version.releaselevel[0]}"
+                f"{sys.implementation.version.serial}"
             )
 
         assert environment == {
