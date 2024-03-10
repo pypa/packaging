@@ -1,6 +1,6 @@
 """Handwritten parser of dependency specifiers.
 
-The docstring for each __parse_* function contains ENBF-inspired grammar representing
+The docstring for each __parse_* function contains EBNF-inspired grammar representing
 the implementation.
 """
 
