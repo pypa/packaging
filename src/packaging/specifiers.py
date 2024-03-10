@@ -364,7 +364,6 @@ class Specifier(BaseSpecifier):
         return operator_callable
 
     def _compare_compatible(self, prospective: Version, spec: str) -> bool:
-
         # Compatible releases have an equivalent combination of >= and ==. That
         # is that ~=2.2 is equivalent to >=2.2,==2.*. This allows us to
         # implement this in terms of the other specifiers instead of
@@ -385,7 +384,6 @@ class Specifier(BaseSpecifier):
         )
 
     def _compare_equal(self, prospective: Version, spec: str) -> bool:
-
         # We need special logic to handle prefix matching
         if spec.endswith(".*"):
             # In the case of prefix matching we want to ignore local segment.
@@ -429,21 +427,18 @@ class Specifier(BaseSpecifier):
         return not self._compare_equal(prospective, spec)
 
     def _compare_less_than_equal(self, prospective: Version, spec: str) -> bool:
-
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
         return Version(prospective.public) <= Version(spec)
 
     def _compare_greater_than_equal(self, prospective: Version, spec: str) -> bool:
-
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
         return Version(prospective.public) >= Version(spec)
 
     def _compare_less_than(self, prospective: Version, spec_str: str) -> bool:
-
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
         spec = Version(spec_str)
@@ -468,7 +463,6 @@ class Specifier(BaseSpecifier):
         return True
 
     def _compare_greater_than(self, prospective: Version, spec_str: str) -> bool:
-
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
         spec = Version(spec_str)
