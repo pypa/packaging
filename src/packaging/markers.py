@@ -14,6 +14,8 @@ from ._parser import (
     Op,
     Value,
     Variable,
+)
+from ._parser import (
     parse_marker as _parse_marker,
 )
 from ._tokenizer import ParserSyntaxError
@@ -69,7 +71,6 @@ def _normalize_extra_values(results: Any) -> Any:
 def _format_marker(
     marker: Union[List[str], MarkerAtom, str], first: Optional[bool] = True
 ) -> str:
-
     assert isinstance(marker, (list, tuple, str))
 
     # Sometimes we have a structure like [[...]] which is a single item list
