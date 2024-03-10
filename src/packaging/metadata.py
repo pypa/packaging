@@ -22,7 +22,7 @@ T = typing.TypeVar("T")
 
 
 try:
-    ExceptionGroup
+    ExceptionGroup  # noqa: B018
 except NameError:  # pragma: no cover
 
     class ExceptionGroup(Exception):
