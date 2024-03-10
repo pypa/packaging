@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+24.0 - 2024-03-10
+~~~~~~~~~~~~~~~~~
 
 * Do specifier matching correctly when the specifier contains an epoch number
   and has more components than the version (:issue:`683`)
