@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -43,6 +43,78 @@ class UndefinedEnvironmentName(ValueError):
     """
     A name was attempted to be used that does not exist inside of the
     environment.
+    """
+
+
+class Environment(TypedDict):
+    implementation_name: str
+    """The implementation's identifier, e.g. ``'cpython'``."""
+
+    implementation_version: str
+    """
+    The implementation's version, e.g. ``'3.13.0a2'`` for CPython 3.13.0a2, or
+    ``'7.3.13'`` for PyPy3.10 v7.3.13.
+    """
+
+    os_name: str
+    """
+    The value of :py:data:`os.name`. The name of the operating system dependent module
+    imported, e.g. ``'posix'``.
+    """
+
+    platform_machine: str
+    """
+    Returns the machine type, e.g. ``'i386'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_release: str
+    """
+    The system's release, e.g. ``'2.2.0'`` or ``'NT'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_system: str
+    """
+    The system/OS name, e.g. ``'Linux'``, ``'Windows'`` or ``'Java'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    platform_version: str
+    """
+    The system's release version, e.g. ``'#3 on degas'``.
+
+    An empty string if the value cannot be determined.
+    """
+
+    python_full_version: str
+    """
+    The Python version as string ``'major.minor.patchlevel'``.
+
+    Note that unlike the Python :py:data:`sys.version`, this value will always include
+    the patchlevel (it defaults to 0).
+    """
+
+    platform_python_implementation: str
+    """
+    A string identifying the Python implementation, e.g. ``'CPython'``.
+    """
+
+    python_version: str
+    """The Python version as string ``'major.minor'``."""
+
+    sys_platform: str
+    """
+    This string contains a platform identifier that can be used to append
+    platform-specific components to :py:data:`sys.path`, for instance.
+
+    For Unix systems, except on Linux and AIX, this is the lowercased OS name as
+    returned by ``uname -s`` with the first part of the version as returned by
+    ``uname -r`` appended, e.g. ``'sunos5'`` or ``'freebsd8'``, at the time when Python
+    was built.
     """
 
 
@@ -167,7 +239,7 @@ def format_full_version(info: sys._version_info) -> str:
     return version
 
 
-def default_environment() -> dict[str, str]:
+def default_environment() -> Environment:
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
@@ -235,7 +307,7 @@ class Marker:
 
         The environment is determined from the current Python process.
         """
-        current_environment = default_environment()
+        current_environment = cast("dict[str, str]", default_environment())
         current_environment["extra"] = ""
         if environment is not None:
             current_environment.update(environment)

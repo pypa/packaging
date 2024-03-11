@@ -51,6 +51,7 @@ exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproper
 strict = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
