@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import NewType, Tuple, Union, cast
 
@@ -54,27 +55,40 @@ def is_normalized_name(name: str) -> bool:
     return _normalized_regex.match(name) is not None
 
 
+@functools.singledispatch
 def canonicalize_version(
     version: Version | str, *, strip_trailing_zero: bool = True
 ) -> str:
     """
     Return a canonical form of a version as a string.
 
+    >>> canonicalize_version('1.0.1')
+    '1.0.1'
+
     Per PEP 625, versions may have multiple canonical forms, differing
     only by trailing zeros.
 
-    By default, zeros are stripped from the release.
-    """
-    if isinstance(version, str):
-        try:
-            parsed = Version(version)
-        except InvalidVersion:
-            # Legacy versions cannot be normalized
-            return version
-    else:
-        parsed = version
+    >>> canonicalize_version('1.0.0')
+    '1'
+    >>> canonicalize_version('1.0.0', strip_trailing_zero=False)
+    '1.0.0'
 
-    return str(_TrimmedRelease(str(parsed)) if strip_trailing_zero else parsed)
+    Invalid versions are returned unaltered.
+
+    >>> canonicalize_version('foo bar baz')
+    'foo bar baz'
+    """
+    return str(_TrimmedRelease(str(version)) if strip_trailing_zero else version)
+
+
+@canonicalize_version.register
+def _(version: str, *, strip_trailing_zero: bool = True) -> str:
+    try:
+        parsed = Version(version)
+    except InvalidVersion:
+        # Legacy versions cannot be normalized
+        return version
+    return canonicalize_version(parsed, strip_trailing_zero=strip_trailing_zero)
 
 
 def parse_wheel_filename(
