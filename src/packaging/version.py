@@ -929,3 +929,43 @@ def _cmpkey(
         )
 
     return epoch, _release, _pre, _post, _dev, _local
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    operations = {
+        "lt": lambda v1, v2: v1 < v2,
+        "le": lambda v1, v2: v1 <= v2,
+        "eq": lambda v1, v2: v1 == v2,
+        "ne": lambda v1, v2: v1 != v2,
+        "ge": lambda v1, v2: v1 >= v2,
+        "gt": lambda v1, v2: v1 > v2,
+        "lt-nl": lambda v1, v2: (v1 < v2) if v1 and v2 else True,
+        "le-nl": lambda v1, v2: (v1 <= v2) if v1 and v2 else True,
+        "ge-nl": lambda v1, v2: (v1 >= v2) if v1 and v2 else False,
+        "gt-nl": lambda v1, v2: (v1 > v2) if v1 and v2 else False,
+        "<": lambda v1, v2: v1 < v2,
+        "<<": lambda v1, v2: v1 < v2,
+        "<=": lambda v1, v2: v1 <= v2,
+        "=": lambda v1, v2: v1 == v2,
+        ">=": lambda v1, v2: v1 >= v2,
+        ">>": lambda v1, v2: v1 > v2,
+        ">": lambda v1, v2: v1 > v2,
+    }
+
+    parser = argparse.ArgumentParser(description="Compare two semantic versions.")
+    parser.add_argument("version1", type=Version, help="First version to compare")
+    parser.add_argument(
+        "operator",
+        type=str,
+        choices=operations.keys(),
+        help="Comparison operator",
+    )
+    parser.add_argument("version2", type=Version, help="Second version to compare")
+
+    args = parser.parse_args()
+    result = operations[args.operator](args.version1, args.version2)
+
+    sys.exit(0 if result else 1)
