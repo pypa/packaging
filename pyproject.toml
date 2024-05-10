@@ -98,3 +98,4 @@ ignore = [
     "ISC001",
     "ISC002",
 ]
+per-file-ignores = { "src/packaging/_spdx.py" = ["E501"] }
