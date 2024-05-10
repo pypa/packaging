@@ -18,7 +18,7 @@ follow the directions on the :doc:`security page </security>`.
 Code
 ----
 
-This project's source is auto-formatted with |black|. You can check if your
+This project's source is auto-formatted with |ruff|. You can check if your
 code meets our requirements by running our linters against it with ``nox -s
 lint`` or ``pre-commit run --all-files``.
 
@@ -67,8 +67,8 @@ So, specifically:
 * Use Sphinx parameter/attribute documentation `syntax`_.
 
 
-.. |black| replace:: ``black``
-.. _black: https://pypi.org/project/black/
+.. |ruff| replace:: ``ruff``
+.. _ruff: https://astral.sh/ruff
 .. _`Write comments as complete sentences.`: https://nedbatchelder.com/blog/201401/comments_should_be_sentences.html
 .. _`syntax`: https://www.sphinx-doc.org/en/master/usage/restructuredtext/field-lists.html
 .. _`Studies have shown`: https://www.microsoft.com/en-us/research/publication/characteristics-of-useful-code-reviews-an-empirical-study-at-microsoft/
