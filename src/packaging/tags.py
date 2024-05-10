@@ -434,20 +434,22 @@ def mac_platforms(
     if (10, 0) <= version and version < (11, 0):
         # Prior to Mac OS 11, each yearly release of Mac OS bumped the
         # "minor" version number.  The major version was always 10.
+        major_version = 10
         for minor_version in range(version[1], -1, -1):
-            compat_version = 10, minor_version
+            compat_version = major_version, minor_version
             binary_formats = _mac_binary_formats(compat_version, arch)
             for binary_format in binary_formats:
-                yield f"macosx_10_{minor_version}_{binary_format}"
+                yield f"macosx_{major_version}_{minor_version}_{binary_format}"
 
     if version >= (11, 0):
         # Starting with Mac OS 11, each yearly release bumps the major version
         # number.   The minor versions are now the midyear updates.
+        minor_version = 0
         for major_version in range(version[0], 10, -1):
-            compat_version = major_version, 0
+            compat_version = major_version, minor_version
             binary_formats = _mac_binary_formats(compat_version, arch)
             for binary_format in binary_formats:
-                yield f"macosx_{major_version}_0_{binary_format}"
+                yield f"macosx_{major_version}_{minor_version}_{binary_format}"
 
     if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
@@ -457,20 +459,18 @@ def mac_platforms(
         # However, the "universal2" binary format can have a
         # macOS version earlier than 11.0 when the x86_64 part of the binary supports
         # that version of macOS.
+        major_version = 10
         if arch == "x86_64":
             for minor_version in range(16, 3, -1):
-                compat_version = 10, minor_version
+                compat_version = major_version, minor_version
                 binary_formats = _mac_binary_formats(compat_version, arch)
                 for binary_format in binary_formats:
-                    yield (
-                        f"macosx_{compat_version[0]}_{compat_version[1]}"
-                        f"_{binary_format}"
-                    )
+                    yield f"macosx_{major_version}_{minor_version}_{binary_format}"
         else:
             for minor_version in range(16, 3, -1):
-                compat_version = 10, minor_version
+                compat_version = major_version, minor_version
                 binary_format = "universal2"
-                yield f"macosx_{compat_version[0]}_{compat_version[1]}_{binary_format}"
+                yield f"macosx_{major_version}_{minor_version}_{binary_format}"
 
 
 def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:

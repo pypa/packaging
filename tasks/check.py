@@ -107,22 +107,35 @@ def pep440(cached=False):
 
     # Print out our findings
     print(
-        f"Total Version Compatibility:              {len(parsed_versions)}/"
-        f"{len(all_versions)} ({len(parsed_versions) / len(all_versions):.2%})"
+        "Total Version Compatibility:              {}/{} ({:.2%})".format(  # noqa: UP032
+            len(parsed_versions),
+            len(all_versions),
+            len(parsed_versions) / len(all_versions),
+        )
     )
     print(
-        f"Total Sorting Compatibility (Unfiltered): {len(compatible_sorting)}/"
-        f"{len(data)} ({len(compatible_sorting) / len(data):.2%})"
+        "Total Sorting Compatibility (Unfiltered): {}/{} ({:.2%})".format(  # noqa: UP032
+            len(compatible_sorting), len(data), len(compatible_sorting) / len(data)
+        )
     )
     print(
-        f"Total Sorting Compatibility (Filtered):   {len(filtered_compatible_sorting)}/"
-        f"{len(data)} ({len(filtered_compatible_sorting) / len(data):.2%})"
+        "Total Sorting Compatibility (Filtered):   {}/{} ({:.2%})".format(  # noqa: UP032
+            len(filtered_compatible_sorting),
+            len(data),
+            len(filtered_compatible_sorting) / len(data),
+        )
     )
     print(
-        f"Projects with No Compatible Versions:     {len(only_invalid_versions)}/"
-        f"{len(data)} ({len(only_invalid_versions) / len(data):.2%})"
+        "Projects with No Compatible Versions:     {}/{} ({:.2%})".format(  # noqa: UP032
+            len(only_invalid_versions),
+            len(data),
+            len(only_invalid_versions) / len(data),
+        )
     )
     print(
-        f"Projects with Differing Latest Version:   {len(differing_latest_versions)}/"
-        f"{len(data)} ({len(differing_latest_versions) / len(data):.2%})"
+        "Projects with Differing Latest Version:   {}/{} ({:.2%})".format(  # noqa: UP032
+            len(differing_latest_versions),
+            len(data),
+            len(differing_latest_versions) / len(data),
+        )
     )
