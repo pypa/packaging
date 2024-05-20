@@ -388,7 +388,7 @@ class TestMarker:
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
     def test_python_full_version_untagged_user_provided(self):
-        """A user-provider python_full_version ending with a + fails to parse."""
+        """A user-provided python_full_version ending with a + fails to parse."""
         with pytest.raises(InvalidVersion):
             Marker("python_full_version < '3.12'").evaluate(
                 {"python_full_version": "3.11.1+"}
