@@ -8,7 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 from pytest import MonkeyPatch, TempPathFactory
 
-from packaging.wheel import WheelError, WheelReader, WheelWriter
+from packaging.wheelfile import WheelError, WheelReader, WheelWriter
 
 
 @pytest.fixture
