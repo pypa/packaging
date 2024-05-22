@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from typing import NewType, Union, cast
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
@@ -19,6 +20,7 @@ __all__ = [
     "canonicalize_name",
     "canonicalize_version",
     "is_normalized_name",
+    "make_wheel_filename",
     "parse_sdist_filename",
     "parse_wheel_filename",
 ]
@@ -67,6 +69,7 @@ _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
+_dist_name_re = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -172,6 +175,28 @@ def canonicalize_version(
         except InvalidVersion:
             return str(version)
     return str(_TrimmedRelease(version) if strip_trailing_zero else version)
+
+
+def make_wheel_filename(
+    name: str,
+    version: str | Version,
+    tags: Collection[Tag],
+    *,
+    build_tag: BuildTag | None = None,
+) -> str:
+    if not tags:
+        raise ValueError("At least one tag is required")
+
+    name = canonicalize_name(name).replace("-", "_").lower()
+    version = canonicalize_version(version)
+    filename = f"{name}-{version}"
+    if build_tag:
+        filename = f"{filename}-{build_tag[0]}{build_tag[1]}"
+
+    interpreter_tags = ".".join(tag.interpreter for tag in tags)
+    abi_tags = ".".join(tag.abi for tag in tags)
+    platform_tags = ".".join(tag.platform for tag in tags)
+    return f"{filename}-{interpreter_tags}-{abi_tags}-{platform_tags}.whl"
 
 
 def parse_wheel_filename(
