@@ -1,6 +1,10 @@
 packaging
 =========
 
+.. image:: https://assets.piptrends.com/get-last-month-downloads-badge/packaging.svg
+    :alt: packaging Downloads Last Month by pip Trends
+    :target: https://piptrends.com/package/packaging
+
 .. start-intro
 
 Reusable core utilities for various Python Packaging
