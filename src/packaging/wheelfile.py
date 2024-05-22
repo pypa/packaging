@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+__all__ = [
+    "WheelMetadata",
+    "WheelRecordEntry",
+    "WheelContentElement",
+    "WheelError",
+    "WheelArchiveFile",
+    "WheelReader",
+    "write_wheelfile",
+    "WheelWriter",
+]
+
 import csv
 import hashlib
 import os.path
-import re
 import stat
 import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
@@ -20,34 +30,29 @@ from types import TracebackType
 from typing import IO, NamedTuple
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
-from . import __version__ as wheel_version
 from .tags import Tag
 from .utils import (
+    BuildTag,
     InvalidWheelFilename,
     NormalizedName,
     parse_wheel_filename,
 )
 from .version import Version
 
-_DIST_NAME_RE = re.compile(r"[^A-Za-z0-9.]+")
-_EXCLUDE_FILENAMES = ("RECORD", "RECORD.jws", "RECORD.p7s")
-DEFAULT_TIMESTAMP = datetime(1980, 1, 1, tzinfo=timezone.utc)
-EMAIL_POLICY = EmailPolicy(max_line_length=0, mangle_from_=False, utf8=True)
+_exclude_filenames = ("RECORD", "RECORD.jws", "RECORD.p7s")
+_default_timestamp = datetime(1980, 1, 1, tzinfo=timezone.utc)
+_email_policy = EmailPolicy(max_line_length=0, mangle_from_=False, utf8=True)
 
 
 class WheelMetadata(NamedTuple):
     name: NormalizedName
     version: Version
-    build_tag: tuple[int, str] | tuple[()]
+    build_tag: BuildTag
     tags: frozenset[Tag]
 
     @classmethod
     def from_filename(cls, fname: str) -> WheelMetadata:
-        try:
-            name, version, build, tags = parse_wheel_filename(fname)
-        except InvalidWheelFilename as exc:
-            raise WheelError(f"Bad wheel filename {fname!r}") from exc
-
+        name, version, build, tags = parse_wheel_filename(fname)
         return cls(name, version, build, tags)
 
 
@@ -71,23 +76,6 @@ def _encode_hash_value(hash_value: bytes) -> str:
 def _decode_hash_value(encoded_hash: str) -> bytes:
     pad = b"=" * (4 - (len(encoded_hash) & 3))
     return urlsafe_b64decode(encoded_hash.encode("ascii") + pad)
-
-
-def make_filename(
-    name: str,
-    version: str,
-    build_tag: str | int | None = None,
-    impl_tag: str = "py3",
-    abi_tag: str = "none",
-    plat_tag: str = "any",
-) -> str:
-    name = _DIST_NAME_RE.sub("_", name)
-    version = _DIST_NAME_RE.sub("_", version)
-    filename = f"{name}-{version}"
-    if build_tag:
-        filename = f"{filename}-{build_tag}"
-
-    return f"{filename}-{impl_tag}-{abi_tag}-{plat_tag}.whl"
 
 
 class WheelError(Exception):
@@ -294,7 +282,7 @@ class WheelReader:
         for zinfo in self._zip.infolist():
             # Ignore signature files
             basename = os.path.basename(zinfo.filename)
-            if basename in _EXCLUDE_FILENAMES:
+            if basename in _exclude_filenames:
                 continue
 
             try:
@@ -329,7 +317,7 @@ class WheelReader:
 
     def _open_file(self, archive_name: str) -> WheelArchiveFile:
         basename = os.path.basename(archive_name)
-        if basename in _EXCLUDE_FILENAMES:
+        if basename in _exclude_filenames:
             record_entry = None
         else:
             record_entry = self._record_entries[archive_name]
@@ -355,9 +343,9 @@ class WheelReader:
 
 
 def write_wheelfile(
-    fp: IO[bytes], metadata: WheelMetadata, generator: str, root_is_purelib: bool
+    fp: IO[bytes], /, *, generator: str, metadata: WheelMetadata, root_is_purelib: bool
 ) -> None:
-    msg = Message(policy=EMAIL_POLICY)
+    msg = Message(policy=_email_policy)
     msg["Wheel-Version"] = "1.0"  # of the spec
     msg["Generator"] = generator
     msg["Root-Is-Purelib"] = str(root_is_purelib).lower()
@@ -374,15 +362,16 @@ class WheelWriter:
     def __init__(
         self,
         path_or_fd: str | PathLike[str] | IO[bytes],
-        metadata: WheelMetadata | None = None,
+        /,
         *,
-        generator: str | None = None,
+        generator: str,
+        metadata: WheelMetadata | None = None,
         root_is_purelib: bool = True,
         compress: bool = True,
         hash_algorithm: str = "sha256",
     ):
         self.path_or_fd = path_or_fd
-        self.generator = generator or f"packaging ({wheel_version})"
+        self.generator = generator
         self.root_is_purelib = root_is_purelib
         self.hash_algorithm = hash_algorithm
         self._compress_type = ZIP_DEFLATED if compress else ZIP_STORED
@@ -444,11 +433,16 @@ class WheelWriter:
 
     def _write_wheelfile(self) -> None:
         buffer = BytesIO()
-        write_wheelfile(buffer, self.metadata, self.generator, self.root_is_purelib)
+        write_wheelfile(
+            buffer,
+            generator=self.generator,
+            metadata=self.metadata,
+            root_is_purelib=self.root_is_purelib,
+        )
         self.write_distinfo_file("WHEEL", buffer.getvalue())
 
     def write_metadata(self, items: Iterable[tuple[str, str]]) -> None:
-        msg = Message(policy=EMAIL_POLICY)
+        msg = Message(policy=_email_policy)
         for key, value in items:
             key = key.title()
             if key == "Description":
@@ -469,7 +463,8 @@ class WheelWriter:
         self,
         name: str | PurePath,
         contents: bytes | str | PathLike[str] | IO[bytes],
-        timestamp: datetime = DEFAULT_TIMESTAMP,
+        *,
+        timestamp: datetime = _default_timestamp,
     ) -> None:
         arcname = PurePath(name).as_posix()
         gmtime = time.gmtime(timestamp.timestamp())
@@ -529,19 +524,21 @@ class WheelWriter:
         self,
         filename: str,
         contents: bytes | str | PathLike[str] | IO[bytes],
-        timestamp: datetime = DEFAULT_TIMESTAMP,
+        *,
+        timestamp: datetime = _default_timestamp,
     ) -> None:
         archive_path = self._data_dir + "/" + filename.strip("/")
-        self.write_file(archive_path, contents, timestamp)
+        self.write_file(archive_path, contents, timestamp=timestamp)
 
     def write_distinfo_file(
         self,
         filename: str,
         contents: bytes | str | IO[bytes],
-        timestamp: datetime = DEFAULT_TIMESTAMP,
+        *,
+        timestamp: datetime = _default_timestamp,
     ) -> None:
         archive_path = self._dist_info_dir + "/" + filename.strip()
-        self.write_file(archive_path, contents, timestamp)
+        self.write_file(archive_path, contents, timestamp=timestamp)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.path_or_fd!r})"
