@@ -180,18 +180,17 @@ def _get_glibc_version() -> tuple[int, int]:
 # From PEP 513, PEP 600
 def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
     sys_glibc = _get_glibc_version()
-    if sys_glibc < version:
-        return False
+    default_result = sys_glibc >= version
     # Check for presence of _manylinux module.
     try:
         import _manylinux
     except ImportError:
-        return True
+        return default_result
     if hasattr(_manylinux, "manylinux_compatible"):
         result = _manylinux.manylinux_compatible(version[0], version[1], arch)
         if result is not None:
             return bool(result)
-        return True
+
     if version == _GLibCVersion(2, 5):
         if hasattr(_manylinux, "manylinux1_compatible"):
             return bool(_manylinux.manylinux1_compatible)
@@ -201,7 +200,7 @@ def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
     if version == _GLibCVersion(2, 17):
         if hasattr(_manylinux, "manylinux2014_compatible"):
             return bool(_manylinux.manylinux2014_compatible)
-    return True
+    return default_result
 
 
 _LEGACY_MANYLINUX_MAP = {
