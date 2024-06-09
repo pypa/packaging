@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 24.1 - 2024-06-10
 ~~~~~~~~~~~~~~~~~
 
