@@ -15,7 +15,7 @@ from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
-__all__ = ["VERSION_PATTERN", "parse", "Version", "InvalidVersion"]
+__all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
 LocalType = Tuple[Union[int, str], ...]
 

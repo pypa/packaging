@@ -18,9 +18,9 @@ from .utils import canonicalize_name
 
 __all__ = [
     "InvalidMarker",
+    "Marker",
     "UndefinedComparison",
     "UndefinedEnvironmentName",
-    "Marker",
     "default_environment",
 ]
 

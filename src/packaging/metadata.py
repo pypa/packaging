@@ -688,8 +688,8 @@ class Metadata:
                             field = _RAW_TO_EMAIL_MAPPING[key]
                             exc = InvalidMetadata(
                                 field,
-                                "{field} introduced in metadata version "
-                                "{field_metadata_version}, not {metadata_version}",
+                                f"{field} introduced in metadata version "
+                                f"{field_metadata_version}, not {metadata_version}",
                             )
                             exceptions.append(exc)
                             continue
