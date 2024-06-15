@@ -4,6 +4,7 @@
 
 import invoke
 
-from . import check
+from . import check, licenses
 
 ns = invoke.Collection(check)
+ns.add_collection(licenses)
