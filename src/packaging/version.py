@@ -451,6 +451,23 @@ class Version(_BaseVersion):
         return self.release[2] if len(self.release) >= 3 else 0
 
 
+class _TrimmedRelease(Version):
+    @property
+    def release(self) -> tuple[int, ...]:
+        """
+        Release segment without any trailing zeros.
+
+        >>> _TrimmedRelease('1.0.0').release
+        (1,)
+        >>> _TrimmedRelease('0.0').release
+        (0,)
+        """
+        rel = super().release
+        nonzeros = (index for index, val in enumerate(rel) if val)
+        last_nonzero = max(nonzeros, default=0)
+        return rel[: last_nonzero + 1]
+
+
 def _parse_letter_version(
     letter: str | None, number: str | bytes | SupportsInt | None
 ) -> tuple[str, int] | None:

@@ -4,11 +4,12 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import NewType, Tuple, Union, cast
 
 from .tags import Tag, parse_tag
-from .version import InvalidVersion, Version
+from .version import InvalidVersion, Version, _TrimmedRelease
 
 BuildTag = Union[Tuple[()], Tuple[int, str]]
 NormalizedName = NewType("NormalizedName", str)
@@ -54,52 +55,40 @@ def is_normalized_name(name: str) -> bool:
     return _normalized_regex.match(name) is not None
 
 
+@functools.singledispatch
 def canonicalize_version(
     version: Version | str, *, strip_trailing_zero: bool = True
 ) -> str:
     """
-    This is very similar to Version.__str__, but has one subtle difference
-    with the way it handles the release segment.
+    Return a canonical form of a version as a string.
+
+    >>> canonicalize_version('1.0.1')
+    '1.0.1'
+
+    Per PEP 625, versions may have multiple canonical forms, differing
+    only by trailing zeros.
+
+    >>> canonicalize_version('1.0.0')
+    '1'
+    >>> canonicalize_version('1.0.0', strip_trailing_zero=False)
+    '1.0.0'
+
+    Invalid versions are returned unaltered.
+
+    >>> canonicalize_version('foo bar baz')
+    'foo bar baz'
     """
-    if isinstance(version, str):
-        try:
-            parsed = Version(version)
-        except InvalidVersion:
-            # Legacy versions cannot be normalized
-            return version
-    else:
-        parsed = version
+    return str(_TrimmedRelease(str(version)) if strip_trailing_zero else version)
 
-    parts = []
 
-    # Epoch
-    if parsed.epoch != 0:
-        parts.append(f"{parsed.epoch}!")
-
-    # Release segment
-    release_segment = ".".join(str(x) for x in parsed.release)
-    if strip_trailing_zero:
-        # NB: This strips trailing '.0's to normalize
-        release_segment = re.sub(r"(\.0)+$", "", release_segment)
-    parts.append(release_segment)
-
-    # Pre-release
-    if parsed.pre is not None:
-        parts.append("".join(str(x) for x in parsed.pre))
-
-    # Post-release
-    if parsed.post is not None:
-        parts.append(f".post{parsed.post}")
-
-    # Development release
-    if parsed.dev is not None:
-        parts.append(f".dev{parsed.dev}")
-
-    # Local version segment
-    if parsed.local is not None:
-        parts.append(f"+{parsed.local}")
-
-    return "".join(parts)
+@canonicalize_version.register
+def _(version: str, *, strip_trailing_zero: bool = True) -> str:
+    try:
+        parsed = Version(version)
+    except InvalidVersion:
+        # Legacy versions cannot be normalized
+        return version
+    return canonicalize_version(parsed, strip_trailing_zero=strip_trailing_zero)
 
 
 def parse_wheel_filename(
