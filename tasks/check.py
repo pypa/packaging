@@ -107,33 +107,33 @@ def pep440(cached=False):
 
     # Print out our findings
     print(
-        "Total Version Compatibility:              {}/{} ({:.2%})".format(
+        "Total Version Compatibility:              {}/{} ({:.2%})".format(  # noqa: UP032
             len(parsed_versions),
             len(all_versions),
             len(parsed_versions) / len(all_versions),
         )
     )
     print(
-        "Total Sorting Compatibility (Unfiltered): {}/{} ({:.2%})".format(
+        "Total Sorting Compatibility (Unfiltered): {}/{} ({:.2%})".format(  # noqa: UP032
             len(compatible_sorting), len(data), len(compatible_sorting) / len(data)
         )
     )
     print(
-        "Total Sorting Compatibility (Filtered):   {}/{} ({:.2%})".format(
+        "Total Sorting Compatibility (Filtered):   {}/{} ({:.2%})".format(  # noqa: UP032
             len(filtered_compatible_sorting),
             len(data),
             len(filtered_compatible_sorting) / len(data),
         )
     )
     print(
-        "Projects with No Compatible Versions:     {}/{} ({:.2%})".format(
+        "Projects with No Compatible Versions:     {}/{} ({:.2%})".format(  # noqa: UP032
             len(only_invalid_versions),
             len(data),
             len(only_invalid_versions) / len(data),
         )
     )
     print(
-        "Projects with Differing Latest Version:   {}/{} ({:.2%})".format(
+        "Projects with Differing Latest Version:   {}/{} ({:.2%})".format(  # noqa: UP032
             len(differing_latest_versions),
             len(data),
             len(differing_latest_versions) / len(data),
