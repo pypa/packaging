@@ -13,8 +13,8 @@ authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
-  "License :: OSI Approved :: BSD License",
+  "License :: OSI Approved :: Apache-2.0",
+  "License :: OSI Approved :: BSD-2-Clause",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
