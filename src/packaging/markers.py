@@ -188,7 +188,7 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
             return spec.contains(lhs, prereleases=True)
         except InvalidVersion:
             # Even though there is PEP 440 defined behaviour for the
-            # right side, fallback as the left left is not a valid
+            # right side, fallback as the left side is not a valid
             # version.
             pass
 

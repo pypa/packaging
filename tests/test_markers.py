@@ -401,6 +401,8 @@ class TestMarker:
             ("platform_release >= '20.0'", {"platform_release": "21-foobar"}, True),
             ("platform_release >= '8'", {"platform_release": "6.7.0-gentoo"}, False),
             ("platform_version == '27'", {"platform_version": "weird string"}, False),
+            # This looks weird, but is expected as per Python's lexicographical order.
+            ("platform_version >= '10'", {"platform_version": "6.7.0-gentoo"}, True),
             (
                 "implementation_version == '3.*'",
                 {"implementation_version": "2_private"},
@@ -420,5 +422,4 @@ class TestMarker:
         left operand is not a valid version, fallback to Python string
         comparison behaviour.
         """
-        args = [] if environment is None else [environment]
-        assert Marker(marker_string).evaluate(*args) == expected
+        assert Marker(marker_string).evaluate(environment) == expected
