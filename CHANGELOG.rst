@@ -4,7 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Consistently fallback to Python string comparison behaviour when evaluating
+  a marker where there is no PEP 440 defined behaviour, notably when the right
+  side has PEP 440 defined semantics, but the left side is an invalid
+  version (:issue:`774`)
 
 24.1 - 2024-06-10
 ~~~~~~~~~~~~~~~~~

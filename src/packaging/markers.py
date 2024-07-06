@@ -15,6 +15,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import InvalidVersion
 
 __all__ = [
     "InvalidMarker",
@@ -178,9 +179,18 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     try:
         spec = Specifier("".join([op.serialize(), rhs]))
     except InvalidSpecifier:
+        # As per the specification, if there is no PEP 440 defined
+        # behaviour because the right side is not a valid version
+        # specifier, fallback to Python string comparision behaviour.
         pass
     else:
-        return spec.contains(lhs, prereleases=True)
+        try:
+            return spec.contains(lhs, prereleases=True)
+        except InvalidVersion:
+            # Even though there is PEP 440 defined behaviour for the
+            # right side, fallback as the left left is not a valid
+            # version.
+            pass
 
     oper: Operator | None = _operators.get(op.serialize())
     if oper is None:

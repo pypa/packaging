@@ -20,7 +20,6 @@ from packaging.markers import (
     default_environment,
     format_full_version,
 )
-from packaging.version import InvalidVersion
 
 VARIABLES = [
     "extra",
@@ -388,12 +387,38 @@ class TestMarker:
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
     def test_python_full_version_untagged_user_provided(self):
-        """A user-provided python_full_version ending with a + fails to parse."""
-        with pytest.raises(InvalidVersion):
-            Marker("python_full_version < '3.12'").evaluate(
-                {"python_full_version": "3.11.1+"}
-            )
+        """A user-provided python_full_version ending with a + uses Python behaviour."""
+        env = {"python_full_version": "3.11.1+"}
+        assert Marker("python_full_version < '3.12'").evaluate(env)
 
     def test_python_full_version_untagged(self):
         with mock.patch("platform.python_version", return_value="3.11.1+"):
             assert Marker("python_full_version < '3.12'").evaluate()
+
+    @pytest.mark.parametrize(
+        ("marker_string", "environment", "expected"),
+        [
+            ("platform_release >= '20.0'", {"platform_release": "21-foobar"}, True),
+            ("platform_release >= '8'", {"platform_release": "6.7.0-gentoo"}, False),
+            ("platform_version == '27'", {"platform_version": "weird string"}, False),
+            (
+                "implementation_version == '3.*'",
+                {"implementation_version": "2_private"},
+                False,
+            ),
+            (
+                "implementation_version == '3.*'",
+                {"implementation_version": "3.*"},
+                True,
+            ),
+        ],
+    )
+    def test_valid_specifier_invalid_version_fallback_to_python(
+        self, marker_string: str, environment: dict, expected: bool
+    ):
+        """If the right operand is a valid version specifier, but the
+        left operand is not a valid version, fallback to Python string
+        comparison behaviour.
+        """
+        args = [] if environment is None else [environment]
+        assert Marker(marker_string).evaluate(*args) == expected
