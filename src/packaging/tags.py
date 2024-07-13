@@ -47,7 +47,7 @@ class Tag:
     is also supported.
     """
 
-    __slots__ = ["_interpreter", "_abi", "_platform", "_hash"]
+    __slots__ = ["_abi", "_hash", "_interpreter", "_platform"]
 
     def __init__(self, interpreter: str, abi: str, platform: str) -> None:
         self._interpreter = interpreter.lower()
