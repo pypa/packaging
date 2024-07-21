@@ -7,6 +7,11 @@ Changelog
 * Added the ``packaging.wheelfile`` module for reading and creating wheel files
   (:issue:`697`)
 
+24.1 - 2024-06-10
+~~~~~~~~~~~~~~~~~
+
+No unreleased changes.
+
 24.0 - 2024-03-10
 ~~~~~~~~~~~~~~~~~
 
