@@ -451,7 +451,7 @@ class WheelWriter:
                 msg.add_header(key, value)
 
         if "Metadata-Version" not in msg:
-            msg["Metadata-Version"] = "2.1"
+            msg["Metadata-Version"] = "2.3"
         if "Name" not in msg:
             msg["Name"] = self.metadata.name
         if "Version" not in msg:
