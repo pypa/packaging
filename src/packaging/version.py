@@ -232,7 +232,7 @@ class Version(_BaseVersion):
         return f"<Version('{self}')>"
 
     def __str__(self) -> str:
-        """A string representation of the version that can be rounded-tripped.
+        """A string representation of the version that can be round-tripped.
 
         >>> str(Version("1.0a5"))
         '1.0a5'
