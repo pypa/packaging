@@ -107,14 +107,6 @@ def test_canonicalize_version_no_strip_trailing_zero(version):
             id="simple",
         ),
         pytest.param(
-            "foo-1.4.0-py3-none-any.whl",
-            "foo",
-            "1.4.0.0.0",
-            (),
-            {Tag("py3", "none", "any")},
-            id="longversion",
-        ),
-        pytest.param(
             "some_pack_age-1.0-py3-none-any.whl",
             "some-PACK.AGE",
             Version("1.0"),

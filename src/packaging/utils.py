@@ -115,7 +115,6 @@ def make_wheel_filename(
         raise ValueError("At least one tag is required")
 
     name = canonicalize_name(name).replace("-", "_").lower()
-    version = canonicalize_version(version)
     filename = f"{name}-{version}"
     if build_tag:
         filename = f"{filename}-{build_tag[0]}{build_tag[1]}"
