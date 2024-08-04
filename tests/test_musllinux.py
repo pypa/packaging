@@ -1,6 +1,6 @@
-import collections
 import pathlib
 import subprocess
+from typing import NamedTuple
 
 import pretend
 import pytest
@@ -60,7 +60,7 @@ def test_parse_musl_version(output, version):
 )
 def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
     def mock_run(*args, **kwargs):
-        return collections.namedtuple("Proc", "stderr")(output)
+        return NamedTuple("Proc", "stderr")(output)
 
     run_recorder = pretend.call_recorder(mock_run)
     monkeypatch.setattr(_musllinux.subprocess, "run", run_recorder)
