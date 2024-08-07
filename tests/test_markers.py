@@ -2,12 +2,11 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-import collections
 import itertools
 import os
 import platform
 import sys
-from typing import cast
+from typing import NamedTuple, cast
 from unittest import mock
 
 import pytest
@@ -94,7 +93,7 @@ class TestOperatorEvaluation:
         )
 
 
-FakeVersionInfo = collections.namedtuple(
+FakeVersionInfo = NamedTuple(
     "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
 )
 
