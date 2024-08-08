@@ -696,7 +696,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __init__(
         self,
-        specifiers: Union[str, Iterable[Specifier]] = "",
+        specifiers: str | Iterable[Specifier] = "",
         prereleases: bool | None = None,
     ) -> None:
         """Initialize a SpecifierSet instance.
