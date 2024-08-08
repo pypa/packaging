@@ -24,6 +24,7 @@ No unreleased changes.
   have not been provided (:issue:`733`)
 * Fix a bug preventing the use of the built in ``ExceptionGroup`` on versions of
   Python that support it (:issue:`725`)
+* Support creating a ``SpecifierSet`` from an iterable of ``Specifier`` objects (:issue:`775`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
