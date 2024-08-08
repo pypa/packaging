@@ -15,7 +15,7 @@ from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
-__all__ = ["VERSION_PATTERN", "parse", "Version", "InvalidVersion"]
+__all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
 LocalType = Tuple[Union[int, str], ...]
 
@@ -232,7 +232,7 @@ class Version(_BaseVersion):
         return f"<Version('{self}')>"
 
     def __str__(self) -> str:
-        """A string representation of the version that can be rounded-tripped.
+        """A string representation of the version that can be round-tripped.
 
         >>> str(Version("1.0a5"))
         '1.0a5'
