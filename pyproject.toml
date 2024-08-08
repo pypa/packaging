@@ -8,7 +8,7 @@ name = "packaging"
 description = "Core utilities for Python packages"
 dynamic = ["version"]
 readme = "README.rst"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -18,12 +18,12 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed",
@@ -51,12 +51,53 @@ exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproper
 strict = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
 
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "E",
+    "F",
+    "FA",
+    "I",
+    "N",
+    "UP",
+    "RUF",
+    "W"
+]
+ignore = [
+    "B009",
+    "B015",
+    "B018",
+    "B027",
+    "B028",
+    "B904",
+    "N818",
+    "RUF003",
+    "RUF012",
+    "UP030",
+    "UP032",
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+]

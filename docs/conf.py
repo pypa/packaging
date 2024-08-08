@@ -21,6 +21,7 @@ extensions = [
     "sphinx.ext.doctest",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
+    "sphinx_toolbox.more_autodoc.autotypeddict",
 ]
 
 # General information about the project.

@@ -2,7 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from typing import Optional, Set
+from __future__ import annotations
 
 import pytest
 
@@ -108,9 +108,9 @@ DIFFERENT_DEPENDENCIES = [
 @pytest.mark.parametrize("whitespace", ["", " ", "\t"])
 def test_basic_valid_requirement_parsing(
     name: str,
-    extras: Set[str],
+    extras: set[str],
     specifier: str,
-    url: Optional[str],
+    url: str | None,
     marker: str,
     whitespace: str,
 ) -> None:
