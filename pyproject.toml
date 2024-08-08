@@ -78,7 +78,6 @@ ignore = [
     "N818",
     "RUF003",
     "RUF012",
-    "UP030",
     "UP032",
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
