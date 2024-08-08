@@ -350,8 +350,8 @@ class Version(_BaseVersion):
         '1.2.3'
         >>> Version("1.2.3+abc").public
         '1.2.3'
-        >>> Version("1.2.3+abc.dev1").public
-        '1.2.3'
+        >>> Version("1!1.2.3dev1+abc").public
+        '1!1.2.3.dev1'
         """
         return str(self).split("+", 1)[0]
 
@@ -363,7 +363,7 @@ class Version(_BaseVersion):
         '1.2.3'
         >>> Version("1.2.3+abc").base_version
         '1.2.3'
-        >>> Version("1!1.2.3+abc.dev1").base_version
+        >>> Version("1!1.2.3dev1+abc").base_version
         '1!1.2.3'
 
         The "base version" is the public version of the project without any pre or post
