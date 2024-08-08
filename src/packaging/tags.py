@@ -502,6 +502,13 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         yield f"linux_{arch}"
 
 
+def _emscripten_platforms() -> Iterator[str]:
+    pyodide_abi_version = sysconfig.get_config_var("PYODIDE_ABI_VERSION")
+    if pyodide_abi_version:
+        yield f"pyodide_{pyodide_abi_version}_wasm32"
+    yield from _generic_platforms()
+
+
 def _generic_platforms() -> Iterator[str]:
     yield _normalize_string(sysconfig.get_platform())
 
@@ -514,6 +521,8 @@ def platform_tags() -> Iterator[str]:
         return mac_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
+    elif platform.system() == "Emscripten":
+        return _emscripten_platforms()
     else:
         return _generic_platforms()
 
