@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import email.feedparser
 import email.header
 import email.message
@@ -21,9 +22,9 @@ from . import version as version_module
 T = typing.TypeVar("T")
 
 
-try:
-    ExceptionGroup
-except NameError:  # pragma: no cover
+if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
+    ExceptionGroup = ExceptionGroup
+else:  # pragma: no cover
 
     class ExceptionGroup(Exception):
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
@@ -41,9 +42,6 @@ except NameError:  # pragma: no cover
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
-
-else:  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
 
 
 class InvalidMetadata(ValueError):
@@ -167,7 +165,7 @@ _DICT_FIELDS = {
 
 
 def _parse_keywords(data: str) -> list[str]:
-    """Split a string of comma-separate keyboards into a list of keywords."""
+    """Split a string of comma-separated keywords into a list of keywords."""
     return [k.strip() for k in data.split(",")]
 
 
@@ -224,8 +222,8 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
         bpayload: bytes = msg.get_payload(decode=True)
         try:
             return bpayload.decode("utf8", "strict")
-        except UnicodeDecodeError:
-            raise ValueError("payload in an invalid encoding")
+        except UnicodeDecodeError as exc:
+            raise ValueError("payload in an invalid encoding") from exc
 
 
 # The various parse_FORMAT functions here are intended to be as lenient as
@@ -535,7 +533,7 @@ class _Validator(Generic[T]):
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
         else:
             return value
 
@@ -547,7 +545,7 @@ class _Validator(Generic[T]):
         except version_module.InvalidVersion as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
@@ -608,7 +606,7 @@ class _Validator(Generic[T]):
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{name!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
         else:
             return normalized_names
 
@@ -618,7 +616,7 @@ class _Validator(Generic[T]):
         except specifiers.InvalidSpecifier as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
-            )
+            ) from exc
 
     def _process_requires_dist(
         self,
@@ -629,7 +627,9 @@ class _Validator(Generic[T]):
             for req in value:
                 reqs.append(requirements.Requirement(req))
         except requirements.InvalidRequirement as exc:
-            raise self._invalid_metadata(f"{req!r} is invalid for {{field}}", cause=exc)
+            raise self._invalid_metadata(
+                f"{req!r} is invalid for {{field}}", cause=exc
+            ) from exc
         else:
             return reqs
 
