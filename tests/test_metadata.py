@@ -186,8 +186,8 @@ class TestRawMetadata:
         raw, unparsed = metadata.parse_email(metadata_contents)
         assert len(unparsed) == 1
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 24
-        assert raw["metadata_version"] == "2.3"
+        assert len(raw) == 26
+        assert raw["metadata_version"] == "2.4"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
@@ -215,6 +215,8 @@ class TestRawMetadata:
             "        author a postcard, and then the user promises not\n"
             "        to redistribute it."
         )
+        assert raw["license_expression"] == "Apache-2.0 OR BSD-2-Clause"
+        assert raw["license_file"] == ["LICENSE.APACHE", "LICENSE.BSD"]
         assert raw["classifiers"] == [
             "Development Status :: 4 - Beta",
             "Environment :: Console (Text Based)",
@@ -618,3 +620,50 @@ class TestMetadata:
     def test_optional_defaults_to_none(self, field_name):
         meta = metadata.Metadata.from_raw({}, validate=False)
         assert getattr(meta, field_name) is None
+
+    def test_valid_license_expression(self):
+        license_expression = "GPL-3.0-only WITH Classpath-exception-2.0"
+        meta = metadata.Metadata.from_raw(
+            {"license_expression": license_expression}, validate=False
+        )
+        assert meta.license_expression == license_expression
+
+    def test_invalid_license_expression(self):
+        license_expression = "Apache-2.0 OR 2-BSD-Clause"
+        meta = metadata.Metadata.from_raw(
+            {"license_expression": license_expression}, validate=False
+        )
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.license_expression  # noqa: B018
+
+    @pytest.mark.parametrize(
+        "license_file",
+        [
+            ["LICENSE.txt", "licenses/*"],
+            [],
+            ["licenses/LICENSE.MIT", "licenses/LICENSE.CC0"],
+            ["LICENSE"],
+        ],
+    )
+    def test_valid_license_file(self, license_file):
+        meta = metadata.Metadata.from_raw(
+            {"license_file": license_file}, validate=False
+        )
+        assert meta.license_file == license_file
+
+    @pytest.mark.parametrize(
+        "license_file",
+        [
+            ["../LICENSE"],
+            ["./../LICENSE"],
+            ["licenses/../LICENSE"],
+        ],
+    )
+    def test_invalid_license_file(self, license_file):
+        meta = metadata.Metadata.from_raw(
+            {"license_file": license_file}, validate=False
+        )
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.license_file  # noqa: B018

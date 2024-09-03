@@ -28,7 +28,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = ["license-expression"]
 
 [project.urls]
 Documentation = "https://packaging.pypa.io/"
@@ -54,7 +54,7 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["_manylinux"]
+module = ["_manylinux", "license_expression"]
 ignore_missing_imports = true
 
 

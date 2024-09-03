@@ -1,4 +1,4 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: BeagleVote
 Version: 1.0a2
 Platform: ObscureUnix
@@ -19,6 +19,9 @@ Maintainer-email: "C. Schultz" <cschultz@example.com>
 License: This software may only be obtained by sending the
         author a postcard, and then the user promises not
         to redistribute it.
+License-Expression: Apache-2.0 OR BSD-2-Clause
+License-File: LICENSE.APACHE
+License-File: LICENSE.BSD
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console (Text Based)
 Provides-Extra: pdf

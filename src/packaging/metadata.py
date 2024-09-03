@@ -16,6 +16,9 @@ from typing import (
     cast,
 )
 
+from license_expression import ExpressionError as LicenseExpressionError
+from license_expression import get_spdx_licensing
+
 from . import requirements, specifiers, utils
 from . import version as version_module
 
@@ -126,6 +129,10 @@ class RawMetadata(TypedDict, total=False):
     # No new fields were added in PEP 685, just some edge case were
     # tightened up to provide better interoptability.
 
+    # Metadata 2.4 - PEP 639
+    license_expression: str
+    license_file: list[str]
+
 
 _STRING_FIELDS = {
     "author",
@@ -135,6 +142,7 @@ _STRING_FIELDS = {
     "download_url",
     "home_page",
     "license",
+    "license_expression",
     "maintainer",
     "maintainer_email",
     "metadata_version",
@@ -147,6 +155,7 @@ _STRING_FIELDS = {
 _LIST_FIELDS = {
     "classifiers",
     "dynamic",
+    "license_file",
     "obsoletes",
     "obsoletes_dist",
     "platforms",
@@ -249,6 +258,8 @@ _EMAIL_TO_RAW_MAPPING = {
     "home-page": "home_page",
     "keywords": "keywords",
     "license": "license",
+    "license-expression": "license_expression",
+    "license-file": "license_file",
     "maintainer": "maintainer",
     "maintainer-email": "maintainer_email",
     "metadata-version": "metadata_version",
@@ -451,8 +462,8 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"]
+_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
@@ -633,6 +644,26 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
+    def _process_license_expression(self, value: str) -> str:
+        licensing = get_spdx_licensing()
+        try:
+            return str(licensing.parse(value, validate=True))
+        except LicenseExpressionError as exc:
+            raise self._invalid_metadata(
+                f"{value!r} is invalid for {{field}}", cause=exc
+            ) from exc
+
+    def _process_license_file(self, value: list[str]) -> list[str]:
+        paths = []
+        for path in value:
+            if ".." in path:
+                raise self._invalid_metadata(
+                    f"{path!r} is invalid for {{field}}, "
+                    "parent directory indicators are not allowed"
+                )
+            paths.append(path)
+        return paths
+
 
 class Metadata:
     """Representation of distribution metadata.
@@ -770,6 +801,10 @@ class Metadata:
     """:external:ref:`core-metadata-maintainer-email`"""
     license: _Validator[str | None] = _Validator()
     """:external:ref:`core-metadata-license`"""
+    license_expression: _Validator[str | None] = _Validator(added="2.4")
+    """:external:ref:`core-metadata-license-expression`"""
+    license_file: _Validator[list[str] | None] = _Validator(added="2.4")
+    """:external:ref:`core-metadata-license-file`"""
     classifiers: _Validator[list[str] | None] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
     requires_dist: _Validator[list[requirements.Requirement] | None] = _Validator(
