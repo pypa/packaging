@@ -216,7 +216,7 @@ class TestRawMetadata:
             "        to redistribute it."
         )
         assert raw["license_expression"] == "Apache-2.0 OR BSD-2-Clause"
-        assert raw["license_file"] == ["LICENSE.APACHE", "LICENSE.BSD"]
+        assert raw["license_files"] == ["LICENSE.APACHE", "LICENSE.BSD"]
         assert raw["classifiers"] == [
             "Development Status :: 4 - Beta",
             "Environment :: Console (Text Based)",
@@ -638,7 +638,7 @@ class TestMetadata:
             meta.license_expression  # noqa: B018
 
     @pytest.mark.parametrize(
-        "license_file",
+        "license_files",
         [
             ["LICENSE.txt", "licenses/*"],
             [],
@@ -646,24 +646,24 @@ class TestMetadata:
             ["LICENSE"],
         ],
     )
-    def test_valid_license_file(self, license_file):
+    def test_valid_license_files(self, license_files):
         meta = metadata.Metadata.from_raw(
-            {"license_file": license_file}, validate=False
+            {"license_files": license_files}, validate=False
         )
-        assert meta.license_file == license_file
+        assert meta.license_files == license_files
 
     @pytest.mark.parametrize(
-        "license_file",
+        "license_files",
         [
             ["../LICENSE"],
             ["./../LICENSE"],
             ["licenses/../LICENSE"],
         ],
     )
-    def test_invalid_license_file(self, license_file):
+    def test_invalid_license_files(self, license_files):
         meta = metadata.Metadata.from_raw(
-            {"license_file": license_file}, validate=False
+            {"license_files": license_files}, validate=False
         )
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.license_file  # noqa: B018
+            meta.license_files  # noqa: B018

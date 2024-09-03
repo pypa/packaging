@@ -133,7 +133,7 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.4 - PEP 639
     license_expression: str
-    license_file: list[str]
+    license_files: list[str]
 
 
 _STRING_FIELDS = {
@@ -157,7 +157,7 @@ _STRING_FIELDS = {
 _LIST_FIELDS = {
     "classifiers",
     "dynamic",
-    "license_file",
+    "license_files",
     "obsoletes",
     "obsoletes_dist",
     "platforms",
@@ -261,7 +261,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "keywords": "keywords",
     "license": "license",
     "license-expression": "license_expression",
-    "license-file": "license_file",
+    "license-file": "license_files",
     "maintainer": "maintainer",
     "maintainer-email": "maintainer_email",
     "metadata-version": "metadata_version",
@@ -655,7 +655,7 @@ class _Validator(Generic[T]):
                 f"{value!r} is invalid for {{field}}", cause=exc
             ) from exc
 
-    def _process_license_file(self, value: list[str]) -> list[str]:
+    def _process_license_files(self, value: list[str]) -> list[str]:
         paths = []
         for path in value:
             if ".." in path:
@@ -805,7 +805,7 @@ class Metadata:
     """:external:ref:`core-metadata-license`"""
     license_expression: _Validator[str | None] = _Validator(added="2.4")
     """:external:ref:`core-metadata-license-expression`"""
-    license_file: _Validator[list[str] | None] = _Validator(added="2.4")
+    license_files: _Validator[list[str] | None] = _Validator(added="2.4")
     """:external:ref:`core-metadata-license-file`"""
     classifiers: _Validator[list[str] | None] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
