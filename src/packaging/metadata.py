@@ -16,8 +16,10 @@ from typing import (
     cast,
 )
 
-from license_expression import ExpressionError as LicenseExpressionError
-from license_expression import get_spdx_licensing
+from packaging._vendor.license_expression import (
+    ExpressionError as LicenseExpressionError,
+)
+from packaging._vendor.license_expression import get_spdx_licensing
 
 from . import requirements, specifiers, utils
 from . import version as version_module
