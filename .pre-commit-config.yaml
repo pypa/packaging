@@ -5,13 +5,15 @@ repos:
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
+        exclude: '^src/packaging/_vendor'
       - id: trailing-whitespace
+        exclude: '^src/packaging/_vendor'
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v0.991
     hooks:
       - id: mypy
-        exclude: '^(docs|tasks|tests)|setup\.py'
+        exclude: '^(docs|tasks|tests)|setup\.py|^src/packaging/_vendor'
         args: []
         additional_dependencies: [pyparsing, nox]
 
