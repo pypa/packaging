@@ -621,15 +621,85 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({}, validate=False)
         assert getattr(meta, field_name) is None
 
-    def test_valid_license_expression(self):
-        license_expression = "GPL-3.0-only WITH Classpath-exception-2.0"
+    @pytest.mark.parametrize(
+        ("license_expression", "expected"),
+        [
+            ("MIT", "MIT"),
+            ("mit", "MIT"),
+            ("BSD-3-Clause", "BSD-3-Clause"),
+            ("Bsd-3-clause", "BSD-3-Clause"),
+            (
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+            ),
+            (
+                "mit and (apache-2.0 or bsd-2-clause)",
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+            ),
+            (
+                "MIT OR GPL-2.0-or-later OR (FSFUL AND BSD-2-Clause)",
+                "MIT OR GPL-2.0-or-later OR (FSFUL AND BSD-2-Clause)",
+            ),
+            (
+                "GPL-3.0-only WITH Classpath-exception-2.0 OR BSD-3-Clause",
+                "GPL-3.0-only WITH Classpath-exception-2.0 OR BSD-3-Clause",
+            ),
+            (
+                "LicenseRef-Special-License OR CC0-1.0 OR Unlicense",
+                "LicenseRef-Special-License OR CC0-1.0 OR Unlicense",
+            ),
+            ("mIt", "MIT"),
+            ("mit or apache-2.0", "MIT OR Apache-2.0"),
+            ("mit and apache-2.0", "MIT AND Apache-2.0"),
+            (
+                "gpl-2.0-or-later with bison-exception-2.2",
+                "GPL-2.0-or-later WITH Bison-exception-2.2",
+            ),
+            (
+                "mit or apache-2.0 and (bsd-3-clause or mpl-2.0)",
+                "MIT OR Apache-2.0 AND (BSD-3-Clause OR MPL-2.0)",
+            ),
+            ("mit and (apache-2.0+ or mpl-2.0+)", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
+            # Valid non-SPDX values
+            ("LicenseRef-Public-Domain", "LicenseRef-Public-Domain"),
+            ("licenseref-public-domain", "LicenseRef-public-domain"),
+            ("licenseref-proprietary", "LicenseRef-proprietary"),
+            ("LicenseRef-Proprietary", "LicenseRef-Proprietary"),
+            ("LicenseRef-Beerware-4.2", "LicenseRef-Beerware-4.2"),
+            ("licenseref-beerware-4.2", "LicenseRef-beerware-4.2"),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_valid_license_expression(self, license_expression, expected):
         meta = metadata.Metadata.from_raw(
             {"license_expression": license_expression}, validate=False
         )
-        assert meta.license_expression == license_expression
+        assert meta.license_expression == expected
 
-    def test_invalid_license_expression(self):
-        license_expression = "Apache-2.0 OR 2-BSD-Clause"
+    @pytest.mark.parametrize(
+        "license_expression",
+        [
+            "Use-it-after-midnight",
+            "Apache-2.0 OR 2-BSD-Clause",
+            "LicenseRef-License with spaces",
+            "LicenseRef-License_with_underscores",
+            "or",
+            "and",
+            "with",
+            "mit or",
+            "mit and",
+            "mit with",
+            "or mit",
+            "and mit",
+            "with mit",
+            "(mit",
+            "mit)",
+            "mit or or apache-2.0",
+            "mit or apache-2.0 (bsd-3-clause and MPL-2.0)",
+        ],
+    )
+    def test_invalid_license_expression(self, license_expression):
         meta = metadata.Metadata.from_raw(
             {"license_expression": license_expression}, validate=False
         )

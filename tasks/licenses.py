@@ -1,10 +1,10 @@
 import json
+import pathlib
 import time
+from contextlib import closing
+from io import StringIO
 
 import httpx
-import invoke
-
-from .paths import SPDX_LICENSES
 
 LATEST_API = "https://api.github.com/repos/spdx/license-list-data/releases/latest"
 LICENSES_URL = (
@@ -30,38 +30,51 @@ def download_data(url):
     raise ConnectionError(message)
 
 
-@invoke.task
-def update(ctx):
-    print("Updating SPDX licenses...")
-
+def main():
     latest_version = download_data(LATEST_API)["tag_name"][1:]
-    print(f"Latest version: {latest_version}")
 
-    license_payload = download_data(LICENSES_URL.format(latest_version))["licenses"]
-    print(f"Licenses: {len(license_payload)}")
+    licenses = {}
+    for license_data in download_data(LICENSES_URL.format(latest_version))["licenses"]:
+        license_id = license_data["licenseId"]
+        deprecated = license_data["isDeprecatedLicenseId"]
+        licenses[license_id.lower()] = {"id": license_id, "deprecated": deprecated}
 
-    exception_payload = download_data(EXCEPTIONS_URL.format(latest_version))[
+    exceptions = {}
+    for exception_data in download_data(EXCEPTIONS_URL.format(latest_version))[
         "exceptions"
-    ]
-    print(f"Exceptions: {len(exception_payload)}")
-
-    licenses = []
-    for license_data in license_payload:
-        _l = {
-            "spdx_license_key": license_data["licenseId"],
+    ]:
+        exception_id = exception_data["licenseExceptionId"]
+        deprecated = exception_data["isDeprecatedLicenseId"]
+        exceptions[exception_id.lower()] = {
+            "id": exception_id,
+            "deprecated": deprecated,
         }
-        if license_data["isDeprecatedLicenseId"]:
-            _l["is_deprecated"] = license_data["isDeprecatedLicenseId"]
-        licenses.append(_l)
 
-    for exception_data in exception_payload:
-        _l = {
-            "spdx_license_key": exception_data["licenseExceptionId"],
-            "is_exception": True,
-        }
-        if exception_data["isDeprecatedLicenseId"]:
-            _l["is_deprecated"] = exception_data["isDeprecatedLicenseId"]
-        licenses.append(_l)
+    project_root = pathlib.Path(__file__).resolve().parent.parent
+    data_file = project_root / "src" / "packaging" / "licenses" / "spdx.py"
 
-    with open(SPDX_LICENSES, "w", encoding="utf-8") as f:
-        f.write(json.dumps(licenses))
+    with closing(StringIO()) as file_contents:
+        file_contents.write(
+            f"""\
+from __future__ import annotations
+
+VERSION = {latest_version!r}\n\nLICENSES: dict[str, dict[str, str | bool]] = {{
+"""
+        )
+
+        for normalized_name, data in sorted(licenses.items()):
+            file_contents.write(f"    {normalized_name!r}: {data!r},\n")
+
+        file_contents.write("}\n\nEXCEPTIONS: dict[str, dict[str, str | bool]] = {\n")
+
+        for normalized_name, data in sorted(exceptions.items()):
+            file_contents.write(f"    {normalized_name!r}: {data!r},\n")
+
+        file_contents.write("}\n")
+
+        with data_file.open("w", encoding="utf-8") as f:
+            f.write(file_contents.getvalue())
+
+
+if __name__ == "__main__":
+    main()

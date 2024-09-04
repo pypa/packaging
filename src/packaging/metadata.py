@@ -6,7 +6,6 @@ import email.header
 import email.message
 import email.parser
 import email.policy
-import importlib.resources
 import typing
 from typing import (
     Any,
@@ -17,12 +16,7 @@ from typing import (
     cast,
 )
 
-from packaging._vendor.license_expression import (
-    ExpressionError as LicenseExpressionError,
-)
-from packaging._vendor.license_expression import get_spdx_licensing
-
-from . import requirements, specifiers, utils
+from . import licenses, requirements, specifiers, utils
 from . import version as version_module
 
 T = typing.TypeVar("T")
@@ -647,12 +641,10 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
-    def _process_license_expression(self, value: str) -> str:
-        with importlib.resources.path("packaging", "_spdx.json") as spdx_path:
-            licensing = get_spdx_licensing(license_index_location=spdx_path)
+    def _process_license_expression(self, value: str) -> str | None:
         try:
-            return str(licensing.parse(value, validate=True))
-        except LicenseExpressionError as exc:
+            return licenses.normalize_license_expression(value)
+        except ValueError as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
             ) from exc

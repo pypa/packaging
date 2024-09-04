@@ -1,6 +1,5 @@
 # mypy: disallow-untyped-defs=False, disallow-untyped-calls=False
 
-import argparse
 import contextlib
 import datetime
 import difflib
@@ -182,32 +181,10 @@ def release(session):
     webbrowser.open("https://github.com/pypa/packaging/releases")
 
 
-# NOTE: This session will COMMIT upgrades to vendored libraries.
-# You should therefore not run it directly against `main`. If you
-# do (assuming you started with a clean main), you can run:
-#
-# git checkout -b vendoring-updates
-# git checkout main
-# git reset --hard origin/main
 @nox.session
-def vendoring(session: nox.Session) -> None:
-    # Ensure that the session Python is running 3.10+
-    # so that truststore can be installed correctly.
-    session.run(
-        "python", "-c", "import sys; sys.exit(1 if sys.version_info < (3, 10) else 0)"
-    )
-
-    parser = argparse.ArgumentParser(prog="nox -s vendoring")
-    parser.add_argument("--upgrade-all", action="store_true")
-    parser.add_argument("--upgrade", action="append", default=[])
-    parser.add_argument("--skip", action="append", default=[])
-    args = parser.parse_args(session.posargs)
-
-    session.install("vendoring~=1.2.0")
-
-    if not (args.upgrade or args.upgrade_all):
-        session.run("vendoring", "sync", "-v")
-        return
+def update_licenses(session: nox.Session) -> None:
+    session.install("httpx")
+    session.run("python", "tasks/licenses.py")
 
 
 # -----------------------------------------------------------------------------

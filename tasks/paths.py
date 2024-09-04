@@ -7,4 +7,3 @@ import os.path
 PROJECT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 CACHE = os.path.join(PROJECT, ".cache")
-SPDX_LICENSES = os.path.join(PROJECT, "src", "packaging", "_spdx.json")

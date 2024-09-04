@@ -37,19 +37,11 @@ Source = "https://github.com/pypa/packaging"
 
 [tool.flit.sdist]
 include = ["LICENSE*", "tests/", "docs/", "CHANGELOG.rst"]
-exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__", "src/packaging/_vendor/license_expression/data/*"]
-
-[tool.pytest.ini_options]
-addopts = [
-    "--ignore=src/packaging/_vendor"
-]
+exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 
 [tool.coverage.run]
 branch = true
-omit = [
-    "*/_vendor/*"
-]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
@@ -65,20 +57,11 @@ warn_unused_ignores = true
 module = ["_manylinux"]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = ["packaging._vendor.*"]
-ignore_errors = true
-follow_imports = "skip"
-ignore_missing_imports = true
-
 [tool.ruff]
 src = ["src"]
 extend-exclude = [
-    "_vendor"
+    "src/packaging/licenses/spdx.py"
 ]
-
-[tool.ruff.lint.isort]
-known-third-party = ["packaging._vendor"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -114,10 +97,3 @@ ignore = [
     "ISC001",
     "ISC002",
 ]
-
-[tool.vendoring]
-destination = "src/packaging/_vendor/"
-requirements = "src/packaging/_vendor/vendor.txt"
-namespace = "packaging._vendor"
-
-protected-files = ["__init__.py", "README.rst", "vendor.txt"]
