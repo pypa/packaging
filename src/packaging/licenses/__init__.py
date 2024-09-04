@@ -31,12 +31,12 @@
 #######################################################################################
 from __future__ import annotations
 
-import string
+import re
 from typing import cast
 
 from packaging.licenses.spdx import EXCEPTIONS, LICENSES
 
-license_ref_allowed = string.ascii_letters + string.digits + "." + "-"
+license_ref_allowed = re.compile("^[A-Za-z0-9.-]*$")
 
 
 def normalize_license_expression(raw_license_expression: str) -> str | None:
@@ -107,7 +107,7 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
                 suffix = ""
 
             if final_token.startswith("licenseref-"):
-                if not all(c in license_ref_allowed for c in final_token):
+                if not license_ref_allowed.match(final_token):
                     message = f"invalid licenseref: {final_token}"
                     raise ValueError(message)
                 normalized_tokens.append(license_refs[final_token] + suffix)
