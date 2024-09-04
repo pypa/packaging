@@ -6,6 +6,7 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import importlib.resources
 import typing
 from typing import (
     Any,
@@ -647,7 +648,8 @@ class _Validator(Generic[T]):
             return reqs
 
     def _process_license_expression(self, value: str) -> str:
-        licensing = get_spdx_licensing()
+        with importlib.resources.path("packaging", "_spdx.json") as spdx_path:
+            licensing = get_spdx_licensing(license_index_location=spdx_path)
         try:
             return str(licensing.parse(value, validate=True))
         except LicenseExpressionError as exc:

@@ -37,7 +37,7 @@ Source = "https://github.com/pypa/packaging"
 
 [tool.flit.sdist]
 include = ["LICENSE*", "tests/", "docs/", "CHANGELOG.rst"]
-exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
+exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__", "src/packaging/_vendor/license_expression/data/*"]
 
 [tool.pytest.ini_options]
 addopts = [
