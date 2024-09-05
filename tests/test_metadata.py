@@ -608,8 +608,12 @@ class TestMetadata:
     def test_disallowed_dynamic(self, field_name):
         meta = metadata.Metadata.from_raw({"dynamic": [field_name]}, validate=False)
 
-        with pytest.raises(metadata.InvalidMetadata):
+        message = f"{field_name!r} is not allowed"
+        with pytest.raises(metadata.InvalidMetadata, match=message) as execinfo:
             meta.dynamic  # noqa: B018
+            # The name of the specific offending field should be used,
+            # not a list with all fields:
+            assert "[" not in str(execinfo.value)
 
     @pytest.mark.parametrize(
         "field_name",

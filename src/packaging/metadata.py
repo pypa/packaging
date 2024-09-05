@@ -589,10 +589,12 @@ class _Validator(Generic[T]):
         for dynamic_field in map(str.lower, value):
             if dynamic_field in {"name", "version", "metadata-version"}:
                 raise self._invalid_metadata(
-                    f"{value!r} is not allowed as a dynamic field"
+                    f"{dynamic_field!r} is not allowed as a dynamic field"
                 )
             elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
-                raise self._invalid_metadata(f"{value!r} is not a valid dynamic field")
+                raise self._invalid_metadata(
+                    f"{dynamic_field!r} is not a valid dynamic field"
+                )
         return list(map(str.lower, value))
 
     def _process_provides_extra(
