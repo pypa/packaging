@@ -38,6 +38,7 @@ No unreleased changes.
 * Make ``utils.parse_sdist_filename()`` and ``utils.parse_wheel_filename()``
   raise ``InvalidSdistFilename`` and ``InvalidWheelFilename``, respectively,
   when the version component of the name is invalid
+* Remove support for Python 3.7 (:issue:`783`)
 
 23.1 - 2023-04-12
 ~~~~~~~~~~~~~~~~~

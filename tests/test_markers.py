@@ -20,7 +20,6 @@ from packaging.markers import (
     default_environment,
     format_full_version,
 )
-from packaging.version import InvalidVersion
 
 VARIABLES = [
     "extra",
@@ -103,12 +102,15 @@ class TestDefaultEnvironment:
     def test_matches_expected(self):
         environment = default_environment()
 
-        iver = "{0.major}.{0.minor}.{0.micro}".format(sys.implementation.version)
+        iver = (
+            f"{sys.implementation.version.major}."
+            f"{sys.implementation.version.minor}."
+            f"{sys.implementation.version.micro}"
+        )
         if sys.implementation.version.releaselevel != "final":
-            iver = "{0}{1[0]}{2}".format(
-                iver,
-                sys.implementation.version.releaselevel,
-                sys.implementation.version.serial,
+            iver = (
+                f"{iver}{sys.implementation.version.releaselevel[0]}"
+                f"{sys.implementation.version.serial}"
             )
 
         assert environment == {
@@ -388,11 +390,10 @@ class TestMarker:
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
     def test_python_full_version_untagged_user_provided(self):
-        """A user-provided python_full_version ending with a + fails to parse."""
-        with pytest.raises(InvalidVersion):
-            Marker("python_full_version < '3.12'").evaluate(
-                {"python_full_version": "3.11.1+"}
-            )
+        """A user-provided python_full_version ending with a + is also repaired."""
+        assert Marker("python_full_version < '3.12'").evaluate(
+            {"python_full_version": "3.11.1+"}
+        )
 
     def test_python_full_version_untagged(self):
         with mock.patch("platform.python_version", return_value="3.11.1+"):

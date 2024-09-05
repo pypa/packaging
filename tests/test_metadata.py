@@ -427,7 +427,7 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.metadata_version
+            meta.metadata_version  # noqa: B018
 
     def test_valid_version(self):
         version_str = "1.2.3"
@@ -437,7 +437,7 @@ class TestMetadata:
     def test_missing_version(self):
         meta = metadata.Metadata.from_raw({}, validate=False)
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
-            meta.version
+            meta.version  # noqa: B018
         assert exc_info.value.field == "version"
 
     def test_invalid_version(self):
@@ -456,7 +456,7 @@ class TestMetadata:
         )
 
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
-            meta.summary
+            meta.summary  # noqa: B018
         assert exc_info.value.field == "summary"
 
     def test_valid_name(self):
@@ -506,7 +506,7 @@ class TestMetadata:
         )
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.description_content_type
+            meta.description_content_type  # noqa: B018
 
     def test_keywords(self):
         keywords = ["hello", "world"]
@@ -602,14 +602,14 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.dynamic
+            meta.dynamic  # noqa: B018
 
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
     def test_disallowed_dynamic(self, field_name):
         meta = metadata.Metadata.from_raw({"dynamic": [field_name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.dynamic
+            meta.dynamic  # noqa: B018
 
     @pytest.mark.parametrize(
         "field_name",
