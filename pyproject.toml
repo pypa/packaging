@@ -74,16 +74,10 @@ extend-select = [
     "W"
 ]
 ignore = [
-    "B009",
-    "B015",
-    "B018",
     "B027",
-    "B028",
-    "B904",
     "N818",
     "RUF003",
     "RUF012",
-    "UP030",
     "UP032",
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",

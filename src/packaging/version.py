@@ -350,8 +350,8 @@ class Version(_BaseVersion):
         '1.2.3'
         >>> Version("1.2.3+abc").public
         '1.2.3'
-        >>> Version("1.2.3+abc.dev1").public
-        '1.2.3'
+        >>> Version("1!1.2.3dev1+abc").public
+        '1!1.2.3.dev1'
         """
         return str(self).split("+", 1)[0]
 
@@ -363,7 +363,7 @@ class Version(_BaseVersion):
         '1.2.3'
         >>> Version("1.2.3+abc").base_version
         '1.2.3'
-        >>> Version("1!1.2.3+abc.dev1").base_version
+        >>> Version("1!1.2.3dev1+abc").base_version
         '1!1.2.3'
 
         The "base version" is the public version of the project without any pre or post
@@ -449,6 +449,23 @@ class Version(_BaseVersion):
         0
         """
         return self.release[2] if len(self.release) >= 3 else 0
+
+
+class _TrimmedRelease(Version):
+    @property
+    def release(self) -> tuple[int, ...]:
+        """
+        Release segment without any trailing zeros.
+
+        >>> _TrimmedRelease('1.0.0').release
+        (1,)
+        >>> _TrimmedRelease('0.0').release
+        (0,)
+        """
+        rel = super().release
+        nonzeros = (index for index, val in enumerate(rel) if val)
+        last_nonzero = max(nonzeros, default=0)
+        return rel[: last_nonzero + 1]
 
 
 def _parse_letter_version(
