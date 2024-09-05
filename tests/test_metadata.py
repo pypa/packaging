@@ -710,7 +710,6 @@ class TestMetadata:
     @pytest.mark.parametrize(
         "license_files",
         [
-            ["LICENSE.txt", "licenses/*"],
             [],
             ["licenses/LICENSE.MIT", "licenses/LICENSE.CC0"],
             ["LICENSE"],
@@ -728,6 +727,8 @@ class TestMetadata:
             ["../LICENSE"],
             ["./../LICENSE"],
             ["licenses/../LICENSE"],
+            ["/licenses/LICENSE"],
+            ["licenses/*"],
         ],
     )
     def test_invalid_license_files(self, license_files):

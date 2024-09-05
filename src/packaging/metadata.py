@@ -657,6 +657,14 @@ class _Validator(Generic[T]):
                     f"{path!r} is invalid for {{field}}, "
                     "parent directory indicators are not allowed"
                 )
+            if "*" in path:
+                raise self._invalid_metadata(
+                    f"{path!r} is invalid for {{field}}, " "paths must be resolved"
+                )
+            if path.startswith("/"):
+                raise self._invalid_metadata(
+                    f"{path!r} is invalid for {{field}}, " "paths must be relative"
+                )
             paths.append(path)
         return paths
 
