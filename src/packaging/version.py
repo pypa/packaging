@@ -1140,13 +1140,6 @@ if __name__ == "__main__":
         "ne": operator.ne,
         "ge": operator.ge,
         "gt": operator.gt,
-        "<": operator.lt,
-        "<<": operator.lt,
-        "<=": operator.le,
-        "=": operator.eq,
-        ">=": operator.ge,
-        ">>": operator.gt,
-        ">": operator.gt,
     }
 
     # Argument parsing
