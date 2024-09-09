@@ -968,4 +968,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     result = operations[args.operator](args.version1, args.version2)
 
-    sys.exit(0 if result else 1)
+    sys.exit(not result)
