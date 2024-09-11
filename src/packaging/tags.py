@@ -487,7 +487,10 @@ def ios_platforms(
         multiarch value.
     """
     if version is None:
-        _, release, _, _ = platform.ios_ver()
+        # if iOS is the current platform, ios_ver *must* be defined. However,
+        # it won't exist for CPython versions before 3.13, which causes a mypy
+        # error.
+        _, release, _, _ = platform.ios_ver()  # type: ignore[attr-defined]
         version = cast("AppleVersion", tuple(map(int, release.split(".")[:2])))
 
     if multiarch is None:
