@@ -553,7 +553,7 @@ def platform_tags() -> Iterator[str]:
     """
     if platform.system() == "Darwin":
         return mac_platforms()
-    if platform.system() == "iOS":
+    elif platform.system() == "iOS":
         return ios_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
