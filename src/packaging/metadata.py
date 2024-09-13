@@ -646,7 +646,7 @@ class _Validator(Generic[T]):
 
     def _process_license_expression(self, value: str) -> str | None:
         try:
-            return licenses.normalize_license_expression(value)
+            return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc

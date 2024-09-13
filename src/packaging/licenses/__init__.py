@@ -44,14 +44,14 @@ NormalizedLicenseExpression = NewType("NormalizedLicenseExpression", str)
 class InvalidLicenseExpression(ValueError):
     """Raised when a license-expression string
 
-    >>> normalize_license_expression("invalid")
+    >>> canonicalize_license_expression("invalid")
     Traceback (most recent call last):
         ...
     packaging.licenses.InvalidLicenseExpression: Invalid license expression: 'invalid'
     """
 
 
-def normalize_license_expression(
+def canonicalize_license_expression(
     raw_license_expression: str,
 ) -> str | NormalizedLicenseExpression:
     if raw_license_expression == "":
