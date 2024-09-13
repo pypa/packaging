@@ -60,25 +60,25 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-class License(TypedDict):
+class SPDXLicense(TypedDict):
     id: str
     deprecated: bool
 
-class Exception(TypedDict):
+class SPDXException(TypedDict):
     id: str
     deprecated: bool
 
 
 VERSION = {latest_version!r}
 
-LICENSES: dict[str, License] = {{
+LICENSES: dict[str, SPDXLicense] = {{
 """
         )
 
         for normalized_name, data in sorted(licenses.items()):
             file_contents.write(f"    {normalized_name!r}: {data!r},\n")
 
-        file_contents.write("}\n\nEXCEPTIONS: dict[str, Exception] = {\n")
+        file_contents.write("}\n\nEXCEPTIONS: dict[str, SPDXException] = {\n")
 
         for normalized_name, data in sorted(exceptions.items()):
             file_contents.write(f"    {normalized_name!r}: {data!r},\n")
