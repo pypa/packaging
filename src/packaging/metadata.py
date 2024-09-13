@@ -6,6 +6,7 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import pathlib
 import typing
 from typing import (
     Any,
@@ -663,9 +664,17 @@ class _Validator(Generic[T]):
                 raise self._invalid_metadata(
                     f"{path!r} is invalid for {{field}}, " "paths must be resolved"
                 )
-            if path.startswith("/"):
+            if (
+                pathlib.PurePosixPath(path).is_absolute()
+                or pathlib.PureWindowsPath(path).is_absolute()
+            ):
                 raise self._invalid_metadata(
                     f"{path!r} is invalid for {{field}}, " "paths must be relative"
+                )
+            if pathlib.PureWindowsPath(path).as_posix() != path:
+                raise self._invalid_metadata(
+                    f"{path!r} is invalid for {{field}}, "
+                    "paths must use '/' delimiter"
                 )
             paths.append(path)
         return paths

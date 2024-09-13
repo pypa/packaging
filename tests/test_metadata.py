@@ -740,6 +740,8 @@ class TestMetadata:
             # Paths must be valid
             # (i.e. glob pattern didn't escape out of pyproject.toml.)
             ["licenses/*"],
+            # Paths must use / delimiter
+            ["licenses\\LICENSE"],
         ],
     )
     def test_invalid_license_files(self, license_files):
