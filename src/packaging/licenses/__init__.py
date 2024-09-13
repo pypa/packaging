@@ -49,8 +49,11 @@ class InvalidLicenseExpression(ValueError):
 
 
 def normalize_license_expression(raw_license_expression: str) -> str | None:
-    if not raw_license_expression:
-        return None
+    if raw_license_expression == "":
+        message = (
+            f"Invalid license expression: {raw_license_expression}"
+        )
+        raise InvalidLicenseExpression(message)
 
     license_refs = {
         ref.lower(): "LicenseRef-" + ref[11:]

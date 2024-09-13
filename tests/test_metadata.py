@@ -671,8 +671,6 @@ class TestMetadata:
             ("LicenseRef-Proprietary", "LicenseRef-Proprietary"),
             ("LicenseRef-Beerware-4.2", "LicenseRef-Beerware-4.2"),
             ("licenseref-beerware-4.2", "LicenseRef-beerware-4.2"),
-            ("", None),
-            (None, None),
         ],
     )
     def test_valid_license_expression(self, license_expression, expected):
@@ -684,6 +682,7 @@ class TestMetadata:
     @pytest.mark.parametrize(
         "license_expression",
         [
+            "",
             "Use-it-after-midnight",
             "LicenseRef-License with spaces",
             "LicenseRef-License_with_underscores",
