@@ -685,7 +685,6 @@ class TestMetadata:
         "license_expression",
         [
             "Use-it-after-midnight",
-            "Apache-2.0 OR 2-BSD-Clause",
             "LicenseRef-License with spaces",
             "LicenseRef-License_with_underscores",
             "or",
@@ -700,7 +699,10 @@ class TestMetadata:
             "(mit",
             "mit)",
             "mit or or apache-2.0",
+            # Missing an operator before `(`.
             "mit or apache-2.0 (bsd-3-clause and MPL-2.0)",
+            # "2-BSD-Clause is not a valid license.
+            "Apache-2.0 OR 2-BSD-Clause",
         ],
     )
     def test_invalid_license_expression(self, license_expression):
@@ -728,10 +730,15 @@ class TestMetadata:
     @pytest.mark.parametrize(
         "license_files",
         [
+            # Can't escape out of the project's directory.
             ["../LICENSE"],
             ["./../LICENSE"],
+            # Paths should be resolved.
             ["licenses/../LICENSE"],
+            # Absolute paths are not allowed.
             ["/licenses/LICENSE"],
+            # Paths must be valid
+            # (i.e. glob pattern didn't escape out of pyproject.toml.)
             ["licenses/*"],
         ],
     )

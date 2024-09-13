@@ -49,18 +49,17 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
         if ref.lower().startswith("licenseref-")
     }
 
-    # First normalize to lower case so we can look up licenses/exceptions
-    # and so boolean operators are Python-compatible
+    # First, normalize to lower case so we can look up licenses/exceptions
+    # and so boolean operators are Python-compatible.
     license_expression = raw_license_expression.lower()
 
-    # Then pad parentheses so tokenization can be achieved by merely splitting on
-    # white space
+    # Pad any parentheses so tokenization can be achieved by merely splitting on
+    # white space.
     license_expression = license_expression.replace("(", " ( ").replace(")", " ) ")
 
-    # Now we begin parsing
     tokens = license_expression.split()
 
-    # Rather than implementing boolean logic we create an expression that Python can
+    # Rather than implementing boolean logic, we create an expression that Python can
     # parse. Everything that is not involved with the grammar itself is treated as
     # `False` and the expression should evaluate as such.
     python_tokens = []
@@ -85,7 +84,7 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
         message = f"invalid license expression: {raw_license_expression}"
         raise ValueError(message) from None
 
-    # Take a final pass to check for unknown licenses/exceptions
+    # Take a final pass to check for unknown licenses/exceptions.
     normalized_tokens = []
     for token in tokens:
         if token in {"or", "and", "with", "(", ")"}:
@@ -119,8 +118,6 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
                     cast(str, LICENSES[final_token]["id"]) + suffix
                 )
 
-    # Construct the normalized expression
     normalized_expression = " ".join(normalized_tokens)
 
-    # Fix internal padding for parentheses
     return normalized_expression.replace("( ", "(").replace(" )", ")")
