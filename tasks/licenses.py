@@ -64,6 +64,10 @@ class License(TypedDict):
     id: str
     deprecated: bool
 
+class Exception(TypedDict):
+    id: str
+    deprecated: bool
+
 
 VERSION = {latest_version!r}
 
@@ -74,7 +78,7 @@ LICENSES: dict[str, License] = {{
         for normalized_name, data in sorted(licenses.items()):
             file_contents.write(f"    {normalized_name!r}: {data!r},\n")
 
-        file_contents.write("}\n\nEXCEPTIONS: dict[str, dict[str, str | bool]] = {\n")
+        file_contents.write("}\n\nEXCEPTIONS: dict[str, Exception] = {\n")
 
         for normalized_name, data in sorted(exceptions.items()):
             file_contents.write(f"    {normalized_name!r}: {data!r},\n")

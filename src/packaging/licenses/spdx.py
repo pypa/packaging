@@ -6,6 +6,10 @@ class License(TypedDict):
     id: str
     deprecated: bool
 
+class Exception(TypedDict):
+    id: str
+    deprecated: bool
+
 
 VERSION = '3.25.0'
 
@@ -678,7 +682,7 @@ LICENSES: dict[str, License] = {
     'zpl-2.1': {'id': 'ZPL-2.1', 'deprecated': False},
 }
 
-EXCEPTIONS: dict[str, dict[str, str | bool]] = {
+EXCEPTIONS: dict[str, Exception] = {
     '389-exception': {'id': '389-exception', 'deprecated': False},
     'asterisk-exception': {'id': 'Asterisk-exception', 'deprecated': False},
     'asterisk-linking-protocols-exception': {'id': 'Asterisk-linking-protocols-exception', 'deprecated': False},

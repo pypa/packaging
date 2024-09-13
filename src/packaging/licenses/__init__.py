@@ -32,7 +32,6 @@
 from __future__ import annotations
 
 import re
-from typing import cast
 
 from packaging.licenses.spdx import EXCEPTIONS, LICENSES
 
@@ -96,7 +95,7 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
                 message = f"unknown license exception: {token}"
                 raise ValueError(message)
 
-            normalized_tokens.append(cast(str, EXCEPTIONS[token]["id"]))
+            normalized_tokens.append(EXCEPTIONS[token]["id"])
         else:
             if token.endswith("+"):
                 final_token = token[:-1]
