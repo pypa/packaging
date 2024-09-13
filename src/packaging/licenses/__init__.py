@@ -32,10 +32,13 @@
 from __future__ import annotations
 
 import re
+from typing import NewType
 
 from packaging.licenses.spdx import EXCEPTIONS, LICENSES
 
 license_ref_allowed = re.compile("^[A-Za-z0-9.-]*$")
+
+NormalizedLicenseExpression = NewType("NormalizedLicenseExpression", str)
 
 
 class InvalidLicenseExpression(ValueError):
@@ -48,11 +51,11 @@ class InvalidLicenseExpression(ValueError):
     """
 
 
-def normalize_license_expression(raw_license_expression: str) -> str | None:
+def normalize_license_expression(
+    raw_license_expression: str,
+) -> str | NormalizedLicenseExpression:
     if raw_license_expression == "":
-        message = (
-            f"Invalid license expression: {raw_license_expression}"
-        )
+        message = f"Invalid license expression: {raw_license_expression}"
         raise InvalidLicenseExpression(message)
 
     license_refs = {
