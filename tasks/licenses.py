@@ -6,7 +6,9 @@ from io import StringIO
 
 import httpx
 
-LATEST_API = "https://api.github.com/repos/spdx/license-list-data/releases/latest"
+LATEST_SPDX_GITHUB_RELEASE_URL = (
+    "https://api.github.com/repos/spdx/license-list-data/releases/latest"
+)
 LICENSES_URL = (
     "https://raw.githubusercontent.com/spdx/license-list-data/v{}/json/licenses.json"
 )
@@ -31,7 +33,7 @@ def download_data(url):
 
 
 def main():
-    latest_version = download_data(LATEST_API)["tag_name"][1:]
+    latest_version = download_data(LATEST_SPDX_GITHUB_RELEASE_URL)["tag_name"][1:]
 
     licenses = {}
     for license_data in download_data(LICENSES_URL.format(latest_version))["licenses"]:
