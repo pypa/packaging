@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from typing import TypedDict
+
+class License(TypedDict):
+    id: str
+    deprecated: bool
+
+
 VERSION = '3.25.0'
 
-LICENSES: dict[str, dict[str, str | bool]] = {
+LICENSES: dict[str, License] = {
     '0bsd': {'id': '0BSD', 'deprecated': False},
     '3d-slicer-1.0': {'id': '3D-Slicer-1.0', 'deprecated': False},
     'aal': {'id': 'AAL', 'deprecated': False},

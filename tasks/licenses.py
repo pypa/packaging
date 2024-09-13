@@ -58,7 +58,16 @@ def main():
             f"""\
 from __future__ import annotations
 
-VERSION = {latest_version!r}\n\nLICENSES: dict[str, dict[str, str | bool]] = {{
+from typing import TypedDict
+
+class License(TypedDict):
+    id: str
+    deprecated: bool
+
+
+VERSION = {latest_version!r}
+
+LICENSES: dict[str, License] = {{
 """
         )
 

@@ -114,9 +114,7 @@ def normalize_license_expression(raw_license_expression: str) -> str | None:
                 if final_token not in LICENSES:
                     message = f"unknown license: {final_token}"
                     raise ValueError(message)
-                normalized_tokens.append(
-                    cast(str, LICENSES[final_token]["id"]) + suffix
-                )
+                normalized_tokens.append(LICENSES[final_token]["id"] + suffix)
 
     normalized_expression = " ".join(normalized_tokens)
 
