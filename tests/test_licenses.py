@@ -1,4 +1,4 @@
-from packaging.licenses.spdx import EXCEPTIONS, LICENSES
+from packaging.licenses._spdx import EXCEPTIONS, LICENSES
 
 
 def test_licenses():
