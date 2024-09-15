@@ -53,7 +53,7 @@ def main():
         }
 
     project_root = pathlib.Path(__file__).resolve().parent.parent
-    data_file = project_root / "src" / "packaging" / "licenses" / "spdx.py"
+    data_file = project_root / "src" / "packaging" / "licenses" / "_spdx.py"
 
     with closing(StringIO()) as file_contents:
         file_contents.write(

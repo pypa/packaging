@@ -34,7 +34,13 @@ from __future__ import annotations
 import re
 from typing import NewType
 
-from packaging.licenses.spdx import EXCEPTIONS, LICENSES
+from packaging.licenses._spdx import EXCEPTIONS, LICENSES
+
+__all__ = [
+    "NormalizedLicenseExpression",
+    "InvalidLicenseExpression",
+    "canonicalize_license_expression",
+]
 
 license_ref_allowed = re.compile("^[A-Za-z0-9.-]*$")
 
