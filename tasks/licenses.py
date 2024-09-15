@@ -1,8 +1,7 @@
-import json
 import pathlib
-import time
 from contextlib import closing
 from io import StringIO
+from textwrap import dedent
 
 import httpx
 
@@ -18,18 +17,12 @@ EXCEPTIONS_URL = (
 
 
 def download_data(url):
-    for _ in range(600):
-        try:
-            response = httpx.get(url)
-            response.raise_for_status()
-        except Exception:
-            time.sleep(1)
-            continue
-        else:
-            return json.loads(response.content.decode("utf-8"))
+    transport = httpx.HTTPTransport(retries=3)
+    client = httpx.Client(transport=transport)
 
-    message = "Download failed"
-    raise ConnectionError(message)
+    response = client.get(url)
+    response.raise_for_status()
+    return response.json()
 
 
 def main():
@@ -57,24 +50,26 @@ def main():
 
     with closing(StringIO()) as file_contents:
         file_contents.write(
-            f"""\
-from __future__ import annotations
+            dedent(
+                f"""
+                from __future__ import annotations
 
-from typing import TypedDict
+                from typing import TypedDict
 
-class SPDXLicense(TypedDict):
-    id: str
-    deprecated: bool
+                class SPDXLicense(TypedDict):
+                    id: str
+                    deprecated: bool
 
-class SPDXException(TypedDict):
-    id: str
-    deprecated: bool
+                class SPDXException(TypedDict):
+                    id: str
+                    deprecated: bool
 
 
-VERSION = {latest_version!r}
+                VERSION = {latest_version!r}
 
-LICENSES: dict[str, SPDXLicense] = {{
-"""
+                LICENSES: dict[str, SPDXLicense] = {{
+                """
+            )
         )
 
         for normalized_name, data in sorted(licenses.items()):
