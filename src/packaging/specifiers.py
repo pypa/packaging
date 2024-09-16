@@ -256,7 +256,7 @@ class Specifier(BaseSpecifier):
         # operators, and if they are if they are including an explicit
         # prerelease.
         operator, version = self._spec
-        if operator in ["==", ">=", "<=", "~=", "==="]:
+        if operator in ["==", ">=", "<=", "~=", "===", ">", "<"]:
             # The == specifier can include a trailing .*, if it does we
             # want to remove before parsing.
             if operator == "==" and version.endswith(".*"):
