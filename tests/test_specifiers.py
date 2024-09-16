@@ -328,6 +328,7 @@ class TestSpecifier:
                 ("2.0.post1", ">=2"),
                 ("2.0.post1.dev1", ">=2"),
                 ("3", ">=2"),
+                ("3.0.0a8", ">=3.0.0a7"),
                 # Test the less than equal operation
                 ("2.0", "<=2"),
                 ("2.0", "<=2.0"),
@@ -341,16 +342,19 @@ class TestSpecifier:
                 ("2.0c1.post1.dev1", "<=2"),
                 ("2.0rc1", "<=2"),
                 ("1", "<=2"),
+                ("3.0.0a7", "<=3.0.0a8"),
                 # Test the greater than operation
                 ("3", ">2"),
                 ("2.1", ">2.0"),
                 ("2.0.1", ">2"),
                 ("2.1.post1", ">2"),
                 ("2.1+local.version", ">2"),
+                ("3.0.0a8", ">3.0.0a7"),
                 # Test the less than operation
                 ("1", "<2"),
                 ("2.0", "<2.1"),
                 ("2.0.dev0", "<2.1"),
+                ("3.0.0a7", "<3.0.0a8"),
                 # Test the compatibility operation
                 ("1", "~=1.0"),
                 ("1.0.1", "~=1.0"),
@@ -519,8 +523,9 @@ class TestSpecifier:
             ("~=1.0", False),
             ("<1.0", False),
             (">1.0", False),
-            ("<1.0.dev1", False),
-            (">1.0.dev1", False),
+            ("<1.0.dev1", True),
+            (">1.0.dev1", True),
+            ("!=1.0.dev1", False),
             ("==1.0.*", False),
             ("==1.0.dev1", True),
             (">=1.0.dev1", True),
@@ -559,6 +564,11 @@ class TestSpecifier:
             (">=1.0", None, ["2.0a1"], ["2.0a1"]),
             (">=1.0.dev1", None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0.dev1", False, ["1.0", "2.0a1"], ["1.0"]),
+            ("!=2.0a1", None, ["1.0a2", "1.0", "2.0a1"], ["1.0"]),
+            ("==2.0a1", None, ["2.0a1"], ["2.0a1"]),
+            (">2.0a1", None, ["2.0a1", "3.0a2", "3.0"], ["3.0a2", "3.0"]),
+            ("<2.0a1", None, ["1.0a2", "1.0", "2.0a1"], ["1.0a2", "1.0"]),
+            ("~=2.0a1", None, ["1.0", "2.0a1", "3.0a2", "3.0"], ["2.0a1"]),
         ],
     )
     def test_specifier_filter(self, specifier, prereleases, input, expected):
