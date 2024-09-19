@@ -671,6 +671,14 @@ class TestMetadata:
             ("LicenseRef-Proprietary", "LicenseRef-Proprietary"),
             ("LicenseRef-Beerware-4.2", "LicenseRef-Beerware-4.2"),
             ("licenseref-beerware-4.2", "LicenseRef-beerware-4.2"),
+            (
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+            ),
+            (
+                "(LicenseRef-Special-License OR licenseref-OtherLicense) OR unlicense",
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+            ),
         ],
     )
     def test_valid_license_expression(self, license_expression, expected):

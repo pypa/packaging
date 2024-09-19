@@ -64,19 +64,19 @@ def canonicalize_license_expression(
         message = f"Invalid license expression: {raw_license_expression!r}"
         raise InvalidLicenseExpression(message)
 
+    # Pad any parentheses so tokenization can be achieved by merely splitting on
+    # white space.
+    license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
+
     license_refs = {
         ref.lower(): "LicenseRef-" + ref[11:]
-        for ref in raw_license_expression.split()
+        for ref in license_expression.split()
         if ref.lower().startswith("licenseref-")
     }
 
-    # First, normalize to lower case so we can look up licenses/exceptions
+    # Normalize to lower case so we can look up licenses/exceptions
     # and so boolean operators are Python-compatible.
-    license_expression = raw_license_expression.lower()
-
-    # Pad any parentheses so tokenization can be achieved by merely splitting on
-    # white space.
-    license_expression = license_expression.replace("(", " ( ").replace(")", " ) ")
+    license_expression = license_expression.lower()
 
     tokens = license_expression.split()
 
