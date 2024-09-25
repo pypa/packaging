@@ -60,7 +60,7 @@ def mock_ios(monkeypatch):
 
     # Mock a fake architecture that will fit the expected pattern, but
     # wont actually be a legal multiarch
-    monkeypatch.setattr(sys.implementation, "_multiarch", "gothic_iphoneos")
+    monkeypatch.setattr(sys.implementation, "_multiarch", "gothic-iphoneos")
 
     # Mock the return value of platform.ios_ver.
     def mock_ios_ver(*args):
@@ -356,7 +356,7 @@ class TestMacOSPlatforms:
 
 class TestIOSPlatforms:
     def test_version_detection(self, mock_ios):
-        platforms = list(tags.ios_platforms(multiarch="arm64_iphoneos"))
+        platforms = list(tags.ios_platforms(multiarch="arm64-iphoneos"))
         assert platforms == [
             "ios_12_0_arm64_iphoneos",
             "ios_12_1_arm64_iphoneos",
@@ -378,10 +378,10 @@ class TestIOSPlatforms:
         assert platforms == ["ios_12_0_gothic_iphoneos"]
 
     def test_ios_platforms(self, mock_ios):
-        platforms = list(tags.ios_platforms((12, 0), "arm64_iphoneos"))
+        platforms = list(tags.ios_platforms((12, 0), "arm64-iphoneos"))
         assert platforms == ["ios_12_0_arm64_iphoneos"]
 
-        platforms = list(tags.ios_platforms((13, 0), "x86_64_iphonesimulator"))
+        platforms = list(tags.ios_platforms((13, 0), "x86_64-iphonesimulator"))
         assert platforms == [
             "ios_12_0_x86_64_iphonesimulator",
             "ios_12_1_x86_64_iphonesimulator",
@@ -396,7 +396,7 @@ class TestIOSPlatforms:
             "ios_13_0_x86_64_iphonesimulator",
         ]
 
-        platforms = list(tags.ios_platforms((14, 3), "arm64_iphoneos"))
+        platforms = list(tags.ios_platforms((14, 3), "arm64-iphoneos"))
         assert platforms == [
             "ios_12_0_arm64_iphoneos",
             "ios_12_1_arm64_iphoneos",
