@@ -363,19 +363,19 @@ class TestIOSPlatforms:
     def test_version_detection(self, mock_ios):
         platforms = list(tags.ios_platforms(multiarch="arm64-iphoneos"))
         assert platforms == [
-            "ios_12_0_arm64_iphoneos",
-            "ios_12_1_arm64_iphoneos",
-            "ios_12_2_arm64_iphoneos",
-            "ios_12_3_arm64_iphoneos",
-            "ios_12_4_arm64_iphoneos",
-            "ios_12_5_arm64_iphoneos",
-            "ios_12_6_arm64_iphoneos",
-            "ios_12_7_arm64_iphoneos",
-            "ios_12_8_arm64_iphoneos",
-            "ios_12_9_arm64_iphoneos",
-            "ios_13_0_arm64_iphoneos",
-            "ios_13_1_arm64_iphoneos",
             "ios_13_2_arm64_iphoneos",
+            "ios_13_1_arm64_iphoneos",
+            "ios_13_0_arm64_iphoneos",
+            "ios_12_9_arm64_iphoneos",
+            "ios_12_8_arm64_iphoneos",
+            "ios_12_7_arm64_iphoneos",
+            "ios_12_6_arm64_iphoneos",
+            "ios_12_5_arm64_iphoneos",
+            "ios_12_4_arm64_iphoneos",
+            "ios_12_3_arm64_iphoneos",
+            "ios_12_2_arm64_iphoneos",
+            "ios_12_1_arm64_iphoneos",
+            "ios_12_0_arm64_iphoneos",
         ]
 
     def test_multiarch_detection(self, mock_ios):
@@ -383,50 +383,57 @@ class TestIOSPlatforms:
         assert platforms == ["ios_12_0_gothic_iphoneos"]
 
     def test_ios_platforms(self, mock_ios):
+        # Pre-iOS 12.0 releases won't match anything
+        platforms = list(tags.ios_platforms((7, 0), "arm64-iphoneos"))
+        assert platforms == []
+
+        # iOS 12.0 returns exactly 1 match
         platforms = list(tags.ios_platforms((12, 0), "arm64-iphoneos"))
         assert platforms == ["ios_12_0_arm64_iphoneos"]
 
+        # iOS 13.0 returns a match for 13.0, plus every 12.X
         platforms = list(tags.ios_platforms((13, 0), "x86_64-iphonesimulator"))
         assert platforms == [
-            "ios_12_0_x86_64_iphonesimulator",
-            "ios_12_1_x86_64_iphonesimulator",
-            "ios_12_2_x86_64_iphonesimulator",
-            "ios_12_3_x86_64_iphonesimulator",
-            "ios_12_4_x86_64_iphonesimulator",
-            "ios_12_5_x86_64_iphonesimulator",
-            "ios_12_6_x86_64_iphonesimulator",
-            "ios_12_7_x86_64_iphonesimulator",
-            "ios_12_8_x86_64_iphonesimulator",
-            "ios_12_9_x86_64_iphonesimulator",
             "ios_13_0_x86_64_iphonesimulator",
+            "ios_12_9_x86_64_iphonesimulator",
+            "ios_12_8_x86_64_iphonesimulator",
+            "ios_12_7_x86_64_iphonesimulator",
+            "ios_12_6_x86_64_iphonesimulator",
+            "ios_12_5_x86_64_iphonesimulator",
+            "ios_12_4_x86_64_iphonesimulator",
+            "ios_12_3_x86_64_iphonesimulator",
+            "ios_12_2_x86_64_iphonesimulator",
+            "ios_12_1_x86_64_iphonesimulator",
+            "ios_12_0_x86_64_iphonesimulator",
         ]
 
+        # iOS 14.3 returns a match for 14.3-14.0, plus every 13.X and every 12.X
         platforms = list(tags.ios_platforms((14, 3), "arm64-iphoneos"))
         assert platforms == [
-            "ios_12_0_arm64_iphoneos",
-            "ios_12_1_arm64_iphoneos",
-            "ios_12_2_arm64_iphoneos",
-            "ios_12_3_arm64_iphoneos",
-            "ios_12_4_arm64_iphoneos",
-            "ios_12_5_arm64_iphoneos",
-            "ios_12_6_arm64_iphoneos",
-            "ios_12_7_arm64_iphoneos",
-            "ios_12_8_arm64_iphoneos",
-            "ios_12_9_arm64_iphoneos",
-            "ios_13_0_arm64_iphoneos",
-            "ios_13_1_arm64_iphoneos",
-            "ios_13_2_arm64_iphoneos",
-            "ios_13_3_arm64_iphoneos",
-            "ios_13_4_arm64_iphoneos",
-            "ios_13_5_arm64_iphoneos",
-            "ios_13_6_arm64_iphoneos",
-            "ios_13_7_arm64_iphoneos",
-            "ios_13_8_arm64_iphoneos",
-            "ios_13_9_arm64_iphoneos",
-            "ios_14_0_arm64_iphoneos",
-            "ios_14_1_arm64_iphoneos",
-            "ios_14_2_arm64_iphoneos",
             "ios_14_3_arm64_iphoneos",
+            "ios_14_2_arm64_iphoneos",
+            "ios_14_1_arm64_iphoneos",
+            "ios_14_0_arm64_iphoneos",
+            "ios_13_9_arm64_iphoneos",
+            "ios_13_8_arm64_iphoneos",
+            "ios_13_7_arm64_iphoneos",
+            "ios_13_6_arm64_iphoneos",
+            "ios_13_5_arm64_iphoneos",
+            "ios_13_4_arm64_iphoneos",
+            "ios_13_3_arm64_iphoneos",
+            "ios_13_2_arm64_iphoneos",
+            "ios_13_1_arm64_iphoneos",
+            "ios_13_0_arm64_iphoneos",
+            "ios_12_9_arm64_iphoneos",
+            "ios_12_8_arm64_iphoneos",
+            "ios_12_7_arm64_iphoneos",
+            "ios_12_6_arm64_iphoneos",
+            "ios_12_5_arm64_iphoneos",
+            "ios_12_4_arm64_iphoneos",
+            "ios_12_3_arm64_iphoneos",
+            "ios_12_2_arm64_iphoneos",
+            "ios_12_1_arm64_iphoneos",
+            "ios_12_0_arm64_iphoneos",
         ]
 
 
