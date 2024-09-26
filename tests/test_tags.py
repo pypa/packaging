@@ -59,8 +59,13 @@ def mock_ios(monkeypatch):
     monkeypatch.setattr(sys, "platform", "ios")
 
     # Mock a fake architecture that will fit the expected pattern, but
-    # wont actually be a legal multiarch
-    monkeypatch.setattr(sys.implementation, "_multiarch", "gothic-iphoneos")
+    # wont actually be a legal multiarch.
+    monkeypatch.setattr(
+        sys.implementation,
+        "_multiarch",
+        "gothic-iphoneos",
+        raising=False,
+    )
 
     # Mock the return value of platform.ios_ver.
     def mock_ios_ver(*args):
