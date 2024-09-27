@@ -22,9 +22,7 @@ from . import version as version_module
 T = typing.TypeVar("T")
 
 
-if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
-else:  # pragma: no cover
+if "ExceptionGroup" not in builtins.__dict__:  # pragma: no cover
 
     class ExceptionGroup(Exception):
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
@@ -42,6 +40,8 @@ else:  # pragma: no cover
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
+else:  # pragma: no cover
+    ExceptionGroup = builtins.ExceptionGroup  # type: ignore[assignment, misc]
 
 
 class InvalidMetadata(ValueError):
@@ -214,12 +214,12 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
     # If our source is a str, then our caller has managed encodings for us,
     # and we don't need to deal with it.
     if isinstance(source, str):
-        payload: str = msg.get_payload()
+        payload: str = msg.get_payload()  # type: ignore[assignment]
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
     else:
-        bpayload: bytes = msg.get_payload(decode=True)
+        bpayload: bytes = msg.get_payload(decode=True)  # type: ignore[assignment]
         try:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError as exc:
@@ -424,7 +424,7 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
         payload = _get_payload(parsed, data)
     except ValueError:
         unparsed.setdefault("description", []).append(
-            parsed.get_payload(decode=isinstance(data, bytes))
+            parsed.get_payload(decode=isinstance(data, bytes))  # type: ignore[call-overload]
         )
     else:
         if payload:
