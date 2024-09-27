@@ -5,6 +5,7 @@ except ImportError:
 import os
 import pathlib
 import platform
+import re
 import sys
 import types
 
@@ -71,7 +72,8 @@ def test_is_manylinux_compatible_glibc_support(version, compatible, monkeypatch)
 
 @pytest.mark.parametrize("version_str", ["glibc-2.4.5", "2"])
 def test_check_glibc_version_warning(version_str):
-    with pytest.warns(RuntimeWarning):
+    msg = f"Expected glibc version with 2 components major.minor, got: {version_str}"
+    with pytest.warns(RuntimeWarning, match=re.escape(msg)):
         _parse_glibc_version(version_str)
 
 
