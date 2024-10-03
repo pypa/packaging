@@ -48,7 +48,6 @@ def tests(session):
             "packaging",
             "-m",
             "pytest",
-            "--strict-markers",
             *session.posargs,
         )
         coverage("report", "-m", "--fail-under", "100")
@@ -59,7 +58,6 @@ def tests(session):
             "-m",
             "pytest",
             "--capture=no",
-            "--strict-markers",
             *session.posargs,
         )
 
