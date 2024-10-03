@@ -97,7 +97,7 @@ def canonicalize_license_expression(
 
     python_expression = " ".join(python_tokens)
     try:
-        invalid = eval(python_expression)
+        invalid = eval(python_expression, globals(), locals())
     except Exception:
         invalid = True
 
