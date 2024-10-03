@@ -6,6 +6,7 @@ Release Process
 
     $ pip install nox
 
+#. Manually update the changelog to list all unreleased changes. Also verify that no new changes were added to a previous release in an earlier PR due to merge/rebase issues.
 #. Run the release automation with the required version number (YY.N)::
 
     $ nox -s release -- YY.N
