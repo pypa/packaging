@@ -4,12 +4,16 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Support creating a ``SpecifierSet`` from an iterable of ``Specifier`` objects (:issue:`775`)
 
 24.1 - 2024-06-10
 ~~~~~~~~~~~~~~~~~
 
-No unreleased changes.
+* Document ``markers.default_environment()`` (:issue:`753`).
+* Add support for Python 3.13 (:issue:`783`).
+* Modernise type annotations (:issue:`785`).
+* Work around ``platform.python_version()`` returning non PEP 440 compliant version
+  for non-tagged CPython builds (:issue:`802`).
 
 24.0 - 2024-03-10
 ~~~~~~~~~~~~~~~~~
@@ -24,7 +28,6 @@ No unreleased changes.
   have not been provided (:issue:`733`)
 * Fix a bug preventing the use of the built in ``ExceptionGroup`` on versions of
   Python that support it (:issue:`725`)
-* Support creating a ``SpecifierSet`` from an iterable of ``Specifier`` objects (:issue:`775`)
 
 23.2 - 2023-10-01
 ~~~~~~~~~~~~~~~~~
