@@ -25,15 +25,14 @@ Reference
 
 .. function:: canonicalize_license_expression(raw_license_expression)
 
-    This function takes a valid Python package or extra name, and returns the
-    normalized form of it.
+    This function takes a valid License-Expression, and returns the normalized form of it.
 
     The return type is typed as :class:`NormalizedLicenseExpression`. This allows type
     checkers to help require that a string has passed through this function
     before use.
 
     :param str raw_license_expression: The License-Expression to canonicalize.
-    :raises InvalidLicenseExpression: If the License-Expression is invalid due to and
+    :raises InvalidLicenseExpression: If the License-Expression is invalid due to an
         invalid/unknown license identifier or invalid syntax.
 
     .. doctest::

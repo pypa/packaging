@@ -48,7 +48,7 @@ NormalizedLicenseExpression = NewType("NormalizedLicenseExpression", str)
 
 
 class InvalidLicenseExpression(ValueError):
-    """Raised when a license-expression string
+    """Raised when a license-expression string is invalid
 
     >>> canonicalize_license_expression("invalid")
     Traceback (most recent call last):
@@ -59,19 +59,19 @@ class InvalidLicenseExpression(ValueError):
 
 def canonicalize_license_expression(
     raw_license_expression: str,
-) -> str | NormalizedLicenseExpression:
-    if raw_license_expression == "":
+) -> NormalizedLicenseExpression:
+    if not raw_license_expression:
         message = f"Invalid license expression: {raw_license_expression!r}"
         raise InvalidLicenseExpression(message)
 
     # Pad any parentheses so tokenization can be achieved by merely splitting on
     # white space.
     license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
-
+    licenseref_prefix = "LicenseRef-"
     license_refs = {
-        ref.lower(): "LicenseRef-" + ref[11:]
+        ref.lower(): "LicenseRef-" + ref[len(licenseref_prefix):]
         for ref in license_expression.split()
-        if ref.lower().startswith("licenseref-")
+        if ref.lower().startswith(licenseref_prefix.lower())
     }
 
     # Normalize to lower case so we can look up licenses/exceptions
@@ -97,11 +97,11 @@ def canonicalize_license_expression(
 
     python_expression = " ".join(python_tokens)
     try:
-        result = eval(python_expression)
+        invalid = eval(python_expression)
     except Exception:
-        result = True
+        invalid = True
 
-    if result is not False:
+    if invalid is not False:
         message = f"Invalid license expression: {raw_license_expression!r}"
         raise InvalidLicenseExpression(message) from None
 
