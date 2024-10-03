@@ -292,7 +292,7 @@ class Marker:
     def __hash__(self) -> int:
         return hash((self.__class__.__name__, str(self)))
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Marker):
             return NotImplemented
 
