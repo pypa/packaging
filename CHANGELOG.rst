@@ -9,7 +9,11 @@ No unreleased changes.
 24.1 - 2024-06-10
 ~~~~~~~~~~~~~~~~~
 
-No unreleased changes.
+* Document ``markers.default_environment()`` (:issue:`753`).
+* Add support for Python 3.13 (:issue:`783`).
+* Modernise type annotations (:issue:`785`).
+* Work around ``platform.python_version()`` returning non PEP 440 compliant version
+  for non-tagged CPython builds (:issue:`802`).
 
 24.0 - 2024-03-10
 ~~~~~~~~~~~~~~~~~
