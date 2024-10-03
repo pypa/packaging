@@ -32,7 +32,7 @@
 from __future__ import annotations
 
 import re
-from typing import NewType
+from typing import NewType, cast
 
 from packaging.licenses._spdx import EXCEPTIONS, LICENSES
 
@@ -69,7 +69,7 @@ def canonicalize_license_expression(
     license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
     licenseref_prefix = "LicenseRef-"
     license_refs = {
-        ref.lower(): "LicenseRef-" + ref[len(licenseref_prefix):]
+        ref.lower(): "LicenseRef-" + ref[len(licenseref_prefix) :]
         for ref in license_expression.split()
         if ref.lower().startswith(licenseref_prefix.lower())
     }
@@ -139,4 +139,7 @@ def canonicalize_license_expression(
 
     normalized_expression = " ".join(normalized_tokens)
 
-    return normalized_expression.replace("( ", "(").replace(" )", ")")
+    return cast(
+        NormalizedLicenseExpression,
+        normalized_expression.replace("( ", "(").replace(" )", ")"),
+    )

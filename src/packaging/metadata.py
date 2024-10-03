@@ -19,6 +19,7 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
 
@@ -644,7 +645,9 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
-    def _process_license_expression(self, value: str) -> NormalizedLicenseExpression | None:
+    def _process_license_expression(
+        self, value: str
+    ) -> NormalizedLicenseExpression | None:
         try:
             return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
@@ -816,7 +819,9 @@ class Metadata:
     """:external:ref:`core-metadata-maintainer-email`"""
     license: _Validator[str | None] = _Validator()
     """:external:ref:`core-metadata-license`"""
-    license_expression: _Validator[NormalizedLicenseExpression | None] = _Validator(added="2.4")
+    license_expression: _Validator[NormalizedLicenseExpression | None] = _Validator(
+        added="2.4"
+    )
     """:external:ref:`core-metadata-license-expression`"""
     license_files: _Validator[list[str] | None] = _Validator(added="2.4")
     """:external:ref:`core-metadata-license-file`"""
