@@ -65,7 +65,7 @@ def canonicalize_license_expression(
         raise InvalidLicenseExpression(message)
 
     # Pad any parentheses so tokenization can be achieved by merely splitting on
-    # white space.
+    # whitespace.
     license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
     licenseref_prefix = "LicenseRef-"
     license_refs = {
