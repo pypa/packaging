@@ -111,7 +111,9 @@ def _parse_requirement_details(
             return (url, specifier, marker)
 
         marker = _parse_requirement_marker(
-            tokenizer, span_start=url_start, after="URL and whitespace"
+            tokenizer,
+            span_start=url_start,
+            expected="semicolon (after URL and whitespace)",
         )
     else:
         specifier_start = tokenizer.position
@@ -124,10 +126,10 @@ def _parse_requirement_details(
         marker = _parse_requirement_marker(
             tokenizer,
             span_start=specifier_start,
-            after=(
-                "version specifier"
+            expected=(
+                "comma (within version specifier), semicolon (after version specifier)"
                 if specifier
-                else "name and no valid version specifier"
+                else "semicolon (after name with no version specifier)"
             ),
         )
 
@@ -135,7 +137,7 @@ def _parse_requirement_details(
 
 
 def _parse_requirement_marker(
-    tokenizer: Tokenizer, *, span_start: int, after: str
+    tokenizer: Tokenizer, *, span_start: int, expected: str
 ) -> MarkerList:
     """
     requirement_marker = SEMICOLON marker WS?
@@ -143,8 +145,9 @@ def _parse_requirement_marker(
 
     if not tokenizer.check("SEMICOLON"):
         tokenizer.raise_syntax_error(
-            f"Expected end or semicolon (after {after})",
+            f"Expected {expected} or end",
             span_start=span_start,
+            span_end=None,
         )
     tokenizer.read()
 
