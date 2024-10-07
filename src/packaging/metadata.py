@@ -782,6 +782,8 @@ class Metadata:
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     """:external:ref:`core-metadata-metadata-version`
     (required; validated to be a valid metadata version)"""
+    # `name` is not normalized/typed to NormalizedName so as to provide access to
+    # the original/raw name.
     name: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-name`
     (required; validated using :func:`~packaging.utils.canonicalize_name` and its
