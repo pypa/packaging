@@ -665,14 +665,14 @@ class _Validator(Generic[T]):
                 )
             if "*" in path:
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, " "paths must be resolved"
+                    f"{path!r} is invalid for {{field}}, paths must be resolved"
                 )
             if (
                 pathlib.PurePosixPath(path).is_absolute()
                 or pathlib.PureWindowsPath(path).is_absolute()
             ):
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, " "paths must be relative"
+                    f"{path!r} is invalid for {{field}}, paths must be relative"
                 )
             if pathlib.PureWindowsPath(path).as_posix() != path:
                 raise self._invalid_metadata(
