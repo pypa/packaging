@@ -653,6 +653,7 @@ class TestMetadata:
                 "LicenseRef-Special-License OR CC0-1.0 OR Unlicense",
             ),
             ("mIt", "MIT"),
+            (" mIt ", "MIT"),
             ("mit or apache-2.0", "MIT OR Apache-2.0"),
             ("mit and apache-2.0", "MIT AND Apache-2.0"),
             (
@@ -664,6 +665,7 @@ class TestMetadata:
                 "MIT OR Apache-2.0 AND (BSD-3-Clause OR MPL-2.0)",
             ),
             ("mit and (apache-2.0+ or mpl-2.0+)", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
+            ("mit  and  ( apache-2.0+  or  mpl-2.0+ )", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
             # Valid non-SPDX values
             ("LicenseRef-Public-Domain", "LicenseRef-Public-Domain"),
             ("licenseref-public-domain", "LicenseRef-public-domain"),
