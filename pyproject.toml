@@ -57,9 +57,11 @@ warn_unused_ignores = true
 module = ["_manylinux"]
 ignore_missing_imports = true
 
-
 [tool.ruff]
 src = ["src"]
+extend-exclude = [
+    "src/packaging/licenses/_spdx.py"
+]
 
 [tool.ruff.lint]
 extend-select = [

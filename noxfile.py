@@ -181,6 +181,12 @@ def release(session):
     webbrowser.open("https://github.com/pypa/packaging/releases")
 
 
+@nox.session
+def update_licenses(session: nox.Session) -> None:
+    session.install("httpx")
+    session.run("python", "tasks/licenses.py")
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
