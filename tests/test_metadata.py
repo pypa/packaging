@@ -665,7 +665,10 @@ class TestMetadata:
                 "MIT OR Apache-2.0 AND (BSD-3-Clause OR MPL-2.0)",
             ),
             ("mit and (apache-2.0+ or mpl-2.0+)", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
-            ("mit  and  ( apache-2.0+  or  mpl-2.0+ )", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
+            (
+                "mit  and  ( apache-2.0+  or  mpl-2.0+ )",
+                "MIT AND (Apache-2.0+ OR MPL-2.0+)",
+            ),
             # Valid non-SPDX values
             ("LicenseRef-Public-Domain", "LicenseRef-Public-Domain"),
             ("licenseref-public-domain", "LicenseRef-public-domain"),
