@@ -772,3 +772,169 @@ class TestMetadata:
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.license_files  # noqa: B018
+
+
+class TestMetadataWriting:
+    def test_write_metadata(self):
+        meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: packaging\nversion: 2023.0.0\n\n"
+        )
+
+    def test_write_metadata_with_description(self):
+        # Intentionally out of order to make sure it is written in order
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "Hello",
+                "description": "Hello\n\nWorld👋",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: Hello\n"
+            "version: 1.2.3\n\nHello\n\nWorld👋"
+        )
+        written = meta.as_rfc822().as_bytes()
+        assert (
+            written
+            == "metadata-version: 2.3\nname: Hello\n"
+            "version: 1.2.3\n\nHello\n\nWorld👋".encode()
+        )
+
+    def test_multiline_license(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "packaging",
+                "license": "Hello\nWorld🐍",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nlicense: Hello\n         World🐍\n\n"
+        )
+        written = meta.as_rfc822().as_bytes()
+        assert (
+            written
+            == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nlicense: Hello\n         World🐍\n\n".encode()
+        )
+
+    def test_large(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "author": "Example!",
+                "author_email": "Unknown <example@example.com>",
+                "classifiers": [
+                    "Development Status :: 4 - Beta",
+                    "Programming Language :: Python",
+                ],
+                "description": "some readme 👋\n",
+                "description_content_type": "text/markdown",
+                "keywords": ["trampolim", "is", "interesting"],
+                "license": "some license text",
+                "maintainer_email": "Other Example <other@example.com>",
+                "metadata_version": "2.1",
+                "name": "full_metadata",
+                "project_urls": {
+                    "homepage": "example.com",
+                    "documentation": "readthedocs.org",
+                    "repository": "github.com/some/repo",
+                    "changelog": "github.com/some/repo/blob/master/CHANGELOG.rst",
+                },
+                "provides_extra": ["test"],
+                "requires_dist": [
+                    "dependency1",
+                    "dependency2>1.0.0",
+                    "dependency3[extra]",
+                    'dependency4; os_name != "nt"',
+                    'dependency5[other-extra]>1.0; os_name == "nt"',
+                    'test_dependency; extra == "test"',
+                    'test_dependency[test_extra]; extra == "test"',
+                    "test_dependency[test_extra2]>3.0; "
+                    'os_name == "nt" and extra == "test"',
+                ],
+                "requires_python": ">=3.8",
+                "summary": "A package with all the metadata :)",
+                "version": "3.2.1",
+            }
+        )
+
+        assert meta.as_json() == {
+            "author": "Example!",
+            "author_email": "Unknown <example@example.com>",
+            "classifier": [
+                "Development Status :: 4 - Beta",
+                "Programming Language :: Python",
+            ],
+            "description": "some readme 👋\n",
+            "description_content_type": "text/markdown",
+            "keywords": ["trampolim", "is", "interesting"],
+            "license": "some license text",
+            "maintainer_email": "Other Example <other@example.com>",
+            "metadata_version": "2.1",
+            "name": "full_metadata",
+            "project_url": [
+                "homepage, example.com",
+                "documentation, readthedocs.org",
+                "repository, github.com/some/repo",
+                "changelog, github.com/some/repo/blob/master/CHANGELOG.rst",
+            ],
+            "provides_extra": ["test"],
+            "requires_dist": [
+                "dependency1",
+                "dependency2>1.0.0",
+                "dependency3[extra]",
+                'dependency4; os_name != "nt"',
+                'dependency5[other-extra]>1.0; os_name == "nt"',
+                'test_dependency; extra == "test"',
+                'test_dependency[test_extra]; extra == "test"',
+                'test_dependency[test_extra2]>3.0; os_name == "nt" and extra == "test"',
+            ],
+            "requires_python": ">=3.8",
+            "summary": "A package with all the metadata :)",
+            "version": "3.2.1",
+        }
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.1"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("summary", "A package with all the metadata :)"),
+            ("description-content-type", "text/markdown"),
+            ("keywords", "trampolim,is,interesting"),
+            ("author", "Example!"),
+            ("author-email", "Unknown <example@example.com>"),
+            ("maintainer-email", "Other Example <other@example.com>"),
+            ("license", "some license text"),
+            ("classifier", "Development Status :: 4 - Beta"),
+            ("classifier", "Programming Language :: Python"),
+            ("requires-dist", "dependency1"),
+            ("requires-dist", "dependency2>1.0.0"),
+            ("requires-dist", "dependency3[extra]"),
+            ("requires-dist", 'dependency4; os_name != "nt"'),
+            ("requires-dist", 'dependency5[other-extra]>1.0; os_name == "nt"'),
+            ("requires-dist", 'test_dependency; extra == "test"'),
+            ("requires-dist", 'test_dependency[test_extra]; extra == "test"'),
+            (
+                "requires-dist",
+                'test_dependency[test_extra2]>3.0; os_name == "nt" and extra == "test"',
+            ),
+            ("requires-python", ">=3.8"),
+            ("project-url", "homepage, example.com"),
+            ("project-url", "documentation, readthedocs.org"),
+            ("project-url", "repository, github.com/some/repo"),
+            (
+                "project-url",
+                "changelog, github.com/some/repo/blob/master/CHANGELOG.rst",
+            ),
+            ("provides-extra", "test"),
+        ]
+
+        assert core_metadata.get_payload() == "some readme 👋\n"
