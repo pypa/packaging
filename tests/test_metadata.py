@@ -186,8 +186,8 @@ class TestRawMetadata:
         raw, unparsed = metadata.parse_email(metadata_contents)
         assert len(unparsed) == 1
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 24
-        assert raw["metadata_version"] == "2.3"
+        assert len(raw) == 26
+        assert raw["metadata_version"] == "2.4"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
@@ -215,6 +215,8 @@ class TestRawMetadata:
             "        author a postcard, and then the user promises not\n"
             "        to redistribute it."
         )
+        assert raw["license_expression"] == "Apache-2.0 OR BSD-2-Clause"
+        assert raw["license_files"] == ["LICENSE.APACHE", "LICENSE.BSD"]
         assert raw["classifiers"] == [
             "Development Status :: 4 - Beta",
             "Environment :: Console (Text Based)",
@@ -622,3 +624,142 @@ class TestMetadata:
     def test_optional_defaults_to_none(self, field_name):
         meta = metadata.Metadata.from_raw({}, validate=False)
         assert getattr(meta, field_name) is None
+
+    @pytest.mark.parametrize(
+        ("license_expression", "expected"),
+        [
+            ("MIT", "MIT"),
+            ("mit", "MIT"),
+            ("BSD-3-Clause", "BSD-3-Clause"),
+            ("Bsd-3-clause", "BSD-3-Clause"),
+            (
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+            ),
+            (
+                "mit and (apache-2.0 or bsd-2-clause)",
+                "MIT AND (Apache-2.0 OR BSD-2-Clause)",
+            ),
+            (
+                "MIT OR GPL-2.0-or-later OR (FSFUL AND BSD-2-Clause)",
+                "MIT OR GPL-2.0-or-later OR (FSFUL AND BSD-2-Clause)",
+            ),
+            (
+                "GPL-3.0-only WITH Classpath-exception-2.0 OR BSD-3-Clause",
+                "GPL-3.0-only WITH Classpath-exception-2.0 OR BSD-3-Clause",
+            ),
+            (
+                "LicenseRef-Special-License OR CC0-1.0 OR Unlicense",
+                "LicenseRef-Special-License OR CC0-1.0 OR Unlicense",
+            ),
+            ("mIt", "MIT"),
+            (" mIt ", "MIT"),
+            ("mit or apache-2.0", "MIT OR Apache-2.0"),
+            ("mit and apache-2.0", "MIT AND Apache-2.0"),
+            (
+                "gpl-2.0-or-later with bison-exception-2.2",
+                "GPL-2.0-or-later WITH Bison-exception-2.2",
+            ),
+            (
+                "mit or apache-2.0 and (bsd-3-clause or mpl-2.0)",
+                "MIT OR Apache-2.0 AND (BSD-3-Clause OR MPL-2.0)",
+            ),
+            ("mit and (apache-2.0+ or mpl-2.0+)", "MIT AND (Apache-2.0+ OR MPL-2.0+)"),
+            (
+                "mit  and  ( apache-2.0+  or  mpl-2.0+ )",
+                "MIT AND (Apache-2.0+ OR MPL-2.0+)",
+            ),
+            # Valid non-SPDX values
+            ("LicenseRef-Public-Domain", "LicenseRef-Public-Domain"),
+            ("licenseref-public-domain", "LicenseRef-public-domain"),
+            ("licenseref-proprietary", "LicenseRef-proprietary"),
+            ("LicenseRef-Proprietary", "LicenseRef-Proprietary"),
+            ("LicenseRef-Beerware-4.2", "LicenseRef-Beerware-4.2"),
+            ("licenseref-beerware-4.2", "LicenseRef-beerware-4.2"),
+            (
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+            ),
+            (
+                "(LicenseRef-Special-License OR licenseref-OtherLicense) OR unlicense",
+                "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
+            ),
+        ],
+    )
+    def test_valid_license_expression(self, license_expression, expected):
+        meta = metadata.Metadata.from_raw(
+            {"license_expression": license_expression}, validate=False
+        )
+        assert meta.license_expression == expected
+
+    @pytest.mark.parametrize(
+        "license_expression",
+        [
+            "",
+            "Use-it-after-midnight",
+            "LicenseRef-License with spaces",
+            "LicenseRef-License_with_underscores",
+            "or",
+            "and",
+            "with",
+            "mit or",
+            "mit and",
+            "mit with",
+            "or mit",
+            "and mit",
+            "with mit",
+            "(mit",
+            "mit)",
+            "mit or or apache-2.0",
+            # Missing an operator before `(`.
+            "mit or apache-2.0 (bsd-3-clause and MPL-2.0)",
+            # "2-BSD-Clause is not a valid license.
+            "Apache-2.0 OR 2-BSD-Clause",
+        ],
+    )
+    def test_invalid_license_expression(self, license_expression):
+        meta = metadata.Metadata.from_raw(
+            {"license_expression": license_expression}, validate=False
+        )
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.license_expression  # noqa: B018
+
+    @pytest.mark.parametrize(
+        "license_files",
+        [
+            [],
+            ["licenses/LICENSE.MIT", "licenses/LICENSE.CC0"],
+            ["LICENSE"],
+        ],
+    )
+    def test_valid_license_files(self, license_files):
+        meta = metadata.Metadata.from_raw(
+            {"license_files": license_files}, validate=False
+        )
+        assert meta.license_files == license_files
+
+    @pytest.mark.parametrize(
+        "license_files",
+        [
+            # Can't escape out of the project's directory.
+            ["../LICENSE"],
+            ["./../LICENSE"],
+            # Paths should be resolved.
+            ["licenses/../LICENSE"],
+            # Absolute paths are not allowed.
+            ["/licenses/LICENSE"],
+            # Paths must be valid
+            # (i.e. glob pattern didn't escape out of pyproject.toml.)
+            ["licenses/*"],
+            # Paths must use / delimiter
+            ["licenses\\LICENSE"],
+        ],
+    )
+    def test_invalid_license_files(self, license_files):
+        meta = metadata.Metadata.from_raw(
+            {"license_files": license_files}, validate=False
+        )
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.license_files  # noqa: B018
