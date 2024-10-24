@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import builtins
 import email.feedparser
 import email.header
 import email.message
@@ -19,31 +18,10 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .errors import ExceptionGroup
 from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
-
-
-if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
-else:  # pragma: no cover
-
-    class ExceptionGroup(Exception):
-        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
-
-        If :external:exc:`ExceptionGroup` is already defined by Python itself,
-        that version is used instead.
-        """
-
-        message: str
-        exceptions: list[Exception]
-
-        def __init__(self, message: str, exceptions: list[Exception]) -> None:
-            self.message = message
-            self.exceptions = exceptions
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
 class InvalidMetadata(ValueError):
@@ -170,6 +148,7 @@ _LIST_FIELDS = {
 _DICT_FIELDS = {
     "project_urls",
 }
+ALL_FIELDS = _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS
 
 
 def _parse_keywords(data: str) -> list[str]:
