@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import email.feedparser
 import email.header
 import email.message
@@ -282,35 +281,6 @@ _EMAIL_TO_RAW_MAPPING = {
     "version": "version",
 }
 _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
-_MULTI_FIELDS = {_RAW_TO_EMAIL_MAPPING[x] for x in _LIST_FIELDS | _DICT_FIELDS}
-
-
-@dataclasses.dataclass
-class _JSonMessageSetter:
-    """
-    This provides an API to build a JSON message output in the same way as the
-    classic Message. Line breaks are preserved this way.
-    """
-
-    data: dict[str, str | list[str]]
-
-    def __setitem__(self, name: str, value: str | None) -> None:
-        key = name.replace("-", "_")
-        if value is None:
-            return
-
-        if name == "keywords":
-            values = (x.strip() for x in value.split(","))
-            self.data[key] = [x for x in values if x]
-        elif name in _MULTI_FIELDS:
-            entry = self.data.setdefault(key, [])
-            assert isinstance(entry, list)
-            entry.append(value)
-        else:
-            self.data[key] = value
-
-    def set_payload(self, payload: str) -> None:
-        self["description"] = payload
 
 
 # This class is for writing RFC822 messages
@@ -936,16 +906,7 @@ class Metadata:
         self._write_metadata(message)
         return message
 
-    def as_json(self) -> dict[str, str | list[str]]:
-        """
-        Return a JSON message with the metadata.
-        """
-        message: dict[str, str | list[str]] = {}
-        smart_message = _JSonMessageSetter(message)
-        self._write_metadata(smart_message)
-        return message
-
-    def _write_metadata(self, message: RFC822Message | _JSonMessageSetter) -> None:
+    def _write_metadata(self, message: RFC822Message) -> None:
         """
         Return an RFC822 message with the metadata.
         """
