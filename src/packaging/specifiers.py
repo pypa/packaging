@@ -234,7 +234,7 @@ class Specifier(BaseSpecifier):
         """
         match = self._regex.search(spec)
         if not match:
-            raise InvalidSpecifier(f"Invalid specifier: '{spec}'")
+            raise InvalidSpecifier(f"Invalid specifier: {spec!r}")
 
         self._spec: tuple[str, str] = (
             match.group("operator").strip(),
