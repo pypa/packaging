@@ -20,6 +20,8 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .errors import ExceptionGroup
+from .licenses import NormalizedLicenseExpression
 
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
@@ -28,10 +30,10 @@ T = typing.TypeVar("T")
 
 
 if sys.version_info >= (3, 11):  # pragma: no cover
-    ExceptionGroup = ExceptionGroup  # noqa: F821
+    ExceptionGroup = ExceptionGroup
 else:  # pragma: no cover
 
-    class ExceptionGroup(Exception):
+    class ExceptionGroup(Exception):  # type: ignore[no-redef]
         """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
 
         If :external:exc:`ExceptionGroup` is already defined by Python itself,
@@ -181,6 +183,7 @@ _LIST_FIELDS = {
 _DICT_FIELDS = {
     "project_urls",
 }
+ALL_FIELDS = _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS
 
 
 def _parse_keywords(data: str) -> list[str]:
