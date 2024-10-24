@@ -40,6 +40,15 @@ include = ["LICENSE*", "tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 
+[tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+    "error",
+]
+testpaths = ["tests"]
+
+
 [tool.coverage.run]
 branch = true
 
