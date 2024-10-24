@@ -189,6 +189,7 @@ _LIST_FIELDS = {
 _DICT_FIELDS = {
     "project_urls",
 }
+ALL_FIELDS = _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS
 
 
 def _parse_keywords(data: str) -> list[str]:

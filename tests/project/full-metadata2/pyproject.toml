@@ -1,0 +1,49 @@
+[project]
+name = 'full-metadata2'
+version = '3.2.1'
+description = 'A package with all the metadata :)'
+readme = 'README.rst'
+license = { file = 'LICENSE' }
+keywords = ['trampolim', 'is', 'interesting']
+authors = [
+    { email = 'example@example.com' },
+    { name = 'Example!' },
+]
+maintainers = [
+    { name = 'Other Example', email = 'other@example.com' },
+]
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Programming Language :: Python',
+]
+
+requires-python = '>=3.8'
+dependencies = [
+    'dependency1',
+    'dependency2>1.0.0',
+    'dependency3[extra]',
+    'dependency4; os_name != "nt"',
+    'dependency5[other-extra]>1.0; os_name == "nt"',
+]
+
+[project.optional-dependencies]
+test = [
+    'test_dependency',
+    'test_dependency[test_extra]',
+    'test_dependency[test_extra2] > 3.0; os_name == "nt"',
+]
+
+[project.urls]
+homepage = 'example.com'
+documentation = 'readthedocs.org'
+repository = 'github.com/some/repo'
+changelog = 'github.com/some/repo/blob/master/CHANGELOG.rst'
+
+[project.scripts]
+full-metadata = 'full_metadata:main_cli'
+
+[project.gui-scripts]
+full-metadata-gui = 'full_metadata:main_gui'
+
+[project.entry-points.custom]
+full-metadata = 'full_metadata:main_custom'

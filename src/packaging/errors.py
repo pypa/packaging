@@ -5,7 +5,10 @@ import dataclasses
 import sys
 import typing
 
-__all__ = ["ExceptionGroup"]
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+__all__ = ["ConfigurationError", "ConfigurationWarning", "ExceptionGroup"]
 
 
 def __dir__() -> list[str]:
@@ -92,3 +95,47 @@ class _ErrorCollector:
     ) -> None:
         """Add an error to the list."""
         self.errors.append(error)
+
+
+class ConfigurationError(Exception):
+    """
+    Error in the backend metadata. Has an optional key attribute, which will be
+    non-None if the error is related to a single key in the pyproject.toml
+    file.
+    """
+
+    def __init__(self, msg: str, *, key: str | None = None):
+        super().__init__(msg)
+        self._key = key
+
+    @property
+    def key(self) -> str | None:  # pragma: no cover
+        return self._key
+
+
+class ConfigurationWarning(UserWarning):
+    """Warnings about backend metadata."""
+
+
+class ErrorCollector(_ErrorCollector):
+    """
+    An error collector that also can build :class:`ConfigurationError`.
+    """
+
+    def config_error(
+        self,
+        msg: str,
+        *,
+        key: str | None = None,
+        got: Any = None,
+        got_type: type[Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Add a configuration error to the error list."""
+        msg = msg.format(key=f'"{key}"', **kwargs)
+        if got is not None:
+            msg = f"{msg} (got {got!r})"
+        if got_type is not None:
+            msg = f"{msg} (got {got_type.__name__})"
+
+        self.errors.append(ConfigurationError(msg, key=key))

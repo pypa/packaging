@@ -1,0 +1,5 @@
+[project]
+name = "example"
+version = "1.2.3"
+license = "MIT OR GPL-2.0-or-later OR (FSFUL AND BSD-2-Clause)"
+license-files = ["LICEN[CS]E*", "AUTHORS*", "licenses/LICENSE.MIT"]
