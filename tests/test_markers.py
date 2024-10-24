@@ -317,6 +317,11 @@ class TestMarker:
                 {"extra": "different__punctuation_is_EQUAL"},
                 True,
             ),
+            (
+                "sys_platform == 'foo_os' and platform_release >= '4.5.6'",
+                {"sys_platform": "bar_os", "platform_release": "1.2.3-invalid"},
+                False,
+            )
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):

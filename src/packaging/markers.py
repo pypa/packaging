@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import operator
 import os
 import platform
@@ -202,13 +203,14 @@ def _normalize(*values: str, key: str) -> tuple[str, ...]:
 
 
 def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
-    groups: list[list[bool]] = [[]]
+    # Lazy evaluation to mitigate https://github.com/pypa/packaging/issues/774
+    groups: list[list[Callable[[], bool]]] = [[]]
 
     for marker in markers:
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
-            groups[-1].append(_evaluate_markers(marker, environment))
+            groups[-1].append(functools.partial(_evaluate_markers, marker, environment))
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
@@ -222,13 +224,13 @@ def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
                 rhs_value = environment[environment_key]
 
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value))
+            groups[-1].append(functools.partial(_eval_op, lhs_value, op, rhs_value))
         else:
             assert marker in ["and", "or"]
             if marker == "or":
                 groups.append([])
 
-    return any(all(item) for item in groups)
+    return any(all(expr() for expr in group) for group in groups)
 
 
 def format_full_version(info: sys._version_info) -> str:
