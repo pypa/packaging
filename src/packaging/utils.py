@@ -125,7 +125,7 @@ def parse_wheel_filename(
         build_match = _build_tag_regex.match(build_part)
         if build_match is None:
             raise InvalidWheelFilename(
-                f"Invalid build number: {build_part} in '{filename!r}'"
+                f"Invalid build number: {build_part} in {filename!r}"
             )
         build = cast(BuildTag, (int(build_match.group(1)), build_match.group(2)))
     else:
