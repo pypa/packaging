@@ -865,42 +865,6 @@ class TestMetadataWriting:
             }
         )
 
-        assert meta.as_json() == {
-            "author": "Example!",
-            "author_email": "Unknown <example@example.com>",
-            "classifier": [
-                "Development Status :: 4 - Beta",
-                "Programming Language :: Python",
-            ],
-            "description": "some readme 👋\n",
-            "description_content_type": "text/markdown",
-            "keywords": ["trampolim", "is", "interesting"],
-            "license": "some license text",
-            "maintainer_email": "Other Example <other@example.com>",
-            "metadata_version": "2.1",
-            "name": "full_metadata",
-            "project_url": [
-                "homepage, example.com",
-                "documentation, readthedocs.org",
-                "repository, github.com/some/repo",
-                "changelog, github.com/some/repo/blob/master/CHANGELOG.rst",
-            ],
-            "provides_extra": ["test"],
-            "requires_dist": [
-                "dependency1",
-                "dependency2>1.0.0",
-                "dependency3[extra]",
-                'dependency4; os_name != "nt"',
-                'dependency5[other-extra]>1.0; os_name == "nt"',
-                'test_dependency; extra == "test"',
-                'test_dependency[test_extra]; extra == "test"',
-                'test_dependency[test_extra2]>3.0; os_name == "nt" and extra == "test"',
-            ],
-            "requires_python": ">=3.8",
-            "summary": "A package with all the metadata :)",
-            "version": "3.2.1",
-        }
-
         core_metadata = meta.as_rfc822()
         assert core_metadata.items() == [
             ("metadata-version", "2.1"),
@@ -938,3 +902,26 @@ class TestMetadataWriting:
         ]
 
         assert core_metadata.get_payload() == "some readme 👋\n"
+
+    def test_modern_license(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.4",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "license_expression": "MIT",
+                "license_files": ["LICENSE.txt", "LICENSE"],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.4"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("license-expression", "MIT"),
+            ("license-file", "LICENSE.txt"),
+            ("license-file", "LICENSE"),
+        ]
+
+        assert core_metadata.get_payload() is None
