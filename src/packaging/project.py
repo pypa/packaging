@@ -15,6 +15,7 @@ import pathlib
 import sys
 import typing
 import warnings
+from collections.abc import Sequence
 
 from . import markers, specifiers, utils
 from . import metadata as packaging_metadata
@@ -22,7 +23,7 @@ from . import version as packaging_version
 from ._pyproject import License, PyProjectReader, Readme
 from .errors import ConfigurationError, ConfigurationWarning, ErrorCollector
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from typing import Any
 
@@ -143,7 +144,7 @@ class StandardMetadata:
         Read metadata from a pyproject.toml table. This is the main method for
         creating an instance of this class. It also supports two additional
         fields: ``allow_extra_keys`` to control what happens when extra keys are
-        present in the pyproject table, and ``all_errors``, to  raise all errors
+        present in the pyproject table, and ``all_errors``, to raise all errors
         in an ExceptionGroup instead of raising the first one.
         """
         pyproject = PyProjectReader()
@@ -368,7 +369,7 @@ class StandardMetadata:
         errors.finalize("[project] table validation failed")
 
     def metadata(
-        self, metadata_version: str, dynamic_metadata: list[str]
+        self, *, metadata_version: str, dynamic_metadata: Sequence[str] = ()
     ) -> packaging_metadata.Metadata:
         """
         Return an Message with the metadata.
@@ -431,8 +432,8 @@ class StandardMetadata:
             message["requires_dist"] = [str(d) for d in self.dependencies]
         for extra, requirements in self.optional_dependencies.items():
             norm_extra = extra.replace(".", "-").replace("_", "-").lower()
-            message.get("provides_extra", []).append(norm_extra)
-            message.get("requires_dist", []).extend(
+            message.setdefault("provides_extra", []).append(norm_extra)
+            message.setdefault("requires_dist", []).extend(
                 str(_build_extra_req(norm_extra, requirement))
                 for requirement in requirements
             )
@@ -449,7 +450,7 @@ class StandardMetadata:
                 if field.lower() not in packaging_metadata.ALL_FIELDS:
                     msg = f"Field is not known: {field}"
                     raise ConfigurationError(msg)
-            message["dynamic"] = dynamic_metadata
+            message["dynamic"] = list(dynamic_metadata)
 
         return packaging_metadata.Metadata.from_raw(message)
 

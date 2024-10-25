@@ -13,7 +13,7 @@ import packaging.requirements
 
 from .errors import ErrorCollector
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Generator, Iterable, Sequence
 
     from .project_table import ContactTable, Dynamic, ProjectTable
@@ -24,10 +24,6 @@ __all__ = [
     "License",
     "Readme",
 ]
-
-
-def __dir__() -> list[str]:
-    return __all__
 
 
 @dataclasses.dataclass(frozen=True)

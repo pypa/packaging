@@ -4,7 +4,7 @@ import contextlib
 import dataclasses
 import sys
 from collections.abc import Generator
-from typing import Any, NoReturn
+from typing import Any
 
 __all__ = ["ExceptionGroup", "ConfigurationError", "ConfigurationWarning"]
 
@@ -75,9 +75,10 @@ class ErrorCollector:
 
         self.errors.append(ConfigurationError(msg, key=key))
 
-    def finalize(self, msg: str) -> NoReturn:
+    def finalize(self, msg: str) -> None:
         """Raise a group exception if there are any errors."""
-        raise ExceptionGroup(msg, self.errors)
+        if self.errors:
+            raise ExceptionGroup(msg, self.errors)
 
     @contextlib.contextmanager
     def collect(self) -> Generator[None, None, None]:
