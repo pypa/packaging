@@ -493,7 +493,8 @@ def _parse_letter_version(
             letter = "post"
 
         return letter, int(number)
-    if not letter and number:
+
+    if number:
         # We assume if we are given a number, but we are not given a letter
         # then this is using the implicit post release syntax (e.g. 1.0-1)
         letter = "post"
