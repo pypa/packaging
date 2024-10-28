@@ -742,6 +742,7 @@ class Metadata:
                             )
                             exceptions.append(exc)
                             continue
+                    # Access the attribute to trigger validation.
                 except InvalidMetadata as exc:
                     exceptions.append(exc)
 
