@@ -742,7 +742,6 @@ class Metadata:
                             )
                             exceptions.append(exc)
                             continue
-                    getattr(ins, key)
                 except InvalidMetadata as exc:
                     exceptions.append(exc)
 
