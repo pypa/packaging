@@ -512,10 +512,6 @@ class _Validator(Generic[T]):
                 value = converter(value)
 
         cache[self.name] = value
-        try:
-            del instance._raw[self.name]  # type: ignore[misc]
-        except KeyError:
-            pass
 
         return cast(T, value)
 
@@ -743,6 +739,7 @@ class Metadata:
                             exceptions.append(exc)
                             continue
                     # Access the attribute to trigger validation.
+                    getattr(ins, key)
                 except InvalidMetadata as exc:
                     exceptions.append(exc)
 
