@@ -746,6 +746,7 @@ class Metadata:
             if exceptions:
                 raise ExceptionGroup("invalid metadata", exceptions)
 
+        del ins._raw
         return ins
 
     @classmethod
