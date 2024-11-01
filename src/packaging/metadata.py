@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import builtins
 import email.feedparser
 import email.header
 import email.message
@@ -19,31 +18,10 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .errors import ExceptionGroup
 from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
-
-
-if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
-else:  # pragma: no cover
-
-    class ExceptionGroup(Exception):
-        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
-
-        If :external:exc:`ExceptionGroup` is already defined by Python itself,
-        that version is used instead.
-        """
-
-        message: str
-        exceptions: list[Exception]
-
-        def __init__(self, message: str, exceptions: list[Exception]) -> None:
-            self.message = message
-            self.exceptions = exceptions
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
 class InvalidMetadata(ValueError):
@@ -170,6 +148,7 @@ _LIST_FIELDS = {
 _DICT_FIELDS = {
     "project_urls",
 }
+ALL_FIELDS = _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS
 
 
 def _parse_keywords(data: str) -> list[str]:
@@ -279,6 +258,43 @@ _EMAIL_TO_RAW_MAPPING = {
     "version": "version",
 }
 _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
+
+
+# This class is for writing RFC822 messages
+class RFC822Policy(email.policy.EmailPolicy):
+    """
+    This is :class:`email.policy.EmailPolicy`, but with a simple ``header_store_parse``
+    implementation that handles multiline values, and some nice defaults.
+    """
+
+    utf8 = True
+    mangle_from_ = False
+    max_line_length = 0
+
+    def header_store_parse(self, name: str, value: str) -> tuple[str, str]:
+        size = len(name) + 2
+        value = value.replace("\n", "\n" + " " * size)
+        return (name, value)
+
+
+# This class is for writing RFC822 messages
+class RFC822Message(email.message.EmailMessage):
+    """
+    This is :class:`email.message.EmailMessage` with two small changes: it defaults to
+    our `RFC822Policy`, and it correctly writes unicode when being called
+    with `bytes()`.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(policy=RFC822Policy())
+
+    def as_bytes(
+        self, unixfrom: bool = False, policy: email.policy.Policy | None = None
+    ) -> bytes:
+        """
+        This handles unicode encoding.
+        """
+        return self.as_string(unixfrom, policy=policy).encode("utf-8")
 
 
 def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
@@ -859,3 +875,35 @@ class Metadata:
     """``Provides`` (deprecated)"""
     obsoletes: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Obsoletes`` (deprecated)"""
+
+    def as_rfc822(self) -> RFC822Message:
+        """
+        Return an RFC822 message with the metadata.
+        """
+        message = RFC822Message()
+        self._write_metadata(message)
+        return message
+
+    def _write_metadata(self, message: RFC822Message) -> None:
+        """
+        Return an RFC822 message with the metadata.
+        """
+        for name, validator in self.__class__.__dict__.items():
+            if isinstance(validator, _Validator) and name != "description":
+                value = getattr(self, name)
+                email_name = _RAW_TO_EMAIL_MAPPING[name]
+                if value is not None:
+                    if email_name == "project-url":
+                        for label, url in value.items():
+                            message[email_name] = f"{label}, {url}"
+                    elif email_name == "keywords":
+                        message[email_name] = ",".join(value)
+                    elif isinstance(value, list):
+                        for item in value:
+                            message[email_name] = str(item)
+                    else:
+                        message[email_name] = str(value)
+
+        # The description is a special case because it is in the body of the message.
+        if self.description is not None:
+            message.set_payload(self.description)

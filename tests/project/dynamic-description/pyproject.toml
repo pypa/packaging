@@ -1,0 +1,6 @@
+[project]
+name = 'dynamic-description'
+version = '1.0.0'
+dynamic = [
+    'description',
+]
