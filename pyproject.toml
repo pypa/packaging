@@ -58,7 +58,6 @@ module = ["_manylinux"]
 ignore_missing_imports = true
 
 [tool.ruff]
-src = ["src"]
 extend-exclude = [
     "src/packaging/licenses/_spdx.py"
 ]
