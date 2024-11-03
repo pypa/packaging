@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import builtins
 import email.feedparser
 import email.header
 import email.message
 import email.parser
 import email.policy
 import pathlib
+import sys
 import typing
 from typing import (
     Any,
@@ -24,7 +24,7 @@ from .licenses import NormalizedLicenseExpression
 T = typing.TypeVar("T")
 
 
-if "ExceptionGroup" in builtins.__dict__:  # pragma: no cover
+if sys.version_info >= (3, 11):  # pragma: no cover
     ExceptionGroup = ExceptionGroup
 else:  # pragma: no cover
 
@@ -222,12 +222,14 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
     # If our source is a str, then our caller has managed encodings for us,
     # and we don't need to deal with it.
     if isinstance(source, str):
-        payload: str = msg.get_payload()
+        payload = msg.get_payload()
+        assert isinstance(payload, str)
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
     else:
-        bpayload: bytes = msg.get_payload(decode=True)
+        bpayload = msg.get_payload(decode=True)
+        assert isinstance(bpayload, bytes)
         try:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError as exc:
@@ -434,7 +436,7 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
         payload = _get_payload(parsed, data)
     except ValueError:
         unparsed.setdefault("description", []).append(
-            parsed.get_payload(decode=isinstance(data, bytes))
+            parsed.get_payload(decode=isinstance(data, bytes))  # type: ignore[call-overload]
         )
     else:
         if payload:
