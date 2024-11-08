@@ -1,8 +1,8 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+24.2 - 2024-11-08
+~~~~~~~~~~~~~~~~~
 
 * PEP 639: Implement License-Expression and License-File (:issue:`828`)
 * Use ``!r`` formatter for error messages with filenames (:issue:`844`)
