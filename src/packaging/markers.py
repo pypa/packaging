@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import functools
 import operator
 import os
 import platform
@@ -16,6 +15,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import InvalidVersion
 
 __all__ = [
     "InvalidMarker",
@@ -203,14 +203,13 @@ def _normalize(*values: str, key: str) -> tuple[str, ...]:
 
 
 def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
-    # Lazy evaluation to mitigate https://github.com/pypa/packaging/issues/774
-    groups: list[list[Callable[[], bool]]] = [[]]
+    groups: list[list[bool | Exception]] = [[]]
 
     for marker in markers:
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
-            groups[-1].append(functools.partial(_evaluate_markers, marker, environment))
+            groups[-1].append(_evaluate_markers(marker, environment))
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
@@ -224,14 +223,42 @@ def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
                 rhs_value = environment[environment_key]
 
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(functools.partial(_eval_op, lhs_value, op, rhs_value))
+
+            # Defer handling certain exceptions for cases where the marker expression is
+            # otherwise well formed and they do not end up affecting the overall result.
+            op_result: bool | Exception
+            try:
+                op_result = _eval_op(lhs_value, op, rhs_value)
+            # Version comparisons may be overly strict despite being guarded against.
+            # https://github.com/pypa/packaging/issues/774
+            except InvalidVersion as e:
+                op_result = e
+
+            groups[-1].append(op_result)
         else:
             assert marker in ["and", "or"]
             if marker == "or":
                 groups.append([])
 
-    return any(all(expr() for expr in group) for group in groups)
+    # The below is almost equivalent to `any(all(group) for group in groups)` except
+    # that exceptions are treated as an indeterminate logic level between true and false
+    any_result: bool | Exception = False
+    for group in groups:
+        all_result: bool | Exception = True
+        for op_result in group:
+            # Value precedence for `all()` is: `False`, `Exception()`, `True`
+            if (all_result is True) or (op_result is False):
+                all_result = op_result
 
+        # Value precedence for `any()` is: `True`, `Exception()`, `False`
+        if (any_result is False) or (all_result is True):
+            any_result = all_result
+
+    # Raise if the overall result is indeterminate due to a expression that errored out
+    if isinstance(any_result, Exception):
+        raise any_result
+
+    return any_result
 
 def format_full_version(info: sys._version_info) -> str:
     version = f"{info.major}.{info.minor}.{info.micro}"
