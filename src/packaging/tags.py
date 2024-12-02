@@ -100,7 +100,6 @@ class Tag:
         self._hash = hash((self._interpreter, self._abi, self._platform))
 
 
-
 def parse_tag(tag: str) -> frozenset[Tag]:
     """
     Parses the provided tag (e.g. `py3-none-any`) into a frozenset of Tag instances.
