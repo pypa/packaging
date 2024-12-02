@@ -92,6 +92,14 @@ class Tag:
     def __repr__(self) -> str:
         return f"<{self} @ {id(self)}>"
 
+    def __setstate__(self, state):
+        # cached _hash is wrong when unpickling
+        _, slots = state
+        for slot in slots:
+            setattr(self, slot, slots[slot])
+        self._hash = hash((self._interpreter, self._abi, self._platform))
+
+
 
 def parse_tag(tag: str) -> frozenset[Tag]:
     """
