@@ -16,7 +16,7 @@ repos:
         additional_dependencies: [pyparsing, nox]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.11
+    rev: v0.9.1
     hooks:
       - id: ruff
         args: [ --fix ]
