@@ -290,20 +290,17 @@ class TestMarker:
                 True,
             ),
             (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
+                "python_version ~= '2.7.0' and (os_name == 'foo' or os_name == 'bar')",
                 {"os_name": "foo", "python_version": "2.7.4"},
                 True,
             ),
             (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
+                "python_version ~= '2.7.0' and (os_name == 'foo' or os_name == 'bar')",
                 {"os_name": "bar", "python_version": "2.7.4"},
                 True,
             ),
             (
-                "python_version ~= '2.7.0' and (os_name == 'foo' or "
-                "os_name == 'bar')",
+                "python_version ~= '2.7.0' and (os_name == 'foo' or os_name == 'bar')",
                 {"os_name": "other", "python_version": "2.7.4"},
                 False,
             ),
@@ -350,8 +347,7 @@ class TestMarker:
                 False,
             ),
             (
-                "python_version == '2.5' and platform.python_implementation"
-                "!= 'Jython'",
+                "python_version == '2.5' and platform.python_implementation!= 'Jython'",
                 {"python_version": "2.7"},
                 False,
             ),
