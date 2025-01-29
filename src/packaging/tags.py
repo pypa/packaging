@@ -13,6 +13,7 @@ import sys
 import sysconfig
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
+    Any,
     Iterable,
     Iterator,
     Sequence,
@@ -92,7 +93,7 @@ class Tag:
     def __repr__(self) -> str:
         return f"<{self} @ {id(self)}>"
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: tuple[dict[str, Any], dict[str, Any]]) -> None:
         # cached _hash is wrong when unpickling
         _, slots = state
         for slot in slots:
