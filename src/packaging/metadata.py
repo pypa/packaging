@@ -132,6 +132,9 @@ class RawMetadata(TypedDict, total=False):
     license_expression: str
     license_files: list[str]
 
+    # Metadata 2.5 - PEP 770
+    sbom_files: list[str]
+
 
 _STRING_FIELDS = {
     "author",
@@ -164,6 +167,7 @@ _LIST_FIELDS = {
     "requires",
     "requires_dist",
     "requires_external",
+    "sbom_files",
     "supported_platforms",
 }
 
@@ -276,6 +280,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "requires-dist": "requires_dist",
     "requires-external": "requires_external",
     "requires-python": "requires_python",
+    "sbom-file": "sbom_files",
     "summary": "summary",
     "supported-platform": "supported_platforms",
     "version": "version",
@@ -463,8 +468,8 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
+_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
@@ -658,6 +663,15 @@ class _Validator(Generic[T]):
             ) from exc
 
     def _process_license_files(self, value: list[str]) -> list[str]:
+        return self._validate_file_paths(value)
+
+    def _process_sbom_files(self, value: list[str]) -> list[str]:
+        return self._validate_file_paths(value)
+
+    def _validate_file_paths(self, value: list[str]) -> list[str]:
+        """Handles a list of file paths according to PEP 639 and
+        PEP 770 rules by rejecting parent directories and globs.
+        """
         paths = []
         for path in value:
             if ".." in path:
@@ -860,3 +874,5 @@ class Metadata:
     """``Provides`` (deprecated)"""
     obsoletes: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Obsoletes`` (deprecated)"""
+    sbom_files: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`core-metadata-sbom-file`"""

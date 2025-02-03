@@ -186,7 +186,7 @@ class TestRawMetadata:
         raw, unparsed = metadata.parse_email(metadata_contents)
         assert len(unparsed) == 1
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 26
+        assert len(raw) == 27
         assert raw["metadata_version"] == "2.4"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
@@ -244,6 +244,7 @@ class TestRawMetadata:
             "AnotherProject (3.4)",
             'virtual_package; python_version >= "3.4"',
         ]
+        assert raw["sbom_files"] == ["sboms/bom.cdx.json", "sboms/bom.spdx.json"]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
         assert raw["description"] == "This description intentionally left blank.\n"
 
@@ -740,7 +741,11 @@ class TestMetadata:
         assert meta.license_files == license_files
 
     @pytest.mark.parametrize(
-        "license_files",
+        "field_name",
+        ["license_files", "sbom_files"]
+    )
+    @pytest.mark.parametrize(
+        "file_paths",
         [
             # Can't escape out of the project's directory.
             ["../LICENSE"],
@@ -756,10 +761,10 @@ class TestMetadata:
             ["licenses\\LICENSE"],
         ],
     )
-    def test_invalid_license_files(self, license_files):
+    def test_invalid_file_paths(self, field_name, file_paths):
         meta = metadata.Metadata.from_raw(
-            {"license_files": license_files}, validate=False
+            {field_name: file_paths}, validate=False
         )
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.license_files  # noqa: B018
+            getattr(meta, field_name)  # noqa: B018
