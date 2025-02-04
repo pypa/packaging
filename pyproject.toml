@@ -49,7 +49,6 @@ exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproper
 
 [tool.mypy]
 strict = true
-show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 python_version = 3.8
