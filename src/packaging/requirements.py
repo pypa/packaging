@@ -3,7 +3,7 @@
 # for complete details.
 from __future__ import annotations
 
-from typing import Any, Iterator
+from typing import Iterator
 
 from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
@@ -78,7 +78,7 @@ class Requirement:
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Requirement):
             return NotImplemented
 
