@@ -717,6 +717,8 @@ class TestSpecifierSet:
             ("", None, None, ["1.0", "2.0a1"], ["1.0"]),
             (">=1.0.dev1", None, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             ("", None, None, ["1.0a1"], ["1.0a1"]),
+            (">=1.2.3", None, None, ["1.2", "1.5a1"], ["1.5a1"]),
+            (">=1.2.3", None, None, ["1.3", "1.5a1"], ["1.3"]),
             ("", None, None, ["1.0", Version("2.0")], ["1.0", Version("2.0")]),
             # Test overriding with the prereleases parameter on filter
             ("", None, False, ["1.0a1"], []),
