@@ -960,7 +960,7 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", Version("1.4")]))
         ['1.3', <Version('1.4')>]
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.5a1"]))
-        []
+        ["1.5a1"]
         >>> list(SpecifierSet(">=1.2.3").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
         >>> list(SpecifierSet(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
@@ -978,6 +978,11 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
         """
+        # Allow a fallback to prereleases=True under the following conditions:
+        # - prereleases was not passed in this call
+        # - prereleases was not passed in the constructor
+        prereleases_fallback = prereleases is None and self._prereleases is None
+
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
         # SpecifierSet thinks for whether or not we should support prereleases.
@@ -988,9 +993,28 @@ class SpecifierSet(BaseSpecifier):
         # filter method for each one, this will act as a logical AND amongst
         # each specifier.
         if self._specs:
+            current_iter = iterable
             for spec in self._specs:
-                iterable = spec.filter(iterable, prereleases=bool(prereleases))
-            return iter(iterable)
+                current_iter = spec.filter(current_iter, prereleases=bool(prereleases))
+
+            # If prereleases is True there is no need for fallback logic.
+            if not prereleases_fallback or prereleases is True:
+                yield from current_iter
+            else:
+                # If prereleases was not explicitly set, we need to do a similar
+                # check to Specifier.filter to see if any final releases are yielded.
+                yielded = False
+                for version in current_iter:
+                    yield version
+                    yielded = True
+
+                # Fall back to prereleases if no final releases were found.
+                if not yielded:
+                    fallback_iter = iterable
+                    for spec in self._specs:
+                        fallback_iter = spec.filter(fallback_iter, prereleases=True)
+                    yield from fallback_iter
+
         # If we do not have any specifiers, then we need to have a rough filter
         # which will filter out any pre-releases, unless there are no final
         # releases.
@@ -1012,6 +1036,6 @@ class SpecifierSet(BaseSpecifier):
             # If we've found no items except for pre-releases, then we'll go
             # ahead and use the pre-releases
             if not filtered and found_prereleases and prereleases is None:
-                return iter(found_prereleases)
+                yield from found_prereleases
 
-            return iter(filtered)
+            yield from filtered
