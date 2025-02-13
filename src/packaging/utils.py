@@ -120,6 +120,11 @@ def parse_wheel_filename(
             f"Invalid wheel filename (invalid version): {filename!r}"
         ) from e
 
+    if str(version) != parts[1]:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (non-normalized version): {filename!r}"
+        )
+
     if dashes == 5:
         build_part = parts[2]
         build_match = _build_tag_regex.match(build_part)

@@ -154,6 +154,24 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
+        ("foo-01.0.0-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1RC1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1.a1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1_a1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.0a.1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1alpha1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1beta2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.1c2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2a-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2_post2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2post2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2.post.2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.0.r4-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2.post-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2dev2-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.2.dev-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.0+ubuntu_1-py3-none-any.whl"),  # Non-normalized version
+        ("foo-v1.0-py3-none-any.whl"),  # Non-normalized version
     ],
 )
 def test_parse_wheel_invalid_filename(filename):
