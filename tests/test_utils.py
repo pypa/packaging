@@ -144,39 +144,40 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
 
 
 @pytest.mark.parametrize(
-    ("filename"),
+    ("filename", "expected"),
     [
-        ("foo-1.0.whl"),  # Missing tags
-        ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
-        ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
-        ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
-        ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
-        # Build number doesn't start with a digit (`abc`)
-        ("foo-1.0-abc-py3-none-any.whl"),
-        ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
-        ("foo-01.0.0-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1RC1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1.a1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1_a1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.0a.1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1alpha1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1beta2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.1c2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2a-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2_post2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2post2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2.post.2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.0.r4-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2.post-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2dev2-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.2.dev-py3-none-any.whl"),  # Non-normalized version
-        ("foo-1.0+ubuntu_1-py3-none-any.whl"),  # Non-normalized version
-        ("foo-v1.0-py3-none-any.whl"),  # Non-normalized version
+        ("foo-1.0.whl", "wrong number of parts"),
+        ("foo-1.0-py3-none-any.wheel", "extension must be '.whl'"),
+        ("foo__bar-1.0-py3-none-any.whl", "invalid project name"),
+        ("foo#bar-1.0-py3-none-any.whl", "invalid project name"),
+        ("foobar-1.x-py3-none-any.whl", "invalid version"),
+        ("foo-1.0-abc-py3-none-any.whl", "invalid build number"),
+        ("foo-1.0-200-py3-none-any-junk.whl", "wrong number of parts"),
+        ("foo-01.0.0-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1RC1-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1.a1-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1_a1-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.0a.1-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1alpha1-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1beta2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.1c2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2a-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2_post2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2post2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2.post.2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.0.r4-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2.post-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2dev2-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.2.dev-py3-none-any.whl", "non-normalized version"),
+        ("foo-1.0+ubuntu_1-py3-none-any.whl", "non-normalized version"),
+        ("foo-v1.0-py3-none-any.whl", "non-normalized version"),
     ],
 )
-def test_parse_wheel_invalid_filename(filename):
-    with pytest.raises(InvalidWheelFilename):
+def test_parse_wheel_invalid_filename(filename, expected):
+    with pytest.raises(InvalidWheelFilename) as e:
         parse_wheel_filename(filename)
+
+    assert expected in str(e.value)
 
 
 @pytest.mark.parametrize(
