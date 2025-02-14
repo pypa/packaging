@@ -576,6 +576,11 @@ class TestSpecifier:
             # Test overriding with the overall specifier
             (">=1.0.dev1", True, None, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0.dev1", False, None, ["1.0", "2.0a1"], ["1.0"]),
+            # Test when both specifier and filter have prerelease value
+            (">=1.0", True, False, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0", False, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0", True, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0", False, False, ["1.0", "2.0a1"], ["1.0"]),
         ],
     )
     def test_specifier_filter(
@@ -749,6 +754,26 @@ class TestSpecifierSet:
             (">=1.0.dev1", False, None, ["1.0", "2.0a1"], ["1.0"]),
             ("", True, None, ["1.0a1"], ["1.0a1"]),
             ("", False, None, ["1.0a1"], []),
+            # Test when both specifier and filter have prerelease value
+            (">=1.0", True, False, ["1.0", "2.0a1"], ["1.0"]),
+            (">=1.0", False, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0", True, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
+            (">=1.0", False, False, ["1.0", "2.0a1"], ["1.0"]),
+            # Test when there are multiple specifiers
+            (">=1.0,<=2.0", None, None, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0dev", None, None, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0", True, None, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0", False, None, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0dev", False, None, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0dev", True, None, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0", None, False, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0", None, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0dev", None, False, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0dev", None, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0", True, False, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
+            (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
         ],
     )
     def test_specifier_filter(
