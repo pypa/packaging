@@ -584,7 +584,7 @@ class TestSpecifier:
         ],
     )
     def test_specifier_filter(
-        self, specifier_prereleases, specifier, prereleases, input, expected
+        self, specifier, specifier_prereleases, prereleases, input, expected
     ):
         if specifier_prereleases is None:
             spec = Specifier(specifier)
@@ -777,7 +777,7 @@ class TestSpecifierSet:
         ],
     )
     def test_specifier_filter(
-        self, specifier_prereleases, specifier, prereleases, input, expected
+        self, specifier, specifier_prereleases, prereleases, input, expected
     ):
         if specifier_prereleases is None:
             spec = SpecifierSet(specifier)
