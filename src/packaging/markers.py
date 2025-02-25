@@ -8,6 +8,7 @@ import operator
 import os
 import platform
 import sys
+from functools import partial
 from typing import Any, Callable, TypedDict, cast
 
 from ._parser import MarkerAtom, MarkerItem, MarkerList, Op, Value, Variable
@@ -223,13 +224,9 @@ def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
-            groups[-1].append(
-                lambda marker=marker: _evaluate_markers(marker, environment)
-            )
+            groups[-1].append(partial(_evaluate_markers, marker, environment))
         elif isinstance(marker, tuple):
-            groups[-1].append(
-                lambda marker=marker: _evaluate_marker_item(marker, environment)
-            )
+            groups[-1].append(partial(_evaluate_marker_item, marker, environment))
         else:
             assert marker in ["and", "or"]
             if marker == "or":
