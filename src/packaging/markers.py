@@ -10,7 +10,7 @@ import platform
 import sys
 from typing import AbstractSet, Any, Callable, Literal, TypedDict, Union, cast
 
-from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
+from ._parser import MarkerAtom, MarkerItem, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
@@ -213,36 +213,45 @@ def _normalize(
     return lhs, rhs
 
 
+def _evaluate_marker_item(
+    marker: MarkerItem, environment: dict[str, str | AbstractSet[str]]
+) -> bool:
+    lhs, op, rhs = marker
+    if isinstance(lhs, Variable):
+        environment_key = lhs.value
+        lhs_value = environment[environment_key]
+        rhs_value = rhs.value
+    else:
+        lhs_value = lhs.value
+        environment_key = rhs.value
+        rhs_value = environment[environment_key]
+    assert isinstance(lhs_value, str), "lhs value must be a string"
+    lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
+    return _eval_op(lhs_value, op, rhs_value)
+
+
 def _evaluate_markers(
     markers: MarkerList, environment: dict[str, str | AbstractSet[str]]
 ) -> bool:
-    groups: list[list[bool]] = [[]]
+    groups: list[list[Callable[[], bool]]] = [[]]
 
     for marker in markers:
         assert isinstance(marker, (list, tuple, str))
 
         if isinstance(marker, list):
-            groups[-1].append(_evaluate_markers(marker, environment))
+            groups[-1].append(
+                lambda marker=marker: _evaluate_markers(marker, environment)
+            )
         elif isinstance(marker, tuple):
-            lhs, op, rhs = marker
-
-            if isinstance(lhs, Variable):
-                environment_key = lhs.value
-                lhs_value = environment[environment_key]
-                rhs_value = rhs.value
-            else:
-                lhs_value = lhs.value
-                environment_key = rhs.value
-                rhs_value = environment[environment_key]
-            assert isinstance(lhs_value, str), "lhs must be a string"
-            lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value))
+            groups[-1].append(
+                lambda marker=marker: _evaluate_marker_item(marker, environment)
+            )
         else:
             assert marker in ["and", "or"]
             if marker == "or":
                 groups.append([])
 
-    return any(all(item) for item in groups)
+    return any(all(item() for item in group) for group in groups)
 
 
 def format_full_version(info: sys._version_info) -> str:
