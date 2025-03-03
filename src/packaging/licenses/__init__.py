@@ -80,9 +80,10 @@ def canonicalize_license_expression(
 
     tokens = license_expression.split()
 
-    # Rather than implementing boolean logic, we create an expression that Python can
-    # parse. Everything that is not involved with the grammar itself is treated as
-    # `False` and the expression should evaluate as such.
+    # Rather than implementing a parenthesis/boolean logic parser, create an
+    # expression that Python can parse. Everything that is not involved with the
+    # grammar itself is replaced with the placeholder `False` and the resultant
+    # expression should become a valid Python expression.
     python_tokens = []
     for token in tokens:
         if token not in {"or", "and", "with", "(", ")"}:
@@ -92,16 +93,16 @@ def canonicalize_license_expression(
         elif token == "(" and python_tokens and python_tokens[-1] not in {"or", "and"}:
             message = f"Invalid license expression: {raw_license_expression!r}"
             raise InvalidLicenseExpression(message)
+        elif token == ")" and python_tokens and python_tokens[-1] == "(":
+            message = f"Invalid license expression: {raw_license_expression!r}"
+            raise InvalidLicenseExpression(message)
         else:
             python_tokens.append(token)
 
     python_expression = " ".join(python_tokens)
     try:
-        invalid = eval(python_expression, globals(), locals())
-    except Exception:
-        invalid = True
-
-    if invalid is not False:
+        compile(python_expression, "", "eval")
+    except SyntaxError:
         message = f"Invalid license expression: {raw_license_expression!r}"
         raise InvalidLicenseExpression(message) from None
 
