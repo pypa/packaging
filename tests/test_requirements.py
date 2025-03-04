@@ -373,7 +373,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after URL and whitespace)\n"
+            "Expected semicolon (after URL and whitespace) or end\n"
             "    name @ https://example.com/; extra == 'example'\n"
             "           ~~~~~~~~~~~~~~~~~~~~~~^"
         )
@@ -521,7 +521,8 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after version specifier)\n"
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
             "    name==1.0.org1\n"
             "        ~~~~~^"
         )
@@ -537,7 +538,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after name and no valid version specifier)\n"
+            "Expected semicolon (after name with no version specifier) or end\n"
             "    name==\n"
             "        ^"
         )
@@ -553,7 +554,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after name and no valid version specifier)\n"
+            "Expected semicolon (after name with no version specifier) or end\n"
             "    name 1.0\n"
             "         ^"
         )
@@ -569,8 +570,26 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after version specifier)\n"
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
             "    name >= 1.0 #\n"
+            "         ~~~~~~~^"
+        )
+
+    def test_error_on_missing_comma_in_specifier(self) -> None:
+        # GIVEN
+        to_parse = "name >= 1.0 <= 2.0"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
+            "    name >= 1.0 <= 2.0\n"
             "         ~~~~~~~^"
         )
 
