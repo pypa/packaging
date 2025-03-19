@@ -56,11 +56,12 @@ Reference
         >>> is_normalized_name("Django")
         False
 
-.. function:: canonicalize_version(version)
+.. function:: canonicalize_version(version, strip_trailing_zero=True)
 
     This function takes a string representing a package version (or a
     :class:`~packaging.version.Version` instance), and returns the
-    normalized form of it.
+    normalized form of it. By default, it strips trailing zeros from
+    the release segment.
 
     :param str version: The version to normalize.
 

@@ -52,14 +52,17 @@ strict = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
+python_version = 3.8
 
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
 
-
 [tool.ruff]
 src = ["src"]
+extend-exclude = [
+    "src/packaging/licenses/_spdx.py"
+]
 
 [tool.ruff.lint]
 extend-select = [
@@ -70,18 +73,16 @@ extend-select = [
     "I",
     "N",
     "UP",
+    "RUF",
     "W"
 ]
 ignore = [
-    "B009",
-    "B015",
-    "B018",
     "B027",
-    "B028",
-    "B904",
+    "F821",
     "N818",
+    "RUF003",
+    "RUF012",
     "UP032",
-    "UP030",
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
     "E111",
@@ -95,6 +96,4 @@ ignore = [
     "Q003",
     "COM812",
     "COM819",
-    "ISC001",
-    "ISC002",
 ]
