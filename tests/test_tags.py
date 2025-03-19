@@ -1478,7 +1478,7 @@ class TestSysTags:
         assert list(tags.platform_tags()) == ["emscripten_3_1_58_wasm32"]
         result = list(tags.sys_tags())
         assert result[0] == tags.Tag(
-            expected_interpreter, "cp312", "emscripten_3_1_58_wasm32"
+            expected_interpreter, expected_interpreter, "emscripten_3_1_58_wasm32"
         )
 
     def test_pyodide(self, mock_interpreter_name, monkeypatch):
@@ -1500,7 +1500,7 @@ class TestSysTags:
         ]
         result = list(tags.sys_tags())
         assert result[0] == tags.Tag(
-            expected_interpreter, "cp312", "pyodide_2024_0_wasm32"
+            expected_interpreter, expected_interpreter, "pyodide_2024_0_wasm32"
         )
 
 
