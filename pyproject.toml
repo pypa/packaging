@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.3"]
+requires = ["flit_core >=3.12"]
 build-backend = "flit_core.buildapi"
 
 
@@ -7,14 +7,14 @@ build-backend = "flit_core.buildapi"
 name = "packaging"
 description = "Core utilities for Python packages"
 dynamic = ["version"]
+license = "Apache-2.0 OR BSD-2-Clause"
+license-files = ["LICENSE*"]
 readme = "README.rst"
 requires-python = ">=3.8"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
-  "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -36,7 +36,7 @@ Source = "https://github.com/pypa/packaging"
 
 
 [tool.flit.sdist]
-include = ["LICENSE*", "tests/", "docs/", "CHANGELOG.rst"]
+include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 

@@ -4,7 +4,8 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+* Changed project metadata to use SPDX license expression
+
 
 25.0 - 2025-04-19
 ~~~~~~~~~~~~~~~~~
