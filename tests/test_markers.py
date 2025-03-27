@@ -314,6 +314,14 @@ class TestMarker:
                 {"extra": "different__punctuation_is_EQUAL"},
                 True,
             ),
+            # extra name that is also a valid version - version comparison applies
+            # if both sides are valid versions
+            ("extra == 'v8'", {"extra": "quux"}, False),
+            ("extra == 'v8'", {"extra": "v8"}, True),
+            # LHS and RHS are valid versions, so equality uses normalized version
+            ("extra == 'v8-dev'", {"extra": "v8-dev.0"}, True),
+            # LHS and RHS are not valid versions, so equality is str comparison
+            ("extra == 'v8-foo'", {"extra": "v8-foo.0"}, False),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
