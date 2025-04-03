@@ -20,6 +20,8 @@ import nox
 nox.options.sessions = ["lint"]
 nox.options.reuse_existing_virtualenvs = True
 
+DEFAULT_PYTHON_VERSION = "3.12"
+
 
 @nox.session(
     python=[
@@ -64,7 +66,7 @@ def tests(session):
         )
 
 
-@nox.session(python="3.9")
+@nox.session(python=DEFAULT_PYTHON_VERSION)
 def lint(session):
     # Run the linters (via pre-commit)
     session.install("pre-commit")
@@ -76,7 +78,7 @@ def lint(session):
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.9")
+@nox.session(python=DEFAULT_PYTHON_VERSION)
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")

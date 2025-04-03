@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, Callable, Set, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -24,7 +24,7 @@ __all__ = [
     "default_environment",
 ]
 
-Operator = Callable[[str, str], bool]
+Operator = Callable[[str, Union[str, Set[str]]], bool]
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 
 
@@ -175,8 +175,8 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_op(lhs: str | set[str], op: Op, rhs: str | set[str]) -> bool:
-    if isinstance(lhs, str) and isinstance(rhs, str):
+def _eval_op(lhs: str, op: Op, rhs: str | set[str]) -> bool:
+    if isinstance(rhs, str):
         try:
             spec = Specifier("".join([op.serialize(), rhs]))
         except InvalidSpecifier:
@@ -191,27 +191,27 @@ def _eval_op(lhs: str | set[str], op: Op, rhs: str | set[str]) -> bool:
     return oper(lhs, rhs)
 
 
-def _normalize(*values: str | set[str], key: str) -> tuple[str | set[str], ...]:
+def _normalize(lhs: str, rhs: str | set[str], key: str) -> tuple[str, str | set[str]]:
     # PEP 685 – Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
-        return tuple(canonicalize_name(v) for v in values)
+        assert isinstance(rhs, str), "extra value must be a string"
+        return (canonicalize_name(lhs), canonicalize_name(rhs))
     if key in MARKERS_ALLOWING_SET:
-        result: list[str | set[str]] = []
-        for v in values:
-            if isinstance(v, str):
-                result.append(canonicalize_name(v))
-            else:
-                result.append({canonicalize_name(i) for i in v})
-        return tuple(result)
+        if isinstance(rhs, str):  # pragma: no cover
+            return (canonicalize_name(lhs), canonicalize_name(rhs))
+        else:
+            return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
 
     # other environment markers don't have such standards
-    return values
+    return lhs, rhs
 
 
-def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
+def _evaluate_markers(
+    markers: MarkerList, environment: dict[str, str | set[str]]
+) -> bool:
     groups: list[list[bool]] = [[]]
 
     for marker in markers:
@@ -230,7 +230,7 @@ def _evaluate_markers(markers: MarkerList, environment: dict[str, str]) -> bool:
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = environment[environment_key]
-
+            assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
         else:
@@ -317,7 +317,7 @@ class Marker:
 
         The environment is determined from the current Python process.
         """
-        current_environment = cast("dict[str, str]", default_environment())
+        current_environment = cast("dict[str, str | set[str]]", default_environment())
         current_environment.update(extra="", extras=set(), dependency_groups=set())
         if environment is not None:
             current_environment.update(environment)
@@ -331,11 +331,14 @@ class Marker:
         )
 
 
-def _repair_python_full_version(env: dict[str, str]) -> dict[str, str]:
+def _repair_python_full_version(
+    env: dict[str, str | set[str]],
+) -> dict[str, str | set[str]]:
     """
     Work around platform.python_version() returning something that is not PEP 440
     compliant for non-tagged Python builds.
     """
-    if env["python_full_version"].endswith("+"):
-        env["python_full_version"] += "local"
+    python_full_version = cast(str, env["python_full_version"])
+    if python_full_version.endswith("+"):
+        env["python_full_version"] = f"{python_full_version}local"
     return env
