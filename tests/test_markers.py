@@ -399,18 +399,17 @@ class TestMarker:
     @pytest.mark.parametrize(
         "expression,result",
         [
-            ('"foo" in {variable}', True),
-            ('"bar" in {variable}', True),
-            ('"baz" in {variable}', False),
-            ('"foo" in {variable} and "bar" in {variable}', True),
-            ('"foo" in {variable} or "bar" in {variable}', True),
-            ('"baz" in {variable} and "foo" in {variable}', False),
-            ('"foo" in {variable} or "baz" in {variable}', True),
-            ('"Foo" in {variable}', True),
+            ('"foo" in {0}', True),
+            ('"bar" in {0}', True),
+            ('"baz" in {0}', False),
+            ('"baz" not in {0}', True),
+            ('"foo" in {0} and "bar" in {0}', True),
+            ('"foo" in {0} or "bar" in {0}', True),
+            ('"baz" in {0} and "foo" in {0}', False),
+            ('"foo" in {0} or "baz" in {0}', True),
+            ('"Foo" in {0}', True),
         ],
     )
     def test_extras_and_dependency_groups(self, variable, expression, result):
         environment = {variable: {"foo", "bar"}}
-        assert (
-            Marker(expression.format(variable=variable)).evaluate(environment) == result
-        )
+        assert Marker(expression.format(variable)).evaluate(environment) == result
