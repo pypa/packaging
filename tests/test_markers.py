@@ -394,3 +394,23 @@ class TestMarker:
     def test_python_full_version_untagged(self):
         with mock.patch("platform.python_version", return_value="3.11.1+"):
             assert Marker("python_full_version < '3.12'").evaluate()
+
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    @pytest.mark.parametrize(
+        "expression,result",
+        [
+            ('"foo" in {variable}', True),
+            ('"bar" in {variable}', True),
+            ('"baz" in {variable}', False),
+            ('"foo" in {variable} and "bar" in {variable}', True),
+            ('"foo" in {variable} or "bar" in {variable}', True),
+            ('"baz" in {variable} and "foo" in {variable}', False),
+            ('"foo" in {variable} or "baz" in {variable}', True),
+            ('"Foo" in {variable}', True),
+        ],
+    )
+    def test_extras_and_dependency_groups(self, variable, expression, result):
+        environment = {variable: {"foo", "bar"}}
+        assert (
+            Marker(expression.format(variable=variable)).evaluate(environment) == result
+        )

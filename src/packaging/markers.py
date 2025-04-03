@@ -25,6 +25,7 @@ __all__ = [
 ]
 
 Operator = Callable[[str, str], bool]
+MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 
 
 class InvalidMarker(ValueError):
@@ -174,13 +175,14 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
-    try:
-        spec = Specifier("".join([op.serialize(), rhs]))
-    except InvalidSpecifier:
-        pass
-    else:
-        return spec.contains(lhs, prereleases=True)
+def _eval_op(lhs: str | set[str], op: Op, rhs: str | set[str]) -> bool:
+    if isinstance(lhs, str) and isinstance(rhs, str):
+        try:
+            spec = Specifier("".join([op.serialize(), rhs]))
+        except InvalidSpecifier:
+            pass
+        else:
+            return spec.contains(lhs, prereleases=True)
 
     oper: Operator | None = _operators.get(op.serialize())
     if oper is None:
@@ -189,13 +191,21 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     return oper(lhs, rhs)
 
 
-def _normalize(*values: str, key: str) -> tuple[str, ...]:
+def _normalize(*values: str | set[str], key: str) -> tuple[str | set[str], ...]:
     # PEP 685 – Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
         return tuple(canonicalize_name(v) for v in values)
+    if key in MARKERS_ALLOWING_SET:
+        result: list[str | set[str]] = []
+        for v in values:
+            if isinstance(v, str):
+                result.append(canonicalize_name(v))
+            else:
+                result.append({canonicalize_name(i) for i in v})
+        return tuple(result)
 
     # other environment markers don't have such standards
     return values
@@ -308,7 +318,7 @@ class Marker:
         The environment is determined from the current Python process.
         """
         current_environment = cast("dict[str, str]", default_environment())
-        current_environment["extra"] = ""
+        current_environment.update(extra="", extras=set(), dependency_groups=set())
         if environment is not None:
             current_environment.update(environment)
             # The API used to allow setting extra to None. We need to handle this
