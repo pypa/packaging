@@ -318,7 +318,7 @@ class Marker:
         The environment is determined from the current Python process.
         """
         current_environment = cast("dict[str, str | set[str]]", default_environment())
-        current_environment.update(extra="", extras=set(), dependency_groups=set())
+        current_environment["extra"] = ""
         if environment is not None:
             current_environment.update(environment)
             # The API used to allow setting extra to None. We need to handle this

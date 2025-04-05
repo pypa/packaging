@@ -399,17 +399,25 @@ class TestMarker:
     @pytest.mark.parametrize(
         "expression,result",
         [
-            ('"foo" in {0}', True),
-            ('"bar" in {0}', True),
-            ('"baz" in {0}', False),
-            ('"baz" not in {0}', True),
-            ('"foo" in {0} and "bar" in {0}', True),
-            ('"foo" in {0} or "bar" in {0}', True),
-            ('"baz" in {0} and "foo" in {0}', False),
-            ('"foo" in {0} or "baz" in {0}', True),
-            ('"Foo" in {0}', True),
+            pytest.param('"foo" in {0}', True, id="value-in-foo"),
+            pytest.param('"bar" in {0}', True, id="value-in-bar"),
+            pytest.param('"baz" in {0}', False, id="value-not-in"),
+            pytest.param('"baz" not in {0}', True, id="value-not-in-negated"),
+            pytest.param('"foo" in {0} and "bar" in {0}', True, id="and-in"),
+            pytest.param('"foo" in {0} or "bar" in {0}', True, id="or-in"),
+            pytest.param(
+                '"baz" in {0} and "foo" in {0}', False, id="short-circuit-and"
+            ),
+            pytest.param('"foo" in {0} or "baz" in {0}', True, id="short-circuit-or"),
+            pytest.param('"Foo" in {0}', True, id="case-sensitive"),
         ],
     )
     def test_extras_and_dependency_groups(self, variable, expression, result):
         environment = {variable: {"foo", "bar"}}
         assert Marker(expression.format(variable)).evaluate(environment) == result
+
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    def test_extras_and_dependency_groups_disallowed(self, variable):
+        marker = Marker(f'"foo" in {variable}')
+        with pytest.raises(KeyError):
+            marker.evaluate()
