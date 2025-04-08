@@ -419,5 +419,7 @@ class TestMarker:
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     def test_extras_and_dependency_groups_disallowed(self, variable):
         marker = Marker(f'"foo" in {variable}')
+        assert not marker.evaluate(for_lock=True)
+
         with pytest.raises(KeyError):
             marker.evaluate()

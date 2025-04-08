@@ -308,22 +308,28 @@ class Marker:
 
         return str(self) == str(other)
 
-    def evaluate(self, environment: dict[str, str] | None = None) -> bool:
+    def evaluate(
+        self, environment: dict[str, str] | None = None, for_lock: bool = False
+    ) -> bool:
         """Evaluate a marker.
 
         Return the boolean from evaluating the given marker against the
         environment. environment is an optional argument to override all or
-        part of the determined environment.
+        part of the determined environment. If `for_lock` is True, both ``extras``
+        and ``dependency_groups`` are allowed; otherwise, only ``extras`` are permitted.
 
         The environment is determined from the current Python process.
         """
         current_environment = cast("dict[str, str | set[str]]", default_environment())
-        current_environment["extra"] = ""
+        if for_lock:
+            current_environment.update(extras=set(), dependency_groups=set())
+        else:
+            current_environment["extra"] = ""
         if environment is not None:
             current_environment.update(environment)
             # The API used to allow setting extra to None. We need to handle this
             # case for backwards compatibility.
-            if current_environment["extra"] is None:
+            if "extra" in current_environment and current_environment["extra"] is None:
                 current_environment["extra"] = ""
 
         return _evaluate_markers(
