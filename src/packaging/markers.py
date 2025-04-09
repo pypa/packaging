@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import Any, Callable, Set, TypedDict, Union, cast
+from typing import Any, Callable, Literal, Set, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -17,6 +17,7 @@ from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
 __all__ = [
+    "EvaluateContext",
     "InvalidMarker",
     "Marker",
     "UndefinedComparison",
@@ -25,6 +26,7 @@ __all__ = [
 ]
 
 Operator = Callable[[str, Union[str, Set[str]]], bool]
+EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 
 
@@ -309,7 +311,9 @@ class Marker:
         return str(self) == str(other)
 
     def evaluate(
-        self, environment: dict[str, str] | None = None, for_lock: bool = False
+        self,
+        environment: dict[str, str] | None = None,
+        context: EvaluateContext = "metadata",
     ) -> bool:
         """Evaluate a marker.
 
@@ -321,9 +325,9 @@ class Marker:
         The environment is determined from the current Python process.
         """
         current_environment = cast("dict[str, str | set[str]]", default_environment())
-        if for_lock:
+        if context == "lock_file":
             current_environment.update(extras=set(), dependency_groups=set())
-        else:
+        elif context == "metadata":
             current_environment["extra"] = ""
         if environment is not None:
             current_environment.update(environment)
