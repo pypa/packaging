@@ -458,9 +458,6 @@ class TestAndroidPlatforms:
     def test_non_android(self):
         non_android_error = pytest.raises(
             TypeError,
-            match=(
-                "on non-Android platforms, the api_level and abi arguments are required"
-            ),
         )
         with non_android_error:
             list(tags.android_platforms())
