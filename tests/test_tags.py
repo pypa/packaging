@@ -456,9 +456,7 @@ class TestIOSPlatforms:
 
 class TestAndroidPlatforms:
     def test_non_android(self):
-        non_android_error = pytest.raises(
-            TypeError,
-        )
+        non_android_error = pytest.raises(TypeError)
         with non_android_error:
             list(tags.android_platforms())
         with non_android_error:
