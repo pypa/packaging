@@ -319,14 +319,16 @@ class Marker:
 
         Return the boolean from evaluating the given marker against the
         environment. environment is an optional argument to override all or
-        part of the determined environment. If `for_lock` is True, both ``extras``
-        and ``dependency_groups`` are allowed; otherwise, only ``extras`` are permitted.
+        part of the determined environment. The *context* parameter specifies what
+        context the markers are being evaluated for, which influences what markers
+        are considered valid. Acceptable values are "metadata" (for core metadata;
+        default), "lock_file", and "requirement" (i.e. all other situations).
 
         The environment is determined from the current Python process.
         """
         current_environment = cast("dict[str, str | set[str]]", default_environment())
         if context == "lock_file":
-            current_environment.update(extras=set(), dependency_groups=set())
+            current_environment.update(extras=frozenset(), dependency_groups=frozenset())
         elif context == "metadata":
             current_environment["extra"] = ""
         if environment is not None:
