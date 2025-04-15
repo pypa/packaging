@@ -15,6 +15,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import InvalidVersion
 
 __all__ = [
     "InvalidMarker",
@@ -180,7 +181,10 @@ def _eval_op(lhs: str, op: Op, rhs: str) -> bool:
     except InvalidSpecifier:
         pass
     else:
-        return spec.contains(lhs, prereleases=True)
+        try:
+            return spec.contains(lhs, prereleases=True)
+        except InvalidVersion:
+            pass
 
     oper: Operator | None = _operators.get(op.serialize())
     if oper is None:

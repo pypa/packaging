@@ -304,6 +304,7 @@ class TestMarker:
                 {"os_name": "other", "python_version": "2.7.4"},
                 False,
             ),
+            ("platform_release >= '6'", {"platform_release": "6.1-foobar"}, True),
             ("extra == 'security'", {"extra": "quux"}, False),
             ("extra == 'security'", {"extra": "security"}, True),
             ("extra == 'SECURITY'", {"extra": "security"}, True),
