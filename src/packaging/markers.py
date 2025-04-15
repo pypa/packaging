@@ -328,7 +328,9 @@ class Marker:
         """
         current_environment = cast("dict[str, str | set[str]]", default_environment())
         if context == "lock_file":
-            current_environment.update(extras=frozenset(), dependency_groups=frozenset())
+            current_environment.update(
+                extras=frozenset(), dependency_groups=frozenset()
+            )
         elif context == "metadata":
             current_environment["extra"] = ""
         if environment is not None:
