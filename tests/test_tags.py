@@ -77,6 +77,23 @@ def mock_ios(monkeypatch):
         monkeypatch.setattr(platform, "ios_ver", mock_ios_ver)
 
 
+@pytest.fixture
+def mock_android(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "android")
+    monkeypatch.setattr(platform, "system", lambda: "Android")
+    monkeypatch.setattr(sysconfig, "get_platform", lambda: "android-21-arm64_v8a")
+
+    AndroidVer = collections.namedtuple(
+        "AndroidVer", "release api_level manufacturer model device is_emulator"
+    )
+    monkeypatch.setattr(
+        platform,
+        "android_ver",
+        lambda: AndroidVer("5.0", 21, "Google", "sdk_gphone64_arm64", "emu64a", True),
+        raising=False,  # This function was added in Python 3.13.
+    )
+
+
 class TestTag:
     def test_lowercasing(self):
         tag = tags.Tag("PY3", "None", "ANY")
@@ -437,6 +454,69 @@ class TestIOSPlatforms:
         ]
 
 
+class TestAndroidPlatforms:
+    def test_non_android(self):
+        non_android_error = pytest.raises(TypeError)
+        with non_android_error:
+            list(tags.android_platforms())
+        with non_android_error:
+            list(tags.android_platforms(api_level=18))
+        with non_android_error:
+            list(tags.android_platforms(abi="x86_64"))
+
+        # The function can only be called on non-Android platforms if both arguments are
+        # provided.
+        assert list(tags.android_platforms(api_level=18, abi="x86_64")) == [
+            "android_18_x86_64",
+            "android_17_x86_64",
+            "android_16_x86_64",
+        ]
+
+    def test_detection(self, mock_android):
+        assert list(tags.android_platforms()) == [
+            "android_21_arm64_v8a",
+            "android_20_arm64_v8a",
+            "android_19_arm64_v8a",
+            "android_18_arm64_v8a",
+            "android_17_arm64_v8a",
+            "android_16_arm64_v8a",
+        ]
+
+    def test_api_level(self):
+        # API levels below the minimum should return nothing.
+        assert list(tags.android_platforms(api_level=14, abi="x86")) == []
+        assert list(tags.android_platforms(api_level=15, abi="x86")) == []
+
+        assert list(tags.android_platforms(api_level=16, abi="x86")) == [
+            "android_16_x86",
+        ]
+        assert list(tags.android_platforms(api_level=17, abi="x86")) == [
+            "android_17_x86",
+            "android_16_x86",
+        ]
+        assert list(tags.android_platforms(api_level=18, abi="x86")) == [
+            "android_18_x86",
+            "android_17_x86",
+            "android_16_x86",
+        ]
+
+    def test_abi(self):
+        # Real ABI, normalized.
+        assert list(tags.android_platforms(api_level=16, abi="armeabi_v7a")) == [
+            "android_16_armeabi_v7a",
+        ]
+
+        # Real ABI, not normalized.
+        assert list(tags.android_platforms(api_level=16, abi="armeabi-v7a")) == [
+            "android_16_armeabi_v7a",
+        ]
+
+        # Nonexistent ABIs should still be accepted and normalized.
+        assert list(tags.android_platforms(api_level=16, abi="myarch-4.2")) == [
+            "android_16_myarch_4_2",
+        ]
+
+
 class TestManylinuxPlatform:
     def teardown_method(self):
         # Clear the version cache
@@ -722,6 +802,7 @@ class TestManylinuxPlatform:
     [
         ("Darwin", "mac_platforms"),
         ("iOS", "ios_platforms"),
+        ("Android", "android_platforms"),
         ("Linux", "_linux_platforms"),
         ("Generic", "_generic_platforms"),
     ],
