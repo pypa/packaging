@@ -244,8 +244,7 @@ class Specifier(BaseSpecifier):
         # Store whether or not this Specifier should accept prereleases
         self._prereleases = prereleases
 
-    # https://github.com/python/mypy/pull/13475#pullrequestreview-1079784515
-    @property  # type: ignore[override]
+    @property
     def prereleases(self) -> bool:
         # If there is an explicit prereleases set for this, then we'll just
         # blindly use that.
