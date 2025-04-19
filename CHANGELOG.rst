@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 25.0 - 2025-04-19
 ~~~~~~~~~~~~~~~~~
 
