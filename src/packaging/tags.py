@@ -96,8 +96,8 @@ class Tag:
     def __setstate__(self, state: tuple[dict[str, Any], dict[str, Any]]) -> None:
         # cached _hash is wrong when unpickling
         _, slots = state
-        for slot in slots:
-            setattr(self, slot, slots[slot])
+        for k, v in slots.items():
+            setattr(self, k, v)
         self._hash = hash((self._interpreter, self._abi, self._platform))
 
 
