@@ -64,6 +64,9 @@ Reference
 
     :param dict environment: A dictionary containing keys and values to
                              override the detected environment.
+    :param str context: A string representing the context in which the marker is evaluated.
+                        Acceptable values are "metadata" (for core metadata; default),
+                        "lock_file", and "requirement" (i.e. all other situations).
     :raises: UndefinedComparison: If the marker uses a comparison on strings
                                   which are not valid versions per the
                                   :ref:`specification of version specifiers

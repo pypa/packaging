@@ -176,6 +176,20 @@ def test_make_wheel_filename_no_tags() -> None:
             (1000, "abc"),
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo_bár-1.0-py3-none-any.whl",
+            "foo-bár",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo_bár-1.0-1000-py3-none-any.whl",
+            "foo-bár",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+        ),
     ],
 )
 def test_parse_wheel_filename(filename, name, version, build, tags):

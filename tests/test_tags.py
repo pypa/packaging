@@ -53,6 +53,47 @@ def mock_interpreter_name(monkeypatch):
     return mock
 
 
+@pytest.fixture
+def mock_ios(monkeypatch):
+    # Monkeypatch the platform to be iOS
+    monkeypatch.setattr(sys, "platform", "ios")
+
+    # Mock a fake architecture that will fit the expected pattern, but
+    # wont actually be a legal multiarch.
+    monkeypatch.setattr(
+        sys.implementation,
+        "_multiarch",
+        "gothic-iphoneos",
+        raising=False,
+    )
+
+    # Mock the return value of platform.ios_ver.
+    def mock_ios_ver(*args):
+        return ("iOS", "13.2", "iPhone15,2", False)
+
+    if sys.version_info < (3, 13):
+        platform.ios_ver = mock_ios_ver
+    else:
+        monkeypatch.setattr(platform, "ios_ver", mock_ios_ver)
+
+
+@pytest.fixture
+def mock_android(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "android")
+    monkeypatch.setattr(platform, "system", lambda: "Android")
+    monkeypatch.setattr(sysconfig, "get_platform", lambda: "android-21-arm64_v8a")
+
+    AndroidVer = collections.namedtuple(
+        "AndroidVer", "release api_level manufacturer model device is_emulator"
+    )
+    monkeypatch.setattr(
+        platform,
+        "android_ver",
+        lambda: AndroidVer("5.0", 21, "Google", "sdk_gphone64_arm64", "emu64a", True),
+        raising=False,  # This function was added in Python 3.13.
+    )
+
+
 class TestTag:
     def test_lowercasing(self):
         tag = tags.Tag("PY3", "None", "ANY")
@@ -80,9 +121,7 @@ class TestTag:
         assert str(example_tag) == "py3-none-any"
 
     def test_repr(self, example_tag):
-        assert repr(example_tag) == "<py3-none-any @ {tag_id}>".format(
-            tag_id=id(example_tag)
-        )
+        assert repr(example_tag) == f"<py3-none-any @ {id(example_tag)}>"
 
     def test_attribute_access(self, example_tag):
         assert example_tag.interpreter == "py3"
@@ -335,6 +374,147 @@ class TestMacOSPlatforms:
         if major >= 12:
             assert "macosx_12_0_arm64" in platforms
             assert "macosx_12_0_universal2" in platforms
+
+
+class TestIOSPlatforms:
+    def test_version_detection(self, mock_ios):
+        platforms = list(tags.ios_platforms(multiarch="arm64-iphoneos"))
+        assert platforms == [
+            "ios_13_2_arm64_iphoneos",
+            "ios_13_1_arm64_iphoneos",
+            "ios_13_0_arm64_iphoneos",
+            "ios_12_9_arm64_iphoneos",
+            "ios_12_8_arm64_iphoneos",
+            "ios_12_7_arm64_iphoneos",
+            "ios_12_6_arm64_iphoneos",
+            "ios_12_5_arm64_iphoneos",
+            "ios_12_4_arm64_iphoneos",
+            "ios_12_3_arm64_iphoneos",
+            "ios_12_2_arm64_iphoneos",
+            "ios_12_1_arm64_iphoneos",
+            "ios_12_0_arm64_iphoneos",
+        ]
+
+    def test_multiarch_detection(self, mock_ios):
+        platforms = list(tags.ios_platforms(version=(12, 0)))
+        assert platforms == ["ios_12_0_gothic_iphoneos"]
+
+    def test_ios_platforms(self, mock_ios):
+        # Pre-iOS 12.0 releases won't match anything
+        platforms = list(tags.ios_platforms((7, 0), "arm64-iphoneos"))
+        assert platforms == []
+
+        # iOS 12.0 returns exactly 1 match
+        platforms = list(tags.ios_platforms((12, 0), "arm64-iphoneos"))
+        assert platforms == ["ios_12_0_arm64_iphoneos"]
+
+        # iOS 13.0 returns a match for 13.0, plus every 12.X
+        platforms = list(tags.ios_platforms((13, 0), "x86_64-iphonesimulator"))
+        assert platforms == [
+            "ios_13_0_x86_64_iphonesimulator",
+            "ios_12_9_x86_64_iphonesimulator",
+            "ios_12_8_x86_64_iphonesimulator",
+            "ios_12_7_x86_64_iphonesimulator",
+            "ios_12_6_x86_64_iphonesimulator",
+            "ios_12_5_x86_64_iphonesimulator",
+            "ios_12_4_x86_64_iphonesimulator",
+            "ios_12_3_x86_64_iphonesimulator",
+            "ios_12_2_x86_64_iphonesimulator",
+            "ios_12_1_x86_64_iphonesimulator",
+            "ios_12_0_x86_64_iphonesimulator",
+        ]
+
+        # iOS 14.3 returns a match for 14.3-14.0, plus every 13.X and every 12.X
+        platforms = list(tags.ios_platforms((14, 3), "arm64-iphoneos"))
+        assert platforms == [
+            "ios_14_3_arm64_iphoneos",
+            "ios_14_2_arm64_iphoneos",
+            "ios_14_1_arm64_iphoneos",
+            "ios_14_0_arm64_iphoneos",
+            "ios_13_9_arm64_iphoneos",
+            "ios_13_8_arm64_iphoneos",
+            "ios_13_7_arm64_iphoneos",
+            "ios_13_6_arm64_iphoneos",
+            "ios_13_5_arm64_iphoneos",
+            "ios_13_4_arm64_iphoneos",
+            "ios_13_3_arm64_iphoneos",
+            "ios_13_2_arm64_iphoneos",
+            "ios_13_1_arm64_iphoneos",
+            "ios_13_0_arm64_iphoneos",
+            "ios_12_9_arm64_iphoneos",
+            "ios_12_8_arm64_iphoneos",
+            "ios_12_7_arm64_iphoneos",
+            "ios_12_6_arm64_iphoneos",
+            "ios_12_5_arm64_iphoneos",
+            "ios_12_4_arm64_iphoneos",
+            "ios_12_3_arm64_iphoneos",
+            "ios_12_2_arm64_iphoneos",
+            "ios_12_1_arm64_iphoneos",
+            "ios_12_0_arm64_iphoneos",
+        ]
+
+
+class TestAndroidPlatforms:
+    def test_non_android(self):
+        non_android_error = pytest.raises(TypeError)
+        with non_android_error:
+            list(tags.android_platforms())
+        with non_android_error:
+            list(tags.android_platforms(api_level=18))
+        with non_android_error:
+            list(tags.android_platforms(abi="x86_64"))
+
+        # The function can only be called on non-Android platforms if both arguments are
+        # provided.
+        assert list(tags.android_platforms(api_level=18, abi="x86_64")) == [
+            "android_18_x86_64",
+            "android_17_x86_64",
+            "android_16_x86_64",
+        ]
+
+    def test_detection(self, mock_android):
+        assert list(tags.android_platforms()) == [
+            "android_21_arm64_v8a",
+            "android_20_arm64_v8a",
+            "android_19_arm64_v8a",
+            "android_18_arm64_v8a",
+            "android_17_arm64_v8a",
+            "android_16_arm64_v8a",
+        ]
+
+    def test_api_level(self):
+        # API levels below the minimum should return nothing.
+        assert list(tags.android_platforms(api_level=14, abi="x86")) == []
+        assert list(tags.android_platforms(api_level=15, abi="x86")) == []
+
+        assert list(tags.android_platforms(api_level=16, abi="x86")) == [
+            "android_16_x86",
+        ]
+        assert list(tags.android_platforms(api_level=17, abi="x86")) == [
+            "android_17_x86",
+            "android_16_x86",
+        ]
+        assert list(tags.android_platforms(api_level=18, abi="x86")) == [
+            "android_18_x86",
+            "android_17_x86",
+            "android_16_x86",
+        ]
+
+    def test_abi(self):
+        # Real ABI, normalized.
+        assert list(tags.android_platforms(api_level=16, abi="armeabi_v7a")) == [
+            "android_16_armeabi_v7a",
+        ]
+
+        # Real ABI, not normalized.
+        assert list(tags.android_platforms(api_level=16, abi="armeabi-v7a")) == [
+            "android_16_armeabi_v7a",
+        ]
+
+        # Nonexistent ABIs should still be accepted and normalized.
+        assert list(tags.android_platforms(api_level=16, abi="myarch-4.2")) == [
+            "android_16_myarch_4_2",
+        ]
 
 
 class TestManylinuxPlatform:
@@ -621,6 +801,8 @@ class TestManylinuxPlatform:
     "platform_name,dispatch_func",
     [
         ("Darwin", "mac_platforms"),
+        ("iOS", "ios_platforms"),
+        ("Android", "android_platforms"),
         ("Linux", "_linux_platforms"),
         ("Generic", "_generic_platforms"),
     ],

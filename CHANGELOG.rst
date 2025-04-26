@@ -4,13 +4,38 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-* Added the ``packaging.wheelfile`` module for reading and creating wheel files
+* Add the ``packaging.wheelfile`` module for reading and creating wheel files
   (:issue:`697`)
+* Change project license metadata to use an SPDX license expression.
+
+25.0 - 2025-04-19
+~~~~~~~~~~~~~~~~~
+
+* PEP 751: Add support for ``extras`` and ``dependency_groups`` markers. (:issue:`885`)
+* PEP 738: Add support for Android platform tags. (:issue:`880`)
+
+24.2 - 2024-11-08
+~~~~~~~~~~~~~~~~~
+
+* PEP 639: Implement License-Expression and License-File (:issue:`828`)
+* Use ``!r`` formatter for error messages with filenames (:issue:`844`)
+* Add support for PEP 730 iOS tags (:issue:`832`)
+* Fix prerelease detection for ``>`` and ``<`` (:issue:`794`)
+* Fix uninformative error message (:issue:`830`)
+* Refactor ``canonicalize_version`` (:issue:`793`)
+* Patch python_full_version unconditionally (:issue:`825`)
+* Fix doc for ``canonicalize_version`` to mention ``strip_trailing_zero`` and a typo in a docstring (:issue:`801`)
+* Fix typo in Version ``__str__`` (:issue:`817`)
+* Support creating a ``SpecifierSet`` from an iterable of ``Specifier`` objects (:issue:`775`)
 
 24.1 - 2024-06-10
 ~~~~~~~~~~~~~~~~~
 
-No unreleased changes.
+* Document ``markers.default_environment()`` (:issue:`753`).
+* Add support for Python 3.13 (:issue:`783`).
+* Modernise type annotations (:issue:`785`).
+* Work around ``platform.python_version()`` returning non PEP 440 compliant version
+  for non-tagged CPython builds (:issue:`802`).
 
 24.0 - 2024-03-10
 ~~~~~~~~~~~~~~~~~
@@ -39,6 +64,7 @@ No unreleased changes.
 * Make ``utils.parse_sdist_filename()`` and ``utils.parse_wheel_filename()``
   raise ``InvalidSdistFilename`` and ``InvalidWheelFilename``, respectively,
   when the version component of the name is invalid
+* Remove support for Python 3.7 (:issue:`783`)
 
 23.1 - 2023-04-12
 ~~~~~~~~~~~~~~~~~

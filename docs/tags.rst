@@ -153,6 +153,36 @@ to the implementation to provide.
           compatibility
 
 
+.. function:: ios_platforms(version=None, multiarch=None)
+
+    Yields the :attr:`~Tag.platform` tags for iOS.
+
+    :param tuple version: A two-item tuple representing the version of iOS.
+                          Defaults to the current system's version.
+    :param str multiarch: The CPU architecture+ABI to be used. This should be in
+                          the format by ``sys.implementation._multiarch`` (e.g.,
+                          ``arm64_iphoneos`` or ``x84_64_iphonesimulator``).
+                          Defaults to the current system's multiarch value.
+
+    .. note::
+        Behavior of this method is undefined if invoked on non-iOS platforms
+        without providing explicit version and multiarch arguments.
+
+
+.. function:: android_platforms(api_level=None, abi=None)
+
+    Yields the :attr:`~Tag.platform` tags for Android. If this function is invoked on
+    non-Android platforms, the ``api_level`` and ``abi`` arguments are required.
+
+    :param int api_level: The maximum `API level
+        <https://developer.android.com/tools/releases/platforms>`__ to return. Defaults
+        to the current system's version, as returned by ``platform.android_ver``.
+    :param str abi: The `Android ABI <https://developer.android.com/ndk/guides/abis>`__,
+        e.g. ``arm64_v8a``. Defaults to the current system's ABI , as returned by
+        ``sysconfig.get_platform``. Hyphens and periods will be replaced with
+        underscores.
+
+
 .. function:: platform_tags(version=None, arch=None)
 
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
