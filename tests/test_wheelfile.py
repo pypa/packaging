@@ -281,6 +281,7 @@ class TestWheelReader:
 
         iterator = os.walk(dest_dir)
         dirpath, dirnames, filenames = next(iterator)
+        dirnames.sort()
         assert dirnames == ["hello", "test-1.0.dist-info"]
         assert not filenames
 
@@ -326,7 +327,7 @@ class TestWheelWriter:
         )
         with pytest.raises(
             InvalidWheelFilename,
-            match=rf"^Invalid wheel filename \({reason}\): {basename}$",
+            match=rf"^Invalid wheel filename \({reason}\): {basename!r}$",
         ):
             WheelWriter(filename, generator="foo")
 
