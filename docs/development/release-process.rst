@@ -11,9 +11,11 @@ Release Process
 
     $ nox -s release -- YY.N
 
-   You will need the password for your GPG key as well as an API token for PyPI.
+   This creates and pushes a new tag for the release
 
 #. Add a `release on GitHub <https://github.com/pypa/packaging/releases>`__.
+
+   This triggers a CI workflow which builds and publishes the package to PyPI
 
 #. Notify the other project owners of the release.
 

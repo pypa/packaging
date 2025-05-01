@@ -12,7 +12,6 @@ import sys
 import tempfile
 import textwrap
 import time
-import webbrowser
 from pathlib import Path
 
 import nox
@@ -141,8 +140,48 @@ def release(session):
     next_version = f"{major}.{minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
 
-    # Checkout the git tag.
-    session.run("git", "checkout", "-q", release_version, external=True)
+    # Push the commits and tag.
+    # NOTE: The following fails if pushing to the branch is not allowed. This can
+    #       happen on GitHub, if the main branch is protected, there are required
+    #       CI checks and "Include administrators" is enabled on the protection.
+    session.run("git", "push", "upstream", "main", release_version, external=True)
+
+
+@nox.session
+def release_build(session):
+    package_name = "packaging"
+
+    # Parse version from command-line arguments, if provided, otherwise get
+    # from Git tag.
+    try:
+        release_version = _get_version_from_arguments(session.posargs)
+    except ValueError as e:
+        if session.posargs:
+            session.error(f"Invalid arguments: {e}")
+
+        release_version = session.run(
+            "git", "describe", "--exact-match", silent=True, external=True
+        )
+        release_version = release_version.strip()
+        session.debug(f"version: {release_version}")
+        checkout = False
+    else:
+        checkout = True
+
+    # Check state of working directory.
+    _check_working_directory_state(session)
+
+    # Ensure there are no uncommitted changes.
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], capture_output=True, encoding="utf-8"
+    )
+    if result.stdout:
+        print(result.stdout, end="", file=sys.stderr)
+        session.error("The working tree has uncommitted changes")
+
+    # Checkout the git tag, if provided.
+    if checkout:
+        session.run("git", "checkout", "-q", release_version, external=True)
 
     session.install("build", "twine")
 
@@ -162,23 +201,12 @@ def release(session):
         diff = "\n".join(diff_generator)
         session.error(f"Got the wrong files:\n{diff}")
 
-    # Get back out into main.
-    session.run("git", "checkout", "-q", "main", external=True)
+    # Get back out into main, if we checked out before.
+    if checkout:
+        session.run("git", "checkout", "-q", "main", external=True)
 
-    # Check and upload distribution files.
+    # Check distribution files.
     session.run("twine", "check", *files)
-
-    # Push the commits and tag.
-    # NOTE: The following fails if pushing to the branch is not allowed. This can
-    #       happen on GitHub, if the main branch is protected, there are required
-    #       CI checks and "Include administrators" is enabled on the protection.
-    session.run("git", "push", "upstream", "main", release_version, external=True)
-
-    # Upload the distribution.
-    session.run("twine", "upload", *files)
-
-    # Open up the GitHub release page.
-    webbrowser.open("https://github.com/pypa/packaging/releases")
 
 
 @nox.session

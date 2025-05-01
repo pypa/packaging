@@ -1,0 +1,36 @@
+name: Publish
+
+on:
+  release:
+    types: [created]
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  publish:
+    environment:
+      name: pypi
+      url: https://pypi.org/p/packaging
+    permissions:
+      id-token: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        name: Install Python
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          allow-prereleases: false
+
+      - name: Build distribution via nox
+        run: pipx run nox --error-on-missing-interpreters -s release_build
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # release/v1
+        with:
+          print-hash: true
