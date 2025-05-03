@@ -30,6 +30,6 @@ jobs:
         run: pipx run nox --error-on-missing-interpreters -s release_build
 
       - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # release/v1
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
         with:
           print-hash: true
