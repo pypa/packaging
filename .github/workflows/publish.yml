@@ -24,7 +24,6 @@ jobs:
         name: Install Python
         with:
           python-version: "3.12"
-          cache: "pip"
           allow-prereleases: false
 
       - name: Build distribution via nox
