@@ -179,7 +179,7 @@ def release_build(session):
         print(result.stdout, end="", file=sys.stderr)
         session.error("The working tree has uncommitted changes")
 
-    # Checkout the git tag, if provided.
+    # Check out the Git tag, if provided.
     if checkout:
         session.run("git", "checkout", "-q", release_version, external=True)
 
