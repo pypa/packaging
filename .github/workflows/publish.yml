@@ -8,13 +8,7 @@ env:
   FORCE_COLOR: 1
 
 jobs:
-  publish:
-    environment:
-      name: pypi
-      url: https://pypi.org/p/packaging
-    permissions:
-      id-token: write
-
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +22,30 @@ jobs:
 
       - name: Build distribution via nox
         run: pipx run nox --error-on-missing-interpreters -s release_build
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 4.6.2
+        with:
+          name: packages
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    environment:
+      name: pypi
+      url: https://pypi.org/p/packaging
+    permissions:
+      id-token: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # 4.3.0
+        with:
+          name: packages
+          path: dist/
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
