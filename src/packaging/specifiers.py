@@ -251,11 +251,10 @@ class Specifier(BaseSpecifier):
         if self._prereleases is not None:
             return self._prereleases
 
-        # Look at all of our specifiers and determine if they are inclusive
-        # operators, and if they are if they are including an explicit
-        # prerelease.
+        # Only the "!=" operator does not imply prereleases when
+        # the version in the specifier is a prerelease.
         operator, version = self._spec
-        if operator in ["==", ">=", "<=", "~=", "===", ">", "<"]:
+        if operator != "!=":
             # The == specifier can include a trailing .*, if it does we
             # want to remove before parsing.
             if operator == "==" and version.endswith(".*"):
