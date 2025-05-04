@@ -34,7 +34,7 @@ jobs:
   publish:
     environment:
       name: pypi
-      url: https://pypi.org/p/packaging
+      url: https://pypi.org/project/packaging/${{ github.ref_name }}
     permissions:
       id-token: write
 
