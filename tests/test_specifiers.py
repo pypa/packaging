@@ -537,26 +537,31 @@ class TestSpecifier:
         assert Specifier(specifier).prereleases == expected
 
     @pytest.mark.parametrize(
-        ("specifier", "version", "expected"),
+        ("specifier", "version", "spec_pre", "contains_pre", "expected"),
         [
-            (">=1.0", "2.0.dev1", False),
-            (">=2.0.dev1", "2.0a1", True),
-            ("==2.0.*", "2.0a1.dev1", False),
-            ("<=2.0", "1.0.dev1", False),
-            ("<=2.0.dev1", "1.0a1", True),
+            (">=1.0", "2.0.dev1", None, None, True),
+            (">=2.0.dev1", "2.0a1", None, None, True),
+            ("==2.0.*", "2.0a1.dev1", None, None, True),
+            ("<=2.0", "1.0.dev1", None, None, True),
+            ("<=2.0.dev1", "1.0a1", None, None, True),
+            ("<2.0", "2.0a1", None, None, False),
+            ("<2.0a2", "2.0a1", None, None, True),
+            ("<=2.0", "1.0.dev1", False, None, False),
+            ("<=2.0a1", "1.0.dev1", False, None, False),
+            ("<=2.0", "1.0.dev1", None, False, False),
+            ("<=2.0a1", "1.0.dev1", None, False, False),
+            ("<=2.0", "1.0.dev1", True, False, False),
+            ("<=2.0a1", "1.0.dev1", True, False, False),
+            ("<=2.0", "1.0.dev1", False, True, True),
+            ("<=2.0a1", "1.0.dev1", False, True, True),
         ],
     )
-    def test_specifiers_prereleases(self, specifier, version, expected):
-        spec = Specifier(specifier)
+    def test_specifiers_prereleases(
+        self, specifier, version, spec_pre, contains_pre, expected
+    ):
+        spec = Specifier(specifier, prereleases=spec_pre)
 
-        if expected:
-            assert version in spec
-            spec.prereleases = False
-            assert version not in spec
-        else:
-            assert version not in spec
-            spec.prereleases = True
-            assert version in spec
+        assert spec.contains(version, prereleases=contains_pre) == expected
 
     @pytest.mark.parametrize(
         ("specifier", "specifier_prereleases", "prereleases", "input", "expected"),
@@ -682,8 +687,8 @@ class TestSpecifierSet:
     def test_specifier_prereleases_explicit(self):
         spec = SpecifierSet()
         assert not spec.prereleases
-        assert "1.0.dev1" not in spec
-        assert not spec.contains("1.0.dev1")
+        assert "1.0.dev1" in spec
+        assert spec.contains("1.0.dev1")
         spec.prereleases = True
         assert spec.prereleases
         assert "1.0.dev1" in spec
@@ -704,13 +709,13 @@ class TestSpecifierSet:
         assert spec.contains("1.0.dev1")
         spec.prereleases = None
         assert not spec.prereleases
-        assert "1.0.dev1" not in spec
-        assert not spec.contains("1.0.dev1")
+        assert "1.0.dev1" in spec
+        assert spec.contains("1.0.dev1")
 
     def test_specifier_contains_prereleases(self):
         spec = SpecifierSet()
         assert spec.prereleases is None
-        assert not spec.contains("1.0.dev1")
+        assert spec.contains("1.0.dev1")
         assert spec.contains("1.0.dev1", prereleases=True)
 
         spec = SpecifierSet(prereleases=True)
@@ -720,12 +725,12 @@ class TestSpecifierSet:
 
     def test_specifier_contains_installed_prereleases(self):
         spec = SpecifierSet("~=1.0")
-        assert not spec.contains("1.0.0.dev1", installed=True)
-        assert spec.contains("1.0.0.dev1", prereleases=True, installed=True)
+        assert spec.contains("1.1.0.dev1", installed=True)
+        assert spec.contains("1.1.0.dev1", prereleases=True, installed=True)
 
-        spec = SpecifierSet("~=1.0", prereleases=True)
-        assert spec.contains("1.0.0.dev1", installed=True)
-        assert not spec.contains("1.0.0.dev1", prereleases=False, installed=False)
+        spec = SpecifierSet("~=1.0", prereleases=False)
+        assert spec.contains("1.1.0.dev1", installed=True)
+        assert not spec.contains("1.1.0.dev1", prereleases=False, installed=False)
 
     @pytest.mark.parametrize(
         ("specifier", "specifier_prereleases", "prereleases", "input", "expected"),
