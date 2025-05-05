@@ -877,6 +877,9 @@ class SpecifierSet(BaseSpecifier):
             Whether or not to match prereleases with this SpecifierSet. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
             and match prereleases, as there are no other versions.
+        :param installed:
+            Whether or not the item is installed. If set to ``True``, it will
+            accept prerelease versions even if the specifier does not allow them.
 
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.2.3")
         True
