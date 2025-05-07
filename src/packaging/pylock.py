@@ -90,8 +90,9 @@ def _get(d: Mapping[str, Any], expected_type: type[T], key: str) -> T | None:
         return None
     if not isinstance(value, expected_type):
         raise PylockValidationError(
-            f"{key!r} has unexpected type {type(value).__name__} "
-            f"(expected {expected_type.__name__})"
+            f"Unexpected type {type(value).__name__} "
+            f"(expected {expected_type.__name__})",
+            context=key,
         )
     return value
 
@@ -114,8 +115,9 @@ def _get_sequence(
     for i, item in enumerate(value):
         if not isinstance(item, expected_item_type):
             raise PylockValidationError(
-                f"Item {i} of {key!r} has unexpected type {type(item).__name__} "
-                f"(expected {expected_item_type.__name__})"
+                f"Unexpected type {type(item).__name__} "
+                f"(expected {expected_item_type.__name__})",
+                context=f"{key}[{i}]",
             )
     return value
 
@@ -136,7 +138,7 @@ def _get_as(
     try:
         return target_type(value)
     except Exception as e:
-        raise PylockValidationError(f"Error in {key!r}: {e}") from e
+        raise PylockValidationError(e, context=key) from e
 
 
 def _get_required_as(
@@ -168,7 +170,7 @@ def _get_sequence_as(
         try:
             result.append(target_item_type(item))
         except Exception as e:
-            raise PylockValidationError(f"Error in item {i} of {key!r}: {e}") from e
+            raise PylockValidationError(e, context=f"{key}[{i}]") from e
     return result
 
 
@@ -182,7 +184,7 @@ def _get_object(
     try:
         return target_type._from_dict(value)
     except Exception as e:
-        raise PylockValidationError(f"Error in {key!r}: {e}") from e
+        raise PylockValidationError(e, context=key) from e
 
 
 def _get_sequence_of_objects(
@@ -195,11 +197,14 @@ def _get_sequence_of_objects(
     result = []
     for i, item in enumerate(value):
         if not isinstance(item, Mapping):
-            raise PylockValidationError(f"Item {i} of {key!r} is not a table")
+            raise PylockValidationError(
+                f"Unexpected type {type(item).__name__} (expected Mapping)",
+                context=f"{key}[{i}]",
+            )
         try:
             result.append(target_item_type._from_dict(item))
         except Exception as e:
-            raise PylockValidationError(f"Error in item {i} of {key!r}: {e}") from e
+            raise PylockValidationError(e, context=f"{key}[{i}]") from e
     return result
 
 
@@ -236,12 +241,36 @@ def _validate_hashes(hashes: Mapping[str, Any]) -> None:
 
 
 class PylockValidationError(Exception):
-    pass
+    context: str | None = None
+    message: str
+
+    def __init__(
+        self,
+        cause: str | Exception,
+        *,
+        context: str | None = None,
+    ) -> None:
+        if isinstance(cause, PylockValidationError):
+            if cause.context:
+                self.context = (
+                    f"{context}.{cause.context}" if context else cause.context
+                )
+            else:
+                self.context = context
+            self.message = cause.message
+        else:
+            self.context = context
+            self.message = str(cause)
+
+    def __str__(self) -> str:
+        if self.context:
+            return f"{self.message} in '{self.context}'"
+        return self.message
 
 
 class PylockRequiredKeyError(PylockValidationError):
     def __init__(self, key: str) -> None:
-        super().__init__(f"Missing required field {key!r}")
+        super().__init__("Missing required value", context=key)
 
 
 class PylockUnsupportedVersionError(PylockValidationError):
