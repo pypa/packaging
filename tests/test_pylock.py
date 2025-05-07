@@ -143,7 +143,7 @@ def test_pylock_invalid_version() -> None:
     }
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
-    assert str(exc_info.value) == "Error in 'lock-version': Invalid version: '2.x'"
+    assert str(exc_info.value) == "Invalid version: '2.x' in 'lock-version'"
 
 
 def test_pylock_unexpected_type() -> None:
@@ -155,7 +155,7 @@ def test_pylock_unexpected_type() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "'lock-version' has unexpected type float (expected str)"
+        "Unexpected type float (expected str) in 'lock-version'"
     )
 
 
@@ -166,7 +166,7 @@ def test_pylock_missing_version() -> None:
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
         from_dict(data)
-    assert str(exc_info.value) == "Missing required field 'lock-version'"
+    assert str(exc_info.value) == "Missing required value in 'lock-version'"
 
 
 def test_pylock_missing_created_by() -> None:
@@ -176,7 +176,7 @@ def test_pylock_missing_created_by() -> None:
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
         from_dict(data)
-    assert str(exc_info.value) == "Missing required field 'created-by'"
+    assert str(exc_info.value) == "Missing required value in 'created-by'"
 
 
 def test_pylock_missing_packages() -> None:
@@ -186,7 +186,7 @@ def test_pylock_missing_packages() -> None:
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
         from_dict(data)
-    assert str(exc_info.value) == "Missing required field 'packages'"
+    assert str(exc_info.value) == "Missing required value in 'packages'"
 
 
 def test_pylock_packages_without_dist() -> None:
@@ -198,9 +198,9 @@ def test_pylock_packages_without_dist() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Error in item 0 of 'packages': "
         "Exactly one of vcs, directory, archive must be set "
-        "if sdist and wheels are not set"
+        "if sdist and wheels are not set "
+        "in 'packages[0]'"
     )
 
 
@@ -226,9 +226,9 @@ def test_pylock_packages_with_dist_and_archive() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Error in item 0 of 'packages': "
         "None of vcs, directory, archive must be set "
-        "if sdist or wheels are set"
+        "if sdist or wheels are set "
+        "in 'packages[0]'"
     )
 
 
@@ -298,9 +298,7 @@ def test_pylock_invalid_archive() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Error in item 0 of 'packages': "
-        "Error in 'archive': "
-        "path or url must be provided"
+        "path or url must be provided in 'packages[0].archive'"
     )
 
 
@@ -332,9 +330,7 @@ def test_pylock_invalid_wheel() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Error in item 0 of 'packages': "
-        "Error in item 0 of 'wheels': "
-        "Missing required field 'hashes'"
+        "Missing required value in 'packages[0].wheels[0].hashes'"
     )
 
 
@@ -351,10 +347,10 @@ def test_pylock_invalid_environments() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Error in item 1 of 'environments': "
         "Expected a marker variable or quoted string\n"
         '    invalid_marker == "..."\n'
-        "    ^"
+        "    ^ "
+        "in 'environments[1]'"
     )
 
 
@@ -371,7 +367,7 @@ def test_pylock_invalid_environments_type() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
     assert str(exc_info.value) == (
-        "Item 1 of 'environments' has unexpected type int (expected str)"
+        "Unexpected type int (expected str) in 'environments[1]'"
     )
 
 
@@ -422,7 +418,9 @@ def test_pylock_package_not_a_table() -> None:
     }
     with pytest.raises(PylockValidationError) as exc_info:
         from_dict(data)
-    assert str(exc_info.value) == "Item 0 of 'packages' is not a table"
+    assert str(exc_info.value) == (
+        "Unexpected type str (expected Mapping) in 'packages[0]'"
+    )
 
 
 @pytest.mark.parametrize(
@@ -441,7 +439,7 @@ def test_pylock_package_not_a_table() -> None:
         ),
         (
             "sha256:...",
-            "'hashes' has unexpected type str (expected Mapping)",
+            "Unexpected type str (expected Mapping) in 'hashes'",
         ),
     ],
 )
