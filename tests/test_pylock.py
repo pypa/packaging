@@ -18,7 +18,6 @@ from packaging.pylock import (
     PylockRequiredKeyError,
     PylockUnsupportedVersionError,
     PylockValidationError,
-    _exactly_one,
     from_dict,
     is_valid_pylock_path,
 )
@@ -42,15 +41,6 @@ else:
 )
 def test_pylock_file_name(file_name: str, valid: bool) -> None:
     assert is_valid_pylock_path(Path(file_name)) is valid
-
-
-def test_exactly_one() -> None:
-    assert not _exactly_one([])
-    assert not _exactly_one([False])
-    assert not _exactly_one([False, False])
-    assert not _exactly_one([True, True])
-    assert _exactly_one([True])
-    assert _exactly_one([True, False])
 
 
 # This is the PEP 751 example, with the following differences:

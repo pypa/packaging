@@ -4,7 +4,7 @@ import dataclasses
 import logging
 import re
 import sys
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -216,16 +216,6 @@ def _get_required_list_of_objects(
     if result is None:
         raise PylockRequiredKeyError(key)
     return result
-
-
-def _exactly_one(iterable: Iterable[object]) -> bool:
-    found = False
-    for item in iterable:
-        if item:
-            if found:
-                return False
-            found = True
-    return found
 
 
 def _validate_path_url(path: str | None, url: str | None) -> None:
@@ -522,14 +512,14 @@ class Package:
         if not is_normalized_name(self.name):
             raise PylockValidationError(f"Package name {self.name!r} is not normalized")
         if self.sdist or self.wheels:
-            if any([self.vcs, self.directory, self.archive]):
+            if self.vcs or self.directory or self.archive:
                 raise PylockValidationError(
                     "None of vcs, directory, archive "
                     "must be set if sdist or wheels are set"
                 )
         else:
             # no sdist nor wheels
-            if not _exactly_one([self.vcs, self.directory, self.archive]):
+            if not (bool(self.vcs) ^ bool(self.directory) ^ bool(self.archive)):
                 raise PylockValidationError(
                     "Exactly one of vcs, directory, archive must be set "
                     "if sdist and wheels are not set"
