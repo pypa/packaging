@@ -7,7 +7,7 @@ from packaging.metadata import ExceptionGroup
 
 
 class TestRawMetadata:
-    @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", sorted(metadata._STRING_FIELDS))
     def test_non_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
@@ -18,7 +18,7 @@ class TestRawMetadata:
         assert raw_field in raw
         assert raw[raw_field] == data
 
-    @pytest.mark.parametrize("raw_field", metadata._STRING_FIELDS)
+    @pytest.mark.parametrize("raw_field", sorted(metadata._STRING_FIELDS))
     def test_non_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
@@ -30,7 +30,7 @@ class TestRawMetadata:
         assert header_field in unparsed
         assert unparsed[header_field] == [data] * 2
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
+    @pytest.mark.parametrize("raw_field", sorted(metadata._LIST_FIELDS))
     def test_repeating_fields_only_once(self, raw_field):
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
@@ -41,7 +41,7 @@ class TestRawMetadata:
         assert raw_field in raw
         assert raw[raw_field] == [data]
 
-    @pytest.mark.parametrize("raw_field", metadata._LIST_FIELDS)
+    @pytest.mark.parametrize("raw_field", sorted(metadata._LIST_FIELDS))
     def test_repeating_fields_repeated(self, raw_field):
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
