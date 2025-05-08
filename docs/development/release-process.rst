@@ -11,12 +11,12 @@ Release Process
 
     $ nox -s release -- YY.N
 
-   This creates and pushes a new tag for the release
+   This creates and pushes a new tag for the release.
 
 #. Add a `release on GitHub <https://github.com/pypa/packaging/releases>`__.
 
    This schedules a CI workflow which will build and publish the package to
-   PyPI. Publishing will wait for any `required approvals`_
+   PyPI. Publishing will wait for any `required approvals`_.
 
 #. Notify the other project owners of the release.
 
