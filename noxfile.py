@@ -37,23 +37,24 @@ nox.options.reuse_existing_virtualenvs = True
     ]
 )
 def tests(session):
-    def coverage(*args):
-        session.run("python", "-m", "coverage", *args)
+    coverage = ["python", "-m", "coverage"]
 
     session.install("-r", "tests/requirements.txt")
     session.install(".")
+    env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
     if "pypy" not in session.python:
-        coverage(
+        session.run(
+            *coverage,
             "run",
             "--source",
             "packaging",
             "-m",
             "pytest",
-            "--strict-markers",
             *session.posargs,
+            env=env,
         )
-        coverage("report", "-m", "--fail-under", "100")
+        session.run(*coverage, "report", "-m", "--fail-under", "100")
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
@@ -61,7 +62,6 @@ def tests(session):
             "-m",
             "pytest",
             "--capture=no",
-            "--strict-markers",
             *session.posargs,
         )
 
