@@ -217,7 +217,7 @@ def _build_and_check(session, release_version, remove=False):
         session.error(f"Got the wrong files:\n{diff}")
 
     # Check distribution files.
-    session.run("twine", "check", *files)
+    session.run("twine", "check", "--strict", *files)
 
     # Remove distribution files, if requested.
     if remove and not install_only:
