@@ -151,6 +151,9 @@ def release(session):
 def release_build(session):
     package_name = "packaging"
 
+    # Determine if we're in install-only mode.
+    install_only = session.run("python", "--version", silent=True) is None
+
     # Parse version from command-line arguments, if provided, otherwise get
     # from Git tag.
     try:
@@ -162,7 +165,7 @@ def release_build(session):
         release_version = session.run(
             "git", "describe", "--exact-match", silent=True, external=True
         )
-        release_version = release_version.strip()
+        release_version = "" if install_only else release_version.strip()
         session.debug(f"version: {release_version}")
         checkout = False
     else:
@@ -194,7 +197,7 @@ def release_build(session):
         f"dist/{package_name}-{release_version}-py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
     ]
-    if files != expected:
+    if files != expected and not install_only:
         diff_generator = difflib.context_diff(
             expected, files, fromfile="expected", tofile="got", lineterm=""
         )

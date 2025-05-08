@@ -20,8 +20,11 @@ jobs:
           python-version: "3.x"
           allow-prereleases: false
 
+      - name: Provision nox environment
+        run: pipx run nox --install-only
+
       - name: Build distribution via nox
-        run: pipx run nox --error-on-missing-interpreters -s release_build
+        run: pipx run nox --no-install --error-on-missing-interpreters -s release_build
 
       - name: Upload distribution
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 4.6.2
