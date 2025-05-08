@@ -16,7 +16,7 @@ Release Process
 #. Add a `release on GitHub <https://github.com/pypa/packaging/releases>`__.
 
    This schedules a CI workflow which will build and publish the package to
-   PyPI, after any required approvals are made
+   PyPI. Publishing will wait for any `required approvals`_
 
 #. Notify the other project owners of the release.
 
@@ -27,3 +27,5 @@ Release Process
    - PyPI maintainer (or owner) access to ``packaging``
    - push directly to the ``main`` branch on the source repository
    - push tags directly to the source repository
+
+.. _required approvals: https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/reviewing-deployments#approving-or-rejecting-a-job
