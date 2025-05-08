@@ -50,17 +50,15 @@ exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproper
 
 [tool.mypy]
 strict = true
-show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
-python_version = 3.8
+python_version = "3.8"
 
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
 
 [tool.ruff]
-src = ["src"]
 extend-exclude = [
     "src/packaging/licenses/_spdx.py"
 ]
