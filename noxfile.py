@@ -122,6 +122,9 @@ def release(session):
     session.run("git", "add", str(changelog_file), external=True)
     _bump(session, version=release_version, file=version_file, kind="release")
 
+    # Check the built distribution.
+    _build_and_check(session, release_version, remove=True)
+
     # Tag the release commit.
     # fmt: off
     session.run(
@@ -149,11 +152,6 @@ def release(session):
 
 @nox.session
 def release_build(session):
-    package_name = "packaging"
-
-    # Determine if we're in install-only mode.
-    install_only = session.run("python", "--version", silent=True) is None
-
     # Parse version from command-line arguments, if provided, otherwise get
     # from Git tag.
     try:
@@ -165,7 +163,7 @@ def release_build(session):
         release_version = session.run(
             "git", "describe", "--exact-match", silent=True, external=True
         )
-        release_version = "" if install_only else release_version.strip()
+        release_version = "" if release_version is None else release_version.strip()
         session.debug(f"version: {release_version}")
         checkout = False
     else:
@@ -186,7 +184,21 @@ def release_build(session):
     if checkout:
         session.run("git", "checkout", "-q", release_version, external=True)
 
+    # Build the distribution.
+    _build_and_check(session, release_version)
+
+    # Get back out into main, if we checked out before.
+    if checkout:
+        session.run("git", "checkout", "-q", "main", external=True)
+
+
+def _build_and_check(session, release_version, remove=False):
+    package_name = "packaging"
+
     session.install("build", "twine")
+
+    # Determine if we're in install-only mode.
+    install_only = session.run("python", "--version", silent=True) is None
 
     # Build the distribution.
     session.run("python", "-m", "build")
@@ -204,12 +216,12 @@ def release_build(session):
         diff = "\n".join(diff_generator)
         session.error(f"Got the wrong files:\n{diff}")
 
-    # Get back out into main, if we checked out before.
-    if checkout:
-        session.run("git", "checkout", "-q", "main", external=True)
-
     # Check distribution files.
     session.run("twine", "check", *files)
+
+    # Remove distribution files, if requested.
+    if remove and not install_only:
+        shutil.rmtree("dist", ignore_errors=True)
 
 
 @nox.session
