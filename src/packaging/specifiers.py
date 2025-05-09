@@ -13,7 +13,7 @@ from __future__ import annotations
 import abc
 import itertools
 import re
-from typing import Callable, Iterable, Iterator, TypeVar, Union
+from typing import Callable, Final, Iterable, Iterator, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import Version
@@ -73,7 +73,7 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         prereleases or it can be set to ``None`` (the default) to use default semantics.
         """
 
-    @prereleases.setter
+    @prereleases.setter  # noqa: B027
     def prereleases(self, value: bool) -> None:
         """Setter for :attr:`prereleases`.
 
@@ -208,7 +208,7 @@ class Specifier(BaseSpecifier):
         re.VERBOSE | re.IGNORECASE,
     )
 
-    _operators = {
+    _operators: Final = {
         "~=": "compatible",
         "==": "equal",
         "!=": "not_equal",
