@@ -13,6 +13,7 @@ except ImportError:
 import importlib
 import os
 import pathlib
+import pickle
 import platform
 import struct
 import sys
@@ -1571,3 +1572,9 @@ class TestBitness:
         monkeypatch.setattr(struct, "calcsize", _calcsize)
         importlib.reload(tags)
         assert tags._32_BIT_INTERPRETER == expected
+
+
+def test_pickle():
+    # Make sure equality works between a pickle/unpickle round trip.
+    tag = tags.Tag("py3", "none", "any")
+    assert pickle.loads(pickle.dumps(tag)) == tag
