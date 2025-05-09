@@ -60,7 +60,7 @@ def mock_ios(monkeypatch):
     monkeypatch.setattr(sys, "platform", "ios")
 
     # Mock a fake architecture that will fit the expected pattern, but
-    # wont actually be a legal multiarch.
+    # won't actually be a legal multiarch.
     monkeypatch.setattr(
         sys.implementation,
         "_multiarch",
