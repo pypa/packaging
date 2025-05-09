@@ -611,7 +611,6 @@ class Pylock:
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
 
-
-def from_dict(d: Mapping[str, Any]) -> Pylock:
-    """Create a Pylock object from a dictionary."""
-    return Pylock._from_dict(d)
+    @classmethod
+    def from_dict(cls, d: Mapping[str, Any]) -> Self:
+        return cls._from_dict(d)

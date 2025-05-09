@@ -15,10 +15,10 @@ from packaging.pylock import (
     PackageDirectory,
     PackageVcs,
     PackageWheel,
+    Pylock,
     PylockRequiredKeyError,
     PylockUnsupportedVersionError,
     PylockValidationError,
-    from_dict,
     is_valid_pylock_path,
 )
 from packaging.specifiers import SpecifierSet
@@ -99,7 +99,7 @@ PEP751_EXAMPLE = dedent(
 
 def test_toml_roundtrip() -> None:
     pylock_dict = tomllib.loads(PEP751_EXAMPLE)
-    pylock = from_dict(pylock_dict)
+    pylock = Pylock.from_dict(pylock_dict)
     # Check that the roundrip via Pylock dataclasses produces the same toml
     # output, modulo TOML serialization differences.
     assert tomli_w.dumps(pylock.to_dict()) == tomli_w.dumps(pylock_dict)
@@ -112,7 +112,7 @@ def test_pylock_version(version: str) -> None:
         "created-by": "pip",
         "packages": [],
     }
-    from_dict(data)
+    Pylock.from_dict(data)
 
 
 def test_pylock_unsupported_version() -> None:
@@ -122,7 +122,7 @@ def test_pylock_unsupported_version() -> None:
         "packages": [],
     }
     with pytest.raises(PylockUnsupportedVersionError):
-        from_dict(data)
+        Pylock.from_dict(data)
 
 
 def test_pylock_invalid_version() -> None:
@@ -132,7 +132,7 @@ def test_pylock_invalid_version() -> None:
         "packages": [],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == "Invalid version: '2.x' in 'lock-version'"
 
 
@@ -143,7 +143,7 @@ def test_pylock_unexpected_type() -> None:
         "packages": [],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Unexpected type float (expected str) in 'lock-version'"
     )
@@ -155,7 +155,7 @@ def test_pylock_missing_version() -> None:
         "packages": [],
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'lock-version'"
 
 
@@ -165,7 +165,7 @@ def test_pylock_missing_created_by() -> None:
         "packages": [],
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'created-by'"
 
 
@@ -175,7 +175,7 @@ def test_pylock_missing_packages() -> None:
         "created-by": "uv",
     }
     with pytest.raises(PylockRequiredKeyError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'packages'"
 
 
@@ -186,7 +186,7 @@ def test_pylock_packages_without_dist() -> None:
         "packages": [{"name": "example", "version": "1.0"}],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Exactly one of vcs, directory, archive must be set "
         "if sdist and wheels are not set "
@@ -214,7 +214,7 @@ def test_pylock_packages_with_dist_and_archive() -> None:
         ],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "None of vcs, directory, archive must be set "
         "if sdist or wheels are set "
@@ -241,7 +241,7 @@ def test_pylock_basic_package() -> None:
             }
         ],
     }
-    pylock = from_dict(data)
+    pylock = Pylock.from_dict(data)
     assert pylock.environments == [Marker('os_name == "posix"')]
     package = pylock.packages[0]
     assert package.version == Version("1.0")
@@ -265,7 +265,7 @@ def test_pylock_vcs_package() -> None:
             }
         ],
     }
-    pylock = from_dict(data)
+    pylock = Pylock.from_dict(data)
     assert pylock.to_dict() == data
 
 
@@ -286,7 +286,7 @@ def test_pylock_invalid_archive() -> None:
         ],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "path or url must be provided in 'packages[0].archive'"
     )
@@ -318,7 +318,7 @@ def test_pylock_invalid_wheel() -> None:
         ],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Missing required value in 'packages[0].wheels[0].hashes'"
     )
@@ -335,7 +335,7 @@ def test_pylock_invalid_environments() -> None:
         "packages": [],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Expected a marker variable or quoted string\n"
         '    invalid_marker == "..."\n'
@@ -355,7 +355,7 @@ def test_pylock_invalid_environments_type() -> None:
         "packages": [],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Unexpected type int (expected str) in 'environments[1]'"
     )
@@ -370,7 +370,7 @@ def test_pylock_extras_and_groups() -> None:
         "default-groups": ["dev"],
         "packages": [],
     }
-    pylock = from_dict(data)
+    pylock = Pylock.from_dict(data)
     assert pylock.extras == ["feat1", "feat2"]
     assert pylock.dependency_groups == ["dev", "docs"]
     assert pylock.default_groups == ["dev"]
@@ -394,7 +394,7 @@ def test_pylock_tool() -> None:
         ],
         "tool": {"pip": {"version": "25.2"}},
     }
-    pylock = from_dict(data)
+    pylock = Pylock.from_dict(data)
     assert pylock.tool == {"pip": {"version": "25.2"}}
     package = pylock.packages[0]
     assert package.tool == {"pip": {"foo": "bar"}}
@@ -407,7 +407,7 @@ def test_pylock_package_not_a_table() -> None:
         "packages": ["example"],
     }
     with pytest.raises(PylockValidationError) as exc_info:
-        from_dict(data)
+        Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Unexpected type str (expected Mapping) in 'packages[0]'"
     )
