@@ -47,6 +47,14 @@ branch = true
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
 
+[tool.pytest.ini_options]
+minversion = "6.2"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+
 
 [tool.mypy]
 strict = true
