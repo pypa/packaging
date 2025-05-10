@@ -5,6 +5,7 @@ repos:
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
+      - id: mixed-line-ending
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -21,3 +22,16 @@ repos:
       - id: ruff
         args: [ --fix, --show-fixes ]
       - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: "v1.10.0"
+    hooks:
+    - id: rst-backticks
+    - id: rst-directive-colons
+    - id: rst-inline-touching-normal
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: "v2.4.1"
+    hooks:
+    - id: codespell
+      args: ["-Ldynamc,notin"]

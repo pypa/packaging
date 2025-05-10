@@ -4,7 +4,7 @@ Metadata
 .. currentmodule:: packaging.markers
 
 
-Both `source distributions`_ and `binary distributions`
+Both `source distributions`_ and `binary distributions`_
 (_sdists_ and _wheels_, respectively) contain files recording the
 `core metadata`_ for the distribution. This information is used for
 everything from recording the name of the distribution to the
