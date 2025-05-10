@@ -25,7 +25,7 @@ T = typing.TypeVar("T")
 
 
 if sys.version_info >= (3, 11):  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
+    ExceptionGroup = ExceptionGroup  # noqa: F821
 else:  # pragma: no cover
 
     class ExceptionGroup(Exception):
