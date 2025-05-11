@@ -13,6 +13,7 @@ import sys
 import sysconfig
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
+    Any,
     Iterable,
     Iterator,
     Sequence,
@@ -91,6 +92,13 @@ class Tag:
 
     def __repr__(self) -> str:
         return f"<{self} @ {id(self)}>"
+
+    def __setstate__(self, state: tuple[dict[str, Any], dict[str, Any]]) -> None:
+        # The cached _hash is wrong when unpickling.
+        _old_hash, slots = state
+        for k, v in slots.items():
+            setattr(self, k, v)
+        self._hash = hash((self._interpreter, self._abi, self._platform))
 
 
 def parse_tag(tag: str) -> frozenset[Tag]:
