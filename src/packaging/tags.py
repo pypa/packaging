@@ -93,9 +93,9 @@ class Tag:
     def __repr__(self) -> str:
         return f"<{self} @ {id(self)}>"
 
-    def __setstate__(self, state: tuple[dict[str, Any], dict[str, Any]]) -> None:
+    def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
         # The cached _hash is wrong when unpickling.
-        _old_hash, slots = state
+        _, slots = state
         for k, v in slots.items():
             setattr(self, k, v)
         self._hash = hash((self._interpreter, self._abi, self._platform))
