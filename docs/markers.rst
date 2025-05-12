@@ -14,14 +14,14 @@ Usage
 .. doctest::
 
     >>> from packaging.markers import Marker, UndefinedEnvironmentName
-    >>> marker = Marker("python_version>'2'")
+    >>> marker = Marker("python_version>'3.8'")
     >>> marker
-    <Marker('python_version > "2"')>
+    <Marker('python_version > "3.8"')>
     >>> # We can evaluate the marker to see if it is satisfied
     >>> marker.evaluate()
     True
     >>> # We can also override the environment
-    >>> env = {'python_version': '1.5.4'}
+    >>> env = {'python_version': '3.7'}
     >>> marker.evaluate(environment=env)
     False
     >>> # Multiple markers can be ANDed
