@@ -710,11 +710,20 @@ class TestMetadata:
             "with mit",
             "(mit",
             "mit)",
+            ") mit",
+            "mit (",
             "mit or or apache-2.0",
             # Missing an operator before `(`.
             "mit or apache-2.0 (bsd-3-clause and MPL-2.0)",
             # "2-BSD-Clause is not a valid license.
             "Apache-2.0 OR 2-BSD-Clause",
+            # Empty parenthesis.
+            "()",
+            "( ) or mit",
+            "mit and ( )",
+            "( ) or mit and ( )",
+            "( ) with ( ) or mit",
+            "mit with ( ) with ( ) or mit",
         ],
     )
     def test_invalid_license_expression(self, license_expression):
