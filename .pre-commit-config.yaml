@@ -35,5 +35,5 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies:
-          - tomli  # for python_version < '3.11'
+          - "tomli; python_version<'3.11'"
 
