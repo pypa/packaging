@@ -41,10 +41,6 @@ include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 [tool.codespell]
-# Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git'
-check-hidden = true
-# ignore-regex = ''
 ignore-words-list = [
     "dynamc",
     "notin"
