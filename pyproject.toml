@@ -88,8 +88,9 @@ extend-select = [
     "FA",
     "I",
     "N",
-    "UP",
+    "PYI",
     "RUF",
+    "UP",
     "W"
 ]
 ignore = [
