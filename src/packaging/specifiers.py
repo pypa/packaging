@@ -524,7 +524,7 @@ class Specifier(BaseSpecifier):
             :class:`Version` instance.
         :param prereleases:
             Whether or not to match prereleases with this Specifier. If set to
-            ``None`` (the default), it will follow the reccommendation from
+            ``None`` (the default), it will follow the recommendation from
             :pep:`440` and match prereleases, as there are no other versions.
 
         >>> Specifier(">=1.2.3").contains("1.2.3")

@@ -884,7 +884,7 @@ class TestSpecifierSet:
             # Test conflicting prereleases and contain_prereleases
             ("~=1.0", "1.1.0.dev1", True, False, False, False),
             ("~=1.0", "1.1.0.dev1", False, True, False, True),
-            # Test with specifiers that explicitly have prereleases overriden
+            # Test with specifiers that explicitly have prereleases overridden
             (">=1.0.dev1", "1.0.0.dev1", None, False, False, False),
             (">=1.0.dev1", "1.0.0.dev1", False, None, False, False),
         ],
