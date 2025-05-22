@@ -45,7 +45,10 @@ exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllin
 skip = '.git'
 check-hidden = true
 # ignore-regex = ''
-ignore-words-list = 'dynamc,notin'
+ignore-words-list = [
+    "dynamc",
+    "notin"
+]
 
 [tool.coverage.run]
 branch = true
