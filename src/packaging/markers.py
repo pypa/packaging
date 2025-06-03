@@ -221,7 +221,7 @@ def _evaluate_marker_item(
     if isinstance(lhs, Variable):
         environment_key = lhs.value
         lhs_value = environment[environment_key]
-        rhs_value = rhs.value
+        rhs_value: str | AbstractSet[str] = rhs.value
     else:
         lhs_value = lhs.value
         environment_key = rhs.value
