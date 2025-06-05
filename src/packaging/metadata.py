@@ -5,6 +5,7 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import keyword
 import pathlib
 import sys
 import typing
@@ -132,7 +133,12 @@ class RawMetadata(TypedDict, total=False):
     license_expression: str
     license_files: list[str]
 
+    # Metadata 2.5 - PEP 794
+    import_names: list[str]
 
+
+# 'keywords' is special as it's a string in the core metadata spec, but we
+# represent it as a list.
 _STRING_FIELDS = {
     "author",
     "author_email",
@@ -165,6 +171,7 @@ _LIST_FIELDS = {
     "requires_dist",
     "requires_external",
     "supported_platforms",
+    "import_names",
 }
 
 _DICT_FIELDS = {
@@ -257,6 +264,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "download-url": "download_url",
     "dynamic": "dynamic",
     "home-page": "home_page",
+    "import-name": "import_names",
     "keywords": "keywords",
     "license": "license",
     "license-expression": "license_expression",
@@ -463,8 +471,8 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
+_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
@@ -647,9 +655,7 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
-    def _process_license_expression(
-        self, value: str
-    ) -> NormalizedLicenseExpression | None:
+    def _process_license_expression(self, value: str) -> NormalizedLicenseExpression:
         try:
             return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
@@ -682,6 +688,21 @@ class _Validator(Generic[T]):
                 )
             paths.append(path)
         return paths
+
+    def _process_import_names(self, value: list[str]) -> list[str]:
+        for import_name in value:
+            for identifier in import_name.split("."):
+                if not identifier.isidentifier():
+                    raise self._invalid_metadata(
+                        f"{import_name!r} is invalid for {{field}}; "
+                        f"{identifier!r} is not a valid identifier"
+                    )
+                elif keyword.iskeyword(identifier):
+                    raise self._invalid_metadata(
+                        f"{import_name!r} is invalid for {{field}}; "
+                        f"{identifier!r} is a keyword"
+                    )
+        return value
 
 
 class Metadata:
@@ -854,6 +875,8 @@ class Metadata:
     """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
+    import_names: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`XXX`"""
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
     provides: _Validator[list[str] | None] = _Validator(added="1.1")
