@@ -14,7 +14,7 @@ repos:
       - id: mypy
         exclude: '^(docs|tasks|tests)|setup\.py'
         args: []
-        additional_dependencies: [pyparsing, nox]
+        additional_dependencies: [pyparsing, nox, orjson]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.8
