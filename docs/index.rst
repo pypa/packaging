@@ -30,6 +30,7 @@ The ``packaging`` library uses calendar-based versioning (``YY.N``).
     requirements
     metadata
     tags
+    wheelfile
     utils
 
 .. toctree::
