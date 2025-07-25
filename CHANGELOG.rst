@@ -72,7 +72,7 @@ Changelog
 * Parse raw metadata (:issue:`671`)
 * Import underlying parser functions as an underscored variable (:issue:`663`)
 * Improve error for local version label with unsupported operators (:issue:`675`)
-* Add dedicated error for specifiers with incorrect `.*` suffix
+* Add dedicated error for specifiers with incorrect ``.*`` suffix
 * Replace spaces in platform names with underscores (:issue:`620`)
 * Relax typing of ``_key`` on ``_BaseVersion`` (:issue:`669`)
 * Handle prefix match with zeros at end of prefix correctly (:issue:`674`)
@@ -175,8 +175,8 @@ No unreleased changes.
 .. note:: This release was subsequently yanked, and these changes were included in 20.7.
 
 * Fix flit configuration, to include LICENSE files (:issue:`357`)
-* Make `intel` a recognized CPU architecture for the `universal` macOS platform tag (:issue:`361`)
-* Add some missing type hints to `packaging.requirements` (issue:`350`)
+* Make ``intel`` a recognized CPU architecture for the ``universal`` macOS platform tag (:issue:`361`)
+* Add some missing type hints to ``packaging.requirements`` (issue:`350`)
 
 20.5 - 2020-11-27
 ~~~~~~~~~~~~~~~~~
@@ -228,7 +228,7 @@ No unreleased changes.
 
 * Add ``major``, ``minor``, and ``micro`` aliases to ``packaging.version.Version`` (:issue:`225`)
 
-* Properly mark ``packaging`` has being fully typed by adding a `py.typed` file (:issue:`226`)
+* Properly mark ``packaging`` has being fully typed by adding a ``py.typed`` file (:issue:`226`)
 
 19.2 - 2019-09-18
 ~~~~~~~~~~~~~~~~~

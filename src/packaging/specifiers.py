@@ -13,7 +13,7 @@ from __future__ import annotations
 import abc
 import itertools
 import re
-from typing import Callable, Iterable, Iterator, TypeVar, Union
+from typing import Callable, Final, Iterable, Iterator, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import Version
@@ -73,7 +73,7 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         prereleases or it can be set to ``None`` (the default) to use default semantics.
         """
 
-    @prereleases.setter
+    @prereleases.setter  # noqa: B027
     def prereleases(self, value: bool) -> None:
         """Setter for :attr:`prereleases`.
 
@@ -208,7 +208,7 @@ class Specifier(BaseSpecifier):
         re.VERBOSE | re.IGNORECASE,
     )
 
-    _operators = {
+    _operators: Final = {
         "~=": "compatible",
         "==": "equal",
         "!=": "not_equal",
@@ -251,11 +251,10 @@ class Specifier(BaseSpecifier):
         if self._prereleases is not None:
             return self._prereleases
 
-        # Look at all of our specifiers and determine if they are inclusive
-        # operators, and if they are if they are including an explicit
-        # prerelease.
+        # Only the "!=" operator does not imply prereleases when
+        # the version in the specifier is a prerelease.
         operator, version = self._spec
-        if operator in ["==", ">=", "<=", "~=", "===", ">", "<"]:
+        if operator != "!=":
             # The == specifier can include a trailing .*, if it does we
             # want to remove before parsing.
             if operator == "==" and version.endswith(".*"):
