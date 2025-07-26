@@ -22,6 +22,7 @@ from packaging.pylock import (
     is_valid_pylock_path,
 )
 from packaging.specifiers import SpecifierSet
+from packaging.utils import NormalizedName
 from packaging.version import Version
 
 if sys.version_info >= (3, 11):
@@ -450,18 +451,18 @@ def test_hash_validation(hashes: dict[str, Any], expected_error: str) -> None:
 
 def test_package_name_validation() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
-        Package(name="Example")
-    assert str(exc_info.value) == "Package name 'Example' is not normalized"
+        Package._from_dict({"name": "Example"})
+    assert str(exc_info.value) == "Name 'Example' is not normalized in 'name'"
 
 
 def test_is_direct() -> None:
     direct_package = Package(
-        name="example",
+        name=NormalizedName("example"),
         directory=PackageDirectory(path="."),
     )
     assert direct_package.is_direct
     wheel_package = Package(
-        name="example",
+        name=NormalizedName("example"),
         wheels=[
             PackageWheel(
                 url="https://example.com/example-1.0-py3-none-any.whl",
