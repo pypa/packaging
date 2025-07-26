@@ -100,7 +100,7 @@ PEP751_EXAMPLE = dedent(
 def test_toml_roundtrip() -> None:
     pylock_dict = tomllib.loads(PEP751_EXAMPLE)
     pylock = Pylock.from_dict(pylock_dict)
-    # Check that the roundrip via Pylock dataclasses produces the same toml
+    # Check that the roundrip via Pylock dataclasses produces the same TOML
     # output, modulo TOML serialization differences.
     assert tomli_w.dumps(pylock.to_dict()) == tomli_w.dumps(pylock_dict)
 
@@ -311,7 +311,7 @@ def test_pylock_invalid_wheel() -> None:
                     {
                         "name": "example-1.0-py3-none-any.whl",
                         "path": "./example-1.0-py3-none-any.whl",
-                        # "hashes": {"sha256": "f" * 40},
+                        # Purposefully no "hashes" key.
                     }
                 ],
             }

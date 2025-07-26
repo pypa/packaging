@@ -84,9 +84,8 @@ def _toml_dict_factory(data: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _get(d: Mapping[str, Any], expected_type: type[T], key: str) -> T | None:
-    """Get value from dictionary and verify expected type."""
-    value = d.get(key)
-    if value is None:
+    """Get a value from the dictionary and verify it's the expected type."""
+    if (value := d.get(key)) is None:
         return None
     if not isinstance(value, expected_type):
         raise PylockValidationError(
@@ -98,9 +97,8 @@ def _get(d: Mapping[str, Any], expected_type: type[T], key: str) -> T | None:
 
 
 def _get_required(d: Mapping[str, Any], expected_type: type[T], key: str) -> T:
-    """Get required value from dictionary and verify expected type."""
-    value = _get(d, expected_type, key)
-    if value is None:
+    """Get a required value from the dictionary and verify it's the expected type."""
+    if (value := _get(d, expected_type, key)) is None:
         raise PylockRequiredKeyError(key)
     return value
 
@@ -108,9 +106,8 @@ def _get_required(d: Mapping[str, Any], expected_type: type[T], key: str) -> T:
 def _get_sequence(
     d: Mapping[str, Any], expected_item_type: type[T], key: str
 ) -> Sequence[T] | None:
-    """Get list value from dictionary and verify expected items type."""
-    value = _get(d, Sequence, key)  # type: ignore[type-abstract]
-    if value is None:
+    """Get a list value from the dictionary and verify it's the expected items type."""
+    if (value := _get(d, Sequence, key)) is None:  # type: ignore[type-abstract]
         return None
     for i, item in enumerate(value):
         if not isinstance(item, expected_item_type):
@@ -128,12 +125,12 @@ def _get_as(
     target_type: type[SingleArgConstructorT],
     key: str,
 ) -> SingleArgConstructorT | None:
-    """Get value from dictionary, verify expected type, convert to target type.
+    """Get a value from the dictionary, verify it's the expected type,
+    and convert to the target type.
 
     This assumes the target_type constructor accepts the value.
     """
-    value = _get(d, expected_type, key)
-    if value is None:
+    if (value := _get(d, expected_type, key)) is None:
         return None
     try:
         return target_type(value)
@@ -147,10 +144,9 @@ def _get_required_as(
     target_type: type[SingleArgConstructorT],
     key: str,
 ) -> SingleArgConstructorT:
-    """Get required value from dictionary, verify expected type,
-    convert to target type."""
-    value = _get_as(d, expected_type, target_type, key)
-    if value is None:
+    """Get a required value from the dict, verify it's the expected type,
+    and convert to the target type."""
+    if (value := _get_as(d, expected_type, target_type, key)) is None:
         raise PylockRequiredKeyError(key)
     return value
 
@@ -162,22 +158,23 @@ def _get_sequence_as(
     key: str,
 ) -> Sequence[SingleArgConstructorT] | None:
     """Get list value from dictionary and verify expected items type."""
-    value = _get_sequence(d, expected_item_type, key)
-    if value is None:
+    if (value := _get_sequence(d, expected_item_type, key)) is None:
         return None
     result = []
     for i, item in enumerate(value):
         try:
-            result.append(target_item_type(item))
+            typed_item = target_item_type(item)
         except Exception as e:
             raise PylockValidationError(e, context=f"{key}[{i}]") from e
+        else:
+            result.append(typed_item)
     return result
 
 
 def _get_object(
     d: Mapping[str, Any], target_type: type[FromMappingProtocolT], key: str
 ) -> FromMappingProtocolT | None:
-    """Get dictionary value from dictionary and convert to dataclass."""
+    """Get a dictionary value from the dictionary and convert it to a dataclass."""
     value = _get(d, Mapping, key)  # type: ignore[type-abstract]
     if value is None:
         return None
@@ -190,9 +187,8 @@ def _get_object(
 def _get_sequence_of_objects(
     d: Mapping[str, Any], target_item_type: type[FromMappingProtocolT], key: str
 ) -> Sequence[FromMappingProtocolT] | None:
-    """Get list value from dictionary and convert items to dataclass."""
-    value = _get(d, Sequence, key)  # type: ignore[type-abstract]
-    if value is None:
+    """Get a list value from the dictionary and convert its items to a dataclass."""
+    if (value := _get(d, Sequence, key)) is None:  # type: ignore[type-abstract]
         return None
     result = []
     for i, item in enumerate(value):
@@ -202,18 +198,20 @@ def _get_sequence_of_objects(
                 context=f"{key}[{i}]",
             )
         try:
-            result.append(target_item_type._from_dict(item))
+            typed_item = target_item_type._from_dict(item)
         except Exception as e:
             raise PylockValidationError(e, context=f"{key}[{i}]") from e
+        else:
+            result.append(typed_item)
     return result
 
 
 def _get_required_list_of_objects(
     d: Mapping[str, Any], target_type: type[FromMappingProtocolT], key: str
 ) -> Sequence[FromMappingProtocolT]:
-    """Get required list value from dictionary and convert items to dataclass."""
-    result = _get_sequence_of_objects(d, target_type, key)
-    if result is None:
+    """Get a required list value from the dictionary and convert its items to a
+    dataclass."""
+    if (result := _get_sequence_of_objects(d, target_type, key)) is None:
         raise PylockRequiredKeyError(key)
     return result
 
