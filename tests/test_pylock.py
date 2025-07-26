@@ -455,6 +455,19 @@ def test_package_name_validation() -> None:
     assert str(exc_info.value) == "Name 'Example' is not normalized in 'name'"
 
 
+def test_extras_name_validation() -> None:
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(
+            {
+                "lock-version": "1.0",
+                "created-by": "pip",
+                "extras": ["extra", "Feature"],
+                "packages": [],
+            }
+        )
+    assert str(exc_info.value) == "Name 'Feature' is not normalized in 'extras[1]'"
+
+
 def test_is_direct() -> None:
     direct_package = Package(
         name=NormalizedName("example"),
