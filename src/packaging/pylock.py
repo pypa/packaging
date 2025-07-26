@@ -63,7 +63,7 @@ def is_valid_pylock_path(path: Path) -> bool:
 def _str_to_normalized_name(name: str) -> NormalizedName:
     """Validate that a string is a NormalizedName, and cast it as such."""
     if not is_normalized_name(name):
-        raise PylockValidationError(f"Package name {name!r} is not normalized")
+        raise PylockValidationError(f"Name {name!r} is not normalized")
     return cast(NormalizedName, name)
 
 
@@ -553,7 +553,7 @@ class Pylock:
     lock_version: Version
     environments: Sequence[Marker] | None  # = None
     requires_python: SpecifierSet | None  # = None
-    extras: Sequence[str] | None  # = None
+    extras: Sequence[NormalizedName] | None  # = None
     dependency_groups: Sequence[str] | None  # = None
     default_groups: Sequence[str] | None  # = None
     created_by: str
@@ -601,7 +601,7 @@ class Pylock:
         return cls(
             lock_version=_get_required_as(d, str, Version, "lock-version"),
             environments=_get_sequence_as(d, str, Marker, "environments"),
-            extras=_get_sequence(d, str, "extras"),
+            extras=_get_sequence_as(d, str, _str_to_normalized_name, "extras"),
             dependency_groups=_get_sequence(d, str, "dependency-groups"),
             default_groups=_get_sequence(d, str, "default-groups"),
             created_by=_get_required(d, str, "created-by"),
