@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Protocol,
     TypeVar,
+    cast,
 )
 
 from .markers import Marker
@@ -40,6 +42,7 @@ __all__ = [
 ]
 
 T = TypeVar("T")
+T2 = TypeVar("T2")
 
 
 class FromMappingProtocol(Protocol):  # pragma: no cover
@@ -50,17 +53,18 @@ class FromMappingProtocol(Protocol):  # pragma: no cover
 FromMappingProtocolT = TypeVar("FromMappingProtocolT", bound=FromMappingProtocol)
 
 
-class SingleArgConstructor(Protocol):  # pragma: no cover
-    def __init__(self, value: Any) -> None: ...
-
-
-SingleArgConstructorT = TypeVar("SingleArgConstructorT", bound=SingleArgConstructor)
-
 PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
 
 def is_valid_pylock_path(path: Path) -> bool:
     return path.name == "pylock.toml" or bool(PYLOCK_FILE_NAME_RE.match(path.name))
+
+
+def _str_to_normalized_name(name: str) -> NormalizedName:
+    """Validate that a string is a NormalizedName, and cast it as such."""
+    if not is_normalized_name(name):
+        raise PylockValidationError(f"Package name {name!r} is not normalized")
+    return cast(NormalizedName, name)
 
 
 def _toml_key(key: str) -> str:
@@ -123,9 +127,9 @@ def _get_sequence(
 def _get_as(
     d: Mapping[str, Any],
     expected_type: type[T],
-    target_type: type[SingleArgConstructorT],
+    target_type: Callable[[T], T2],
     key: str,
-) -> SingleArgConstructorT | None:
+) -> T2 | None:
     """Get a value from the dictionary, verify it's the expected type, and convert to the target type.
 
     This assumes the target_type constructor accepts the value.
@@ -141,9 +145,9 @@ def _get_as(
 def _get_required_as(
     d: Mapping[str, Any],
     expected_type: type[T],
-    target_type: type[SingleArgConstructorT],
+    target_type: Callable[[T], T2],
     key: str,
-) -> SingleArgConstructorT:
+) -> T2:
     """Get a required value from the dict, verify it's the expected type, and convert to the target type."""
     if (value := _get_as(d, expected_type, target_type, key)) is None:
         raise PylockRequiredKeyError(key)
@@ -153,9 +157,9 @@ def _get_required_as(
 def _get_sequence_as(
     d: Mapping[str, Any],
     expected_item_type: type[T],
-    target_item_type: type[SingleArgConstructorT],
+    target_item_type: Callable[[T], T2],
     key: str,
-) -> Sequence[SingleArgConstructorT] | None:
+) -> Sequence[T2] | None:
     """Get list value from dictionary and verify expected items type."""
     if (value := _get_sequence(d, expected_item_type, key)) is None:
         return None
@@ -477,7 +481,7 @@ class Package:
     def __init__(
         self,
         *,
-        name: str,
+        name: NormalizedName,
         version: Version | None = None,
         marker: Marker | None = None,
         requires_python: SpecifierSet | None = None,
@@ -506,8 +510,6 @@ class Package:
         object.__setattr__(self, "attestation_identities", attestation_identities)
         object.__setattr__(self, "tool", tool)
         # __post_init__ in Python 3.10+
-        if not is_normalized_name(self.name):
-            raise PylockValidationError(f"Package name {self.name!r} is not normalized")
         if self.sdist or self.wheels:
             if self.vcs or self.directory or self.archive:
                 raise PylockValidationError(
@@ -525,7 +527,7 @@ class Package:
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package = cls(
-            name=_get_required(d, str, "name"),
+            name=_get_required_as(d, str, _str_to_normalized_name, "name"),
             version=_get_as(d, str, Version, "version"),
             requires_python=_get_as(d, str, SpecifierSet, "requires-python"),
             dependencies=_get_sequence(d, Mapping, "dependencies"),  # type: ignore[type-abstract]
