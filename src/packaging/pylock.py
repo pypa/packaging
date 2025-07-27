@@ -271,10 +271,10 @@ class PylockUnsupportedVersionError(PylockValidationError):
 @dataclass(frozen=True, init=False)
 class PackageVcs:
     type: str
-    url: str | None  # = None
-    path: str | None  # = None
-    requested_revision: str | None  # = None
-    commit_id: str
+    url: str | None = None
+    path: str | None = None
+    requested_revision: str | None = None
+    commit_id: str  # type: ignore[misc]
     subdirectory: str | None = None
 
     def __init__(
@@ -338,21 +338,21 @@ class PackageDirectory:
 
 @dataclass(frozen=True, init=False)
 class PackageArchive:
-    url: str | None  # = None
-    path: str | None  # = None
-    size: int | None  # = None
-    upload_time: datetime | None  # = None
-    hashes: Mapping[str, str]
+    url: str | None = None
+    path: str | None = None
+    size: int | None = None
+    upload_time: datetime | None = None
+    hashes: Mapping[str, str]  # type: ignore[misc]
     subdirectory: str | None = None
 
     def __init__(
         self,
         *,
-        hashes: Mapping[str, str],
         url: str | None = None,
         path: str | None = None,
         size: int | None = None,
         upload_time: datetime | None = None,
+        hashes: Mapping[str, str],
         subdirectory: str | None = None,
     ) -> None:
         # In Python 3.10+ make dataclass kw_only=True and remove __init__
@@ -380,22 +380,22 @@ class PackageArchive:
 
 @dataclass(frozen=True, init=False)
 class PackageSdist:
-    name: str | None  # = None
-    upload_time: datetime | None  # = None
-    url: str | None  # = None
-    path: str | None  # = None
-    size: int | None  # = None
-    hashes: Mapping[str, str]
+    name: str | None = None
+    upload_time: datetime | None = None
+    url: str | None = None
+    path: str | None = None
+    size: int | None = None
+    hashes: Mapping[str, str]  # type: ignore[misc]
 
     def __init__(
         self,
         *,
-        hashes: Mapping[str, str],
         name: str | None = None,
         upload_time: datetime | None = None,
         url: str | None = None,
         path: str | None = None,
         size: int | None = None,
+        hashes: Mapping[str, str],
     ) -> None:
         # In Python 3.10+ make dataclass kw_only=True and remove __init__
         object.__setattr__(self, "name", name)
@@ -422,22 +422,22 @@ class PackageSdist:
 
 @dataclass(frozen=True, init=False)
 class PackageWheel:
-    name: str  # | None
-    upload_time: datetime | None  # = None
-    url: str | None  # = None
-    path: str | None  # = None
-    size: int | None  # = None
-    hashes: Mapping[str, str]
+    name: str | None = None
+    upload_time: datetime | None = None
+    url: str | None = None
+    path: str | None = None
+    size: int | None = None
+    hashes: Mapping[str, str]  # type: ignore[misc]
 
     def __init__(
         self,
         *,
-        hashes: Mapping[str, str],
         name: str | None = None,
         upload_time: datetime | None = None,
         url: str | None = None,
         path: str | None = None,
         size: int | None = None,
+        hashes: Mapping[str, str],
     ) -> None:
         # In Python 3.10+ make dataclass kw_only=True and remove __init__
         object.__setattr__(self, "name", name)
@@ -551,25 +551,25 @@ class Package:
 @dataclass(frozen=True, init=False)
 class Pylock:
     lock_version: Version
-    environments: Sequence[Marker] | None  # = None
-    requires_python: SpecifierSet | None  # = None
-    extras: Sequence[NormalizedName] | None  # = None
-    dependency_groups: Sequence[str] | None  # = None
-    default_groups: Sequence[str] | None  # = None
-    created_by: str
-    packages: Sequence[Package]
+    environments: Sequence[Marker] | None = None
+    requires_python: SpecifierSet | None = None
+    extras: Sequence[NormalizedName] | None = None
+    dependency_groups: Sequence[str] | None = None
+    default_groups: Sequence[str] | None = None
+    created_by: str  # type: ignore[misc]
+    packages: Sequence[Package]  # type: ignore[misc]
     tool: Mapping[str, Any] | None = None
 
     def __init__(
         self,
         *,
         lock_version: Version,
-        created_by: str,
         environments: Sequence[Marker] | None = None,
         requires_python: SpecifierSet | None = None,
         extras: Sequence[str] | None = None,
         dependency_groups: Sequence[str] | None = None,
         default_groups: Sequence[str] | None = None,
+        created_by: str,
         packages: Sequence[Package],
         tool: Mapping[str, Any] | None = None,
     ) -> None:
