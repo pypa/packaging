@@ -224,11 +224,12 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
-def _validate_hashes(hashes: Mapping[str, Any]) -> None:
+def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
     if not all(isinstance(hash, str) for hash in hashes.values()):
         raise PylockValidationError("Hash values must be strings")
+    return hashes
 
 
 class PylockValidationError(Exception):
@@ -294,12 +295,10 @@ class PackageVcs:
         object.__setattr__(self, "requested_revision", requested_revision)
         object.__setattr__(self, "commit_id", commit_id)
         object.__setattr__(self, "subdirectory", subdirectory)
-        # __post_init__ in Python 3.10+
-        _validate_path_url(self.path, self.url)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        return cls(
+        package_vcs = cls(
             type=_get_required(d, str, "type"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
@@ -307,6 +306,8 @@ class PackageVcs:
             commit_id=_get_required(d, str, "commit-id"),
             subdirectory=_get(d, str, "subdirectory"),
         )
+        _validate_path_url(package_vcs.path, package_vcs.url)
+        return package_vcs
 
 
 @dataclass(frozen=True, init=False)
@@ -362,20 +363,19 @@ class PackageArchive:
         object.__setattr__(self, "upload_time", upload_time)
         object.__setattr__(self, "hashes", hashes)
         object.__setattr__(self, "subdirectory", subdirectory)
-        # __post_init__ in Python 3.10+
-        _validate_path_url(self.path, self.url)
-        _validate_hashes(self.hashes)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        return cls(
+        package_archive = cls(
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
             upload_time=_get(d, datetime, "upload-time"),
-            hashes=_get_required(d, Mapping, "hashes"),  # type: ignore[type-abstract]
+            hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
             subdirectory=_get(d, str, "subdirectory"),
         )
+        _validate_path_url(package_archive.path, package_archive.url)
+        return package_archive
 
 
 @dataclass(frozen=True, init=False)
@@ -404,20 +404,19 @@ class PackageSdist:
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "size", size)
         object.__setattr__(self, "hashes", hashes)
-        # __post_init__ in Python 3.10+
-        _validate_path_url(self.path, self.url)
-        _validate_hashes(self.hashes)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        return cls(
+        package_sdist = cls(
             name=_get(d, str, "name"),
             upload_time=_get(d, datetime, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
-            hashes=_get_required(d, Mapping, "hashes"),  # type: ignore[type-abstract]
+            hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
+        _validate_path_url(package_sdist.path, package_sdist.url)
+        return package_sdist
 
 
 @dataclass(frozen=True, init=False)
@@ -446,20 +445,19 @@ class PackageWheel:
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "size", size)
         object.__setattr__(self, "hashes", hashes)
-        # __post_init__ in Python 3.10+
-        _validate_path_url(self.path, self.url)
-        _validate_hashes(self.hashes)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        return cls(
+        package_wheel = cls(
             name=_get(d, str, "name"),
             upload_time=_get(d, datetime, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
-            hashes=_get_required(d, Mapping, "hashes"),  # type: ignore[type-abstract]
+            hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
+        _validate_path_url(package_wheel.path, package_wheel.url)
+        return package_wheel
 
 
 @dataclass(frozen=True, init=False)
@@ -509,20 +507,6 @@ class Package:
         object.__setattr__(self, "wheels", wheels)
         object.__setattr__(self, "attestation_identities", attestation_identities)
         object.__setattr__(self, "tool", tool)
-        # __post_init__ in Python 3.10+
-        if self.sdist or self.wheels:
-            if self.vcs or self.directory or self.archive:
-                raise PylockValidationError(
-                    "None of vcs, directory, archive "
-                    "must be set if sdist or wheels are set"
-                )
-        else:
-            # no sdist nor wheels
-            if not (bool(self.vcs) ^ bool(self.directory) ^ bool(self.archive)):
-                raise PylockValidationError(
-                    "Exactly one of vcs, directory, archive must be set "
-                    "if sdist and wheels are not set"
-                )
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -541,6 +525,21 @@ class Package:
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
+        if package.sdist or package.wheels:
+            if package.vcs or package.directory or package.archive:
+                raise PylockValidationError(
+                    "None of vcs, directory, archive "
+                    "must be set if sdist or wheels are set"
+                )
+        else:
+            # no sdist nor wheels
+            if not (
+                bool(package.vcs) ^ bool(package.directory) ^ bool(package.archive)
+            ):
+                raise PylockValidationError(
+                    "Exactly one of vcs, directory, archive must be set "
+                    "if sdist and wheels are not set"
+                )
         return package
 
     @property
@@ -583,22 +582,10 @@ class Pylock:
         object.__setattr__(self, "created_by", created_by)
         object.__setattr__(self, "packages", packages)
         object.__setattr__(self, "tool", tool)
-        # __post_init__ in Python 3.10+
-        if self.lock_version < Version("1") or self.lock_version >= Version("2"):
-            raise PylockUnsupportedVersionError(
-                f"pylock version {self.lock_version} is not supported"
-            )
-        if self.lock_version > Version("1.0"):
-            logging.warning(
-                "pylock minor version %s is not supported", self.lock_version
-            )
-
-    def to_dict(self) -> Mapping[str, Any]:
-        return dataclasses.asdict(self, dict_factory=_toml_dict_factory)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        return cls(
+        pylock = cls(
             lock_version=_get_required_as(d, str, Version, "lock-version"),
             environments=_get_sequence_as(d, str, Marker, "environments"),
             extras=_get_sequence_as(d, str, _validate_normalized_name, "extras"),
@@ -609,10 +596,22 @@ class Pylock:
             packages=_get_required_list_of_objects(d, Package, "packages"),
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
+        if pylock.lock_version < Version("1") or pylock.lock_version >= Version("2"):
+            raise PylockUnsupportedVersionError(
+                f"pylock version {pylock.lock_version} is not supported"
+            )
+        if pylock.lock_version > Version("1.0"):
+            logging.warning(
+                "pylock minor version %s is not supported", pylock.lock_version
+            )
+        return pylock
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> Self:
         return cls._from_dict(d)
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return dataclasses.asdict(self, dict_factory=_toml_dict_factory)
 
     def validate(self) -> None:
         """Validate the Pylock instance against the specification."""
