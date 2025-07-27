@@ -613,3 +613,7 @@ class Pylock:
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> Self:
         return cls._from_dict(d)
+
+    def validate(self) -> None:
+        """Validate the Pylock instance against the specification."""
+        self.from_dict(self.to_dict())

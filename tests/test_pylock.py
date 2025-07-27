@@ -432,3 +432,45 @@ def test_is_direct() -> None:
         ],
     )
     assert not wheel_package.is_direct
+
+
+def test_validate() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[
+            Package(
+                name=NormalizedName("example-package"),
+                version=Version("1.0.0"),
+                wheels=[
+                    PackageWheel(
+                        url="https://example.com/example_package-1.0.0-py3-none-any.whl",
+                        hashes={"sha256": "0fd.."},
+                    )
+                ],
+            )
+        ],
+    )
+    pylock.validate()  # Should not raise any exceptions
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[
+            Package(
+                name=NormalizedName("example_package"),  # not normalized
+                version=Version("1.0.0"),
+                wheels=[
+                    PackageWheel(
+                        url="https://example.com/example_package-1.0.0-py3-none-any.whl",
+                        hashes={"sha256": "0fd.."},
+                    )
+                ],
+            )
+        ],
+    )
+    with pytest.raises(PylockValidationError) as exc_info:
+        pylock.validate()
+    assert (
+        str(exc_info.value)
+        == "Name 'example_package' is not normalized in 'packages[0].name'"
+    )
