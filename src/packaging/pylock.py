@@ -40,23 +40,23 @@ __all__ = [
     "is_valid_pylock_path",
 ]
 
-T = TypeVar("T")
-T2 = TypeVar("T2")
+_T = TypeVar("_T")
+_T2 = TypeVar("_T2")
 
 
-class FromMappingProtocol(Protocol):  # pragma: no cover
+class _FromMappingProtocol(Protocol):  # pragma: no cover
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self: ...
 
 
-FromMappingProtocolT = TypeVar("FromMappingProtocolT", bound=FromMappingProtocol)
+_FromMappingProtocolT = TypeVar("_FromMappingProtocolT", bound=_FromMappingProtocol)
 
 
-PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
+_PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
 
 def is_valid_pylock_path(path: Path) -> bool:
-    return path.name == "pylock.toml" or bool(PYLOCK_FILE_NAME_RE.match(path.name))
+    return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.match(path.name))
 
 
 def _toml_key(key: str) -> str:
@@ -79,7 +79,7 @@ def _toml_dict_factory(data: list[tuple[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _get(d: Mapping[str, Any], expected_type: type[T], key: str) -> T | None:
+def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
     """Get a value from the dictionary and verify it's the expected type."""
     if (value := d.get(key)) is None:
         return None
@@ -92,7 +92,7 @@ def _get(d: Mapping[str, Any], expected_type: type[T], key: str) -> T | None:
     return value
 
 
-def _get_required(d: Mapping[str, Any], expected_type: type[T], key: str) -> T:
+def _get_required(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T:
     """Get a required value from the dictionary and verify it's the expected type."""
     if (value := _get(d, expected_type, key)) is None:
         raise PylockRequiredKeyError(key)
@@ -100,8 +100,8 @@ def _get_required(d: Mapping[str, Any], expected_type: type[T], key: str) -> T:
 
 
 def _get_sequence(
-    d: Mapping[str, Any], expected_item_type: type[T], key: str
-) -> Sequence[T] | None:
+    d: Mapping[str, Any], expected_item_type: type[_T], key: str
+) -> Sequence[_T] | None:
     """Get a list value from the dictionary and verify it's the expected items type."""
     if (value := _get(d, Sequence, key)) is None:  # type: ignore[type-abstract]
         return None
@@ -117,10 +117,10 @@ def _get_sequence(
 
 def _get_as(
     d: Mapping[str, Any],
-    expected_type: type[T],
-    target_type: Callable[[T], T2],
+    expected_type: type[_T],
+    target_type: Callable[[_T], _T2],
     key: str,
-) -> T2 | None:
+) -> _T2 | None:
     """Get a value from the dictionary, verify it's the expected type,
     and convert to the target type.
 
@@ -136,10 +136,10 @@ def _get_as(
 
 def _get_required_as(
     d: Mapping[str, Any],
-    expected_type: type[T],
-    target_type: Callable[[T], T2],
+    expected_type: type[_T],
+    target_type: Callable[[_T], _T2],
     key: str,
-) -> T2:
+) -> _T2:
     """Get a required value from the dict, verify it's the expected type,
     and convert to the target type."""
     if (value := _get_as(d, expected_type, target_type, key)) is None:
@@ -149,10 +149,10 @@ def _get_required_as(
 
 def _get_sequence_as(
     d: Mapping[str, Any],
-    expected_item_type: type[T],
-    target_item_type: Callable[[T], T2],
+    expected_item_type: type[_T],
+    target_item_type: Callable[[_T], _T2],
     key: str,
-) -> Sequence[T2] | None:
+) -> Sequence[_T2] | None:
     """Get list value from dictionary and verify expected items type."""
     if (value := _get_sequence(d, expected_item_type, key)) is None:
         return None
@@ -168,8 +168,8 @@ def _get_sequence_as(
 
 
 def _get_object(
-    d: Mapping[str, Any], target_type: type[FromMappingProtocolT], key: str
-) -> FromMappingProtocolT | None:
+    d: Mapping[str, Any], target_type: type[_FromMappingProtocolT], key: str
+) -> _FromMappingProtocolT | None:
     """Get a dictionary value from the dictionary and convert it to a dataclass."""
     value = _get(d, Mapping, key)  # type: ignore[type-abstract]
     if value is None:
@@ -181,8 +181,8 @@ def _get_object(
 
 
 def _get_sequence_of_objects(
-    d: Mapping[str, Any], target_item_type: type[FromMappingProtocolT], key: str
-) -> Sequence[FromMappingProtocolT] | None:
+    d: Mapping[str, Any], target_item_type: type[_FromMappingProtocolT], key: str
+) -> Sequence[_FromMappingProtocolT] | None:
     """Get a list value from the dictionary and convert its items to a dataclass."""
     if (value := _get(d, Sequence, key)) is None:  # type: ignore[type-abstract]
         return None
@@ -203,8 +203,8 @@ def _get_sequence_of_objects(
 
 
 def _get_required_list_of_objects(
-    d: Mapping[str, Any], target_type: type[FromMappingProtocolT], key: str
-) -> Sequence[FromMappingProtocolT]:
+    d: Mapping[str, Any], target_type: type[_FromMappingProtocolT], key: str
+) -> Sequence[_FromMappingProtocolT]:
     """Get a required list value from the dictionary and convert its items to a
     dataclass."""
     if (result := _get_sequence_of_objects(d, target_type, key)) is None:
