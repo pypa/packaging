@@ -56,6 +56,7 @@ _PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
 
 def is_valid_pylock_path(path: Path) -> bool:
+    """Check if the given path is a valid pylock file path."""
     return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.match(path.name))
 
 
@@ -233,6 +234,8 @@ def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 class PylockValidationError(Exception):
+    """Raised when when input data is not spec-compliant."""
+
     context: str | None = None
     message: str
 
@@ -266,7 +269,7 @@ class PylockRequiredKeyError(PylockValidationError):
 
 
 class PylockUnsupportedVersionError(PylockValidationError):
-    pass
+    """Raised when encountering an unsupported `lock_version`."""
 
 
 @dataclass(frozen=True, init=False)
@@ -549,6 +552,8 @@ class Package:
 
 @dataclass(frozen=True, init=False)
 class Pylock:
+    """A class representing a pylock file."""
+
     lock_version: Version
     environments: Sequence[Marker] | None = None
     requires_python: SpecifierSet | None = None
@@ -608,11 +613,19 @@ class Pylock:
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> Self:
+        """Create and validate a Pylock instance from a TOML dictionary.
+
+        Raises :class:`PylockValidationError` if the input data is not
+        spec-compliant.
+        """
         return cls._from_dict(d)
 
     def to_dict(self) -> Mapping[str, Any]:
+        """Convert the Pylock instance to a TOML dictionary."""
         return dataclasses.asdict(self, dict_factory=_toml_dict_factory)
 
     def validate(self) -> None:
-        """Validate the Pylock instance against the specification."""
+        """Validate the Pylock instance against the specification.
+
+        Raises :class:`PylockValidationError` otherwise."""
         self.from_dict(self.to_dict())
