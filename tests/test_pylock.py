@@ -243,7 +243,7 @@ def test_pylock_invalid_archive() -> None:
 
 def test_pylock_invalid_vcs() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
-        PackageVcs(type="git", url=None, path=None, commit_id="f" * 40)
+        PackageVcs._from_dict({"type": "git", "commit-id": "f" * 40})
     assert str(exc_info.value) == "path or url must be provided"
 
 
@@ -370,11 +370,11 @@ def test_pylock_package_not_a_table() -> None:
                 "sha256": "f" * 40,
                 "md5": 1,
             },
-            "Hash values must be strings",
+            "Hash values must be strings in 'hashes'",
         ),
         (
             {},
-            "At least one hash must be provided",
+            "At least one hash must be provided in 'hashes'",
         ),
         (
             "sha256:...",
