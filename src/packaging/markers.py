@@ -196,7 +196,7 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
 def _normalize(
     lhs: str, rhs: str | AbstractSet[str], key: str
 ) -> tuple[str, str | AbstractSet[str]]:
-    # PEP 685 – Comparison of extra names for optional distribution dependencies
+    # PEP 685 - Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
@@ -306,7 +306,7 @@ class Marker:
     def __hash__(self) -> int:
         return hash((self.__class__.__name__, str(self)))
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Marker):
             return NotImplemented
 

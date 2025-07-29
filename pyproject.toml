@@ -24,6 +24,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed",
@@ -39,6 +40,11 @@ Source = "https://github.com/pypa/packaging"
 include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
+[tool.codespell]
+ignore-words-list = [
+    "dynamc",
+    "notin"
+]
 
 [tool.coverage.run]
 branch = true
@@ -46,20 +52,26 @@ branch = true
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
 
+[tool.pytest.ini_options]
+minversion = "6.2"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+
 
 [tool.mypy]
 strict = true
-show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
-python_version = 3.8
+python_version = "3.8"
 
 [[tool.mypy.overrides]]
 module = ["_manylinux"]
 ignore_missing_imports = true
 
 [tool.ruff]
-src = ["src"]
 extend-exclude = [
     "src/packaging/licenses/_spdx.py"
 ]
@@ -72,28 +84,16 @@ extend-select = [
     "FA",
     "I",
     "N",
-    "UP",
+    "PYI",
     "RUF",
+    "UP",
     "W"
 ]
 ignore = [
-    "B027",
-    "F821",
-    "N818",
-    "RUF003",
-    "RUF012",
-    "UP032",
-    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
-    "W191",
-    "E111",
-    "E114",
-    "E117",
-    "D206",
-    "D300",
-    "Q000",
-    "Q001",
-    "Q002",
-    "Q003",
-    "COM812",
-    "COM819",
+    "N818",  # exceptions must end in "*Error"
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = ["PYI024"]
+"tasks/check.py" = ["UP032"]
+"tests/test_requirements.py" = ["UP032"]
