@@ -182,14 +182,14 @@ def release_build(session):
 
     # Check out the Git tag, if provided.
     if checkout:
-        session.run("git", "checkout", "-q", release_version, external=True)
+        session.run("git", "switch", "-q", release_version, external=True)
 
     # Build the distribution.
     _build_and_check(session, release_version)
 
     # Get back out into main, if we checked out before.
     if checkout:
-        session.run("git", "checkout", "-q", "main", external=True)
+        session.run("git", "switch", "-q", "main", external=True)
 
 
 def _build_and_check(session, release_version, remove=False):
