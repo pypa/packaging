@@ -92,6 +92,16 @@ class TestOperatorEvaluation:
             {"python_full_version": "3.11.0a5"}
         )
 
+    def test_boolean_shortcut_and(self):
+        assert not Marker("sys_platform == 'foo' and platform_release >= '6'").evaluate(
+            {"platform_release": "foo-bar-baz"}
+        )
+
+    def test_boolean_shortcut_or(self):
+        assert Marker("python_version >= '2.6' or platform_release >= '6'").evaluate(
+            {"platform_release": "foo-bar-baz"}
+        )
+
 
 FakeVersionInfo = collections.namedtuple(
     "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
@@ -172,6 +182,9 @@ class TestMarker:
             "python_version >= 1.0 and (python_version)",
             '(python_version == "2.7" and os_name == "linux"',
             '(python_version == "2.7") with random text',
+            'python_version *= "2.7"',
+            "python_version ~= 2.7",
+            'python_version >= "2.7" or os_name *= "linux"',
         ],
     )
     def test_parses_invalid(self, marker_string):
