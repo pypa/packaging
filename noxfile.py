@@ -199,7 +199,12 @@ def _build_and_check(session, release_version, remove=False):
 
     session.install("build", "twine")
 
-    # Determine if we're in install-only mode.
+    # Determine if we're in install-only mode. This works as `python --version`
+    # should always succeed when running `nox`, but in install-only mode
+    # `session.run(..., silent=True)` always immediately returns `None` instead
+    # of invoking the command and returning the command's output. See the
+    # documentation at:
+    # https://nox.thea.codes/en/stable/usage.html#skipping-everything-but-install-commands
     install_only = session.run("python", "--version", silent=True) is None
 
     # Build the distribution.
