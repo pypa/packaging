@@ -362,7 +362,7 @@ class Version(_BaseVersion):
         The "base version" is the public version of the project without any pre or post
         release markers.
         """
-        release_segment = ".".join(str(x) for x in self.release)
+        release_segment = ".".join(map(str, self.release))
         return f"{self.epoch}!{release_segment}" if self.epoch else release_segment
 
     @property
