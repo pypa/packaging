@@ -287,7 +287,7 @@ _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.item
 class RFC822Policy(email.policy.EmailPolicy):
     """
     This is :class:`email.policy.EmailPolicy`, but with a simple ``header_store_parse``
-    implementation that handles multiline values, and some nice defaults.
+    implementation that handles multi-line values, and some nice defaults.
     """
 
     utf8 = True
@@ -315,6 +315,8 @@ class RFC822Message(email.message.EmailMessage):
         self, unixfrom: bool = False, policy: email.policy.Policy | None = None
     ) -> bytes:
         """
+        Return the bytes representation of the message.
+        
         This handles unicode encoding.
         """
         return self.as_string(unixfrom, policy=policy).encode("utf-8")
