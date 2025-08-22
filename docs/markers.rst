@@ -21,7 +21,7 @@ Usage
     >>> marker.evaluate()
     True
     >>> # We can also override the environment
-    >>> env = {'python_version': '1.5.4'}
+    >>> env = {'python_version': '1.5'}
     >>> marker.evaluate(environment=env)
     False
     >>> # Multiple markers can be ANDed

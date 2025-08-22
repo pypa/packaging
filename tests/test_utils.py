@@ -37,10 +37,22 @@ def test_canonicalize_name(name, expected):
     assert canonicalize_name(name) == expected
 
 
-def test_canonicalize_name_invalid():
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("_not_legal", "-not-legal"),
+        ("hi\n", "hi\n"),
+        ("\nhi", "\nhi"),
+        ("h\ni", "h\ni"),
+        ("hi\r", "hi\r"),
+        ("\rhi", "\rhi"),
+        ("h\ri", "h\ri"),
+    ],
+)
+def test_canonicalize_name_invalid(name, expected):
     with pytest.raises(InvalidName):
-        canonicalize_name("_not_legal", validate=True)
-    assert canonicalize_name("_not_legal") == "-not-legal"
+        canonicalize_name(name, validate=True)
+    assert canonicalize_name(name) == expected
 
 
 @pytest.mark.parametrize(

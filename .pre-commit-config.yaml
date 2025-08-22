@@ -1,10 +1,11 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
+      - id: mixed-line-ending
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -13,11 +14,25 @@ repos:
       - id: mypy
         exclude: '^(docs|tasks|tests)|setup\.py'
         args: []
-        additional_dependencies: [pyparsing, nox]
+        additional_dependencies: [pyparsing, nox, orjson]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.1
+    rev: v0.11.8
     hooks:
       - id: ruff
-        args: [ --fix ]
+        args: [ --fix, --show-fixes ]
       - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: "v1.10.0"
+    hooks:
+    - id: rst-backticks
+    - id: rst-directive-colons
+    - id: rst-inline-touching-normal
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: "v2.4.1"
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli; python_version<'3.11'
