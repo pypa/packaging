@@ -510,7 +510,7 @@ class Specifier(BaseSpecifier):
         >>> "1.0.0" in Specifier(">=1.2.3")
         False
         >>> "1.3.0a1" in Specifier(">=1.2.3")
-        False
+        True
         >>> "1.3.0a1" in Specifier(">=1.2.3", prereleases=True)
         True
         """
@@ -534,7 +534,7 @@ class Specifier(BaseSpecifier):
         >>> Specifier(">=1.2.3").contains("1.0.0")
         False
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
-        False
+        True
         >>> Specifier(">=1.2.3", prereleases=False).contains("1.3.0a1")
         False
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
@@ -856,7 +856,7 @@ class SpecifierSet(BaseSpecifier):
         >>> "1.0.1" in SpecifierSet(">=1.0.0,!=1.0.1")
         False
         >>> "1.3.0a1" in SpecifierSet(">=1.0.0,!=1.0.1")
-        False
+        True
         >>> "1.3.0a1" in SpecifierSet(">=1.0.0,!=1.0.1", prereleases=True)
         True
         """
@@ -921,7 +921,7 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", Version("1.4")]))
         ['1.3', <Version('1.4')>]
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.5a1"]))
-        ["1.5a1"]
+        ['1.5a1']
         >>> list(SpecifierSet(">=1.2.3").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
         >>> list(SpecifierSet(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
