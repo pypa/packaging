@@ -5,10 +5,12 @@ on:
     paths:
       - ".github/workflows/docs.yml"
       - "docs/**"
+      - "src/**"
   push:
     paths:
       - ".github/workflows/docs.yml"
       - "docs/**"
+      - "src/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
