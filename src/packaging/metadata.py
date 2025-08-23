@@ -316,7 +316,7 @@ class RFC822Message(email.message.EmailMessage):
     ) -> bytes:
         """
         Return the bytes representation of the message.
-        
+
         This handles unicode encoding.
         """
         return self.as_string(unixfrom, policy=policy).encode("utf-8")
