@@ -183,6 +183,7 @@ class Version(_BaseVersion):
     """
 
     _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _version: _Version
     _key: CmpKey
 
     def __init__(self, version: str) -> None:
