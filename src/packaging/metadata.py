@@ -173,7 +173,6 @@ _LIST_FIELDS = {
     "requires_dist",
     "requires_external",
     "supported_platforms",
-    "import_namespaces",
     "import_names",
     "import_namespaces",
 }
@@ -268,7 +267,6 @@ _EMAIL_TO_RAW_MAPPING = {
     "download-url": "download_url",
     "dynamic": "dynamic",
     "home-page": "home_page",
-    "import-namespace": "import_namespaces",
     "import-name": "import_names",
     "import-namespace": "import_namespaces",
     "keywords": "keywords",
