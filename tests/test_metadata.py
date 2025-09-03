@@ -184,9 +184,9 @@ class TestRawMetadata:
         with path.open("r", encoding="utf-8") as file:
             metadata_contents = file.read()
         raw, unparsed = metadata.parse_email(metadata_contents)
-        assert len(unparsed) == 1
+        assert len(unparsed) == 1  # "ThisIsNotReal" key
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 27
+        assert len(raw) == 28
         assert raw["metadata_version"] == "2.4"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
@@ -246,7 +246,8 @@ class TestRawMetadata:
         ]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
         assert raw["description"] == "This description intentionally left blank.\n"
-        assert raw["import_names"] == ["beaglevote", "_beaglevote"]
+        assert raw["import_names"] == ["beaglevote", "_beaglevote ; private"]
+        assert raw["import_namespaces"] == ["spam", "_bacon ; private"]
 
 
 class TestExceptionGroup:
@@ -263,7 +264,7 @@ class TestExceptionGroup:
 
 
 _RAW_EXAMPLE = {
-    "metadata_version": "2.3",
+    "metadata_version": "2.5",
     "name": "packaging",
     "version": "2023.0.0",
 }
@@ -283,7 +284,7 @@ class TestMetadata:
             assert isinstance(exc.__cause__, cause)
 
     def test_from_email(self):
-        metadata_version = "2.3"
+        metadata_version = "2.5"
         meta = metadata.Metadata.from_email(
             f"Metadata-Version: {metadata_version}", validate=False
         )
@@ -775,18 +776,21 @@ class TestMetadata:
             meta.license_files  # noqa: B018
 
     def test_valid_import_names(self):
-        import_names = ["packaging", "packaging.metadata"]
+        import_names = [
+            "packaging",
+            "packaging.metadata",
+            "_utils ; private",
+            "_stuff;private",
+        ]
         meta = metadata.Metadata.from_raw(
             {"import_names": import_names}, validate=False
         )
 
         assert meta.import_names == import_names
 
-    def test_invalid_import_names_identifier(self):
-        import_names = ["not-valid"]
-        meta = metadata.Metadata.from_raw(
-            {"import_names": import_names}, validate=False
-        )
+    @pytest.mark.parametrize("name", ["not-valid", "stuff;", "stuff; extra"])
+    def test_invalid_import_names_identifier(self, name):
+        meta = metadata.Metadata.from_raw({"import_names": [name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.import_names  # noqa: B018

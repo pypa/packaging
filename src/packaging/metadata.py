@@ -135,6 +135,7 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.5 - PEP 794
     import_names: list[str]
+    import_namespaces: list[str]
 
 
 # 'keywords' is special as it's a string in the core metadata spec, but we
@@ -172,6 +173,7 @@ _LIST_FIELDS = {
     "requires_external",
     "supported_platforms",
     "import_names",
+    "import_namespaces",
 }
 
 _DICT_FIELDS = {
@@ -265,6 +267,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "dynamic": "dynamic",
     "home-page": "home_page",
     "import-name": "import_names",
+    "import-namespace": "import_namespaces",
     "keywords": "keywords",
     "license": "license",
     "license-expression": "license_expression",
@@ -691,18 +694,27 @@ class _Validator(Generic[T]):
 
     def _process_import_names(self, value: list[str]) -> list[str]:
         for import_name in value:
-            for identifier in import_name.split("."):
+            name, semicolon, private = import_name.partition(";")
+            name = name.rstrip()
+            for identifier in name.split("."):
                 if not identifier.isidentifier():
                     raise self._invalid_metadata(
-                        f"{import_name!r} is invalid for {{field}}; "
+                        f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is not a valid identifier"
                     )
                 elif keyword.iskeyword(identifier):
                     raise self._invalid_metadata(
-                        f"{import_name!r} is invalid for {{field}}; "
+                        f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is a keyword"
                     )
+            if semicolon and private.lstrip() != "private":
+                raise self._invalid_metadata(
+                    f"{import_name!r} is invalid for {{field}}; "
+                    "the only valid option is 'private'"
+                )
         return value
+
+    _process_import_namespaces = _process_import_names
 
 
 class Metadata:
@@ -876,6 +888,8 @@ class Metadata:
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`XXX`"""
+    import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
     """:external:ref:`XXX`"""
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""

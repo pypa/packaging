@@ -41,7 +41,9 @@ Provides-Dist: AnotherProject (3.4)
 Provides-Dist: virtual_package; python_version >= "3.4"
 Dynamic: Obsoletes-Dist
 Import-Name: beaglevote
-Import-Name: _beaglevote
+Import-Name: _beaglevote ; private
+Import-Namespace: spam
+Import-Namespace: _bacon ; private
 ThisIsNotReal: Hello!
 
 This description intentionally left blank.
