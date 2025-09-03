@@ -788,7 +788,9 @@ class TestMetadata:
         assert getattr(meta, key) == import_names
 
     @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
-    @pytest.mark.parametrize("name", ["not-valid", "stuff;", "stuff; extra"])
+    @pytest.mark.parametrize(
+        "name", ["not-valid", "still.not-valid", "stuff;", "stuff; extra"]
+    )
     def test_invalid_import_names_identifier(self, key, name):
         meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
 

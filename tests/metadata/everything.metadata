@@ -40,10 +40,6 @@ Provides-Dist: OtherProject
 Provides-Dist: AnotherProject (3.4)
 Provides-Dist: virtual_package; python_version >= "3.4"
 Dynamic: Obsoletes-Dist
-Import-Namespace: spam
-Import-Namespace: bacon
-Import-Name: spam.eggs
-Import-Name: bacon.spam
 Import-Name: beaglevote
 Import-Name: _beaglevote ; private
 Import-Namespace: spam
