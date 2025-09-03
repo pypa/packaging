@@ -775,31 +775,30 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.license_files  # noqa: B018
 
-    def test_valid_import_names(self):
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_valid_import_names(self, key):
         import_names = [
             "packaging",
             "packaging.metadata",
             "_utils ; private",
             "_stuff;private",
         ]
-        meta = metadata.Metadata.from_raw(
-            {"import_names": import_names}, validate=False
-        )
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
 
-        assert meta.import_names == import_names
+        assert getattr(meta, key) == import_names
 
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
     @pytest.mark.parametrize("name", ["not-valid", "stuff;", "stuff; extra"])
-    def test_invalid_import_names_identifier(self, name):
-        meta = metadata.Metadata.from_raw({"import_names": [name]}, validate=False)
+    def test_invalid_import_names_identifier(self, key, name):
+        meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.import_names  # noqa: B018
+            getattr(meta, key)  # noqa: B018
 
-    def test_invalid_import_names_keyword(self):
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_invalid_import_names_keyword(self, key):
         import_names = ["class"]
-        meta = metadata.Metadata.from_raw(
-            {"import_names": import_names}, validate=False
-        )
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            meta.import_names  # noqa: B018
+            getattr(meta, key)  # noqa: B018

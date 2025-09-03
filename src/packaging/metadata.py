@@ -134,6 +134,7 @@ class RawMetadata(TypedDict, total=False):
     license_files: list[str]
 
     # Metadata 2.5 - PEP 794
+    import_namespaces: list[str]
     import_names: list[str]
     import_namespaces: list[str]
 
@@ -172,6 +173,7 @@ _LIST_FIELDS = {
     "requires_dist",
     "requires_external",
     "supported_platforms",
+    "import_namespaces",
     "import_names",
     "import_namespaces",
 }
@@ -266,6 +268,7 @@ _EMAIL_TO_RAW_MAPPING = {
     "download-url": "download_url",
     "dynamic": "dynamic",
     "home-page": "home_page",
+    "import-namespace": "import_namespaces",
     "import-name": "import_names",
     "import-namespace": "import_namespaces",
     "keywords": "keywords",
@@ -887,6 +890,8 @@ class Metadata:
     """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
+    import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`XXX`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
     """:external:ref:`XXX`"""
     import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
