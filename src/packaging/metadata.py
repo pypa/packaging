@@ -134,7 +134,6 @@ class RawMetadata(TypedDict, total=False):
     license_files: list[str]
 
     # Metadata 2.5 - PEP 794
-    import_namespaces: list[str]
     import_names: list[str]
     import_namespaces: list[str]
 
@@ -888,8 +887,6 @@ class Metadata:
     """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
-    import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`XXX`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
     """:external:ref:`XXX`"""
     import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")

@@ -795,7 +795,7 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            getattr(meta, key)  # noqa: B018
+            getattr(meta, key)
 
     @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
     def test_invalid_import_names_keyword(self, key):
@@ -803,4 +803,4 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
-            getattr(meta, key)  # noqa: B018
+            getattr(meta, key)
