@@ -15,6 +15,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import InvalidVersion, Version
 
 __all__ = [
     "EvaluateContext",
@@ -179,12 +180,20 @@ _operators: dict[str, Operator] = {
 
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
     if isinstance(rhs, str):
+        # PEP 508 - Environment Markers
+        # https://peps.python.org/pep-0508/#environment-markers
+        # > The <version_cmp> operators use the PEP 440 version comparison rules
+        # > when those are defined (that is when both sides have a valid version
+        # > specifier). If there is no defined PEP 440 behaviour and the operator
+        # > exists in Python, then the operator falls back to the Python behaviour.
+        # > Otherwise an error should be raised.
         try:
             spec = Specifier("".join([op.serialize(), rhs]))
-        except InvalidSpecifier:
+            lhs_ver = Version(lhs)
+        except (InvalidSpecifier, InvalidVersion):
             pass
         else:
-            return spec.contains(lhs, prereleases=True)
+            return spec.contains(lhs_ver, prereleases=True)
 
     oper: Operator | None = _operators.get(op.serialize())
     if oper is None:
