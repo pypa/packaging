@@ -268,7 +268,7 @@ class Specifier(BaseSpecifier):
         return False
 
     @prereleases.setter
-    def prereleases(self, value: bool) -> None:
+    def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
 
     @property
@@ -730,7 +730,7 @@ class SpecifierSet(BaseSpecifier):
         return None
 
     @prereleases.setter
-    def prereleases(self, value: bool) -> None:
+    def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
 
     def __repr__(self) -> str:
