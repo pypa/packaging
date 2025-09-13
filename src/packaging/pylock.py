@@ -601,7 +601,7 @@ class Pylock:
             packages=_get_required_list_of_objects(d, Package, "packages"),
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        if pylock.lock_version < Version("1") or pylock.lock_version >= Version("2"):
+        if not Version("1") <= pylock.lock_version < Version("2"):
             raise PylockUnsupportedVersionError(
                 f"pylock version {pylock.lock_version} is not supported"
             )
