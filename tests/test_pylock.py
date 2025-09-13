@@ -172,6 +172,39 @@ def test_pylock_packages_with_dist_and_archive() -> None:
     )
 
 
+def test_pylock_packages_with_archive_directory_and_vcs() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "archive": {
+                    "path": "example.tar.gz",
+                    "hashes": {"sha256": "f" * 40},
+                },
+                "vcs": {
+                    "type": "git",
+                    "url": "https://githhub/pypa/packaging",
+                    "commit-id": "...",
+                },
+                "directory": {
+                    "path": ".",
+                    "editable": False,
+                },
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Exactly one of vcs, directory, archive must be set "
+        "if sdist and wheels are not set "
+        "in 'packages[0]'"
+    )
+
+
 def test_pylock_basic_package() -> None:
     data = {
         "lock-version": "1.0",

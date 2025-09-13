@@ -528,21 +528,19 @@ class Package:
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        if package.sdist or package.wheels:
-            if package.vcs or package.directory or package.archive:
-                raise PylockValidationError(
-                    "None of vcs, directory, archive "
-                    "must be set if sdist or wheels are set"
-                )
-        else:
-            # no sdist nor wheels
-            if not (
-                bool(package.vcs) ^ bool(package.directory) ^ bool(package.archive)
-            ):
-                raise PylockValidationError(
-                    "Exactly one of vcs, directory, archive must be set "
-                    "if sdist and wheels are not set"
-                )
+        distributions = bool(package.sdist) + len(package.wheels or [])
+        direct_urls = (
+            bool(package.vcs) + bool(package.directory) + bool(package.archive)
+        )
+        if distributions > 0 and direct_urls > 0:
+            raise PylockValidationError(
+                "None of vcs, directory, archive must be set if sdist or wheels are set"
+            )
+        if distributions == 0 and direct_urls != 1:
+            raise PylockValidationError(
+                "Exactly one of vcs, directory, archive must be set "
+                "if sdist and wheels are not set"
+            )
         return package
 
     @property
