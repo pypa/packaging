@@ -16,16 +16,19 @@ import re
 from typing import Callable, Final, Iterable, Iterator, TypeVar, Union
 
 from .utils import canonicalize_version
-from .version import Version
+from .version import InvalidVersion, Version
 
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 CallableOperator = Callable[[Version, str], bool]
 
 
-def _coerce_version(version: UnparsedVersion) -> Version:
+def _coerce_version(version: UnparsedVersion) -> Version | None:
     if not isinstance(version, Version):
-        version = Version(version)
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            return None
     return version
 
 
@@ -581,6 +584,8 @@ class Specifier(BaseSpecifier):
         # Filter versions
         for version in iterable:
             parsed_version = _coerce_version(version)
+            if parsed_version is None:
+                continue
 
             if operator_callable(parsed_version, self.version):
                 # If it's not a prerelease or prereleases are allowed, yield it directly
@@ -894,14 +899,14 @@ class SpecifierSet(BaseSpecifier):
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.3.0a1", prereleases=True)
         True
         """
-        # Ensure that our item is a Version instance.
-        if not isinstance(item, Version):
-            item = Version(item)
+        version = _coerce_version(item)
+        if version is None:
+            return False
 
-        if installed and item.is_prerelease:
+        if installed and version.is_prerelease:
             prereleases = True
 
-        return bool(list(self.filter([item], prereleases=prereleases)))
+        return bool(list(self.filter([version], prereleases=prereleases)))
 
     def filter(
         self, iterable: Iterable[UnparsedVersionVar], prereleases: bool | None = None
@@ -961,6 +966,8 @@ class SpecifierSet(BaseSpecifier):
 
             for item in iterable:
                 parsed_version = _coerce_version(item)
+                if parsed_version is None:
+                    continue
 
                 # Store any item which is a pre-release for later unless we've
                 # already found a final version or we are accepting prereleases
