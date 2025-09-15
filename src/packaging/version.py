@@ -183,6 +183,7 @@ class Version(_BaseVersion):
     """
 
     _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _version: _Version
     _key: CmpKey
 
     def __init__(self, version: str) -> None:
@@ -237,14 +238,7 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        parts = []
-
-        # Epoch
-        if self.epoch != 0:
-            parts.append(f"{self.epoch}!")
-
-        # Release segment
-        parts.append(".".join(str(x) for x in self.release))
+        parts = [self.base_version]
 
         # Pre-release
         if self.pre is not None:
@@ -369,16 +363,8 @@ class Version(_BaseVersion):
         The "base version" is the public version of the project without any pre or post
         release markers.
         """
-        parts = []
-
-        # Epoch
-        if self.epoch != 0:
-            parts.append(f"{self.epoch}!")
-
-        # Release segment
-        parts.append(".".join(str(x) for x in self.release))
-
-        return "".join(parts)
+        release_segment = ".".join(map(str, self.release))
+        return f"{self.epoch}!{release_segment}" if self.epoch else release_segment
 
     @property
     def is_prerelease(self) -> bool:
@@ -463,20 +449,16 @@ class _TrimmedRelease(Version):
         (0,)
         """
         rel = super().release
-        nonzeros = (index for index, val in enumerate(rel) if val)
-        last_nonzero = max(nonzeros, default=0)
-        return rel[: last_nonzero + 1]
+        i = len(rel)
+        while i > 1 and rel[i - 1] == 0:
+            i -= 1
+        return rel[:i]
 
 
 def _parse_letter_version(
     letter: str | None, number: str | bytes | SupportsInt | None
 ) -> tuple[str, int] | None:
     if letter:
-        # We consider there to be an implicit 0 in a pre-release if there is
-        # not a numeral associated with it.
-        if number is None:
-            number = 0
-
         # We normalize any letters to their lower case form
         letter = letter.lower()
 
@@ -492,14 +474,14 @@ def _parse_letter_version(
         elif letter in ["rev", "r"]:
             letter = "post"
 
-        return letter, int(number)
+        # We consider there to be an implicit 0 in a pre-release if there is
+        # not a numeral associated with it.
+        return letter, int(number or 0)
 
     if number:
         # We assume if we are given a number, but we are not given a letter
         # then this is using the implicit post release syntax (e.g. 1.0-1)
-        letter = "post"
-
-        return letter, int(number)
+        return "post", int(number)
 
     return None
 
