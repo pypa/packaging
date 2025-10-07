@@ -443,3 +443,24 @@ class TestMarker:
 
         with pytest.raises(KeyError):
             marker.evaluate(context="requirement")
+
+    @pytest.mark.parametrize(
+        ("marker_string", "environment", "expected"),
+        [
+            ('extra == "v2"', None, False),
+            ('extra == "v2"', {"extra": ""}, False),
+            ('extra == "v2"', {"extra": "v2"}, True),
+            ('extra == "v2"', {"extra": "v2a3"}, False),
+            ('extra == "v2a3"', {"extra": "v2"}, False),
+            ('extra == "v2a3"', {"extra": "v2a3"}, True),
+        ],
+    )
+    def test_version_like_equality(
+        self, marker_string: str, environment: dict[str, str] | None, expected: bool
+    ) -> None:
+        """
+        Test for issue #938: Extras are meant to be literal strings, even if
+        they look like versions, and therefore should not be parsed as version.
+        """
+        marker = Marker(marker_string)
+        assert marker.evaluate(environment) is expected
