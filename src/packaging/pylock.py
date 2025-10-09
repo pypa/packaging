@@ -259,7 +259,7 @@ class PylockValidationError(Exception):
 
     def __str__(self) -> str:
         if self.context:
-            return f"{self.message} in '{self.context}'"
+            return f"{self.message} in {self.context!r}"
         return self.message
 
 
