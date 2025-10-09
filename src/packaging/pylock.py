@@ -610,7 +610,7 @@ class Pylock:
         return pylock
 
     @classmethod
-    def from_dict(cls, d: Mapping[str, Any]) -> Self:
+    def from_dict(cls, d: Mapping[str, Any], /) -> Self:
         """Create and validate a Pylock instance from a TOML dictionary.
 
         Raises :class:`PylockValidationError` if the input data is not
