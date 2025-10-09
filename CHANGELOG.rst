@@ -4,8 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+* Add the ``packaging.wheelfile`` module for reading and creating wheel files
+  (:issue:`697`)
 * Change project license metadata to use an SPDX license expression.
-
 
 25.0 - 2025-04-19
 ~~~~~~~~~~~~~~~~~

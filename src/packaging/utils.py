@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import functools
 import re
+from collections.abc import Collection
 from typing import NewType, Tuple, Union, cast
 
 from .tags import Tag, parse_tag
@@ -41,6 +42,7 @@ _canonicalize_regex = re.compile(r"[-_.]+")
 _normalized_regex = re.compile(r"^([a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9])$")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
+_dist_name_re = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -89,6 +91,27 @@ def _(version: str, *, strip_trailing_zero: bool = True) -> str:
         # Legacy versions cannot be normalized
         return version
     return canonicalize_version(parsed, strip_trailing_zero=strip_trailing_zero)
+
+
+def make_wheel_filename(
+    name: str,
+    version: str | Version,
+    tags: Collection[Tag],
+    *,
+    build_tag: BuildTag | None = None,
+) -> str:
+    if not tags:
+        raise ValueError("At least one tag is required")
+
+    name = canonicalize_name(name).replace("-", "_").lower()
+    filename = f"{name}-{version}"
+    if build_tag:
+        filename = f"{filename}-{build_tag[0]}{build_tag[1]}"
+
+    interpreter_tags = ".".join(tag.interpreter for tag in tags)
+    abi_tags = ".".join(tag.abi for tag in tags)
+    platform_tags = ".".join(tag.platform for tag in tags)
+    return f"{filename}-{interpreter_tags}-{abi_tags}-{platform_tags}.whl"
 
 
 def parse_wheel_filename(
