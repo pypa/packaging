@@ -949,30 +949,38 @@ class SpecifierSet(BaseSpecifier):
         # filter method for each one, this will act as a logical AND amongst
         # each specifier.
         if self._specs:
+            # When prereleases is None, we need to let all versions through
+            # the individual filters, then decide about prereleases at the end
+            # based on whether any non-prereleases matched ALL specs.
             for spec in self._specs:
-                iterable = spec.filter(iterable, prereleases=prereleases)
-            return iter(iterable)
-        # If we do not have any specifiers, then we need to have a rough filter
-        # which will filter out any pre-releases, unless there are no final
-        # releases.
+                iterable = spec.filter(
+                    iterable, prereleases=True if prereleases is None else prereleases
+                )
+
+            if prereleases is not None:
+                # If we have a forced prereleases value,
+                # we can immediately return he iterator.
+                return iter(iterable)
         else:
-            filtered: list[UnparsedVersionVar] = []
-            found_prereleases: list[UnparsedVersionVar] = []
+            # Handle empty SpecifierSet cases where prereleases is not None.
+            if prereleases is True:
+                return iter(iterable)
 
-            for item in iterable:
-                parsed_version = _coerce_version(item)
+            if prereleases is False:
+                return (
+                    item for item in iterable if not _coerce_version(item).is_prerelease
+                )
 
-                # Store any item which is a pre-release for later unless we've
-                # already found a final version or we are accepting prereleases
-                if parsed_version.is_prerelease and not prereleases:
-                    if not filtered:
-                        found_prereleases.append(item)
-                else:
-                    filtered.append(item)
+        # Finally if prereleases is None, apply PEP 440 logic:
+        # exclude prereleases unless there are no final releases that matched.
+        filtered: list[UnparsedVersionVar] = []
+        found_prereleases: list[UnparsedVersionVar] = []
 
-            # If we've found no items except for pre-releases, then we'll go
-            # ahead and use the pre-releases
-            if not filtered and found_prereleases and prereleases is None:
-                return iter(found_prereleases)
+        for item in iterable:
+            parsed_version = _coerce_version(item)
+            if parsed_version.is_prerelease:
+                found_prereleases.append(item)
+            else:
+                filtered.append(item)
 
-            return iter(filtered)
+        return iter(filtered if filtered else found_prereleases)
