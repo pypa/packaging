@@ -562,7 +562,7 @@ class Pylock:
         lock_version: Version,
         environments: Sequence[Marker] | None = None,
         requires_python: SpecifierSet | None = None,
-        extras: Sequence[str] | None = None,
+        extras: Sequence[NormalizedName] | None = None,
         dependency_groups: Sequence[str] | None = None,
         default_groups: Sequence[str] | None = None,
         created_by: str,
