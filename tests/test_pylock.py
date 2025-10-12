@@ -508,3 +508,17 @@ def test_validate() -> None:
         str(exc_info.value)
         == "Name 'example_package' is not normalized in 'packages[0].name'"
     )
+
+
+def test_validate_sequence_of_str() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[],
+        dependency_groups="abc",  # should be a sequence of str
+    )
+    with pytest.raises(PylockValidationError) as exc_info:
+        pylock.validate()
+    assert str(exc_info.value) == (
+        "Unexpected type str (expected Sequence) in 'dependency-groups'"
+    )
