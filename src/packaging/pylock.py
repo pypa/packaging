@@ -198,12 +198,12 @@ def _get_sequence_of_objects(
     return result
 
 
-def _get_required_list_of_objects(
-    d: Mapping[str, Any], target_type: type[_FromMappingProtocolT], key: str
+def _get_required_sequence_of_objects(
+    d: Mapping[str, Any], target_item_type: type[_FromMappingProtocolT], key: str
 ) -> Sequence[_FromMappingProtocolT]:
     """Get a required list value from the dictionary and convert its items to a
     dataclass."""
-    if (result := _get_sequence_of_objects(d, target_type, key)) is None:
+    if (result := _get_sequence_of_objects(d, target_item_type, key)) is None:
         raise PylockRequiredKeyError(key)
     return result
 
@@ -591,7 +591,7 @@ class Pylock:
             default_groups=_get_sequence(d, str, "default-groups"),
             created_by=_get_required(d, str, "created-by"),
             requires_python=_get_as(d, str, SpecifierSet, "requires-python"),
-            packages=_get_required_list_of_objects(d, Package, "packages"),
+            packages=_get_required_sequence_of_objects(d, Package, "packages"),
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
         if not Version("1") <= pylock.lock_version < Version("2"):
