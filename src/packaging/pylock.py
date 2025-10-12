@@ -172,8 +172,7 @@ def _get_object(
     d: Mapping[str, Any], target_type: type[_FromMappingProtocolT], key: str
 ) -> _FromMappingProtocolT | None:
     """Get a dictionary value from the dictionary and convert it to a dataclass."""
-    value = _get(d, Mapping, key)  # type: ignore[type-abstract]
-    if value is None:
+    if (value := _get(d, Mapping, key)) is None:  # type: ignore[type-abstract]
         return None
     try:
         return target_type._from_dict(value)
