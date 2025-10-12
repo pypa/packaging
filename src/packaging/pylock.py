@@ -185,15 +185,10 @@ def _get_sequence_of_objects(
     d: Mapping[str, Any], target_item_type: type[_FromMappingProtocolT], key: str
 ) -> Sequence[_FromMappingProtocolT] | None:
     """Get a list value from the dictionary and convert its items to a dataclass."""
-    if (value := _get(d, Sequence, key)) is None:  # type: ignore[type-abstract]
+    if (value := _get_sequence(d, Mapping, key)) is None:  # type: ignore[type-abstract]
         return None
     result = []
     for i, item in enumerate(value):
-        if not isinstance(item, Mapping):
-            raise PylockValidationError(
-                f"Unexpected type {type(item).__name__} (expected Mapping)",
-                context=f"{key}[{i}]",
-            )
         try:
             typed_item = target_item_type._from_dict(item)
         except Exception as e:
