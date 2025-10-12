@@ -15,7 +15,6 @@ from packaging.pylock import (
     PackageVcs,
     PackageWheel,
     Pylock,
-    PylockRequiredKeyError,
     PylockUnsupportedVersionError,
     PylockValidationError,
     is_valid_pylock_path,
@@ -104,7 +103,7 @@ def test_pylock_missing_version() -> None:
         "created-by": "pip",
         "packages": [],
     }
-    with pytest.raises(PylockRequiredKeyError) as exc_info:
+    with pytest.raises(PylockValidationError) as exc_info:
         Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'lock-version'"
 
@@ -114,7 +113,7 @@ def test_pylock_missing_created_by() -> None:
         "lock-version": "1.0",
         "packages": [],
     }
-    with pytest.raises(PylockRequiredKeyError) as exc_info:
+    with pytest.raises(PylockValidationError) as exc_info:
         Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'created-by'"
 
@@ -124,7 +123,7 @@ def test_pylock_missing_packages() -> None:
         "lock-version": "1.0",
         "created-by": "uv",
     }
-    with pytest.raises(PylockRequiredKeyError) as exc_info:
+    with pytest.raises(PylockValidationError) as exc_info:
         Pylock.from_dict(data)
     assert str(exc_info.value) == "Missing required value in 'packages'"
 

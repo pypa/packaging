@@ -96,7 +96,7 @@ def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
 def _get_required(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T:
     """Get a required value from the dictionary and verify it's the expected type."""
     if (value := _get(d, expected_type, key)) is None:
-        raise PylockRequiredKeyError(key)
+        raise _PylockRequiredKeyError(key)
     return value
 
 
@@ -150,7 +150,7 @@ def _get_required_as(
     """Get a required value from the dict, verify it's the expected type,
     and convert to the target type."""
     if (value := _get_as(d, expected_type, target_type, key)) is None:
-        raise PylockRequiredKeyError(key)
+        raise _PylockRequiredKeyError(key)
     return value
 
 
@@ -209,7 +209,7 @@ def _get_required_sequence_of_objects(
     """Get a required list value from the dictionary and convert its items to a
     dataclass."""
     if (result := _get_sequence_of_objects(d, target_item_type, key)) is None:
-        raise PylockRequiredKeyError(key)
+        raise _PylockRequiredKeyError(key)
     return result
 
 
@@ -263,7 +263,7 @@ class PylockValidationError(Exception):
         return self.message
 
 
-class PylockRequiredKeyError(PylockValidationError):
+class _PylockRequiredKeyError(PylockValidationError):
     def __init__(self, key: str) -> None:
         super().__init__("Missing required value", context=key)
 
