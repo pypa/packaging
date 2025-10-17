@@ -521,3 +521,58 @@ def test_validate_sequence_of_str() -> None:
     assert str(exc_info.value) == (
         "Unexpected type str (expected Sequence) in 'dependency-groups'"
     )
+
+
+def test_validate_attestation_identity_missing_kind() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "directory": {
+                    "path": ".",
+                },
+                "attestation-identities": [
+                    {
+                        # missing "kind" field
+                        "value": "some-value",
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Missing required value in 'packages[0].attestation-identities[0].kind'"
+    )
+
+
+def test_validate_attestation_identity_invalid_kind() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "directory": {
+                    "path": ".",
+                },
+                "attestation-identities": [
+                    {
+                        "kind": 123,
+                        "value": "some-value",
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Unexpected type int (expected str) "
+        "in 'packages[0].attestation-identities[0].kind'"
+    )

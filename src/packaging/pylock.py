@@ -541,6 +541,13 @@ class Package:
                 "Exactly one of vcs, directory, archive must be set "
                 "if sdist and wheels are not set"
             )
+        for i, attestation_identity in enumerate(package.attestation_identities or []):
+            try:
+                _get_required(attestation_identity, str, "kind")
+            except Exception as e:
+                raise PylockValidationError(
+                    e, context=f"attestation-identities[{i}]"
+                ) from e
         return package
 
     @property
