@@ -888,9 +888,9 @@ class Metadata:
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`XXX`"""
+    """:external:ref:`core-metadata-import-name`"""
     import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`XXX`"""
+    """:external:ref:`core-metadata-import-namespace`"""
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
     provides: _Validator[list[str] | None] = _Validator(added="1.1")
