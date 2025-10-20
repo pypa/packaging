@@ -816,7 +816,7 @@ class TestMetadataWriting:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
         written = meta.as_rfc822().as_string()
         assert (
-            written == "metadata-version: 2.3\nname: packaging\nversion: 2023.0.0\n\n"
+            written == "metadata-version: 2.5\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
     def test_write_metadata_with_description(self):
