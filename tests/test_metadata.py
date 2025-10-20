@@ -810,6 +810,7 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             getattr(meta, key)
 
+
 class TestMetadataWriting:
     def test_write_metadata(self):
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
