@@ -35,7 +35,7 @@ class InvalidSdistFilename(ValueError):
 
 # Core metadata spec for `Name`
 _validate_regex = re.compile(
-    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$", re.IGNORECASE
+    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\Z", re.IGNORECASE
 )
 _canonicalize_regex = re.compile(r"[-_.]+")
 _normalized_regex = re.compile(r"^([a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9])$")

@@ -8,7 +8,6 @@ name = "packaging"
 description = "Core utilities for Python packages"
 dynamic = ["version"]
 license = "Apache-2.0 OR BSD-2-Clause"
-license-files = ["LICENSE*"]
 readme = "README.rst"
 requires-python = ">=3.8"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
@@ -41,10 +40,6 @@ include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
 [tool.codespell]
-# Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git'
-check-hidden = true
-# ignore-regex = ''
 ignore-words-list = [
     "dynamc",
     "notin"
