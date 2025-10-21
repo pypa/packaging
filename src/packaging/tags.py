@@ -439,7 +439,7 @@ def mac_platforms(
     else:
         arch = arch
 
-    if (10, 0) <= version and version < (11, 0):
+    if (10, 0) <= version < (11, 0):
         # Prior to Mac OS 11, each yearly release of Mac OS bumped the
         # "minor" version number.  The major version was always 10.
         major_version = 10
