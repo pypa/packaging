@@ -179,7 +179,7 @@ class TestSpecifier:
             "1.0-POST1",
             "1.0-5",
             # Local version case insensitivity
-            "1.0+AbC"
+            "1.0+AbC",
             # Integer Normalization
             "1.01",
             "1.0a05",
