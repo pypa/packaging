@@ -447,6 +447,11 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
         # of unparsed stuff.
         if raw_name in _STRING_FIELDS and len(value) == 1:
             raw[raw_name] = value[0]
+        # If this is import_names, we need to special case the empty field
+        # case, which converts to an empty list instead of None. We can't let
+        # the empty case slip through, as it will fail validation.
+        elif raw_name == "import_names" and value == [""]:
+            raw[raw_name] = []
         # If this is one of our list of string fields, then we can just assign
         # the value, since email *only* has strings, and our get_all() call
         # above ensures that this is a list.
@@ -959,6 +964,8 @@ class Metadata:
                             message[email_name] = f"{label}, {url}"
                     elif email_name == "keywords":
                         message[email_name] = ",".join(value)
+                    elif email_name == "import-name" and value == []:
+                        message[email_name] = ""
                     elif isinstance(value, list):
                         for item in value:
                             message[email_name] = str(item)

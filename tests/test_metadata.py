@@ -295,6 +295,13 @@ class TestMetadata:
         )
 
         assert meta.metadata_version == metadata_version
+        assert meta.import_names is None
+
+    def test_from_email_empty_import_name(self):
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.5\nImport-Name:\n", validate=False
+        )
+        assert meta.import_names == []
 
     def test_from_email_unparsed(self):
         with pytest.raises(ExceptionGroup) as exc_info:
@@ -959,6 +966,49 @@ class TestMetadataWriting:
             ("license-expression", "MIT"),
             ("license-file", "LICENSE.txt"),
             ("license-file", "LICENSE"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test__import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": ["one", "two"],
+                "import_namespaces": ["three"],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", "one"),
+            ("import-name", "two"),
+            ("import-namespace", "three"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test_empty_import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": [],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", ""),
         ]
 
         assert core_metadata.get_payload() is None
