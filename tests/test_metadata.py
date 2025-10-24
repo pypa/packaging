@@ -192,7 +192,7 @@ class TestRawMetadata:
         assert len(unparsed) == 1  # "ThisIsNotReal" key
         assert unparsed["thisisnotreal"] == ["Hello!"]
         assert len(raw) == 28
-        assert raw["metadata_version"] == "2.4"
+        assert raw["metadata_version"] == "2.5"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
