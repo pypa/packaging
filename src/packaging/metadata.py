@@ -5,6 +5,7 @@ import email.header
 import email.message
 import email.parser
 import email.policy
+import keyword
 import pathlib
 import sys
 import typing
@@ -132,7 +133,13 @@ class RawMetadata(TypedDict, total=False):
     license_expression: str
     license_files: list[str]
 
+    # Metadata 2.5 - PEP 794
+    import_names: list[str]
+    import_namespaces: list[str]
 
+
+# 'keywords' is special as it's a string in the core metadata spec, but we
+# represent it as a list.
 _STRING_FIELDS = {
     "author",
     "author_email",
@@ -165,6 +172,8 @@ _LIST_FIELDS = {
     "requires_dist",
     "requires_external",
     "supported_platforms",
+    "import_names",
+    "import_namespaces",
 }
 
 _DICT_FIELDS = {
@@ -257,6 +266,8 @@ _EMAIL_TO_RAW_MAPPING = {
     "download-url": "download_url",
     "dynamic": "dynamic",
     "home-page": "home_page",
+    "import-name": "import_names",
+    "import-namespace": "import_namespaces",
     "keywords": "keywords",
     "license": "license",
     "license-expression": "license_expression",
@@ -436,6 +447,11 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
         # of unparsed stuff.
         if raw_name in _STRING_FIELDS and len(value) == 1:
             raw[raw_name] = value[0]
+        # If this is import_names, we need to special case the empty field
+        # case, which converts to an empty list instead of None. We can't let
+        # the empty case slip through, as it will fail validation.
+        elif raw_name == "import_names" and value == [""]:
+            raw[raw_name] = []
         # If this is one of our list of string fields, then we can just assign
         # the value, since email *only* has strings, and our get_all() call
         # above ensures that this is a list.
@@ -502,8 +518,8 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4"]
+_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
+_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
@@ -686,9 +702,7 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
-    def _process_license_expression(
-        self, value: str
-    ) -> NormalizedLicenseExpression | None:
+    def _process_license_expression(self, value: str) -> NormalizedLicenseExpression:
         try:
             return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
@@ -721,6 +735,30 @@ class _Validator(Generic[T]):
                 )
             paths.append(path)
         return paths
+
+    def _process_import_names(self, value: list[str]) -> list[str]:
+        for import_name in value:
+            name, semicolon, private = import_name.partition(";")
+            name = name.rstrip()
+            for identifier in name.split("."):
+                if not identifier.isidentifier():
+                    raise self._invalid_metadata(
+                        f"{name!r} is invalid for {{field}}; "
+                        f"{identifier!r} is not a valid identifier"
+                    )
+                elif keyword.iskeyword(identifier):
+                    raise self._invalid_metadata(
+                        f"{name!r} is invalid for {{field}}; "
+                        f"{identifier!r} is a keyword"
+                    )
+            if semicolon and private.lstrip() != "private":
+                raise self._invalid_metadata(
+                    f"{import_name!r} is invalid for {{field}}; "
+                    "the only valid option is 'private'"
+                )
+        return value
+
+    _process_import_namespaces = _process_import_names
 
 
 class Metadata:
@@ -893,6 +931,10 @@ class Metadata:
     """:external:ref:`core-metadata-provides-dist`"""
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
+    import_names: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`core-metadata-import-name`"""
+    import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
+    """:external:ref:`core-metadata-import-namespace`"""
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
     provides: _Validator[list[str] | None] = _Validator(added="1.1")
@@ -922,6 +964,8 @@ class Metadata:
                             message[email_name] = f"{label}, {url}"
                     elif email_name == "keywords":
                         message[email_name] = ",".join(value)
+                    elif email_name == "import-name" and value == []:
+                        message[email_name] = ""
                     elif isinstance(value, list):
                         for item in value:
                             message[email_name] = str(item)
