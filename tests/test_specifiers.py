@@ -975,8 +975,12 @@ class TestSpecifierSet:
             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
             # Test that invalid versions are discarded
-            ("", None, None, ["not a valid version"], []),
-            ("", None, None, ["1.0", "not a valid version"], ["1.0"]),
+            ("", None, None, ["invalid version"], []),
+            ("", None, False, ["invalid version"], []),
+            ("", False, None, ["invalid version"], []),
+            ("", None, None, ["1.0", "invalid version"], ["1.0"]),
+            ("", None, False, ["1.0", "invalid version"], ["1.0"]),
+            ("", False, None, ["1.0", "invalid version"], ["1.0"]),
         ],
     )
     def test_specifier_filter(

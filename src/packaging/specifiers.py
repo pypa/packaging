@@ -964,7 +964,7 @@ class SpecifierSet(BaseSpecifier):
 
             if prereleases is not None:
                 # If we have a forced prereleases value,
-                # we can immediately return he iterator.
+                # we can immediately return the iterator.
                 return iter(iterable)
         else:
             # Handle empty SpecifierSet cases where prereleases is not None.
@@ -973,7 +973,10 @@ class SpecifierSet(BaseSpecifier):
 
             if prereleases is False:
                 return (
-                    item for item in iterable if not _coerce_version(item).is_prerelease
+                    item
+                    for item in iterable
+                    if (version := _coerce_version(item)) is not None
+                    and not version.is_prerelease
                 )
 
         # Finally if prereleases is None, apply PEP 440 logic:
