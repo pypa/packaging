@@ -189,10 +189,10 @@ class TestRawMetadata:
         with path.open("r", encoding="utf-8") as file:
             metadata_contents = file.read()
         raw, unparsed = metadata.parse_email(metadata_contents)
-        assert len(unparsed) == 1
+        assert len(unparsed) == 1  # "ThisIsNotReal" key
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 26
-        assert raw["metadata_version"] == "2.4"
+        assert len(raw) == 28
+        assert raw["metadata_version"] == "2.5"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
@@ -251,6 +251,8 @@ class TestRawMetadata:
         ]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
         assert raw["description"] == "This description intentionally left blank.\n"
+        assert raw["import_names"] == ["beaglevote", "_beaglevote ; private"]
+        assert raw["import_namespaces"] == ["spam", "_bacon ; private"]
 
 
 class TestExceptionGroup:
@@ -267,7 +269,7 @@ class TestExceptionGroup:
 
 
 _RAW_EXAMPLE = {
-    "metadata_version": "2.3",
+    "metadata_version": "2.5",
     "name": "packaging",
     "version": "2023.0.0",
 }
@@ -287,12 +289,19 @@ class TestMetadata:
             assert isinstance(exc.__cause__, cause)
 
     def test_from_email(self):
-        metadata_version = "2.3"
+        metadata_version = "2.5"
         meta = metadata.Metadata.from_email(
             f"Metadata-Version: {metadata_version}", validate=False
         )
 
         assert meta.metadata_version == metadata_version
+        assert meta.import_names is None
+
+    def test_from_email_empty_import_name(self):
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.5\nImport-Name:\n", validate=False
+        )
+        assert meta.import_names == []
 
     def test_from_email_unparsed(self):
         with pytest.raises(ExceptionGroup) as exc_info:
@@ -778,13 +787,43 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.license_files  # noqa: B018
 
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_valid_import_names(self, key):
+        import_names = [
+            "packaging",
+            "packaging.metadata",
+            "_utils ; private",
+            "_stuff;private",
+        ]
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
+
+        assert getattr(meta, key) == import_names
+
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    @pytest.mark.parametrize(
+        "name", ["not-valid", "still.not-valid", "stuff;", "stuff; extra"]
+    )
+    def test_invalid_import_names_identifier(self, key, name):
+        meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
+
+        with pytest.raises(metadata.InvalidMetadata):
+            getattr(meta, key)
+
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_invalid_import_names_keyword(self, key):
+        import_names = ["class"]
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
+
+        with pytest.raises(metadata.InvalidMetadata):
+            getattr(meta, key)
+
 
 class TestMetadataWriting:
     def test_write_metadata(self):
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
         written = meta.as_rfc822().as_string()
         assert (
-            written == "metadata-version: 2.3\nname: packaging\nversion: 2023.0.0\n\n"
+            written == "metadata-version: 2.5\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
     def test_write_metadata_with_description(self):
@@ -927,6 +966,49 @@ class TestMetadataWriting:
             ("license-expression", "MIT"),
             ("license-file", "LICENSE.txt"),
             ("license-file", "LICENSE"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test__import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": ["one", "two"],
+                "import_namespaces": ["three"],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", "one"),
+            ("import-name", "two"),
+            ("import-namespace", "three"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test_empty_import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": [],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", ""),
         ]
 
         assert core_metadata.get_payload() is None
