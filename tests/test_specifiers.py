@@ -495,6 +495,17 @@ class TestSpecifier:
             assert not spec.contains(Version(version))
 
     @pytest.mark.parametrize(
+        ("spec", "version"),
+        [
+            ("==1.0", "not a valid version"),
+            ("===invalid", "invalid"),
+        ],
+    )
+    def test_invalid_spec(self, spec, version):
+        spec = Specifier(spec, prereleases=True)
+        assert not spec.contains(version)
+
+    @pytest.mark.parametrize(
         (
             "specifier",
             "initial_prereleases",
@@ -645,6 +656,9 @@ class TestSpecifier:
             (">=1.0", False, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0", True, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0", False, False, ["1.0", "2.0a1"], ["1.0"]),
+            # Test that invalid versions are discarded
+            (">=1.0", None, None, ["not a valid version"], []),
+            (">=1.0", None, None, ["1.0", "not a valid version"], ["1.0"]),
         ],
     )
     def test_specifier_filter(
@@ -960,6 +974,13 @@ class TestSpecifierSet:
             (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            # Test that invalid versions are discarded
+            ("", None, None, ["invalid version"], []),
+            ("", None, False, ["invalid version"], []),
+            ("", False, None, ["invalid version"], []),
+            ("", None, None, ["1.0", "invalid version"], ["1.0"]),
+            ("", None, False, ["1.0", "invalid version"], ["1.0"]),
+            ("", False, None, ["1.0", "invalid version"], ["1.0"]),
         ],
     )
     def test_specifier_filter(
@@ -1331,6 +1352,16 @@ class TestSpecifierSet:
         spec = SpecifierSet(specifier)
         kwargs = {"prereleases": prereleases} if prereleases is not None else {}
         assert spec.contains(version, **kwargs) == expected
+
+    @pytest.mark.parametrize(
+        ("specifier", "input"),
+        [
+            (">=1.0", "not a valid version"),
+        ],
+    )
+    def test_contains_rejects_invalid_specifier(self, specifier, input):
+        spec = SpecifierSet(specifier, prereleases=True)
+        assert not spec.contains(input)
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),
