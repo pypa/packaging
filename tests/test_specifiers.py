@@ -179,7 +179,7 @@ class TestSpecifier:
             "1.0-POST1",
             "1.0-5",
             # Local version case insensitivity
-            "1.0+AbC"
+            "1.0+AbC",
             # Integer Normalization
             "1.01",
             "1.0a05",
@@ -495,6 +495,17 @@ class TestSpecifier:
             assert not spec.contains(Version(version))
 
     @pytest.mark.parametrize(
+        ("spec", "version"),
+        [
+            ("==1.0", "not a valid version"),
+            ("===invalid", "invalid"),
+        ],
+    )
+    def test_invalid_spec(self, spec, version):
+        spec = Specifier(spec, prereleases=True)
+        assert not spec.contains(version)
+
+    @pytest.mark.parametrize(
         (
             "specifier",
             "initial_prereleases",
@@ -645,6 +656,9 @@ class TestSpecifier:
             (">=1.0", False, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0", True, True, ["1.0", "2.0a1"], ["1.0", "2.0a1"]),
             (">=1.0", False, False, ["1.0", "2.0a1"], ["1.0"]),
+            # Test that invalid versions are discarded
+            (">=1.0", None, None, ["not a valid version"], []),
+            (">=1.0", None, None, ["1.0", "not a valid version"], ["1.0"]),
         ],
     )
     def test_specifier_filter(
@@ -960,6 +974,13 @@ class TestSpecifierSet:
             (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+            # Test that invalid versions are discarded
+            ("", None, None, ["invalid version"], []),
+            ("", None, False, ["invalid version"], []),
+            ("", False, None, ["invalid version"], []),
+            ("", None, None, ["1.0", "invalid version"], ["1.0"]),
+            ("", None, False, ["1.0", "invalid version"], ["1.0"]),
+            ("", False, None, ["1.0", "invalid version"], ["1.0"]),
         ],
     )
     def test_specifier_filter(
@@ -973,6 +994,374 @@ class TestSpecifierSet:
         kwargs = {"prereleases": prereleases} if prereleases is not None else {}
 
         assert list(spec.filter(input, **kwargs)) == expected
+
+    @pytest.mark.parametrize(
+        ("specifier", "prereleases", "input", "expected"),
+        [
+            # !=1.*, !=2.*, !=3.0 leaves gap at 3.0 prereleases
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
+                None,
+                ["3.0.dev0", "3.0a1"],
+                ["3.0.dev0", "3.0a1"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
+                None,
+                ["0.9", "3.0.dev0", "3.0a1", "4.0"],
+                ["3.0.dev0", "3.0a1"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
+                True,
+                ["0.9", "3.0.dev0", "3.0a1", "4.0"],
+                ["3.0.dev0", "3.0a1"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
+                False,
+                ["0.9", "3.0.dev0", "3.0a1", "4.0"],
+                [],
+            ),
+            # >=1.0a1,!=1.*,!=2.*,<3.0 has no matching versions
+            # because <3.0 excludes 3.0 prereleases
+            (
+                ">=1.0a1,!=1.*,!=2.*,<3.0",
+                None,
+                ["1.0a1", "2.0a1", "3.0a1"],
+                [],
+            ),
+            (
+                ">=1.0a1,!=1.*,!=2.*,<3.0",
+                True,
+                ["1.0a1", "2.0a1", "3.0a1"],
+                [],
+            ),
+            (
+                ">=1.0a1,!=1.*,!=2.*,<3.0",
+                False,
+                ["1.0a1", "2.0a1", "3.0a1"],
+                [],
+            ),
+            # >=1.0.dev0,!=1.*,!=2.*,<3.0.dev0 has no matching versions
+            (
+                ">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0",
+                None,
+                ["1.0.dev0", "2.0.dev0", "3.0.dev0"],
+                [],
+            ),
+            (
+                ">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0",
+                True,
+                ["1.0.dev0", "2.0.dev0", "3.0.dev0"],
+                [],
+            ),
+            (
+                ">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0",
+                False,
+                ["1.0.dev0", "2.0.dev0", "3.0.dev0"],
+                [],
+            ),
+            # Gaps with post-releases
+            (
+                ">=1.0,!=1.0,!=1.1,<2.0",
+                None,
+                ["1.0.post1", "1.1.post1"],
+                ["1.0.post1", "1.1.post1"],
+            ),
+            (
+                ">=1.0,!=1.0,!=1.1,<2.0",
+                None,
+                ["0.9", "1.0.post1", "1.1.post1", "2.0"],
+                ["1.0.post1", "1.1.post1"],
+            ),
+            (
+                ">=1.0,!=1.0,!=1.1,<2.0",
+                True,
+                ["0.9", "1.0.post1", "1.1.post1", "2.0"],
+                ["1.0.post1", "1.1.post1"],
+            ),
+            (
+                ">=1.0,!=1.0,!=1.1,<2.0",
+                False,
+                ["0.9", "1.0.post1", "1.1.post1", "2.0"],
+                ["1.0.post1", "1.1.post1"],
+            ),
+            # Dev version gaps
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4",
+                None,
+                ["3.0.dev0", "3.1.dev0"],
+                ["3.0.dev0", "3.1.dev0"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4",
+                None,
+                ["0.5", "3.0.dev0", "3.1.dev0", "5.0"],
+                ["3.0.dev0", "3.1.dev0"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4",
+                True,
+                ["0.5", "3.0.dev0", "3.1.dev0", "5.0"],
+                ["3.0.dev0", "3.1.dev0"],
+            ),
+            (
+                ">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4",
+                False,
+                ["0.5", "3.0.dev0", "3.1.dev0", "5.0"],
+                [],
+            ),
+            # Test that < (exclusive) excludes prereleases of the specified version
+            # but allows prereleases of earlier versions.
+            # <1.1 excludes 1.1.dev0, 1.1a1, etc. but allows 1.0a1, 1.0b1
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                None,
+                ["1.0a1", "1.0b1"],
+                ["1.0a1", "1.0b1"],
+            ),
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                None,
+                ["0.9", "1.0a1", "1.0b1", "1.1"],
+                ["1.0a1", "1.0b1"],
+            ),
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                None,
+                ["1.0a1", "1.0b1", "1.1.dev0", "1.1a1"],
+                ["1.0a1", "1.0b1"],
+            ),
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                True,
+                ["0.9", "1.0a1", "1.0b1", "1.1"],
+                ["1.0a1", "1.0b1"],
+            ),
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                True,
+                ["1.0a1", "1.0b1", "1.1.dev0", "1.1a1"],
+                ["1.0a1", "1.0b1"],
+            ),
+            (
+                ">=1.0a1,!=1.0,<1.1",
+                False,
+                ["0.9", "1.0a1", "1.0b1", "1.1"],
+                [],
+            ),
+            # Test that <= (inclusive) allows prereleases of the specified version
+            # when explicitly requested, but follows default prerelease filtering
+            # when prereleases=None (excludes them if final releases present)
+            (
+                ">=0.9,!=0.9,<=1.0",
+                None,
+                ["0.9.post1", "1.0.dev0", "1.0a1", "1.0"],
+                [
+                    "0.9.post1",
+                    "1.0",
+                ],  # prereleases filtered out due to presence of final release
+            ),
+            (
+                ">=0.9,!=0.9,<=1.0",
+                None,
+                ["0.9.post1", "1.0.dev0", "1.0a1", "1.0", "1.0.post1"],
+                [
+                    "0.9.post1",
+                    "1.0",
+                ],  # dev/alpha filtered out; post-releases not included with <=
+            ),
+            (
+                ">=0.9,!=0.9,<=1.0",
+                True,
+                ["0.9.post1", "1.0.dev0", "1.0a1", "1.0", "1.1"],
+                [
+                    "0.9.post1",
+                    "1.0.dev0",
+                    "1.0a1",
+                    "1.0",
+                ],  # includes prereleases when explicitly True
+            ),
+            (
+                ">=0.9,!=0.9,<=1.0",
+                False,
+                ["0.9.post1", "1.0.dev0", "1.0a1", "1.0", "1.1"],
+                ["0.9.post1", "1.0"],
+            ),
+            # Epoch-based gaps
+            (
+                ">=1!0,!=1!1.*,!=1!2.*,<1!3",
+                None,
+                ["1!0.5", "1!2.5"],
+                ["1!0.5"],
+            ),
+            (
+                ">=1!0,!=1!1.*,!=1!2.*,<1!3",
+                None,
+                ["0!5.0", "1!0.5", "1!2.5", "2!0.0"],
+                ["1!0.5"],
+            ),
+            (
+                ">=1!0,!=1!1.*,!=1!2.*,<1!3",
+                True,
+                ["0!5.0", "1!0.5", "1!2.5", "2!0.0"],
+                ["1!0.5"],
+            ),
+            (
+                ">=1!0,!=1!1.*,!=1!2.*,<1!3",
+                False,
+                ["0!5.0", "1!0.5", "1!2.5", "2!0.0"],
+                ["1!0.5"],
+            ),
+        ],
+    )
+    def test_filter_exclusionary_bridges(self, specifier, prereleases, input, expected):
+        """
+        Test that filter correctly handles exclusionary bridges.
+
+        When specifiers exclude certain version ranges (e.g., !=1.*, !=2.*),
+        there may be "gaps" where only prerelease, dev, or post versions match.
+        The filter should return these matching versions regardless of whether
+        non-matching non-prerelease versions are present in the input.
+        """
+        spec = SpecifierSet(specifier)
+        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+        assert list(spec.filter(input, **kwargs)) == expected
+
+    @pytest.mark.parametrize(
+        ("specifier", "prereleases", "version", "expected"),
+        [
+            # !=1.*, !=2.*, !=3.0 leaves gap at 3.0 prereleases
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "3.0.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "3.0a1", True),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", True, "3.0.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", True, "3.0a1", True),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", False, "3.0.dev0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", False, "3.0a1", False),
+            # Versions outside the gap should not match
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "0.9", False),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "1.0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "2.0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "3.0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", None, "4.0", False),
+            # >=1.0a1,!=1.*,!=2.*,<3.0 has no matching versions
+            # because <3.0 excludes 3.0 prereleases
+            (">=1.0a1,!=1.*,!=2.*,<3.0", None, "1.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", None, "2.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", None, "3.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", True, "1.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", True, "2.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", False, "1.0a1", False),
+            (">=1.0a1,!=1.*,!=2.*,<3.0", False, "2.0a1", False),
+            # >=1.0.dev0,!=1.*,!=2.*,<3.0.dev0 has no matching versions
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", None, "1.0.dev0", False),
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", None, "2.0.dev0", False),
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", None, "3.0.dev0", False),
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", True, "1.0.dev0", False),
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", True, "2.0.dev0", False),
+            (">=1.0.dev0,!=1.*,!=2.*,<3.0.dev0", False, "1.0.dev0", False),
+            # Gaps with post-releases
+            (">=1.0,!=1.0,!=1.1,<2.0", None, "1.0.post1", True),
+            (">=1.0,!=1.0,!=1.1,<2.0", None, "1.1.post1", True),
+            (">=1.0,!=1.0,!=1.1,<2.0", None, "1.0", False),
+            (">=1.0,!=1.0,!=1.1,<2.0", None, "1.1", False),
+            (">=1.0,!=1.0,!=1.1,<2.0", None, "2.0", False),
+            (">=1.0,!=1.0,!=1.1,<2.0", True, "1.0.post1", True),
+            (">=1.0,!=1.0,!=1.1,<2.0", True, "1.1.post1", True),
+            (">=1.0,!=1.0,!=1.1,<2.0", False, "1.0.post1", True),
+            (">=1.0,!=1.0,!=1.1,<2.0", False, "1.1.post1", True),
+            # Dev version gaps
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "3.0.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "3.1.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "0.5", False),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "3.0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "3.1", False),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", None, "5.0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", True, "3.0.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", True, "3.1.dev0", True),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", False, "3.0.dev0", False),
+            (">=1,!=1.*,!=2.*,!=3.0,!=3.1,<4", False, "3.1.dev0", False),
+            # Test that < (exclusive) excludes prereleases of the specified version
+            # but allows prereleases of earlier versions
+            (">=1.0a1,!=1.0,<1.1", None, "1.0a1", True),
+            (">=1.0a1,!=1.0,<1.1", None, "1.0b1", True),
+            (">=1.0a1,!=1.0,<1.1", None, "0.9", False),
+            (">=1.0a1,!=1.0,<1.1", None, "1.0", False),
+            (">=1.0a1,!=1.0,<1.1", None, "1.1", False),
+            (">=1.0a1,!=1.0,<1.1", None, "1.1.dev0", False),
+            (">=1.0a1,!=1.0,<1.1", None, "1.1a1", False),
+            (">=1.0a1,!=1.0,<1.1", True, "1.0a1", True),
+            (">=1.0a1,!=1.0,<1.1", True, "1.0b1", True),
+            (">=1.0a1,!=1.0,<1.1", True, "1.1.dev0", False),
+            (">=1.0a1,!=1.0,<1.1", True, "1.1a1", False),
+            (">=1.0a1,!=1.0,<1.1", False, "1.0a1", False),
+            (">=1.0a1,!=1.0,<1.1", False, "1.0b1", False),
+            # Test that <= (inclusive) allows prereleases of the specified version
+            # when explicitly requested, but follows default prerelease filtering
+            (">=0.9,!=0.9,<=1.0", None, "0.9.post1", True),
+            (">=0.9,!=0.9,<=1.0", None, "1.0", True),
+            (
+                ">=0.9,!=0.9,<=1.0",
+                None,
+                "1.0.dev0",
+                True,
+            ),  # <= allows prereleases of specified version
+            (
+                ">=0.9,!=0.9,<=1.0",
+                None,
+                "1.0a1",
+                True,
+            ),  # <= allows prereleases of specified version
+            (
+                ">=0.9,!=0.9,<=1.0",
+                None,
+                "1.0.post1",
+                False,
+            ),  # 1.0.post1 > 1.0 so excluded by <=1.0
+            (">=0.9,!=0.9,<=1.0", True, "0.9.post1", True),
+            (">=0.9,!=0.9,<=1.0", True, "1.0.dev0", True),
+            (">=0.9,!=0.9,<=1.0", True, "1.0a1", True),
+            (">=0.9,!=0.9,<=1.0", True, "1.0", True),
+            (">=0.9,!=0.9,<=1.0", False, "0.9.post1", True),
+            (">=0.9,!=0.9,<=1.0", False, "1.0.dev0", False),
+            (">=0.9,!=0.9,<=1.0", False, "1.0a1", False),
+            (">=0.9,!=0.9,<=1.0", False, "1.0", True),
+            # Epoch-based gaps
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", None, "1!0.5", True),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", None, "1!2.5", False),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", None, "0!5.0", False),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", None, "2!0.0", False),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", True, "1!0.5", True),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", True, "0!5.0", False),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "1!0.5", True),
+            (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "0!5.0", False),
+        ],
+    )
+    def test_contains_exclusionary_bridges(
+        self, specifier, prereleases, version, expected
+    ):
+        """
+        Test that contains correctly handles exclusionary bridges.
+
+        When specifiers exclude certain version ranges (e.g., !=1.*, !=2.*),
+        there may be "gaps" where only prerelease, dev, or post versions match.
+        The contains method should return True for versions in these gaps
+        when prereleases=None, following PEP 440 logic.
+        """
+        spec = SpecifierSet(specifier)
+        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+        assert spec.contains(version, **kwargs) == expected
+
+    @pytest.mark.parametrize(
+        ("specifier", "input"),
+        [
+            (">=1.0", "not a valid version"),
+        ],
+    )
+    def test_contains_rejects_invalid_specifier(self, specifier, input):
+        spec = SpecifierSet(specifier, prereleases=True)
+        assert not spec.contains(input)
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),

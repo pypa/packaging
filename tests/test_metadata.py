@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+import email.message
+import inspect
 import pathlib
+import textwrap
 
 import pytest
 
@@ -184,10 +189,10 @@ class TestRawMetadata:
         with path.open("r", encoding="utf-8") as file:
             metadata_contents = file.read()
         raw, unparsed = metadata.parse_email(metadata_contents)
-        assert len(unparsed) == 1
+        assert len(unparsed) == 1  # "ThisIsNotReal" key
         assert unparsed["thisisnotreal"] == ["Hello!"]
-        assert len(raw) == 26
-        assert raw["metadata_version"] == "2.4"
+        assert len(raw) == 28
+        assert raw["metadata_version"] == "2.5"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
@@ -246,6 +251,8 @@ class TestRawMetadata:
         ]
         assert raw["dynamic"] == ["Obsoletes-Dist"]
         assert raw["description"] == "This description intentionally left blank.\n"
+        assert raw["import_names"] == ["beaglevote", "_beaglevote ; private"]
+        assert raw["import_namespaces"] == ["spam", "_bacon ; private"]
 
 
 class TestExceptionGroup:
@@ -262,7 +269,7 @@ class TestExceptionGroup:
 
 
 _RAW_EXAMPLE = {
-    "metadata_version": "2.3",
+    "metadata_version": "2.5",
     "name": "packaging",
     "version": "2023.0.0",
 }
@@ -282,12 +289,19 @@ class TestMetadata:
             assert isinstance(exc.__cause__, cause)
 
     def test_from_email(self):
-        metadata_version = "2.3"
+        metadata_version = "2.5"
         meta = metadata.Metadata.from_email(
             f"Metadata-Version: {metadata_version}", validate=False
         )
 
         assert meta.metadata_version == metadata_version
+        assert meta.import_names is None
+
+    def test_from_email_empty_import_name(self):
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.5\nImport-Name:\n", validate=False
+        )
+        assert meta.import_names == []
 
     def test_from_email_unparsed(self):
         with pytest.raises(ExceptionGroup) as exc_info:
@@ -778,3 +792,392 @@ class TestMetadata:
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.license_files  # noqa: B018
+
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_valid_import_names(self, key):
+        import_names = [
+            "packaging",
+            "packaging.metadata",
+            "_utils ; private",
+            "_stuff;private",
+        ]
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
+
+        assert getattr(meta, key) == import_names
+
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    @pytest.mark.parametrize(
+        "name", ["not-valid", "still.not-valid", "stuff;", "stuff; extra"]
+    )
+    def test_invalid_import_names_identifier(self, key, name):
+        meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
+
+        with pytest.raises(metadata.InvalidMetadata):
+            getattr(meta, key)
+
+    @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
+    def test_invalid_import_names_keyword(self, key):
+        import_names = ["class"]
+        meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
+
+        with pytest.raises(metadata.InvalidMetadata):
+            getattr(meta, key)
+
+
+class TestMetadataWriting:
+    def test_write_metadata(self):
+        meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.5\nname: packaging\nversion: 2023.0.0\n\n"
+        )
+
+    def test_write_metadata_with_description(self):
+        # Intentionally out of order to make sure it is written in order
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "Hello",
+                "description": "Hello\n\nWorld👋",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: Hello\n"
+            "version: 1.2.3\n\nHello\n\nWorld👋"
+        )
+        written = meta.as_rfc822().as_bytes()
+        assert (
+            written
+            == "metadata-version: 2.3\nname: Hello\n"
+            "version: 1.2.3\n\nHello\n\nWorld👋".encode()
+        )
+
+    def test_multiline_license(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "packaging",
+                "license": "Hello\nWorld🐍",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nlicense: Hello\n         World🐍\n\n"
+        )
+        written = meta.as_rfc822().as_bytes()
+        assert (
+            written
+            == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nlicense: Hello\n         World🐍\n\n".encode()
+        )
+
+    def test_large(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "author": "Example!",
+                "author_email": "Unknown <example@example.com>",
+                "classifiers": [
+                    "Development Status :: 4 - Beta",
+                    "Programming Language :: Python",
+                ],
+                "description": "some readme 👋\n",
+                "description_content_type": "text/markdown",
+                "keywords": ["trampolim", "is", "interesting"],
+                "license": "some license text",
+                "maintainer_email": "Other Example <other@example.com>",
+                "metadata_version": "2.1",
+                "name": "full_metadata",
+                "project_urls": {
+                    "homepage": "example.com",
+                    "documentation": "readthedocs.org",
+                    "repository": "github.com/some/repo",
+                    "changelog": "github.com/some/repo/blob/master/CHANGELOG.rst",
+                },
+                "provides_extra": ["test"],
+                "requires_dist": [
+                    "dependency1",
+                    "dependency2>1.0.0",
+                    "dependency3[extra]",
+                    'dependency4; os_name != "nt"',
+                    'dependency5[other-extra]>1.0; os_name == "nt"',
+                    'test_dependency; extra == "test"',
+                    'test_dependency[test_extra]; extra == "test"',
+                    "test_dependency[test_extra2]>3.0; "
+                    'os_name == "nt" and extra == "test"',
+                ],
+                "requires_python": ">=3.8",
+                "summary": "A package with all the metadata :)",
+                "version": "3.2.1",
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.1"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("summary", "A package with all the metadata :)"),
+            ("description-content-type", "text/markdown"),
+            ("keywords", "trampolim,is,interesting"),
+            ("author", "Example!"),
+            ("author-email", "Unknown <example@example.com>"),
+            ("maintainer-email", "Other Example <other@example.com>"),
+            ("license", "some license text"),
+            ("classifier", "Development Status :: 4 - Beta"),
+            ("classifier", "Programming Language :: Python"),
+            ("requires-dist", "dependency1"),
+            ("requires-dist", "dependency2>1.0.0"),
+            ("requires-dist", "dependency3[extra]"),
+            ("requires-dist", 'dependency4; os_name != "nt"'),
+            ("requires-dist", 'dependency5[other-extra]>1.0; os_name == "nt"'),
+            ("requires-dist", 'test_dependency; extra == "test"'),
+            ("requires-dist", 'test_dependency[test_extra]; extra == "test"'),
+            (
+                "requires-dist",
+                'test_dependency[test_extra2]>3.0; os_name == "nt" and extra == "test"',
+            ),
+            ("requires-python", ">=3.8"),
+            ("project-url", "homepage, example.com"),
+            ("project-url", "documentation, readthedocs.org"),
+            ("project-url", "repository, github.com/some/repo"),
+            (
+                "project-url",
+                "changelog, github.com/some/repo/blob/master/CHANGELOG.rst",
+            ),
+            ("provides-extra", "test"),
+        ]
+
+        assert core_metadata.get_payload() == "some readme 👋\n"
+
+    def test_modern_license(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.4",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "license_expression": "MIT",
+                "license_files": ["LICENSE.txt", "LICENSE"],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.4"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("license-expression", "MIT"),
+            ("license-file", "LICENSE.txt"),
+            ("license-file", "LICENSE"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test__import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": ["one", "two"],
+                "import_namespaces": ["three"],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", "one"),
+            ("import-name", "two"),
+            ("import-namespace", "three"),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    def test_empty_import_names(self):
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.5",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                "import_names": [],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.5"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            ("import-name", ""),
+        ]
+
+        assert core_metadata.get_payload() is None
+
+    @pytest.mark.parametrize(
+        ("items", "data"),
+        [
+            pytest.param(
+                [],
+                "",
+                id="empty",
+            ),
+            pytest.param(
+                [
+                    ("Foo", "Bar"),
+                ],
+                "Foo: Bar\n",
+                id="simple",
+            ),
+            pytest.param(
+                [
+                    ("Foo", "Bar"),
+                    ("Foo2", "Bar2"),
+                ],
+                """\
+                Foo: Bar
+                Foo2: Bar2
+                """,
+                id="multiple",
+            ),
+            pytest.param(
+                [
+                    ("Foo", "Unicøde"),
+                ],
+                "Foo: Unicøde\n",
+                id="unicode",
+            ),
+            pytest.param(
+                [
+                    ("Foo", "🕵️"),
+                ],
+                "Foo: 🕵️\n",
+                id="emoji",
+            ),
+            pytest.param(
+                [
+                    ("Item", None),
+                ],
+                "",
+                id="none",
+            ),
+            pytest.param(
+                [
+                    ("ItemA", "ValueA"),
+                    ("ItemB", "ValueB"),
+                    ("ItemC", "ValueC"),
+                ],
+                """\
+                ItemA: ValueA
+                ItemB: ValueB
+                ItemC: ValueC
+                """,
+                id="order 1",
+            ),
+            pytest.param(
+                [
+                    ("ItemB", "ValueB"),
+                    ("ItemC", "ValueC"),
+                    ("ItemA", "ValueA"),
+                ],
+                """\
+                ItemB: ValueB
+                ItemC: ValueC
+                ItemA: ValueA
+                """,
+                id="order 2",
+            ),
+            pytest.param(
+                [
+                    ("ItemA", "ValueA1"),
+                    ("ItemB", "ValueB"),
+                    ("ItemC", "ValueC"),
+                    ("ItemA", "ValueA2"),
+                ],
+                """\
+                ItemA: ValueA1
+                ItemB: ValueB
+                ItemC: ValueC
+                ItemA: ValueA2
+                """,
+                id="multiple keys",
+            ),
+            pytest.param(
+                [
+                    ("ItemA", "ValueA"),
+                    ("ItemB", "ValueB1\nValueB2\nValueB3"),
+                    ("ItemC", "ValueC"),
+                ],
+                """\
+                ItemA: ValueA
+                ItemB: ValueB1
+                       ValueB2
+                       ValueB3
+                ItemC: ValueC
+                """,
+                id="multiline",
+            ),
+        ],
+    )
+    def test_headers(self, items: list[tuple[str, None | str]], data: str) -> None:
+        message = metadata.RFC822Message()
+
+        for name, value in items:
+            if value:
+                message[name] = value
+
+        data = textwrap.dedent(data) + "\n"
+        assert str(message) == data
+        assert bytes(message) == data.encode()
+
+        assert email.message_from_string(str(message)).items() == [
+            (a, "\n       ".join(b.splitlines())) for a, b in items if b is not None
+        ]
+
+    def test_body(self) -> None:
+        message = metadata.RFC822Message()
+
+        message["ItemA"] = "ValueA"
+        message["ItemB"] = "ValueB"
+        message["ItemC"] = "ValueC"
+        body = inspect.cleandoc(
+            """
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris
+            congue semper fermentum. Nunc vitae tempor ante. Aenean aliquet
+            posuere lacus non faucibus.  In porttitor congue luctus. Vivamus eu
+            dignissim orci. Donec egestas mi ac ipsum volutpat, vel elementum
+            sapien consectetur. Praesent dictum finibus fringilla. Sed vel
+            feugiat leo. Nulla a pharetra augue, at tristique metus.
+
+            Aliquam fermentum elit at risus sagittis, vel pretium augue congue.
+            Donec leo risus, faucibus vel posuere efficitur, feugiat ut leo.
+            Aliquam vestibulum vel dolor id elementum. Ut bibendum nunc interdum
+            neque interdum, vel tincidunt lacus blandit. Ut volutpat
+            sollicitudin dapibus. Integer vitae lacinia ex, eget finibus nulla.
+            Donec sit amet ante in neque pulvinar faucibus sed nec justo.  Fusce
+            hendrerit massa libero, sit amet pulvinar magna tempor quis. ø
+            """
+        )
+        headers = inspect.cleandoc(
+            """
+            ItemA: ValueA
+            ItemB: ValueB
+            ItemC: ValueC
+            """
+        )
+        full = f"{headers}\n\n{body}"
+
+        message.set_payload(textwrap.dedent(body))
+
+        assert str(message) == full
+
+        new_message = email.message_from_string(str(message))
+        assert new_message.items() == message.items()
+        assert new_message.get_payload() == message.get_payload()
+
+        assert bytes(message) == full.encode("utf-8")
