@@ -633,7 +633,7 @@ class TestRequirementBehaviour:
 
     @pytest.mark.parametrize(
         "url_or_specifier",
-        ["", "@ https://url ", "!=2.0", "==2.*"],
+        ["", " @ https://url ", "!=2.0", "==2.*"],
     )
     @pytest.mark.parametrize("extras", ["", "[a]", "[a,b]", "[a1,b1,b2]"])
     @pytest.mark.parametrize(
