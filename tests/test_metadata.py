@@ -698,6 +698,12 @@ class TestMetadata:
                 "(LicenseRef-Special-License OR licenseref-OtherLicense) OR unlicense",
                 "(LicenseRef-Special-License OR LicenseRef-OtherLicense) OR Unlicense",
             ),
+            # we don't canonicalize redundant parens, instead leaving them as-is
+            # in the license expression.
+            ("(MIT)", "(MIT)"),
+            ("((MIT))", "((MIT))"),
+            ("(( MIT ))", "((MIT))"),
+            ("((MIT AND (MIT)))", "((MIT AND (MIT)))"),
         ],
     )
     def test_valid_license_expression(self, license_expression, expected):
