@@ -322,11 +322,16 @@ class Specifier(BaseSpecifier):
 
     @property
     def _canonical_spec(self) -> tuple[str, str]:
+        operator, version = self._spec
+        if operator == "===":
+            return operator, version
+
         canonical_version = canonicalize_version(
-            self._spec[1],
-            strip_trailing_zero=(self._spec[0] != "~="),
+            version,
+            strip_trailing_zero=(operator != "~="),
         )
-        return self._spec[0], canonical_version
+
+        return operator, canonical_version
 
     def __hash__(self) -> int:
         return hash(self._canonical_spec)

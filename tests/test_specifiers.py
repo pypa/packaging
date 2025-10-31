@@ -1511,3 +1511,38 @@ class TestSpecifierSet:
         combination = SpecifierSet("~=1.18.0") & SpecifierSet("~=1.18")
         assert "1.19.5" not in combination
         assert "1.18.0" in combination
+
+    @pytest.mark.parametrize(
+        ("spec1", "spec2", "input_versions"),
+        [
+            # Test zero padding
+            ("===1.0", "===1.0.0", ["1.0", "1.0.0"]),
+            ("===1.0.0", "===1.0", ["1.0", "1.0.0"]),
+            ("===1.0", "===1.0.0", ["1.0.0", "1.0"]),
+            ("===1.0.0", "===1.0", ["1.0.0", "1.0"]),
+            # Test local versions
+            ("===1.0", "===1.0+local", ["1.0", "1.0+local"]),
+            ("===1.0+local", "===1.0", ["1.0", "1.0+local"]),
+            ("===1.0", "===1.0+local", ["1.0+local", "1.0"]),
+            ("===1.0+local", "===1.0", ["1.0+local", "1.0"]),
+        ],
+    )
+    def test_arbitrary_equality_is_intersection_preserving(
+        self, spec1, spec2, input_versions
+    ):
+        """
+        In general we expect for two specifiers s1 and s2, that the two statements
+        are equivalent:
+         * set((s1, s2).filter(versions))
+         * set(s1.filter(versions)) & set(s2.filter(versions)).
+
+        This is tricky with the arbitrary equality operator (===) since it does
+        not follow normal version comparison rules.
+        """
+        s1 = Specifier(spec1)
+        s2 = Specifier(spec2)
+        versions1 = set(s1.filter(input_versions))
+        versions2 = set(s2.filter(input_versions))
+        combined_versions = set(SpecifierSet(f"{spec1},{spec2}").filter(input_versions))
+
+        assert versions1 & versions2 == combined_versions
