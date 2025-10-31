@@ -1,5 +1,9 @@
 # mypy: disallow-untyped-defs=False, disallow-untyped-calls=False
 
+# /// script
+# dependencies = ["nox>=2025.02.09"]
+# ///
+
 import contextlib
 import datetime
 import difflib
@@ -17,29 +21,28 @@ from pathlib import Path
 
 import nox
 
-nox.options.sessions = ["lint"]
+nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
+nox.options.default_venv_backend = "uv|virtualenv"
+
+PYPROJECT = nox.project.load_toml("pyproject.toml")
+PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 
 
 @nox.session(
     python=[
-        "3.8",
-        "3.9",
-        "3.10",
-        "3.11",
-        "3.12",
-        "3.13",
-        "3.14",
+        *PYTHON_VERSIONS,
         "pypy3.8",
         "pypy3.9",
         "pypy3.10",
         "pypy3.11",
-    ]
+    ],
+    default=False,
 )
 def tests(session):
     coverage = ["python", "-m", "coverage"]
 
-    session.install("-r", "tests/requirements.txt")
+    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
     session.install(".")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
@@ -78,7 +81,7 @@ def lint(session):
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.9")
+@nox.session(python="3.9", default=False)
 def docs(session):
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")
@@ -104,7 +107,7 @@ def docs(session):
         )
 
 
-@nox.session
+@nox.session(default=False)
 def release(session):
     package_name = "packaging"
     version_file = Path(f"src/{package_name}/__init__.py")
@@ -183,7 +186,7 @@ def release(session):
     webbrowser.open("https://github.com/pypa/packaging/releases")
 
 
-@nox.session
+@nox.session(default=False)
 def update_licenses(session: nox.Session) -> None:
     session.install("httpx")
     session.run("python", "tasks/licenses.py")
@@ -338,3 +341,7 @@ def _changelog_add_unreleased_title(*, file):
         # Duplicate all the remaining lines.
         for line in original:
             replacement.write(line)
+
+
+if __name__ == "__main__":
+    nox.main()
