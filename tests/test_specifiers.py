@@ -1515,10 +1515,16 @@ class TestSpecifierSet:
     @pytest.mark.parametrize(
         ("spec1", "spec2", "input_versions"),
         [
+            # Test zero padding
             ("===1.0", "===1.0.0", ["1.0", "1.0.0"]),
             ("===1.0.0", "===1.0", ["1.0", "1.0.0"]),
             ("===1.0", "===1.0.0", ["1.0.0", "1.0"]),
             ("===1.0.0", "===1.0", ["1.0.0", "1.0"]),
+            # Test local versions
+            ("===1.0", "===1.0+local", ["1.0", "1.0+local"]),
+            ("===1.0+local", "===1.0", ["1.0", "1.0+local"]),
+            ("===1.0", "===1.0+local", ["1.0+local", "1.0"]),
+            ("===1.0+local", "===1.0", ["1.0+local", "1.0"]),
         ],
     )
     def test_arbitrary_equality_is_intersection_preserving(
