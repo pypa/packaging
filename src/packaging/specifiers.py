@@ -248,7 +248,7 @@ class Specifier(BaseSpecifier):
         self._prereleases = prereleases
 
     @property
-    def prereleases(self) -> bool:
+    def prereleases(self) -> bool | None:
         # If there is an explicit prereleases set for this, then we'll just
         # blindly use that.
         if self._prereleases is not None:
@@ -256,16 +256,22 @@ class Specifier(BaseSpecifier):
 
         # Only the "!=" operator does not imply prereleases when
         # the version in the specifier is a prerelease.
-        operator, version = self._spec
+        operator, item = self._spec
         if operator != "!=":
             # The == specifier can include a trailing .*, if it does we
             # want to remove before parsing.
-            if operator == "==" and version.endswith(".*"):
-                version = version[:-2]
+            if operator == "==" and item.endswith(".*"):
+                item = item[:-2]
+
+            # "===" can have arbitrary string versions, so we cannot
+            # parse those, we take prereleases as False for those.
+            version = _coerce_version(item)
+            if version is None:
+                return None
 
             # Parse the version, and if it is a pre-release than this
             # specifier allows pre-releases.
-            if Version(version).is_prerelease:
+            if version.is_prerelease:
                 return True
 
         return False
@@ -500,7 +506,7 @@ class Specifier(BaseSpecifier):
         # same version in the spec.
         return True
 
-    def _compare_arbitrary(self, prospective: Version, spec: str) -> bool:
+    def _compare_arbitrary(self, prospective: Version | str, spec: str) -> bool:
         return str(prospective).lower() == str(spec).lower()
 
     def __contains__(self, item: str | Version) -> bool:
@@ -590,9 +596,15 @@ class Specifier(BaseSpecifier):
         for version in iterable:
             parsed_version = _coerce_version(version)
             if parsed_version is None:
-                continue
-
-            if operator_callable(parsed_version, self.version):
+                # === operator can match arbitrary (non-version) strings
+                if self.operator == "===" and self._compare_arbitrary(
+                    version, self.version
+                ):
+                    yield version
+                # != operator: non-version strings pass through (they're "not equal")
+                elif self.operator == "!=":
+                    yield version
+            elif operator_callable(parsed_version, self.version):
                 # If it's not a prerelease or prereleases are allowed, yield it directly
                 if not parsed_version.is_prerelease or include_prereleases:
                     found_non_prereleases = True
@@ -905,13 +917,12 @@ class SpecifierSet(BaseSpecifier):
         True
         """
         version = _coerce_version(item)
-        if version is None:
-            return False
 
-        if installed and version.is_prerelease:
+        if version is not None and installed and version.is_prerelease:
             prereleases = True
 
-        return bool(list(self.filter([version], prereleases=prereleases)))
+        check_item = item if version is None else version
+        return bool(list(self.filter([check_item], prereleases=prereleases)))
 
     def filter(
         self, iterable: Iterable[UnparsedVersionVar], prereleases: bool | None = None
@@ -980,8 +991,8 @@ class SpecifierSet(BaseSpecifier):
                 return (
                     item
                     for item in iterable
-                    if (version := _coerce_version(item)) is not None
-                    and not version.is_prerelease
+                    if (version := _coerce_version(item)) is None
+                    or not version.is_prerelease
                 )
 
         # Finally if prereleases is None, apply PEP 440 logic:
@@ -991,9 +1002,7 @@ class SpecifierSet(BaseSpecifier):
 
         for item in iterable:
             parsed_version = _coerce_version(item)
-            if parsed_version is None:
-                continue
-            if parsed_version.is_prerelease:
+            if parsed_version is not None and parsed_version.is_prerelease:
                 found_prereleases.append(item)
             else:
                 filtered.append(item)
