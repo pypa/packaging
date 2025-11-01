@@ -35,6 +35,18 @@ Documentation = "https://packaging.pypa.io/"
 Source = "https://github.com/pypa/packaging"
 
 
+[dependency-groups]
+test = [
+  "coverage[toml]>=5.0.0",
+  "pip>=21.1",
+  "pretend",
+  "pytest>=6.2.0",
+  "tomli; python_version<'3.11'",
+  "tomli_w",
+]
+dev = [{ include-group = "test" }]
+
+
 [tool.flit.sdist]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
