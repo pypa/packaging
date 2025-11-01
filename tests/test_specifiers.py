@@ -697,6 +697,20 @@ class TestSpecifier:
                 ["invalid", "foobar"],
             ),
             ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0", "invalid"]),
+            # Test that !== ignores prereleases parameter for non-PEP 440 versions
+            ("!=1.0", None, True, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", None, False, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", True, None, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", False, None, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", True, True, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", False, False, ["invalid", "foobar"], ["invalid", "foobar"]),
+            # Test that === ignores prereleases parameter for non-PEP 440 versions
+            ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, False, ["foobar", "foo"], ["foobar"]),
         ],
     )
     def test_specifier_filter(
@@ -788,6 +802,16 @@ class TestSpecifierSet:
         assert spec.contains(version)
         assert parse(version) in spec
         assert spec.contains(parse(version))
+
+    @pytest.mark.parametrize(
+        "prereleases",
+        [None, False, True],
+    )
+    def test_empty_specifier_arbitrary_string(self, prereleases):
+        """Test empty SpecifierSet accepts arbitrary strings."""
+
+        spec = SpecifierSet("", prereleases=prereleases)
+        assert spec.contains("foobar")
 
     def test_create_from_specifiers(self):
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
@@ -1012,13 +1036,13 @@ class TestSpecifierSet:
             (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
-            # Test that invalid versions are discarded
+            # Test that invalid versions are accepted by empty SpecifierSet
             ("", None, None, ["invalid version"], ["invalid version"]),
-            ("", None, False, ["invalid version"], []),
-            ("", False, None, ["invalid version"], []),
+            ("", None, False, ["invalid version"], ["invalid version"]),
+            ("", False, None, ["invalid version"], ["invalid version"]),
             ("", None, None, ["1.0", "invalid version"], ["1.0", "invalid version"]),
-            ("", None, False, ["1.0", "invalid version"], ["1.0"]),
-            ("", False, None, ["1.0", "invalid version"], ["1.0"]),
+            ("", None, False, ["1.0", "invalid version"], ["1.0", "invalid version"]),
+            ("", False, None, ["1.0", "invalid version"], ["1.0", "invalid version"]),
             # Test arbitrary equality (===)
             ("===foobar", None, None, ["foobar", "foo", "bar"], ["foobar"]),
             ("===foobar", None, None, ["foo", "bar"], []),
@@ -1068,6 +1092,20 @@ class TestSpecifierSet:
                 ["invalid", "1.0", "2.0", "3.0"],
                 ["1.0", "3.0"],
             ),
+            # Test that != ignores prereleases parameter for non-PEP 440 versions
+            ("!=1.0", None, True, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", None, False, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", True, None, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", False, None, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", True, True, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", False, False, ["invalid", "foobar"], ["invalid", "foobar"]),
+            # Test that === ignores prereleases parameter for non-PEP 440 versions
+            ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, False, ["foobar", "foo"], ["foobar"]),
         ],
     )
     def test_specifier_filter(
