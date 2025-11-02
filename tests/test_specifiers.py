@@ -598,7 +598,7 @@ class TestSpecifier:
         [
             ("1.0.0", "===1.0", False),
             ("1.0.dev0", "===1.0", False),
-            # Test exact arbitrary equality (===)
+            # Test identity comparison by itself
             ("1.0", "===1.0", True),
             ("1.0.dev0", "===1.0.dev0", True),
             # Test that local versions don't match
@@ -759,13 +759,7 @@ class TestSpecifier:
             # Test != with invalid versions (should not pass as versions are not valid)
             ("!=1.0", None, None, ["invalid", "foobar"], []),
             ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["2.0"]),
-            (
-                "!=2.0.*",
-                None,
-                None,
-                ["invalid", "foobar", "2.0"],
-                []
-            ),
+            ("!=2.0.*", None, None, ["invalid", "foobar", "2.0"], []),
             ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0"]),
             # Test that !== ignores prereleases parameter for non-PEP 440 versions
             ("!=1.0", None, True, ["invalid", "foobar"], []),
@@ -1020,14 +1014,33 @@ class TestSpecifierSet:
         assert spec.contains(parse(version))
 
     @pytest.mark.parametrize(
-        "prereleases",
-        [None, False, True],
+        ("prereleases", "versions", "expected"),
+        [
+            # single arbitrary string
+            (None, ["foobar"], ["foobar"]),
+            (False, ["foobar"], ["foobar"]),
+            (True, ["foobar"], ["foobar"]),
+            # arbitrary string with a stable version present
+            (None, ["foobar", "1.0"], ["foobar", "1.0"]),
+            (False, ["foobar", "1.0"], ["foobar", "1.0"]),
+            (True, ["foobar", "1.0"], ["foobar", "1.0"]),
+            # arbitrary string with a prerelease only
+            (None, ["foobar", "1.0a1"], ["foobar", "1.0a1"]),
+            (False, ["foobar", "1.0a1"], ["foobar"]),
+            (True, ["foobar", "1.0a1"], ["foobar", "1.0a1"]),
+        ],
     )
-    def test_empty_specifier_arbitrary_string(self, prereleases):
+    def test_empty_specifier_arbitrary_string(self, prereleases, versions, expected):
         """Test empty SpecifierSet accepts arbitrary strings."""
 
         spec = SpecifierSet("", prereleases=prereleases)
+
+        # basic behavior preserved
         assert spec.contains("foobar")
+
+        # check filter behavior (no override of prereleases passed to filter)
+        kwargs = {}
+        assert list(spec.filter(versions, **kwargs)) == expected
 
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
