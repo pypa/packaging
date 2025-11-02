@@ -638,9 +638,6 @@ class Specifier(BaseSpecifier):
                     version, self.version
                 ):
                     yield version
-                # != operator: non-version strings pass through (they're "not equal")
-                elif self.operator == "!=":
-                    yield version
             elif operator_callable(parsed_version, self.version):
                 # If it's not a prerelease or prereleases are allowed, yield it directly
                 if not parsed_version.is_prerelease or include_prereleases:

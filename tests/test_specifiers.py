@@ -520,15 +520,14 @@ class TestSpecifier:
         ("spec_str", "version", "expected"),
         [
             ("==1.0", "not a valid version", False),
+            ("==1.*", "not a valid version", False),
             (">=1.0", "not a valid version", False),
             (">1.0", "not a valid version", False),
             ("<=1.0", "not a valid version", False),
             ("<1.0", "not a valid version", False),
             ("~=1.0", "not a valid version", False),
-            # Test invalid versions with != (should pass as "not equal")
-            ("!=1.0", "not a valid version", True),
-            ("!=1.0", "not a valid version", True),
-            ("!=2.0.*", "not a valid version", True),
+            ("!=1.0", "not a valid version", False),
+            ("!=1.*", "not a valid version", False),
             # Test with arbitrary equality (===)
             ("===invalid", "invalid", True),
             ("===foobar", "invalid", False),
@@ -757,24 +756,24 @@ class TestSpecifier:
                 ["foobar"],
             ),
             ("===1.0", None, None, ["1.0", "foobar", "invalid", "1.0.0"], ["1.0"]),
-            # Test != with invalid versions (should pass through as "not equal")
-            ("!=1.0", None, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["invalid", "2.0"]),
+            # Test != with invalid versions (should not pass as versions are not valid)
+            ("!=1.0", None, None, ["invalid", "foobar"], []),
+            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["2.0"]),
             (
                 "!=2.0.*",
                 None,
                 None,
                 ["invalid", "foobar", "2.0"],
-                ["invalid", "foobar"],
+                []
             ),
-            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0", "invalid"]),
+            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0"]),
             # Test that !== ignores prereleases parameter for non-PEP 440 versions
-            ("!=1.0", None, True, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", None, False, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", True, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", False, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", True, True, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", False, False, ["invalid", "foobar"], ["invalid", "foobar"]),
+            ("!=1.0", None, True, ["invalid", "foobar"], []),
+            ("!=1.0", None, False, ["invalid", "foobar"], []),
+            ("!=1.0", True, None, ["invalid", "foobar"], []),
+            ("!=1.0", False, None, ["invalid", "foobar"], []),
+            ("!=1.0", True, True, ["invalid", "foobar"], []),
+            ("!=1.0", False, False, ["invalid", "foobar"], []),
             # Test that === ignores prereleases parameter for non-PEP 440 versions
             ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
             ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
@@ -1267,7 +1266,7 @@ class TestSpecifierSet:
             ("===1.0", None, None, ["1.0", "1.0+downstream1"], ["1.0"]),
             # Test === combined with other operators (arbitrary string)
             (">=1.0,===foobar", None, None, ["foobar", "1.0", "2.0"], []),
-            ("!= 2.0,===foobar", None, None, ["foobar", "2.0", "bar"], ["foobar"]),
+            ("!=2.0,===foobar", None, None, ["foobar", "2.0", "bar"], []),
             # Test === combined with other operators (version string)
             (">=1.0,===1.5", None, None, ["1.0", "1.5", "2.0"], ["1.5"]),
             (">=2.0,===1.5", None, None, ["1.0", "1.5", "2.0"], []),
@@ -1282,23 +1281,23 @@ class TestSpecifierSet:
             ("===1.0", None, None, ["1.0", "foobar", "invalid", "1.0.0"], ["1.0"]),
             (">=1.0,===1.5", None, None, ["1.5", "foobar", "invalid"], ["1.5"]),
             # Test != with invalid versions (should pass through as "not equal")
-            ("!=1.0", None, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["invalid", "2.0"]),
+            ("!=1.0", None, None, ["invalid", "foobar"], []),
+            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["2.0"]),
             (
                 "!=2.0.*",
                 None,
                 None,
                 ["invalid", "foobar", "2.0"],
-                ["invalid", "foobar"],
+                [],
             ),
-            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0", "invalid"]),
+            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0"]),
             # Test != with invalid versions combined with other operators
             (
                 "!=1.0,!=2.0",
                 None,
                 None,
                 ["invalid", "1.0", "2.0", "3.0"],
-                ["invalid", "3.0"],
+                ["3.0"],
             ),
             (
                 ">=1.0,!=2.0",
@@ -1307,13 +1306,6 @@ class TestSpecifierSet:
                 ["invalid", "1.0", "2.0", "3.0"],
                 ["1.0", "3.0"],
             ),
-            # Test that != ignores prereleases parameter for non-PEP 440 versions
-            ("!=1.0", None, True, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", None, False, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", True, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", False, None, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", True, True, ["invalid", "foobar"], ["invalid", "foobar"]),
-            ("!=1.0", False, False, ["invalid", "foobar"], ["invalid", "foobar"]),
             # Test that === ignores prereleases parameter for non-PEP 440 versions
             ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
             ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
@@ -1730,19 +1722,19 @@ class TestSpecifierSet:
             ("1.0", "===1.0+downstream1", False),
             ("1.0+downstream1", "===1.0", False),
             # Test === combined with other operators (arbitrary string)
-            ("foobar", "===foobar,!=1.0", True),
+            ("foobar", "===foobar,!=1.0", False),
             ("1.0", "===foobar,!=1.0", False),
             ("foobar", ">=1.0,===foobar", False),
             # Test === combined with other operators (version string)
             ("1.5", ">=1.0,===1.5", True),
             ("1.5", ">=2.0,===1.5", False),  # Doesn't meet >=2.0
             ("2.5", ">=1.0,===2.5", True),
-            # Test != with invalid versions (should pass as "not equal")
-            ("invalid", "!=1.0", True),
-            ("foobar", "!=1.0", True),
-            ("invalid", "!=2.0.*", True),
+            # Test != with invalid versions (should not pass as not valid versions)
+            ("invalid", "!=1.0", False),
+            ("foobar", "!=1.0", False),
+            ("invalid", "!=2.0.*", False),
             # Test != with invalid versions combined with other operators
-            ("invalid", "!=1.0,!=2.0", True),
+            ("invalid", "!=1.0,!=2.0", False),
             ("foobar", ">=1.0,!=2.0", False),
             ("1.5", ">=1.0,!=2.0", True),
         ],
