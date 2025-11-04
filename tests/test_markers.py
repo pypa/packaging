@@ -314,6 +314,23 @@ class TestMarker:
                 {"extra": "different__punctuation_is_EQUAL"},
                 True,
             ),
+            # extra name that is also a valid version - version comparison applies
+            # if both sides are valid versions
+            ("extra == 'v8'", {"extra": "quux"}, False),
+            ("extra == 'v8'", {"extra": "v8"}, True),
+            # LHS and RHS are valid versions, so equality uses normalized version
+            ("extra == 'v8-dev'", {"extra": "v8-dev.0"}, True),
+            # LHS and RHS are not valid versions, so equality is str comparison
+            ("extra == 'v8-foo'", {"extra": "v8-foo.0"}, False),
+            #
+            # When using order comparisons, fallback to str when one or both are
+            # not valid versions can have counter-intuitive results.
+            #
+            # The gentoo value is not a valid version, lexicographic str
+            # comparison applies. This is True because '6' >= '2'.
+            ("platform_release >= '20'", {"platform_release": "6.7.0-gentoo"}, True),
+            # Whereas this is False because the gentoo value IS a valid version
+            ("platform_release >= '20'", {"platform_release": "6.7.0+gentoo"}, False),
         ],
     )
     def test_evaluates(self, marker_string, environment, expected):
