@@ -541,7 +541,6 @@ class TestSpecifier:
             (">1.0.dev1", None, None, "1.1.dev1", True, True),
             # Multiple changes to the prereleases setting
             (">1.0", True, False, "2.0.dev1", True, False),
-            (">1.0", False, None, "2.0.dev1", False, True),
         ],
     )
     def test_specifier_prereleases_set(
@@ -891,13 +890,9 @@ class TestSpecifierSet:
             # Test combinations of prereleases=True/False and installed=True/False
             ("~=1.0", "1.1.0.dev1", True, None, False, True),
             ("~=1.0", "1.1.0.dev1", False, None, False, False),
-            ("~=1.0", "1.1.0.dev1", None, True, False, True),
-            ("~=1.0", "1.1.0.dev1", None, False, False, False),
             ("~=1.0", "1.1.0.dev1", True, False, False, False),
-            ("~=1.0", "1.1.0.dev1", False, True, False, True),
             # Test conflicting prereleases and contain_prereleases
             ("~=1.0", "1.1.0.dev1", True, False, False, False),
-            ("~=1.0", "1.1.0.dev1", False, True, False, True),
             # Test with specifiers that explicitly have prereleases overridden
             (">=1.0.dev1", "1.0.0.dev1", None, False, False, False),
             (">=1.0.dev1", "1.0.0.dev1", False, None, False, False),

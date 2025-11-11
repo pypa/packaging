@@ -59,7 +59,7 @@ class TestRawMetadata:
         assert raw[raw_field] == [data] * 2
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("A", ["A"]),
             ("A ", ["A"]),
@@ -80,7 +80,7 @@ class TestRawMetadata:
         assert raw["keywords"] == expected
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("", {"": ""}),
             ("A", {"A": ""}),
@@ -138,9 +138,7 @@ class TestRawMetadata:
         assert header_name in unparsed
         assert unparsed[header_name] == [value]
 
-    @pytest.mark.parametrize(
-        ["given"], [("hello",), ("description: hello",), (b"hello",)]
-    )
+    @pytest.mark.parametrize("given", ["hello", "description: hello", b"hello"])
     def test_description(self, given):
         raw, unparsed = metadata.parse_email(given)
         assert not unparsed
@@ -158,7 +156,7 @@ class TestRawMetadata:
         assert unparsed["description"] == [header_bytes]
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("description: 1\ndescription: 2", ["1", "2"]),
             ("description: 1\n\n2", ["1", "2"]),

@@ -33,7 +33,7 @@ def clear_lru_cache():
 
 
 @pytest.mark.parametrize(
-    "output, version",
+    ("output", "version"),
     [
         (MUSL_AMD64, _MuslVersion(1, 2)),
         (MUSL_I386, _MuslVersion(1, 2)),
@@ -48,7 +48,7 @@ def test_parse_musl_version(output, version):
 
 
 @pytest.mark.parametrize(
-    "executable, output, version, ld_musl",
+    ("executable", "output", "version", "ld_musl"),
     [
         (MUSL_DIR.joinpath("does-not-exist"), "error", None, None),
         (BIN_GLIBC_X86_64, "error", None, None),

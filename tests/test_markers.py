@@ -397,7 +397,7 @@ class TestMarker:
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     @pytest.mark.parametrize(
-        "expression,result",
+        ("expression", "result"),
         [
             pytest.param('"foo" in {0}', True, id="value-in-foo"),
             pytest.param('"bar" in {0}', True, id="value-in-bar"),

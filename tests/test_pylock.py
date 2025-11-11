@@ -30,7 +30,7 @@ else:
 
 
 @pytest.mark.parametrize(
-    "file_name,valid",
+    ("file_name", "valid"),
     [
         ("pylock.toml", True),
         ("pylock.spam.toml", True),
@@ -396,7 +396,7 @@ def test_pylock_package_not_a_table() -> None:
 
 
 @pytest.mark.parametrize(
-    "hashes,expected_error",
+    ("hashes", "expected_error"),
     [
         (
             {
