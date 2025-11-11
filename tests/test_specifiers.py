@@ -4,6 +4,7 @@
 
 import itertools
 import operator
+import re
 
 import pytest
 
@@ -1420,12 +1421,22 @@ class TestSpecifierSet:
         assert result == SpecifierSet(expected)
         assert not result.prereleases
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Cannot combine SpecifierSets with True and False prerelease overrides."
+            ),
+        ):
             result = SpecifierSet(left, prereleases=True) & SpecifierSet(
                 right, prereleases=False
             )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Cannot combine SpecifierSets with True and False prerelease overrides."
+            ),
+        ):
             result = SpecifierSet(left, prereleases=False) & SpecifierSet(
                 right, prereleases=True
             )

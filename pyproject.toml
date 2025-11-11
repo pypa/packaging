@@ -97,6 +97,7 @@ extend-select = [
     "I",
     "N",     # pep8-naming
     "PGH",   # pygrep-hooks
+    "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
     "RUF",   # Ruff-specific rules
     "SLOT",  # flake8-slots
