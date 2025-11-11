@@ -307,7 +307,7 @@ def generic_tags(
     if not interpreter:
         interp_name = interpreter_name()
         interp_version = interpreter_version(warn=warn)
-        interpreter = "".join([interp_name, interp_version])
+        interpreter = f"{interp_name}{interp_version}"
     if abis is None:
         abis = _generic_abi()
     else:

@@ -33,7 +33,7 @@ class ParserSyntaxError(Exception):
 
     def __str__(self) -> str:
         marker = " " * self.span[0] + "~" * (self.span[1] - self.span[0]) + "^"
-        return "\n    ".join([self.message, self.source, marker])
+        return f"{self.message}\n    {self.source}\n    {marker}"
 
 
 DEFAULT_RULES: dict[str, str | re.Pattern[str]] = {
