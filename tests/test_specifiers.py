@@ -516,13 +516,11 @@ class TestSpecifier:
         ),
         [
             (">1.0", None, True, "1.0.dev1", False, False),
-            (">1.0", None, True, "2.0.dev1", True, True),
             # Setting prereleases to True explicitly includes prerelease versions
             (">1.0", None, True, "2.0.dev1", True, True),
             (">1.0", False, True, "2.0.dev1", False, True),
             # Setting prereleases to False explicitly excludes prerelease versions
             (">1.0", None, False, "2.0.dev1", True, False),
-            (">1.0", True, False, "2.0.dev1", True, False),
             # Setting prereleases to None falls back to default behavior
             (">1.0", True, None, "2.0.dev1", True, True),
             (">1.0", False, None, "2.0.dev1", False, True),
@@ -847,7 +845,6 @@ class TestSpecifierSet:
             ("~=1.0", "1.1.0.dev1", True, False, True, True),
             ("~=1.0", "1.1.0.dev1", None, False, True, True),
             # Case when installed=False:
-            ("~=1.0", "1.1.0.dev1", True, None, False, True),
             ("~=1.0", "1.1.0.dev1", None, True, False, True),
             ("~=1.0", "1.1.0.dev1", False, True, False, True),
             ("~=1.0", "1.1.0.dev1", False, False, False, False),
@@ -890,7 +887,6 @@ class TestSpecifierSet:
             # Test combinations of prereleases=True/False and installed=True/False
             ("~=1.0", "1.1.0.dev1", True, None, False, True),
             ("~=1.0", "1.1.0.dev1", False, None, False, False),
-            ("~=1.0", "1.1.0.dev1", True, False, False, False),
             # Test conflicting prereleases and contain_prereleases
             ("~=1.0", "1.1.0.dev1", True, False, False, False),
             # Test with specifiers that explicitly have prereleases overridden
