@@ -89,16 +89,21 @@ extend-exclude = [
 
 [tool.ruff.lint]
 extend-select = [
-    "B",
+    "B",     # flake8-bugbear
     "E",
+    "EXE",   # flake8-executable
     "F",
-    "FA",
+    "FA",    # flake8-future-annotations
     "I",
-    "N",
-    "PYI",
-    "RUF",
-    "UP",
-    "W"
+    "N",     # pep8-naming
+    "PGH",   # pygrep-hooks
+    "PYI",   # flake8-pyi
+    "RUF",   # Ruff-specific rules
+    "SLOT",  # flake8-slots
+    "T10",   # flake8-debugger
+    "UP",    # pyupgrade
+    "W",
+    "YTT",   # flake8-2020
 ]
 ignore = [
     "N818",  # exceptions must end in "*Error"
