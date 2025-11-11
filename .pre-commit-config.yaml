@@ -20,7 +20,7 @@ repos:
     rev: v0.13.0
     hooks:
       - id: ruff-check
-        args: [ --show-fixes ]
+        args: [ --fix, --show-fixes ]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pygrep-hooks
