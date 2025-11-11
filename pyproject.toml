@@ -103,12 +103,14 @@ extend-select = [
     "RUF",   # Ruff-specific rules
     "SLOT",  # flake8-slots
     "T10",   # flake8-debugger
+    "TRY",   # tryceratops
     "UP",    # pyupgrade
     "W",
     "YTT",   # flake8-2020
 ]
 ignore = [
-    "N818",  # exceptions must end in "*Error"
+    "N818",   # exceptions must end in "*Error"
+    "TRY003", # long messages outside exception class
 ]
 
 [tool.ruff.lint.per-file-ignores]
