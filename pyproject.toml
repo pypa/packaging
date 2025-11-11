@@ -96,6 +96,7 @@ extend-select = [
     "ARG",   # flake8-unused-argument
     "B",     # flake8-bugbear
     "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
     "DTZ",   # flake8-datetimez
     "E",
     "EXE",   # flake8-executable
