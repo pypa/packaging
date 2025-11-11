@@ -305,8 +305,8 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email("Hello: PyPA")
 
-            assert len(exc_info.exceptions) == 1
-            assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
+        assert len(exc_info.value.exceptions) == 1
+        assert isinstance(exc_info.value.exceptions[0], metadata.InvalidMetadata)
 
     def test_from_email_validate(self):
         with pytest.raises(ExceptionGroup):
@@ -625,9 +625,10 @@ class TestMetadata:
         message = f"{field_name!r} is not allowed"
         with pytest.raises(metadata.InvalidMetadata, match=message) as execinfo:
             meta.dynamic  # noqa: B018
-            # The name of the specific offending field should be used,
-            # not a list with all fields:
-            assert "[" not in str(execinfo.value)
+
+        # The name of the specific offending field should be used,
+        # not a list with all fields:
+        assert "[" not in str(execinfo.value)
 
     @pytest.mark.parametrize(
         "field_name",
