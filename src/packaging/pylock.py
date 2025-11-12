@@ -27,6 +27,8 @@ if TYPE_CHECKING:  # pragma: no cover
     else:
         from typing_extensions import Self
 
+_logger = logging.getLogger(__name__)
+
 __all__ = [
     "Package",
     "PackageArchive",
@@ -611,7 +613,7 @@ class Pylock:
                 f"pylock version {pylock.lock_version} is not supported"
             )
         if pylock.lock_version > Version("1.0"):
-            logging.warning(
+            _logger.warning(
                 "pylock minor version %s is not supported", pylock.lock_version
             )
         return pylock
