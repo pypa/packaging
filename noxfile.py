@@ -297,16 +297,12 @@ def _replace_file(original_path):
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 
-    try:
-        with os.fdopen(fh, "w") as replacement:
-            with open(original_path) as original:
-                yield original, replacement
-    except Exception:
-        raise
-    else:
-        shutil.copymode(original_path, replacement_path)
-        os.remove(original_path)
-        shutil.move(replacement_path, original_path)
+    with os.fdopen(fh, "w") as replacement, open(original_path) as original:
+        yield original, replacement
+
+    shutil.copymode(original_path, replacement_path)
+    os.remove(original_path)
+    shutil.move(replacement_path, original_path)
 
 
 def _changelog_update_unreleased_title(version, *, file):
