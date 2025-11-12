@@ -157,12 +157,10 @@ def _format_marker(
         inner = (_format_marker(m, first=False) for m in marker)
         if first:
             return " ".join(inner)
-        else:
-            return "(" + " ".join(inner) + ")"
-    elif isinstance(marker, tuple):
+        return "(" + " ".join(inner) + ")"
+    if isinstance(marker, tuple):
         return " ".join([m.serialize() for m in marker])
-    else:
-        return marker
+    return marker
 
 
 _operators: dict[str, Operator] = {
@@ -204,10 +202,12 @@ def _normalize(
         assert isinstance(rhs, str), "extra value must be a string"
         return (canonicalize_name(lhs), canonicalize_name(rhs))
     if key in MARKERS_ALLOWING_SET:
-        if isinstance(rhs, str):  # pragma: no cover
-            return (canonicalize_name(lhs), canonicalize_name(rhs))
-        else:
-            return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
+        return (
+            canonicalize_name(lhs),
+            canonicalize_name(rhs)
+            if isinstance(rhs, str)
+            else {canonicalize_name(v) for v in rhs},
+        )
 
     # other environment markers don't have such standards
     return lhs, rhs

@@ -316,19 +316,15 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     """
     if tokenizer.check("VARIABLE"):
         return process_env_var(tokenizer.read().text.replace(".", "_"))
-    elif tokenizer.check("QUOTED_STRING"):
+    if tokenizer.check("QUOTED_STRING"):
         return process_python_str(tokenizer.read().text)
-    else:
-        tokenizer.raise_syntax_error(
-            message="Expected a marker variable or quoted string"
-        )
+    tokenizer.raise_syntax_error(message="Expected a marker variable or quoted string")
 
 
 def process_env_var(env_var: str) -> Variable:
     if env_var in ("platform_python_implementation", "python_implementation"):
         return Variable("platform_python_implementation")
-    else:
-        return Variable(env_var)
+    return Variable(env_var)
 
 
 def process_python_str(python_str: str) -> Value:
@@ -343,14 +339,13 @@ def _parse_marker_op(tokenizer: Tokenizer) -> Op:
     if tokenizer.check("IN"):
         tokenizer.read()
         return Op("in")
-    elif tokenizer.check("NOT"):
+    if tokenizer.check("NOT"):
         tokenizer.read()
         tokenizer.expect("WS", expected="whitespace after 'not'")
         tokenizer.expect("IN", expected="'in' after 'not'")
         return Op("not in")
-    elif tokenizer.check("OP"):
+    if tokenizer.check("OP"):
         return Op(tokenizer.read().text)
-    else:
-        return tokenizer.raise_syntax_error(
-            "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
-        )
+    return tokenizer.raise_syntax_error(
+        "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
+    )
