@@ -432,12 +432,9 @@ def mac_platforms(
                 text=True,
             ).stdout
             version = cast("AppleVersion", tuple(map(int, version_str.split(".")[:2])))
-    else:
-        version = version
+
     if arch is None:
         arch = _mac_arch(cpu_arch)
-    else:
-        arch = arch
 
     if (10, 0) <= version < (11, 0):
         # Prior to Mac OS 11, each yearly release of Mac OS bumped the

@@ -99,6 +99,7 @@ extend-select = [
     "ISC",   # flake8-implicit-str-concat
     "N",     # pep8-naming
     "PGH",   # pygrep-hooks
+    "PL",    # pylint
     "PYI",   # flake8-pyi
     "RUF",   # Ruff-specific rules
     "SLOT",  # flake8-slots
@@ -109,11 +110,14 @@ extend-select = [
     "YTT",   # flake8-2020
 ]
 ignore = [
-    "N818",   # exceptions must end in "*Error"
+    "N818",    # exceptions must end in "*Error"
+    "PLR09",   # too many ...
+    "PLR2004", # magic value in comparison
+    "PLW0127", # duplicate of F821
     "TRY003", # long messages outside exception class
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = ["PYI024"]
+"tests/test_*.py" = ["PYI024", "PLR"]
 "tasks/check.py" = ["UP032"]
 "tests/test_requirements.py" = ["UP032"]

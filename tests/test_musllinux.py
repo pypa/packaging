@@ -71,6 +71,7 @@ def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
         expected_calls = [
             pretend.call(
                 [ld_musl],
+                check=False,
                 stderr=subprocess.PIPE,
                 text=True,
             )
