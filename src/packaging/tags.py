@@ -217,10 +217,7 @@ def cpython_tags(
     interpreter = f"cp{_version_nodot(python_version[:2])}"
 
     if abis is None:
-        if len(python_version) > 1:
-            abis = _cpython_abis(python_version, warn)
-        else:
-            abis = []
+        abis = _cpython_abis(python_version, warn) if len(python_version) > 1 else []
     abis = list(abis)
     # 'abi3' and 'none' are explicitly handled later.
     for explicit_abi in ("abi3", "none"):
@@ -308,10 +305,7 @@ def generic_tags(
         interp_name = interpreter_name()
         interp_version = interpreter_version(warn=warn)
         interpreter = f"{interp_name}{interp_version}"
-    if abis is None:
-        abis = _generic_abi()
-    else:
-        abis = list(abis)
+    abis = _generic_abi() if abis is None else list(abis)
     platforms = list(platforms or platform_tags())
     if "none" not in abis:
         abis.append("none")
@@ -627,11 +621,7 @@ def interpreter_version(*, warn: bool = False) -> str:
     Returns the version of the running interpreter.
     """
     version = _get_config_var("py_version_nodot", warn=warn)
-    if version:
-        version = str(version)
-    else:
-        version = _version_nodot(sys.version_info[:2])
-    return version
+    return str(version) if version else _version_nodot(sys.version_info[:2])
 
 
 def _version_nodot(version: PythonVersion) -> str:

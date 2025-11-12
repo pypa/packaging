@@ -1497,10 +1497,7 @@ class TestSysTags:
             raising=False,
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
-        if tf:
-            expected = [f"manylinux_2_22_{machine}"]
-        else:
-            expected = []
+        expected = [f"manylinux_2_22_{machine}"] if tf else []
         expected.append(f"linux_{machine}")
         assert platforms == expected
 
@@ -1578,7 +1575,7 @@ class TestBitness:
         monkeypatch.setattr(sys, "maxsize", maxsize)
         monkeypatch.setattr(struct, "calcsize", _calcsize)
         importlib.reload(tags)
-        assert tags._32_BIT_INTERPRETER == expected
+        assert expected == tags._32_BIT_INTERPRETER
 
 
 def test_pickle():

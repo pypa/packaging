@@ -32,9 +32,8 @@ def pep440(cached=False):
     # possible
     data = None
     if cached:
-        with contextlib.suppress(Exception):
-            with open(cache_path) as fp:
-                data = json.load(fp)
+        with contextlib.suppress(Exception), open(cache_path) as fp:
+            data = json.load(fp)
 
     # If we don't have data, then let's go fetch it from PyPI
     if data is None:
