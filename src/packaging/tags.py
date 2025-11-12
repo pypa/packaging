@@ -595,14 +595,13 @@ def platform_tags() -> Iterator[str]:
     """
     if platform.system() == "Darwin":
         return mac_platforms()
-    elif platform.system() == "iOS":
+    if platform.system() == "iOS":
         return ios_platforms()
-    elif platform.system() == "Android":
+    if platform.system() == "Android":
         return android_platforms()
-    elif platform.system() == "Linux":
+    if platform.system() == "Linux":
         return _linux_platforms()
-    else:
-        return _generic_platforms()
+    return _generic_platforms()
 
 
 def interpreter_name() -> str:
