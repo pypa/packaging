@@ -4,6 +4,7 @@
 
 import itertools
 import operator
+import re
 
 import pytest
 
@@ -516,13 +517,11 @@ class TestSpecifier:
         ),
         [
             (">1.0", None, True, "1.0.dev1", False, False),
-            (">1.0", None, True, "2.0.dev1", True, True),
             # Setting prereleases to True explicitly includes prerelease versions
             (">1.0", None, True, "2.0.dev1", True, True),
             (">1.0", False, True, "2.0.dev1", False, True),
             # Setting prereleases to False explicitly excludes prerelease versions
             (">1.0", None, False, "2.0.dev1", True, False),
-            (">1.0", True, False, "2.0.dev1", True, False),
             # Setting prereleases to None falls back to default behavior
             (">1.0", True, None, "2.0.dev1", True, True),
             (">1.0", False, None, "2.0.dev1", False, True),
@@ -541,7 +540,6 @@ class TestSpecifier:
             (">1.0.dev1", None, None, "1.1.dev1", True, True),
             # Multiple changes to the prereleases setting
             (">1.0", True, False, "2.0.dev1", True, False),
-            (">1.0", False, None, "2.0.dev1", False, True),
         ],
     )
     def test_specifier_prereleases_set(
@@ -848,7 +846,6 @@ class TestSpecifierSet:
             ("~=1.0", "1.1.0.dev1", True, False, True, True),
             ("~=1.0", "1.1.0.dev1", None, False, True, True),
             # Case when installed=False:
-            ("~=1.0", "1.1.0.dev1", True, None, False, True),
             ("~=1.0", "1.1.0.dev1", None, True, False, True),
             ("~=1.0", "1.1.0.dev1", False, True, False, True),
             ("~=1.0", "1.1.0.dev1", False, False, False, False),
@@ -891,13 +888,8 @@ class TestSpecifierSet:
             # Test combinations of prereleases=True/False and installed=True/False
             ("~=1.0", "1.1.0.dev1", True, None, False, True),
             ("~=1.0", "1.1.0.dev1", False, None, False, False),
-            ("~=1.0", "1.1.0.dev1", None, True, False, True),
-            ("~=1.0", "1.1.0.dev1", None, False, False, False),
-            ("~=1.0", "1.1.0.dev1", True, False, False, False),
-            ("~=1.0", "1.1.0.dev1", False, True, False, True),
             # Test conflicting prereleases and contain_prereleases
             ("~=1.0", "1.1.0.dev1", True, False, False, False),
-            ("~=1.0", "1.1.0.dev1", False, True, False, True),
             # Test with specifiers that explicitly have prereleases overridden
             (">=1.0.dev1", "1.0.0.dev1", None, False, False, False),
             (">=1.0.dev1", "1.0.0.dev1", False, None, False, False),
@@ -1429,12 +1421,22 @@ class TestSpecifierSet:
         assert result == SpecifierSet(expected)
         assert not result.prereleases
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Cannot combine SpecifierSets with True and False prerelease overrides."
+            ),
+        ):
             result = SpecifierSet(left, prereleases=True) & SpecifierSet(
                 right, prereleases=False
             )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Cannot combine SpecifierSets with True and False prerelease overrides."
+            ),
+        ):
             result = SpecifierSet(left, prereleases=False) & SpecifierSet(
                 right, prereleases=True
             )

@@ -12,7 +12,7 @@ BIN_MUSL_X86_64 = DIR_MUSLLINUX.joinpath("musl-x86_64").read_bytes()
 
 
 @pytest.mark.parametrize(
-    "name, capacity, encoding, machine",
+    ("name", "capacity", "encoding", "machine"),
     [
         ("x86_64-x32", EIClass.C32, EIData.Lsb, EMachine.X8664),
         ("x86_64-i386", EIClass.C32, EIData.Lsb, EMachine.I386),
@@ -33,7 +33,7 @@ def test_elffile_glibc(name, capacity, encoding, machine):
 
 
 @pytest.mark.parametrize(
-    "name, capacity, encoding, machine, interpreter",
+    ("name", "capacity", "encoding", "machine", "interpreter"),
     [
         (
             "aarch64",

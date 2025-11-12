@@ -39,9 +39,9 @@ def manylinux_module(monkeypatch):
     return module
 
 
-@pytest.mark.parametrize("tf", (True, False))
+@pytest.mark.parametrize("tf", [True, False])
 @pytest.mark.parametrize(
-    "attribute,glibc", (("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17)))
+    ("attribute", "glibc"), [("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17))]
 )
 def test_module_declaration(monkeypatch, manylinux_module, attribute, glibc, tf):
     manylinux = f"manylinux{attribute}_compatible"
@@ -51,7 +51,7 @@ def test_module_declaration(monkeypatch, manylinux_module, attribute, glibc, tf)
 
 
 @pytest.mark.parametrize(
-    "attribute,glibc", (("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17)))
+    ("attribute", "glibc"), [("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17))]
 )
 def test_module_declaration_missing_attribute(
     monkeypatch, manylinux_module, attribute, glibc
@@ -62,7 +62,7 @@ def test_module_declaration_missing_attribute(
 
 
 @pytest.mark.parametrize(
-    "version,compatible", (((2, 0), True), ((2, 5), True), ((2, 10), False))
+    ("version", "compatible"), [((2, 0), True), ((2, 5), True), ((2, 10), False)]
 )
 def test_is_manylinux_compatible_glibc_support(version, compatible, monkeypatch):
     monkeypatch.setitem(sys.modules, "_manylinux", None)
@@ -79,7 +79,7 @@ def test_check_glibc_version_warning(version_str):
 
 @pytest.mark.skipif(not ctypes, reason="requires ctypes")
 @pytest.mark.parametrize(
-    "version_str,expected",
+    ("version_str", "expected"),
     [
         # Be very explicit about bytes and Unicode for Python 2 testing.
         (b"2.4", "2.4"),
