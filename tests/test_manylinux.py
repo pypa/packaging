@@ -109,12 +109,12 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
 
 
 def test_glibc_version_string_confstr(monkeypatch):
-    monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+    monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
     assert _glibc_version_string_confstr() == "2.20"
 
 
 def test_glibc_version_string_fail(monkeypatch):
-    monkeypatch.setattr(os, "confstr", lambda x: None, raising=False)
+    monkeypatch.setattr(os, "confstr", lambda _: None, raising=False)
     monkeypatch.setitem(sys.modules, "ctypes", None)
     assert _glibc_version_string() is None
     assert _get_glibc_version() == (-1, -1)
@@ -122,7 +122,7 @@ def test_glibc_version_string_fail(monkeypatch):
 
 @pytest.mark.parametrize(
     "failure",
-    [pretend.raiser(ValueError), pretend.raiser(OSError), lambda x: "XXX"],
+    [pretend.raiser(ValueError), pretend.raiser(OSError), lambda _: "XXX"],
 )
 def test_glibc_version_string_confstr_fail(monkeypatch, failure):
     monkeypatch.setattr(os, "confstr", failure, raising=False)
@@ -141,7 +141,7 @@ def test_glibc_version_string_ctypes_missing(monkeypatch):
 
 @pytest.mark.xfail(ctypes is None, reason="ctypes not available")
 def test_glibc_version_string_ctypes_raise_oserror(monkeypatch):
-    def patched_cdll(name):
+    def patched_cdll(_name):
         raise OSError("Dynamic loading not supported")
 
     monkeypatch.setattr(ctypes, "CDLL", patched_cdll)
@@ -168,7 +168,7 @@ def test_glibc_version_string_none(monkeypatch):
 @pytest.mark.parametrize(
     "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
 )
-def test_parse_elf_bad_executable(monkeypatch, content):
+def test_parse_elf_bad_executable(content):
     if content:
         path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
         path = os.fsdecode(path)

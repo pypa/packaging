@@ -106,7 +106,7 @@ def _glibc_version_string_ctypes() -> str | None:
     Fallback implementation of glibc_version_string using ctypes.
     """
     try:
-        import ctypes
+        import ctypes  # noqa: PLC0415
     except ImportError:
         return None
 
@@ -184,7 +184,7 @@ def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
         return False
     # Check for presence of _manylinux module.
     try:
-        import _manylinux
+        import _manylinux  # noqa: PLC0415
     except ImportError:
         return True
     if hasattr(_manylinux, "manylinux_compatible"):

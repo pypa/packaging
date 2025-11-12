@@ -237,6 +237,7 @@ def _check_git_state(session, version_tag):
     ]
     result = subprocess.run(
         ["git", "remote", "get-url", "--push", "upstream"],
+        check=False,
         capture_output=True,
         encoding="utf-8",
     )
@@ -245,6 +246,7 @@ def _check_git_state(session, version_tag):
     # Ensure we're on main branch for cutting a release.
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        check=False,
         capture_output=True,
         encoding="utf-8",
     )
@@ -253,7 +255,10 @@ def _check_git_state(session, version_tag):
 
     # Ensure there are no uncommitted changes.
     result = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, encoding="utf-8"
+        ["git", "status", "--porcelain"],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
     )
     if result.stdout:
         print(result.stdout, end="", file=sys.stderr)
@@ -261,7 +266,10 @@ def _check_git_state(session, version_tag):
 
     # Ensure this tag doesn't exist already.
     result = subprocess.run(
-        ["git", "rev-parse", version_tag], capture_output=True, encoding="utf-8"
+        ["git", "rev-parse", version_tag],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
     )
     if not result.returncode:
         session.error(f"Tag already exists! {version_tag} -- {result.stdout!r}")
@@ -280,8 +288,8 @@ def _bump(session, *, version, file, kind):
     file.write_text(new_contents)
 
     session.log("git commit")
-    subprocess.run(["git", "add", str(file)])
-    subprocess.run(["git", "commit", "-m", f"Bump for {kind}"])
+    subprocess.run(["git", "add", str(file)], check=False)
+    subprocess.run(["git", "commit", "-m", f"Bump for {kind}"], check=False)
 
 
 @contextlib.contextmanager
@@ -289,16 +297,12 @@ def _replace_file(original_path):
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 
-    try:
-        with os.fdopen(fh, "w") as replacement:
-            with open(original_path) as original:
-                yield original, replacement
-    except Exception:
-        raise
-    else:
-        shutil.copymode(original_path, replacement_path)
-        os.remove(original_path)
-        shutil.move(replacement_path, original_path)
+    with os.fdopen(fh, "w") as replacement, open(original_path) as original:
+        yield original, replacement
+
+    shutil.copymode(original_path, replacement_path)
+    os.remove(original_path)
+    shutil.move(replacement_path, original_path)
 
 
 def _changelog_update_unreleased_title(version, *, file):

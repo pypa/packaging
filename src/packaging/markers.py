@@ -180,7 +180,7 @@ _operators: dict[str, Operator] = {
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
     if isinstance(rhs, str):
         try:
-            spec = Specifier("".join([op.serialize(), rhs]))
+            spec = Specifier(f"{op.serialize()}{rhs}")
         except InvalidSpecifier:
             pass
         else:
