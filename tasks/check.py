@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+import contextlib
 import itertools
 import json
 import os.path
@@ -29,14 +30,11 @@ def pep440(cached=False):
 
     # If we were given --cached, then we want to attempt to use cached data if
     # possible
+    data = None
     if cached:
-        try:
+        with contextlib.suppress(Exception):
             with open(cache_path) as fp:
                 data = json.load(fp)
-        except Exception:
-            data = None
-    else:
-        data = None
 
     # If we don't have data, then let's go fetch it from PyPI
     if data is None:
