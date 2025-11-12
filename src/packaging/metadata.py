@@ -360,10 +360,10 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     # We have to wrap parsed.keys() in a set, because in the case of multiple
     # values for a key (a list), the key will appear multiple times in the
     # list of keys, but we're avoiding that by using get_all().
-    for name in frozenset(parsed.keys()):
+    for name_with_case in frozenset(parsed.keys()):
         # Header names in RFC are case insensitive, so we'll normalize to all
         # lower case to make comparisons easier.
-        name = name.lower()
+        name = name_with_case.lower()
 
         # We use get_all() here, even for fields that aren't multiple use,
         # because otherwise someone could have e.g. two Name fields, and we
@@ -399,7 +399,7 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
                 # can be independently encoded, so we'll need to check each
                 # of them.
                 chunks: list[tuple[bytes, str | None]] = []
-                for bin, encoding in email.header.decode_header(h):
+                for bin, _encoding in email.header.decode_header(h):
                     try:
                         bin.decode("utf8", "strict")
                     except UnicodeDecodeError:

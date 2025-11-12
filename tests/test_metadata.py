@@ -59,7 +59,7 @@ class TestRawMetadata:
         assert raw[raw_field] == [data] * 2
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("A", ["A"]),
             ("A ", ["A"]),
@@ -80,7 +80,7 @@ class TestRawMetadata:
         assert raw["keywords"] == expected
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("", {"": ""}),
             ("A", {"A": ""}),
@@ -138,9 +138,7 @@ class TestRawMetadata:
         assert header_name in unparsed
         assert unparsed[header_name] == [value]
 
-    @pytest.mark.parametrize(
-        ["given"], [("hello",), ("description: hello",), (b"hello",)]
-    )
+    @pytest.mark.parametrize("given", ["hello", "description: hello", b"hello"])
     def test_description(self, given):
         raw, unparsed = metadata.parse_email(given)
         assert not unparsed
@@ -158,7 +156,7 @@ class TestRawMetadata:
         assert unparsed["description"] == [header_bytes]
 
     @pytest.mark.parametrize(
-        ["given", "expected"],
+        ("given", "expected"),
         [
             ("description: 1\ndescription: 2", ["1", "2"]),
             ("description: 1\n\n2", ["1", "2"]),
@@ -307,8 +305,8 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email("Hello: PyPA")
 
-            assert len(exc_info.exceptions) == 1
-            assert isinstance(exc_info.exceptions[0], metadata.InvalidMetadata)
+        assert len(exc_info.value.exceptions) == 1
+        assert isinstance(exc_info.value.exceptions[0], metadata.InvalidMetadata)
 
     def test_from_email_validate(self):
         with pytest.raises(ExceptionGroup):
@@ -627,9 +625,10 @@ class TestMetadata:
         message = f"{field_name!r} is not allowed"
         with pytest.raises(metadata.InvalidMetadata, match=message) as execinfo:
             meta.dynamic  # noqa: B018
-            # The name of the specific offending field should be used,
-            # not a list with all fields:
-            assert "[" not in str(execinfo.value)
+
+        # The name of the specific offending field should be used,
+        # not a list with all fields:
+        assert "[" not in str(execinfo.value)
 
     @pytest.mark.parametrize(
         "field_name",

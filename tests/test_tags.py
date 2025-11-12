@@ -168,7 +168,7 @@ class TestInterpreterName:
         monkeypatch.setattr(sys, "implementation", mock_implementation, raising=False)
         assert tags.interpreter_name() == "sillywalk"
 
-    def test_interpreter_short_names(self, mock_interpreter_name, monkeypatch):
+    def test_interpreter_short_names(self, mock_interpreter_name):
         mock_interpreter_name("cpython")
         assert tags.interpreter_name() == "cp"
 
@@ -180,7 +180,7 @@ class TestInterpreterVersion:
                 self.warn = None
                 self._return = return_
 
-            def __call__(self, name, warn):
+            def __call__(self, _name, warn):
                 self.warn = warn
                 return self._return
 
@@ -190,11 +190,11 @@ class TestInterpreterVersion:
         assert mock_config_var.warn
 
     def test_python_version_nodot(self, monkeypatch):
-        monkeypatch.setattr(tags, "_get_config_var", lambda var, warn: "NN")
+        monkeypatch.setattr(tags, "_get_config_var", lambda _var, warn: "NN")  # noqa: ARG005
         assert tags.interpreter_version() == "NN"
 
     @pytest.mark.parametrize(
-        "version_info,version_str",
+        ("version_info", "version_str"),
         [
             ((1, 2, 3), "12"),
             ((1, 12, 3), "112"),
@@ -211,7 +211,7 @@ class TestInterpreterVersion:
 
 class TestMacOSPlatforms:
     @pytest.mark.parametrize(
-        "arch, is_32bit, expected",
+        ("arch", "is_32bit", "expected"),
         [
             ("i386", True, "i386"),
             ("ppc", True, "ppc"),
@@ -225,7 +225,7 @@ class TestMacOSPlatforms:
         assert tags._mac_arch(arch, is_32bit=is_32bit) == expected
 
     @pytest.mark.parametrize(
-        "version,arch,expected",
+        ("version", "arch", "expected"),
         [
             (
                 (10, 15),
@@ -342,7 +342,7 @@ class TestMacOSPlatforms:
 
         assert not list(tags.mac_platforms((10, 0), "x86_64"))
 
-    @pytest.mark.parametrize("major,minor", [(11, 0), (11, 3), (12, 0), (12, 3)])
+    @pytest.mark.parametrize(("major", "minor"), [(11, 0), (11, 3), (12, 0), (12, 3)])
     def test_macos_11(self, major, minor):
         platforms = list(tags.mac_platforms((major, minor), "x86_64"))
         assert "macosx_11_0_arm64" not in platforms
@@ -378,7 +378,8 @@ class TestMacOSPlatforms:
 
 
 class TestIOSPlatforms:
-    def test_version_detection(self, mock_ios):
+    @pytest.mark.usefixtures("mock_ios")
+    def test_version_detection(self):
         platforms = list(tags.ios_platforms(multiarch="arm64-iphoneos"))
         assert platforms == [
             "ios_13_2_arm64_iphoneos",
@@ -396,11 +397,13 @@ class TestIOSPlatforms:
             "ios_12_0_arm64_iphoneos",
         ]
 
-    def test_multiarch_detection(self, mock_ios):
+    @pytest.mark.usefixtures("mock_ios")
+    def test_multiarch_detection(self):
         platforms = list(tags.ios_platforms(version=(12, 0)))
         assert platforms == ["ios_12_0_gothic_iphoneos"]
 
-    def test_ios_platforms(self, mock_ios):
+    @pytest.mark.usefixtures("mock_ios")
+    def test_ios_platforms(self):
         # Pre-iOS 12.0 releases won't match anything
         platforms = list(tags.ios_platforms((7, 0), "arm64-iphoneos"))
         assert platforms == []
@@ -473,7 +476,8 @@ class TestAndroidPlatforms:
             "android_16_x86_64",
         ]
 
-    def test_detection(self, mock_android):
+    @pytest.mark.usefixtures("mock_android")
+    def test_detection(self):
         assert list(tags.android_platforms()) == [
             "android_21_arm64_v8a",
             "android_20_arm64_v8a",
@@ -541,7 +545,7 @@ class TestManylinuxPlatform:
         ]
 
     @pytest.mark.parametrize(
-        "arch,is_32bit,expected",
+        ("arch", "is_32bit", "expected"),
         [
             ("linux-x86_64", False, ["linux_x86_64"]),
             ("linux-x86_64", True, ["linux_i686"]),
@@ -553,7 +557,7 @@ class TestManylinuxPlatform:
         self, arch, is_32bit, expected, monkeypatch
     ):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[
             -len(expected) :
@@ -562,7 +566,7 @@ class TestManylinuxPlatform:
 
     def test_linux_platforms_manylinux_unsupported(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)
         linux_platform = list(tags._linux_platforms(is_32bit=False))
         assert linux_platform == ["linux_x86_64"]
@@ -575,7 +579,7 @@ class TestManylinuxPlatform:
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         assert platforms == [
             "manylinux_2_5_x86_64",
@@ -586,7 +590,7 @@ class TestManylinuxPlatform:
     def test_linux_platforms_manylinux2010(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.12", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.12", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
             "manylinux_2_12_x86_64",
@@ -606,7 +610,7 @@ class TestManylinuxPlatform:
     def test_linux_platforms_manylinux2014(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.17", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.17", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
         expected = [
@@ -631,7 +635,7 @@ class TestManylinuxPlatform:
         assert platforms == expected
 
     @pytest.mark.parametrize(
-        "native_arch, cross_arch",
+        ("native_arch", "cross_arch"),
         [("armv7l", "armv7l"), ("armv8l", "armv8l"), ("aarch64", "armv8l")],
     )
     def test_linux_platforms_manylinux2014_armhf_abi(
@@ -718,7 +722,7 @@ class TestManylinuxPlatform:
         assert platforms == expected
 
     @pytest.mark.parametrize(
-        "native_arch, cross32_arch, musl_version",
+        ("native_arch", "cross32_arch", "musl_version"),
         [
             ("armv7l", "armv7l", _MuslVersion(1, 1)),
             ("aarch64", "armv8l", _MuslVersion(1, 1)),
@@ -763,13 +767,13 @@ class TestManylinuxPlatform:
             lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = ["linux_armv6l"]
         assert platforms == expected
 
     @pytest.mark.parametrize(
-        "machine, abi, alt_machine",
+        ("machine", "abi", "alt_machine"),
         [("x86_64", "x32", "i686"), ("armv7l", "armel", "armv7l")],
     )
     def test_linux_platforms_not_manylinux_abi(
@@ -793,13 +797,13 @@ class TestManylinuxPlatform:
     def test_linux_not_linux(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "not_linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.17", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.17", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         assert platforms == ["not_linux_x86_64"]
 
 
 @pytest.mark.parametrize(
-    "platform_name,dispatch_func",
+    ("platform_name", "dispatch_func"),
     [
         ("Darwin", "mac_platforms"),
         ("iOS", "ios_platforms"),
@@ -824,7 +828,7 @@ def test_platform_tags_space(monkeypatch):
 
 class TestCPythonABI:
     @pytest.mark.parametrize(
-        "py_debug,gettotalrefcount,result",
+        ("py_debug", "gettotalrefcount", "result"),
         [(1, False, True), (0, False, False), (None, True, True)],
     )
     def test_debug(self, py_debug, gettotalrefcount, result, monkeypatch):
@@ -843,7 +847,7 @@ class TestCPythonABI:
         assert tags._cpython_abis((3, 8)) == ["cp38d", "cp38"]
 
     @pytest.mark.parametrize(
-        "debug,expected", [(True, ["cp38d", "cp38"]), (False, ["cp38"])]
+        ("debug", "expected"), [(True, ["cp38d", "cp38"]), (False, ["cp38"])]
     )
     def test__debug_cp38(self, debug, expected, monkeypatch):
         config = {"Py_DEBUG": debug}
@@ -851,7 +855,7 @@ class TestCPythonABI:
         assert tags._cpython_abis((3, 8)) == expected
 
     @pytest.mark.parametrize(
-        "pymalloc,version,result",
+        ("pymalloc", "version", "result"),
         [
             (1, (3, 7), True),
             (0, (3, 7), False),
@@ -867,7 +871,7 @@ class TestCPythonABI:
         assert tags._cpython_abis(version) == expected
 
     @pytest.mark.parametrize(
-        "unicode_size,maxunicode,version,result",
+        ("unicode_size", "maxunicode", "version", "result"),
         [
             (4, 0x10FFFF, (3, 2), True),
             (2, 0xFFFF, (3, 2), False),
@@ -1058,7 +1062,7 @@ class TestCPythonTags:
 class TestGenericTags:
     def test__generic_abi_macos(self, monkeypatch):
         monkeypatch.setattr(
-            sysconfig, "get_config_var", lambda key: ".cpython-37m-darwin.so"
+            sysconfig, "get_config_var", lambda _: ".cpython-37m-darwin.so"
         )
         monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
         assert tags._generic_abi() == ["cp37m"]
@@ -1176,7 +1180,7 @@ class TestGenericTags:
 
     def test_interpreter_default(self, monkeypatch):
         monkeypatch.setattr(tags, "interpreter_name", lambda: "sillywalk")
-        monkeypatch.setattr(tags, "interpreter_version", lambda warn: "NN")
+        monkeypatch.setattr(tags, "interpreter_version", lambda warn: "NN")  # noqa: ARG005
         result = list(tags.generic_tags(abis=["none"], platforms=["any"]))
         assert result == [tags.Tag("sillywalkNN", "none", "any")]
 
@@ -1349,7 +1353,7 @@ class TestSysTags:
         tags._glibc_version = []
 
     @pytest.mark.parametrize(
-        "name,expected",
+        ("name", "expected"),
         [("CPython", "cp"), ("PyPy", "pp"), ("Jython", "jy"), ("IronPython", "ip")],
     )
     def test_interpreter_name(self, name, expected, mock_interpreter_name):
@@ -1421,9 +1425,10 @@ class TestSysTags:
         )
         assert result[-1] == expected
 
-    def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch, manylinux_module):
+    @pytest.mark.usefixtures("manylinux_module")
+    def test_linux_platforms_manylinux2014_armv6l(self, monkeypatch):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
-        monkeypatch.setattr(os, "confstr", lambda x: "glibc 2.20", raising=False)
+        monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = ["linux_armv6l"]
         assert platforms == expected
@@ -1445,12 +1450,13 @@ class TestSysTags:
         platforms = list(tags._linux_platforms())
         assert platforms == expected
 
+    @pytest.mark.usefixtures("manylinux_module")
     @pytest.mark.parametrize(
-        "machine, abi, alt_machine",
+        ("machine", "abi", "alt_machine"),
         [("x86_64", "x32", "i686"), ("armv7l", "armel", "armv7l")],
     )
     def test_linux_platforms_not_manylinux_abi(
-        self, monkeypatch, manylinux_module, machine, abi, alt_machine
+        self, monkeypatch, machine, abi, alt_machine
     ):
         monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
         monkeypatch.setattr(
@@ -1467,7 +1473,8 @@ class TestSysTags:
         assert platforms == expected
 
     @pytest.mark.parametrize(
-        "machine, major, minor, tf", [("x86_64", 2, 20, False), ("s390x", 2, 22, True)]
+        ("machine", "major", "minor", "tf"),
+        [("x86_64", 2, 20, False), ("s390x", 2, 22, True)],
     )
     def test_linux_use_manylinux_compatible(
         self, monkeypatch, manylinux_module, machine, major, minor, tf
@@ -1498,7 +1505,7 @@ class TestSysTags:
         assert platforms == expected
 
     def test_linux_use_manylinux_compatible_none(self, monkeypatch, manylinux_module):
-        def manylinux_compatible(tag_major, tag_minor, tag_arch):
+        def manylinux_compatible(tag_major, tag_minor, tag_arch):  # noqa: ARG001
             if tag_major == 2 and tag_minor < 25:
                 return False
             return None
@@ -1553,7 +1560,7 @@ class TestBitness:
         importlib.reload(tags)
 
     @pytest.mark.parametrize(
-        "maxsize, sizeof_voidp, expected",
+        ("maxsize", "sizeof_voidp", "expected"),
         [
             # 64-bit
             (9223372036854775807, 8, False),
