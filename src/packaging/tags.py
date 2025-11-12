@@ -223,7 +223,7 @@ def cpython_tags(
     for explicit_abi in ("abi3", "none"):
         try:
             abis.remove(explicit_abi)
-        except ValueError:
+        except ValueError:  # noqa: PERF203
             pass
 
     platforms = list(platforms or platform_tags())

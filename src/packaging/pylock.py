@@ -161,18 +161,17 @@ def _get_sequence_as(
     expected_item_type: type[_T],
     target_item_type: Callable[[_T], _T2],
     key: str,
-) -> Sequence[_T2] | None:
+) -> list[_T2] | None:
     """Get list value from dictionary and verify expected items type."""
     if (value := _get_sequence(d, expected_item_type, key)) is None:
         return None
     result = []
-    for i, item in enumerate(value):
-        try:
+    try:
+        for item in value:
             typed_item = target_item_type(item)
-        except Exception as e:
-            raise PylockValidationError(e, context=f"{key}[{i}]") from e
-        else:
             result.append(typed_item)
+    except Exception as e:
+        raise PylockValidationError(e, context=f"{key}[{len(result)}]") from e
     return result
 
 
@@ -190,18 +189,17 @@ def _get_object(
 
 def _get_sequence_of_objects(
     d: Mapping[str, Any], target_item_type: type[_FromMappingProtocolT], key: str
-) -> Sequence[_FromMappingProtocolT] | None:
+) -> list[_FromMappingProtocolT] | None:
     """Get a list value from the dictionary and convert its items to a dataclass."""
     if (value := _get_sequence(d, Mapping, key)) is None:  # type: ignore[type-abstract]
         return None
-    result = []
-    for i, item in enumerate(value):
-        try:
+    result: list[_FromMappingProtocolT] = []
+    try:
+        for item in value:
             typed_item = target_item_type._from_dict(item)
-        except Exception as e:
-            raise PylockValidationError(e, context=f"{key}[{i}]") from e
-        else:
             result.append(typed_item)
+    except Exception as e:
+        raise PylockValidationError(e, context=f"{key}[{len(result)}]") from e
     return result
 
 
@@ -543,13 +541,15 @@ class Package:
                 "Exactly one of vcs, directory, archive must be set "
                 "if sdist and wheels are not set"
             )
-        for i, attestation_identity in enumerate(package.attestation_identities or []):
-            try:
+        try:
+            for i, attestation_identity in enumerate(  # noqa: B007
+                package.attestation_identities or []
+            ):
                 _get_required(attestation_identity, str, "kind")
-            except Exception as e:
-                raise PylockValidationError(
-                    e, context=f"attestation-identities[{i}]"
-                ) from e
+        except Exception as e:
+            raise PylockValidationError(
+                e, context=f"attestation-identities[{i}]"
+            ) from e
         return package
 
     @property
