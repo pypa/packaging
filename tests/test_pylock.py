@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import datetime
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -368,7 +368,9 @@ def test_pylock_tool() -> None:
                 "sdist": {
                     "name": "example-1.0.tar.gz",
                     "path": "./example-1.0.tar.gz",
-                    "upload-time": datetime(2023, 10, 1, 0, 0),
+                    "upload-time": datetime.datetime(
+                        2023, 10, 1, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
                     "hashes": {"sha256": "f" * 40},
                 },
                 "tool": {"pip": {"foo": "bar"}},

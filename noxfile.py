@@ -307,7 +307,7 @@ def _replace_file(original_path):
 
 def _changelog_update_unreleased_title(version, *, file):
     """Update an "*unreleased*" heading to "{version} - {date}" """
-    yyyy_mm_dd = datetime.datetime.today().strftime("%Y-%m-%d")
+    yyyy_mm_dd = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d")
     title = f"{version} - {yyyy_mm_dd}"
 
     with _replace_file(file) as (original, replacement):

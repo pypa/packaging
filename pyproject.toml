@@ -91,6 +91,7 @@ extend-exclude = [
 extend-select = [
     "ARG",   # flake8-unused-argument
     "B",     # flake8-bugbear
+    "DTZ",   # flake8-datetimez
     "E",
     "EXE",   # flake8-executable
     "F",
