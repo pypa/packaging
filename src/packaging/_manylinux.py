@@ -192,15 +192,16 @@ def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
         if result is not None:
             return bool(result)
         return True
-    if version == _GLibCVersion(2, 5):
-        if hasattr(_manylinux, "manylinux1_compatible"):
-            return bool(_manylinux.manylinux1_compatible)
-    if version == _GLibCVersion(2, 12):
-        if hasattr(_manylinux, "manylinux2010_compatible"):
-            return bool(_manylinux.manylinux2010_compatible)
-    if version == _GLibCVersion(2, 17):
-        if hasattr(_manylinux, "manylinux2014_compatible"):
-            return bool(_manylinux.manylinux2014_compatible)
+    if version == _GLibCVersion(2, 5) and hasattr(_manylinux, "manylinux1_compatible"):
+        return bool(_manylinux.manylinux1_compatible)
+    if version == _GLibCVersion(2, 12) and hasattr(
+        _manylinux, "manylinux2010_compatible"
+    ):
+        return bool(_manylinux.manylinux2010_compatible)
+    if version == _GLibCVersion(2, 17) and hasattr(
+        _manylinux, "manylinux2014_compatible"
+    ):
+        return bool(_manylinux.manylinux2014_compatible)
     return True
 
 
