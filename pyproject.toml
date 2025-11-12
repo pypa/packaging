@@ -68,7 +68,7 @@ minversion = "6.2"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-log_cli_level = "INFO"
+log_level = "INFO"
 testpaths = ["tests"]
 
 
