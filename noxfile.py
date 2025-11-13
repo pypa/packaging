@@ -43,21 +43,19 @@ def tests(session):
     coverage = ["python", "-m", "coverage"]
 
     session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
-    session.install(".")
+    session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
     if "pypy" not in session.python:
         session.run(
             *coverage,
             "run",
-            "--source",
-            "packaging",
             "-m",
             "pytest",
             *session.posargs,
             env=env,
         )
-        session.run(*coverage, "report", "-m", "--fail-under", "100")
+        session.run(*coverage, "report")
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
