@@ -37,7 +37,7 @@ Source = "https://github.com/pypa/packaging"
 
 [dependency-groups]
 test = [
-  "coverage[toml]>=5.0.0",
+  "coverage[toml]>=7.2.0",
   "pip>=21.1",
   "pretend",
   "pytest>=6.2.0",
@@ -59,9 +59,12 @@ ignore-words-list = [
 
 [tool.coverage.run]
 branch = true
+source_pkgs = ["packaging"]
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
+show_missing = true
+fail_under = 100
+exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
