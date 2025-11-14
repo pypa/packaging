@@ -96,6 +96,7 @@ extend-select = [
     "ARG",   # flake8-unused-argument
     "B",     # flake8-bugbear
     "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
     "DTZ",   # flake8-datetimez
     "E",
     "EXE",   # flake8-executable
@@ -135,6 +136,7 @@ ignore = [
     "SIM105",  # try/except is faster than contextlib.suppress
     "TRY003",  # long messages outside exception class
 ]
+flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
