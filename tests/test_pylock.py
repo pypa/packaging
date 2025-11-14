@@ -420,14 +420,14 @@ def test_pylock_package_not_a_table() -> None:
 def test_hash_validation(hashes: dict[str, Any], expected_error: str) -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         PackageWheel._from_dict(
-            {
-                "name": "example-1.0-py3-none-any.whl",
-                "upload_time": None,
-                "url": "https://example.com/example-1.0-py3-none-any.whl",
-                "path": None,
-                "size": None,
-                "hashes": hashes,
-            }
+            dict(
+                name="example-1.0-py3-none-any.whl",
+                upload_time=None,
+                url="https://example.com/example-1.0-py3-none-any.whl",
+                path=None,
+                size=None,
+                hashes=hashes,
+            )
         )
     assert str(exc_info.value) == expected_error
 
