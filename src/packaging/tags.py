@@ -263,10 +263,12 @@ def _generic_abi() -> list[str]:
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
     if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
         raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
+
     parts = ext_suffix.split(".")
     if len(parts) < 3:
         # CPython3.7 and earlier uses ".pyd" on Windows.
         return _cpython_abis(sys.version_info[:2])
+
     soabi = parts[1]
     if soabi.startswith("cpython"):
         # non-windows
@@ -283,6 +285,7 @@ def _generic_abi() -> list[str]:
         abi = soabi
     else:
         return []
+
     return [_normalize_string(abi)]
 
 
@@ -572,6 +575,7 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         # we should never be here, just yield the sysconfig one and return
         yield linux
         return
+
     if is_32bit:
         if linux == "linux_x86_64":
             linux = "linux_i686"
@@ -595,12 +599,16 @@ def platform_tags() -> Iterator[str]:
     """
     if platform.system() == "Darwin":
         return mac_platforms()
+
     if platform.system() == "iOS":
         return ios_platforms()
+
     if platform.system() == "Android":
         return android_platforms()
+
     if platform.system() == "Linux":
         return _linux_platforms()
+
     return _generic_platforms()
 
 
