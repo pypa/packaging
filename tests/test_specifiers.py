@@ -570,6 +570,49 @@ class TestSpecifier:
             # Test identity comparison by itself
             ("1.0", "===1.0", True),
             ("1.0.dev0", "===1.0.dev0", True),
+            # Test case insensitivity for pre-release versions
+            ("1.0a1", "===1.0a1", True),
+            ("1.0A1", "===1.0A1", True),
+            ("1.0a1", "===1.0A1", True),
+            ("1.0A1", "===1.0a1", True),
+            # Test case insensitivity for beta versions
+            ("1.0b1", "===1.0b1", True),
+            ("1.0B1", "===1.0B1", True),
+            ("1.0b1", "===1.0B1", True),
+            ("1.0B1", "===1.0b1", True),
+            # Test case insensitivity for release candidate versions
+            ("1.0rc1", "===1.0rc1", True),
+            ("1.0RC1", "===1.0RC1", True),
+            ("1.0rc1", "===1.0RC1", True),
+            ("1.0RC1", "===1.0rc1", True),
+            # Test case insensitivity for post-release versions
+            ("1.0.post1", "===1.0.post1", True),
+            ("1.0.POST1", "===1.0.POST1", True),
+            ("1.0.post1", "===1.0.POST1", True),
+            ("1.0.POST1", "===1.0.post1", True),
+            # Test case insensitivity for dev versions
+            ("1.0.dev1", "===1.0.dev1", True),
+            ("1.0.DEV1", "===1.0.DEV1", True),
+            ("1.0.dev1", "===1.0.DEV1", True),
+            ("1.0.DEV1", "===1.0.dev1", True),
+            # Test case insensitivity with local versions
+            ("1.0+local", "===1.0+local", True),
+            ("1.0+LOCAL", "===1.0+LOCAL", True),
+            ("1.0+local", "===1.0+LOCAL", True),
+            ("1.0+LOCAL", "===1.0+local", True),
+            ("1.0+abc.def", "===1.0+abc.def", True),
+            ("1.0+ABC.DEF", "===1.0+ABC.DEF", True),
+            ("1.0+abc.def", "===1.0+ABC.DEF", True),
+            ("1.0+ABC.DEF", "===1.0+abc.def", True),
+            # Test case insensitivity with mixed case letters in local
+            ("1.0+AbC", "===1.0+AbC", True),
+            ("1.0+AbC", "===1.0+abc", True),
+            ("1.0+AbC", "===1.0+ABC", True),
+            # Test complex cases with multiple segments
+            ("1.0a1.post2.dev3", "===1.0a1.post2.dev3", True),
+            ("1.0A1.POST2.DEV3", "===1.0A1.POST2.DEV3", True),
+            ("1.0a1.post2.dev3", "===1.0A1.POST2.DEV3", True),
+            ("1.0A1.POST2.DEV3", "===1.0a1.post2.dev3", True),
         ],
     )
     def test_specifiers_identity(self, version, spec, expected):
