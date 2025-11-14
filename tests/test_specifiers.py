@@ -570,6 +570,62 @@ class TestSpecifier:
             # Test identity comparison by itself
             ("1.0", "===1.0", True),
             ("1.0.dev0", "===1.0.dev0", True),
+            # Test case sensitivity for pre-release versions
+            ("1.0a1", "===1.0a1", True),
+            ("1.0A1", "===1.0A1", True),
+            ("1.0a1", "===1.0A1", False),
+            ("1.0A1", "===1.0a1", False),
+            # Test case sensitivity for beta versions
+            ("1.0b1", "===1.0b1", True),
+            ("1.0B1", "===1.0B1", True),
+            ("1.0b1", "===1.0B1", False),
+            ("1.0B1", "===1.0b1", False),
+            # Test case sensitivity for release candidate versions
+            ("1.0rc1", "===1.0rc1", True),
+            ("1.0RC1", "===1.0RC1", True),
+            ("1.0rc1", "===1.0RC1", False),
+            ("1.0RC1", "===1.0rc1", False),
+            ("1.0c1", "===1.0c1", True),
+            ("1.0C1", "===1.0C1", True),
+            ("1.0c1", "===1.0C1", False),
+            ("1.0C1", "===1.0c1", False),
+            # Test case sensitivity for post-release versions
+            ("1.0.post1", "===1.0.post1", True),
+            ("1.0.POST1", "===1.0.POST1", True),
+            ("1.0.post1", "===1.0.POST1", False),
+            ("1.0.POST1", "===1.0.post1", False),
+            # Test case sensitivity for dev versions
+            ("1.0.dev1", "===1.0.dev1", True),
+            ("1.0.DEV1", "===1.0.DEV1", True),
+            ("1.0.dev1", "===1.0.DEV1", False),
+            ("1.0.DEV1", "===1.0.dev1", False),
+            # Test case sensitivity with local versions
+            ("1.0+local", "===1.0+local", True),
+            ("1.0+LOCAL", "===1.0+LOCAL", True),
+            ("1.0+local", "===1.0+LOCAL", False),
+            ("1.0+LOCAL", "===1.0+local", False),
+            ("1.0+abc.def", "===1.0+abc.def", True),
+            ("1.0+ABC.DEF", "===1.0+ABC.DEF", True),
+            ("1.0+abc.def", "===1.0+ABC.DEF", False),
+            ("1.0+ABC.DEF", "===1.0+abc.def", False),
+            # Test case sensitivity with mixed case letters in local
+            ("1.0+AbC", "===1.0+AbC", True),
+            ("1.0+AbC", "===1.0+abc", False),
+            ("1.0+AbC", "===1.0+ABC", False),
+            # Test case sensitivity with alternative spellings
+            ("1.0alpha1", "===1.0alpha1", True),
+            ("1.0ALPHA1", "===1.0ALPHA1", True),
+            ("1.0alpha1", "===1.0ALPHA1", False),
+            ("1.0ALPHA1", "===1.0alpha1", False),
+            ("1.0beta1", "===1.0beta1", True),
+            ("1.0BETA1", "===1.0BETA1", True),
+            ("1.0beta1", "===1.0BETA1", False),
+            ("1.0BETA1", "===1.0beta1", False),
+            # Test complex cases with multiple segments
+            ("1.0a1.post2.dev3", "===1.0a1.post2.dev3", True),
+            ("1.0A1.POST2.DEV3", "===1.0A1.POST2.DEV3", True),
+            ("1.0a1.post2.dev3", "===1.0A1.POST2.DEV3", False),
+            ("1.0A1.POST2.DEV3", "===1.0a1.post2.dev3", False),
         ],
     )
     def test_specifiers_identity(self, version, spec, expected):

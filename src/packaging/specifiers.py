@@ -507,8 +507,8 @@ class Specifier(BaseSpecifier):
         # same version in the spec.
         return True
 
-    def _compare_arbitrary(self, prospective: Version, spec: str) -> bool:
-        return str(prospective).lower() == str(spec).lower()
+    def _compare_arbitrary(self, prospective: Version | str, spec: str) -> bool:
+        return str(prospective) == str(spec)
 
     def __contains__(self, item: str | Version) -> bool:
         """Return whether or not the item is contained in this specifier.
@@ -599,7 +599,13 @@ class Specifier(BaseSpecifier):
             if parsed_version is None:
                 continue
 
-            if operator_callable(parsed_version, self.version):
+            if self.operator == "===":
+                # For arbitrary equality, compare the original string directly
+                matches = self._compare_arbitrary(version, self.version)
+            else:
+                matches = operator_callable(parsed_version, self.version)
+
+            if matches:
                 # If it's not a prerelease or prereleases are allowed, yield it directly
                 if not parsed_version.is_prerelease or include_prereleases:
                     found_non_prereleases = True
