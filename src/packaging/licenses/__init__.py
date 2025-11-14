@@ -94,10 +94,7 @@ def canonicalize_license_expression(
             token == "("
             and python_tokens
             and python_tokens[-1] not in {"or", "and", "("}
-        ):
-            message = f"Invalid license expression: {raw_license_expression!r}"
-            raise InvalidLicenseExpression(message)
-        elif token == ")" and python_tokens and python_tokens[-1] == "(":
+        ) or (token == ")" and python_tokens and python_tokens[-1] == "("):
             message = f"Invalid license expression: {raw_license_expression!r}"
             raise InvalidLicenseExpression(message)
         else:

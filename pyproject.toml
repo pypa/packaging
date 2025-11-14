@@ -37,7 +37,7 @@ Source = "https://github.com/pypa/packaging"
 
 [dependency-groups]
 test = [
-  "coverage[toml]>=5.0.0",
+  "coverage[toml]>=7.2.0",
   "pip>=21.1",
   "pretend",
   "pytest>=6.2.0",
@@ -59,16 +59,19 @@ ignore-words-list = [
 
 [tool.coverage.run]
 branch = true
+source_pkgs = ["packaging"]
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
+show_missing = true
+fail_under = 100
+exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-log_cli_level = "INFO"
+log_level = "INFO"
 testpaths = ["tests"]
 
 
@@ -86,25 +89,57 @@ ignore_missing_imports = true
 extend-exclude = [
     "src/packaging/licenses/_spdx.py"
 ]
+show-fixes = true
 
 [tool.ruff.lint]
 extend-select = [
-    "B",
+    "ARG",   # flake8-unused-argument
+    "B",     # flake8-bugbear
+    "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
+    "DTZ",   # flake8-datetimez
     "E",
+    "EXE",   # flake8-executable
     "F",
-    "FA",
-    "I",
-    "N",
-    "PYI",
-    "RUF",
-    "UP",
-    "W"
+    "FA",    # flake8-future-annotations
+    "FLY",   # flynt
+    "FURB",  # refurb
+    "G",     # flake8-logging-format
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "ISC",   # flake8-implicit-str-concat
+    "LOG",   # flake8-logging
+    "N",     # pep8-naming
+    "PERF",  # perflint
+    "PGH",   # pygrep-hooks
+    "PIE",   # flake8-pie
+    "PL",    # pylint
+    "PT",    # flake8-pytest-style
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RUF",   # Ruff-specific rules
+    "SIM",   # flake8-simplify
+    "SLOT",  # flake8-slots
+    "T10",   # flake8-debugger
+    "TRY",   # tryceratops
+    "UP",    # pyupgrade
+    "W",
+    "YTT",   # flake8-2020
 ]
 ignore = [
-    "N818",  # exceptions must end in "*Error"
+    "N818",    # exceptions must end in "*Error"
+    "PLR09",   # too many ...
+    "PLR2004", # magic value in comparison
+    "PLW0127", # duplicate of F821
+    "SIM103",  # returning negated value directly not ideal for long chain
+    "SIM105",  # try/except is faster than contextlib.suppress
+    "TRY003",  # long messages outside exception class
 ]
+flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = ["PYI024"]
+"tests/test_*.py" = ["PYI024", "PLR", "SIM201"]
 "tasks/check.py" = ["UP032"]
 "tests/test_requirements.py" = ["UP032"]

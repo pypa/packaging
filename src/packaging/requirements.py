@@ -57,7 +57,7 @@ class Requirement:
             yield str(self.specifier)
 
         if self.url:
-            yield f"@ {self.url}"
+            yield f" @ {self.url}"
             if self.marker:
                 yield " "
 
