@@ -147,7 +147,7 @@ flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20"]
+"tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20", "RET505"]
 "tasks/check.py" = ["UP032", "T20"]
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]

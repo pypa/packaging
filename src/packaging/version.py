@@ -333,6 +333,7 @@ class Version(_BaseVersion):
         """
         if self._version.local:
             return ".".join(str(x) for x in self._version.local)
+
         return None
 
     @property

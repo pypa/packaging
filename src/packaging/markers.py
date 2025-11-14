@@ -157,9 +157,12 @@ def _format_marker(
         inner = (_format_marker(m, first=False) for m in marker)
         if first:
             return " ".join(inner)
+
         return "(" + " ".join(inner) + ")"
+
     if isinstance(marker, tuple):
         return " ".join([m.serialize() for m in marker])
+
     return marker
 
 
@@ -201,6 +204,7 @@ def _normalize(
     if key == "extra":
         assert isinstance(rhs, str), "extra value must be a string"
         return (canonicalize_name(lhs), canonicalize_name(rhs))
+
     if key in MARKERS_ALLOWING_SET:
         return (
             canonicalize_name(lhs),
