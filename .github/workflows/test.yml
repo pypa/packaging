@@ -40,3 +40,18 @@ jobs:
 
       - name: Run nox
         run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+
+  pass:
+    name: All pass
+    if: always()
+
+    needs:
+      - test
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
