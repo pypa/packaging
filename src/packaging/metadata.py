@@ -236,13 +236,12 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
-    else:
-        bpayload = msg.get_payload(decode=True)
-        assert isinstance(bpayload, bytes)
-        try:
-            return bpayload.decode("utf8", "strict")
-        except UnicodeDecodeError as exc:
-            raise ValueError("payload in an invalid encoding") from exc
+    bpayload = msg.get_payload(decode=True)
+    assert isinstance(bpayload, bytes)
+    try:
+        return bpayload.decode("utf8", "strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError("payload in an invalid encoding") from exc
 
 
 # The various parse_FORMAT functions here are intended to be as lenient as
@@ -658,10 +657,12 @@ class _Validator(Generic[T]):
                 raise self._invalid_metadata(
                     f"{dynamic_field!r} is not allowed as a dynamic field"
                 )
-            elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
+
+            if dynamic_field not in _EMAIL_TO_RAW_MAPPING:
                 raise self._invalid_metadata(
                     f"{dynamic_field!r} is not a valid dynamic field"
                 )
+
         return list(map(str.lower, value))
 
     def _process_provides_extra(
@@ -746,16 +747,19 @@ class _Validator(Generic[T]):
                         f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is not a valid identifier"
                     )
-                elif keyword.iskeyword(identifier):
+
+                if keyword.iskeyword(identifier):
                     raise self._invalid_metadata(
                         f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is a keyword"
                     )
+
             if semicolon and private.lstrip() != "private":
                 raise self._invalid_metadata(
                     f"{import_name!r} is invalid for {{field}}; "
                     "the only valid option is 'private'"
                 )
+
         return value
 
     _process_import_namespaces = _process_import_names

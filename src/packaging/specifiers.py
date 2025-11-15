@@ -419,17 +419,16 @@ class Specifier(BaseSpecifier):
             shortened_prospective = padded_prospective[: len(split_spec)]
 
             return shortened_prospective == split_spec
-        else:
-            # Convert our spec string into a Version
-            spec_version = Version(spec)
+        # Convert our spec string into a Version
+        spec_version = Version(spec)
 
-            # If the specifier does not have a local segment, then we want to
-            # act as if the prospective version also does not have a local
-            # segment.
-            if not spec_version.local:
-                prospective = Version(prospective.public)
+        # If the specifier does not have a local segment, then we want to
+        # act as if the prospective version also does not have a local
+        # segment.
+        if not spec_version.local:
+            prospective = Version(prospective.public)
 
-            return prospective == spec_version
+        return prospective == spec_version
 
     def _compare_not_equal(self, prospective: Version, spec: str) -> bool:
         return not self._compare_equal(prospective, spec)
