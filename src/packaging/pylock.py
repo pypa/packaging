@@ -84,9 +84,12 @@ def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
     if (value := d.get(key)) is None:
         return None
     if not isinstance(value, expected_type):
-        raise PylockValidationError(
+        msg = (
             f"Unexpected type {type(value).__name__} "
-            f"(expected {expected_type.__name__})",
+            f"(expected {expected_type.__name__})"
+        )
+        raise PylockValidationError(
+            msg,
             context=key,
         )
     return value
@@ -107,15 +110,19 @@ def _get_sequence(
         return None
     if isinstance(value, (str, bytes)):
         # special case: str and bytes are Sequences, but we want to reject it
+        msg = f"Unexpected type {type(value).__name__} (expected Sequence)"
         raise PylockValidationError(
-            f"Unexpected type {type(value).__name__} (expected Sequence)",
+            msg,
             context=key,
         )
     for i, item in enumerate(value):
         if not isinstance(item, expected_item_type):
-            raise PylockValidationError(
+            msg = (
                 f"Unexpected type {type(item).__name__} "
-                f"(expected {expected_item_type.__name__})",
+                f"(expected {expected_item_type.__name__})"
+            )
+            raise PylockValidationError(
+                msg,
                 context=f"{key}[{i}]",
             )
     return value
@@ -213,20 +220,24 @@ def _get_required_sequence_of_objects(
 def _validate_normalized_name(name: str) -> NormalizedName:
     """Validate that a string is a NormalizedName."""
     if not is_normalized_name(name):
-        raise PylockValidationError(f"Name {name!r} is not normalized")
+        msg = f"Name {name!r} is not normalized"
+        raise PylockValidationError(msg)
     return NormalizedName(name)
 
 
 def _validate_path_url(path: str | None, url: str | None) -> None:
     if not path and not url:
-        raise PylockValidationError("path or url must be provided")
+        msg = "path or url must be provided"
+        raise PylockValidationError(msg)
 
 
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
-        raise PylockValidationError("At least one hash must be provided")
+        msg = "At least one hash must be provided"
+        raise PylockValidationError(msg)
     if not all(isinstance(hash_val, str) for hash_val in hashes.values()):
-        raise PylockValidationError("Hash values must be strings")
+        msg = "Hash values must be strings"
+        raise PylockValidationError(msg)
     return hashes
 
 
@@ -530,14 +541,16 @@ class Package:
             bool(package.vcs) + bool(package.directory) + bool(package.archive)
         )
         if distributions > 0 and direct_urls > 0:
-            raise PylockValidationError(
+            msg = (
                 "None of vcs, directory, archive must be set if sdist or wheels are set"
             )
+            raise PylockValidationError(msg)
         if distributions == 0 and direct_urls != 1:
-            raise PylockValidationError(
+            msg = (
                 "Exactly one of vcs, directory, archive must be set "
                 "if sdist and wheels are not set"
             )
+            raise PylockValidationError(msg)
         try:
             for i, attestation_identity in enumerate(  # noqa: B007
                 package.attestation_identities or []
@@ -606,9 +619,8 @@ class Pylock:
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
         if not Version("1") <= pylock.lock_version < Version("2"):
-            raise PylockUnsupportedVersionError(
-                f"pylock version {pylock.lock_version} is not supported"
-            )
+            msg = f"pylock version {pylock.lock_version} is not supported"
+            raise PylockUnsupportedVersionError(msg)
         if pylock.lock_version > Version("1.0"):
             _logger.warning(
                 "pylock minor version %s is not supported", pylock.lock_version

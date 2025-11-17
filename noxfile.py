@@ -203,18 +203,21 @@ def _get_version_from_arguments(arguments: list[str]) -> str:
     Otherwise, raise a ValueError describing what's wrong.
     """
     if len(arguments) != 1:
-        raise ValueError("Expected exactly 1 argument")
+        msg = "Expected exactly 1 argument"
+        raise ValueError(msg)
 
     version = arguments[0]
     parts = version.split(".")
 
     if len(parts) != 2:
         # Not of the form: YY.N
-        raise ValueError("not of the form: YY.N")
+        msg = "not of the form: YY.N"
+        raise ValueError(msg)
 
     if not all(part.isdigit() for part in parts):
         # Not all segments are integers.
-        raise ValueError("non-integer segments")
+        msg = "non-integer segments"
+        raise ValueError(msg)
 
     # All is good.
     return version

@@ -48,10 +48,12 @@ class ELFFile:
         try:
             ident = self._read("16B")
         except struct.error as e:
-            raise ELFInvalid("unable to parse identification") from e
+            msg = "unable to parse identification"
+            raise ELFInvalid(msg) from e
         magic = bytes(ident[:4])
         if magic != b"\x7fELF":
-            raise ELFInvalid(f"invalid magic: {magic!r}")
+            msg = f"invalid magic: {magic!r}"
+            raise ELFInvalid(msg)
 
         self.capacity = ident[4]  # Format for program header (bitness).
         self.encoding = ident[5]  # Data structure encoding (endianness).
@@ -67,9 +69,10 @@ class ELFFile:
                 (2, 2): (">HHIQQQIHHH", ">IIQQQQQQ", (0, 2, 5)),  # 64-bit MSB.
             }[(self.capacity, self.encoding)]
         except KeyError as e:
-            raise ELFInvalid(
+            msg = (
                 f"unrecognized capacity ({self.capacity}) or encoding ({self.encoding})"
-            ) from e
+            )
+            raise ELFInvalid(msg) from e
 
         try:
             (
@@ -85,7 +88,8 @@ class ELFFile:
                 self._e_phnum,  # Number of sections.
             ) = self._read(e_fmt)
         except struct.error as e:
-            raise ELFInvalid("unable to parse machine and section information") from e
+            msg = "unable to parse machine and section information"
+            raise ELFInvalid(msg) from e
 
     def _read(self, fmt: str) -> tuple[int, ...]:
         return struct.unpack(fmt, self._f.read(struct.calcsize(fmt)))

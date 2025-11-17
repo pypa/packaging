@@ -262,7 +262,8 @@ def _generic_abi() -> list[str]:
 
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
     if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
-        raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
+        msg = "invalid sysconfig.get_config_var('EXT_SUFFIX')"
+        raise SystemError(msg)
     parts = ext_suffix.split(".")
     if len(parts) < 3:
         # CPython3.7 and earlier uses ".pyd" on Windows.
@@ -545,9 +546,8 @@ def android_platforms(
         underscores.
     """
     if platform.system() != "Android" and (api_level is None or abi is None):
-        raise TypeError(
-            "on non-Android platforms, the api_level and abi arguments are required"
-        )
+        msg = "on non-Android platforms, the api_level and abi arguments are required"
+        raise TypeError(msg)
 
     if api_level is None:
         # Python 3.13 was the first version to return platform.system() == "Android",

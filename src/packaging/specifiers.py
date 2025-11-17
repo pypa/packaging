@@ -256,7 +256,8 @@ class Specifier(BaseSpecifier):
         """
         match = self._regex.search(spec)
         if not match:
-            raise InvalidSpecifier(f"Invalid specifier: {spec!r}")
+            msg = f"Invalid specifier: {spec!r}"
+            raise InvalidSpecifier(msg)
 
         self._spec: tuple[str, str] = (
             match.group("operator").strip(),
@@ -843,9 +844,10 @@ class SpecifierSet(BaseSpecifier):
         ) or self._prereleases == other._prereleases:
             specifier._prereleases = self._prereleases
         else:
-            raise ValueError(
+            msg = (
                 "Cannot combine SpecifierSets with True and False prerelease overrides."
             )
+            raise ValueError(msg)
 
         return specifier
 

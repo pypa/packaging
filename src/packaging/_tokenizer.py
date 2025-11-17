@@ -140,7 +140,8 @@ class Tokenizer:
         The token is *not* read.
         """
         if not self.check(name):
-            raise self.raise_syntax_error(f"Expected {expected}")
+            msg = f"Expected {expected}"
+            raise self.raise_syntax_error(msg)
         return self.read()
 
     def read(self) -> Token:

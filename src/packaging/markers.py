@@ -188,7 +188,8 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
 
     oper: Operator | None = _operators.get(op.serialize())
     if oper is None:
-        raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
+        msg = f"Undefined {op!r} on {lhs!r} and {rhs!r}."
+        raise UndefinedComparison(msg)
 
     return oper(lhs, rhs)
 
