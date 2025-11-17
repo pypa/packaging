@@ -3,11 +3,9 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
-import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,10 +20,9 @@ from .utils import NormalizedName, is_normalized_name
 from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
+    from pathlib import Path
+
+    from typing_extensions import Self
 
 _logger = logging.getLogger(__name__)
 

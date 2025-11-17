@@ -64,7 +64,7 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty"]
+exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty", "if typing.TYPE_CHECKING:"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
@@ -123,6 +123,7 @@ extend-select = [
     "SLOT",  # flake8-slots
     "T10",   # flake8-debugger
     "T20",   # flake8-print
+    "TC",    # flake8-type-checking
     "TRY",   # tryceratops
     "UP",    # pyupgrade
     "W",

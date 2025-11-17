@@ -20,7 +20,9 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
-from .licenses import NormalizedLicenseExpression
+
+if typing.TYPE_CHECKING:
+    from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
 
@@ -498,7 +500,7 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
             # Check to see if we've already got a description, if so then both
             # it, and this body move to unparsable.
             if "description" in raw:
-                description_header = cast(str, raw.pop("description"))
+                description_header = cast("str", raw.pop("description"))
                 unparsed.setdefault("description", []).extend(
                     [description_header, payload]
                 )
@@ -511,7 +513,7 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     # literal key names, but we're computing our key names on purpose, but the
     # way this function is implemented, our `TypedDict` can only have valid key
     # names.
-    return cast(RawMetadata, raw), unparsed
+    return cast("RawMetadata", raw), unparsed
 
 
 _NOT_FOUND = object()
@@ -574,7 +576,7 @@ class _Validator(Generic[T]):
         except KeyError:
             pass
 
-        return cast(T, value)
+        return cast("T", value)
 
     def _invalid_metadata(
         self, msg: str, cause: Exception | None = None
@@ -589,7 +591,7 @@ class _Validator(Generic[T]):
         # Implicitly makes Metadata-Version required.
         if value not in _VALID_METADATA_VERSIONS:
             raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
-        return cast(_MetadataVersion, value)
+        return cast("_MetadataVersion", value)
 
     def _process_name(self, value: str) -> str:
         if not value:
