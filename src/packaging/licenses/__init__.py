@@ -142,6 +142,6 @@ def canonicalize_license_expression(
     normalized_expression = " ".join(normalized_tokens)
 
     return cast(
-        NormalizedLicenseExpression,
+        "NormalizedLicenseExpression",
         normalized_expression.replace("( ", "(").replace(" )", ")"),
     )
