@@ -9,6 +9,8 @@ import dataclasses
 import email.message
 import email.policy
 import email.utils
+import itertools
+import keyword
 import os
 import os.path
 import pathlib
@@ -23,7 +25,7 @@ from .errors import ConfigurationError, ConfigurationWarning, ErrorCollector
 
 if typing.TYPE_CHECKING:  # pragma: no cover
     import sys
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Generator, Mapping, Sequence
     from typing import Any
 
     from .requirements import Requirement
@@ -55,6 +57,8 @@ KNOWN_PROJECT_FIELDS = {
     "dynamic",
     "entry-points",
     "gui-scripts",
+    "import-names",
+    "import-namespaces",
     "keywords",
     "license",
     "license-files",
@@ -68,6 +72,7 @@ KNOWN_PROJECT_FIELDS = {
     "version",
 }
 PRE_SPDX_METADATA_VERSIONS = {"2.1", "2.2", "2.3"}
+PRE_2_5_METADATA_VERSIONS = {"2.1", "2.2", "2.3", "2.4"}
 
 
 def extras_top_level(pyproject_table: Mapping[str, Any]) -> set[str]:
@@ -91,12 +96,55 @@ def extras_project(pyproject_table: Mapping[str, Any]) -> set[str]:
     return set(pyproject_table.get("project", [])) - KNOWN_PROJECT_FIELDS
 
 
+def _validate_import_names(
+    names: list[str], key: str, *, errors: ErrorCollector
+) -> Generator[str, None, None]:
+    """
+    Returns normalized names for comparisons.
+    """
+    for fullname in names:
+        name, simicolon, private = fullname.partition(";")
+        if simicolon and private.lstrip() != "private":
+            msg = "{key} contains an ending tag other than '; private', got {value!r}"
+            errors.config_error(msg, key=key, value=fullname)
+        name = name.rstrip()
+
+        for ident in name.split("."):
+            if not ident.isidentifier():
+                msg = "{key} contains {value!r}, which is not a valid identifier"
+                errors.config_error(msg, key=key, value=fullname)
+
+            elif keyword.iskeyword(ident):
+                msg = (
+                    "{key} contains a Python keyword,"
+                    " which is not a valid import name, got {value!r}"
+                )
+                errors.config_error(msg, key=key, value=fullname)
+
+        yield name
+
+
+def _validate_dotted_names(names: set[str], *, errors: ErrorCollector) -> None:
+    """
+    Checks to make sure every name is accounted for. Takes the union of de-tagged names.
+    """
+
+    for name in names:
+        for parent in itertools.accumulate(
+            name.split(".")[:-1], lambda a, b: f"{a}.{b}"
+        ):
+            if parent not in names:
+                msg = "{key} is missing {value!r}, but submodules are present elsewhere"
+                errors.config_error(msg, key="project.import-namespaces", value=parent)
+                continue
+
+
 @dataclasses.dataclass
 class StandardMetadata:
     """
     This class represents the standard metadata fields for a project. It can be
     used to read metadata from a pyproject.toml table, validate it, and write it
-    to an RFC822 message or JSON.
+    to an RFC822 message.
     """
 
     name: str
@@ -118,6 +166,8 @@ class StandardMetadata:
     keywords: list[str] = dataclasses.field(default_factory=list)
     scripts: dict[str, str] = dataclasses.field(default_factory=dict)
     gui_scripts: dict[str, str] = dataclasses.field(default_factory=dict)
+    import_names: list[str] | None = None
+    import_namespaces: list[str] | None = None
     dynamic: list[Dynamic] = dataclasses.field(default_factory=list)
     """
     This field is used to track dynamic fields. You can't set a field not in this list.
@@ -273,6 +323,12 @@ class StandardMetadata:
                     project.get("gui-scripts", {}), "project.gui-scripts"
                 )
                 or {},
+                import_names=pyproject.ensure_list(
+                    project.get("import-names", None), "project.import-names"
+                ),
+                import_namespaces=pyproject.ensure_list(
+                    project.get("import-namespaces", None), "project.import-namespaces"
+                ),
                 dynamic=dynamic,
             )
 
@@ -280,7 +336,18 @@ class StandardMetadata:
         assert self is not None
         return self
 
-    def validate_metdata(self, metadata_version: str) -> None:
+    def validate_metadata(self, metadata_version: str) -> None:
+        """
+        Validate metadata for consistency and correctness given a metadata
+        version. This is called when making metadata. Checks:
+
+        - ``license`` is not an SPDX license expression if metadata_version
+          >= 2.4 (warning)
+        - License classifiers deprecated for metadata_version >= 2.4 (warning)
+        - ``license`` is an SPDX license expression if metadata_version >= 2.4
+        - ``license_files`` is supported only for metadata_version >= 2.4
+        - ``import-name(paces)s`` is only supported on metadata_version >= 2.5
+        """
         errors = ErrorCollector()
 
         if not self.version:
@@ -317,28 +384,37 @@ class StandardMetadata:
             self.license_files is not None
             and metadata_version in PRE_SPDX_METADATA_VERSIONS
         ):
-            msg = "{key} is supported only when emitting metadata version >= 2.4"
+            msg = "{key} is only supported when emitting metadata version >= 2.4"
             errors.config_error(msg, key="project.license-files")
+
+        if (
+            self.import_names is not None
+            and metadata_version in PRE_2_5_METADATA_VERSIONS
+        ):
+            msg = "{key} is only supported when emitting metadata version >= 2.5"
+            errors.config_error(msg, key="project.import-names")
+
+        if (
+            self.import_namespaces is not None
+            and metadata_version in PRE_2_5_METADATA_VERSIONS
+        ):
+            msg = "{key} is only supported when emitting metadata version >= 2.5"
+            errors.config_error(msg, key="project.import-namespaces")
 
         errors.finalize("Metadata validation failed")
 
     def validate(self) -> None:
         """
-        Validate metadata for consistency and correctness. Will also produce
-        warnings if ``warn`` is given. Respects ``all_errors``. This is called
-        when loading a pyproject.toml, and when making metadata. Checks:
+        Validate metadata for consistency and correctness. This is called
+        when loading a pyproject.toml. Checks:
 
-        - ``metadata_version`` is a known version or None
         - ``name`` is a valid project name
         - ``license_files`` can't be used with classic ``license``
         - License classifiers can't be used with SPDX license
         - ``description`` is a single line (warning)
-        - ``license`` is not an SPDX license expression if metadata_version
-          >= 2.4 (warning)
-        - License classifiers deprecated for metadata_version >= 2.4 (warning)
-        - ``license`` is an SPDX license expression if metadata_version >= 2.4
-        - ``license_files`` is supported only for metadata_version >= 2.4
         - ``project_url`` can't contain keys over 32 characters
+        - ``import-name(space)s`` must be valid names, optionally with ``; private``
+        - ``import-names`` and ``import-namespaces`` cannot overlap
         """
         errors = ErrorCollector()
 
@@ -380,6 +456,23 @@ class StandardMetadata:
                 msg = "{key} names cannot be more than 32 characters long"
                 errors.config_error(msg, key="project.urls", got=name)
 
+        import_names = set(
+            _validate_import_names(
+                self.import_names or [], "import-names", errors=errors
+            )
+        )
+        import_namespaces = set(
+            _validate_import_names(
+                self.import_namespaces or [], "import-namespaces", errors=errors
+            )
+        )
+        in_both = import_names & import_namespaces
+        if in_both:
+            msg = "{key} overlaps with 'project.import-namespaces': {in_both}"
+            errors.config_error(msg, key="project.import-names", in_both=in_both)
+
+        _validate_dotted_names(import_names | import_namespaces, errors=errors)
+
         errors.finalize("[project] table validation failed")
 
     def metadata(
@@ -388,7 +481,7 @@ class StandardMetadata:
         """
         Return an Message with the metadata.
         """
-        self.validate_metdata(metadata_version)
+        self.validate_metadata(metadata_version)
 
         assert self.version is not None
         message = packaging_metadata.RawMetadata(
@@ -452,9 +545,19 @@ class StandardMetadata:
                 for requirement in requirements
             )
         if self.readme:
-            if self.readme.content_type:
-                message["description_content_type"] = self.readme.content_type
+            assert self.readme.content_type  # verified earlier
+            message["description_content_type"] = self.readme.content_type
             message["description"] = self.readme.text
+
+        if self.import_names is not None:
+            # Special case for empty import-names
+            if not self.import_names:
+                message["import_names"] = [""]
+            else:
+                message["import_names"] = self.import_names
+        if self.import_namespaces is not None:
+            message["import_namespaces"] = self.import_namespaces
+
         # Core Metadata 2.2
         if metadata_version != "2.1":
             for field in dynamic_metadata:

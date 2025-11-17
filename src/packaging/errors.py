@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import sys
-from typing import TYPE_CHECKING, Any
+import typing
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from collections.abc import Generator
+    from typing import Any
 
 __all__ = ["ConfigurationError", "ConfigurationWarning", "ExceptionGroup"]
 

@@ -72,8 +72,10 @@ class PyProjectReader(ErrorCollector):
         self.config_error(msg, key=key, got_type=type(value))
         return None
 
-    def ensure_list(self, val: list[T], key: str) -> list[T] | None:
+    def ensure_list(self, val: list[T] | None, key: str) -> list[T] | None:
         """Ensure that a value is a list of strings."""
+        if val is None:
+            return None
         if not isinstance(val, list):
             msg = "Field {key} has an invalid type, expecting a list of strings"
             self.config_error(msg, key=key, got_type=type(val))

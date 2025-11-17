@@ -7,7 +7,6 @@ import email.parser
 import email.policy
 import keyword
 import pathlib
-import sys
 import typing
 from typing import (
     Any,
@@ -27,28 +26,6 @@ if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
-
-
-if sys.version_info >= (3, 11):  # pragma: no cover
-    ExceptionGroup = ExceptionGroup
-else:  # pragma: no cover
-
-    class ExceptionGroup(Exception):  # type: ignore[no-redef]
-        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
-
-        If :external:exc:`ExceptionGroup` is already defined by Python itself,
-        that version is used instead.
-        """
-
-        message: str
-        exceptions: list[Exception]
-
-        def __init__(self, message: str, exceptions: list[Exception]) -> None:
-            self.message = message
-            self.exceptions = exceptions
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
 class InvalidMetadata(ValueError):
@@ -746,6 +723,8 @@ class _Validator(Generic[T]):
             name, semicolon, private = import_name.partition(";")
             name = name.rstrip()
             for identifier in name.split("."):
+                if identifier == "":
+                    continue
                 if not identifier.isidentifier():
                     raise self._invalid_metadata(
                         f"{name!r} is invalid for {{field}}; "

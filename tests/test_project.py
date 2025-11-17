@@ -780,6 +780,78 @@ def raises_single(
             "Setting \"project.license\" to an SPDX license expression is not compatible with 'License ::' classifiers",
             id="SPDX license and License trove classifiers",
         ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ["is"]
+            """,
+            "\"import-names\" contains a Python keyword, which is not a valid import name, got 'is'",
+            id="Setting import-names to keyword",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-namespaces = ["from"]
+            """,
+            "\"import-namespaces\" contains a Python keyword, which is not a valid import name, got 'from'",
+            id="Setting import-namespaces to keyword",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ["2two"]
+            """,
+            "\"import-names\" contains '2two', which is not a valid identifier",
+            id="Setting import-names invalid identifier",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-namespaces = ["3"]
+            """,
+            "\"import-namespaces\" contains '3', which is not a valid identifier",
+            id="Setting import-namespaces to invalid identifier",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ["one", "two"]
+                import-namespaces = ["one", "three"]
+            """,
+            "\"project.import-names\" overlaps with 'project.import-namespaces': {'one'}",
+            id="Matching entry in import-names and import-namespaces",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ["one; private", "two"]
+                import-namespaces = ["one", "three    ;   private"]
+            """,
+            "\"project.import-names\" overlaps with 'project.import-namespaces': {'one'}",
+            id="Matching entry in import-names and import-namespaces with private tags",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ["one.two"]
+            """,
+            "\"project.import-namespaces\" is missing 'one', but submodules are present elsewhere",
+            id="Matching entry in import-names and import-namespaces",
+        ),
     ],
 )
 def test_load(data: str, error: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -870,6 +942,22 @@ def test_load(data: str, error: str, monkeypatch: pytest.MonkeyPatch) -> None:
             ],
             id="Four errors including extra keys",
         ),
+        pytest.param(
+            """
+                [project]
+                name = 'test'
+                version = "0.1.0"
+                import-names = ["test", "other"]
+                import-namespaces = ["other.one.two", "invalid name", "not; public"]
+            """,
+            [
+                "\"import-namespaces\" contains 'invalid name', which is not a valid identifier",
+                "\"import-namespaces\" contains an ending tag other than '; private', got 'not; public'",
+                "\"import-namespaces\" contains a Python keyword, which is not a valid import name, got 'not; public'",
+                "\"project.import-namespaces\" is missing 'other.one', but submodules are present elsewhere",
+            ],
+            id="Multiple errors related to names/namespaces",
+        ),
     ],
 )
 def test_load_multierror(
@@ -912,9 +1000,31 @@ def test_load_multierror(
                 version = "0.1.0"
                 license-files = ['README.md']
             """,
-            '"project.license-files" is supported only when emitting metadata version >= 2.4',
+            '"project.license-files" is only supported when emitting metadata version >= 2.4',
             "2.3",
             id="license-files with metadata_version 2.3",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-names = ['one']
+            """,
+            '"project.import-names" is only supported when emitting metadata version >= 2.5',
+            "2.4",
+            id="import-names with metadata_version 2.4",
+        ),
+        pytest.param(
+            """
+                [project]
+                name = "test"
+                version = "0.1.0"
+                import-namespaces = ['one']
+            """,
+            '"project.import-namespaces" is only supported when emitting metadata version >= 2.5',
+            "2.4",
+            id="import-names with metadata_version 2.4",
         ),
     ],
 )
@@ -994,6 +1104,7 @@ def test_value(after_rfc: bool, monkeypatch: pytest.MonkeyPatch) -> None:
         ("Example!", None),
     ]
     assert metadata.maintainers == [
+        ("Emailless", None),
         ("Other Example", "other@example.com"),
     ]
     assert metadata.keywords == ["trampolim", "is", "interesting"]
@@ -1031,6 +1142,26 @@ def test_value(after_rfc: bool, monkeypatch: pytest.MonkeyPatch) -> None:
         "test_dependency[test_extra]",
         'test_dependency[test_extra2]>3.0; os_name == "nt"',
     ]
+
+
+def test_value_25(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(DIR / "project/metadata-2.5")
+    with open("pyproject.toml", "rb") as f:
+        std_metadata = packaging.project.StandardMetadata.from_pyproject(
+            tomllib.load(f)
+        )
+
+    assert isinstance(std_metadata.license, str)
+    assert std_metadata.license == "MIT"
+    assert std_metadata.license_files == [pathlib.Path("LICENSE")]
+
+    assert std_metadata.import_names == ["metadata25"]
+    assert std_metadata.import_namespaces is None
+
+    metadata = std_metadata.metadata(metadata_version="2.5")
+
+    assert metadata.import_names == ["metadata25"]
+    assert metadata.import_namespaces is None
 
 
 def test_read_license(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1071,6 +1202,19 @@ def test_readme_content_type_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
         packaging.project.StandardMetadata.from_pyproject(tomllib.load(f))
 
 
+def test_readme_text() -> None:
+    pyproject = packaging.project.StandardMetadata.from_pyproject(
+        {
+            "project": {
+                "name": "foo",
+                "version": "1.2.3",
+                "readme": {"text": "onetwothree", "content-type": "text/plain"},
+            }
+        }
+    )
+    assert pyproject.readme.text == "onetwothree"
+
+
 def test_as_rfc822(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(DIR / "project/full-metadata")
 
@@ -1086,6 +1230,7 @@ def test_as_rfc822(monkeypatch: pytest.MonkeyPatch) -> None:
         ("keywords", "trampolim,is,interesting"),
         ("author", "Example!"),
         ("author-email", "Unknown <example@example.com>"),
+        ("maintainer", "Emailless"),
         ("maintainer-email", "Other Example <other@example.com>"),
         ("license", "some license text"),
         ("classifier", "Development Status :: 4 - Beta"),
@@ -1109,6 +1254,47 @@ def test_as_rfc822(monkeypatch: pytest.MonkeyPatch) -> None:
         ("provides-extra", "test"),
     ]
     assert core_metadata.get_payload() == "some readme 👋\n"
+
+
+def test_rfc822_empty_import_name() -> None:
+    metadata = packaging.project.StandardMetadata.from_pyproject(
+        {"project": {"name": "test", "version": "0.1.0", "import-names": []}}
+    )
+    assert metadata.import_names == []
+    assert metadata.import_namespaces is None
+
+    core_metadata = metadata.metadata(metadata_version="2.5").as_rfc822()
+    assert core_metadata.items() == [
+        ("metadata-version", "2.5"),
+        ("name", "test"),
+        ("version", "0.1.0"),
+        ("import-name", ""),
+    ]
+
+
+def test_rfc822_full_import_name() -> None:
+    metadata = packaging.project.StandardMetadata.from_pyproject(
+        {
+            "project": {
+                "name": "test",
+                "version": "0.1.0",
+                "import-names": ["one", "two"],
+                "import-namespaces": ["three"],
+            }
+        }
+    )
+    assert metadata.import_names == ["one", "two"]
+    assert metadata.import_namespaces == ["three"]
+
+    core_metadata = metadata.metadata(metadata_version="2.5").as_rfc822()
+    assert core_metadata.items() == [
+        ("metadata-version", "2.5"),
+        ("name", "test"),
+        ("version", "0.1.0"),
+        ("import-name", "one"),
+        ("import-name", "two"),
+        ("import-namespace", "three"),
+    ]
 
 
 def test_as_rfc822_spdx(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1227,19 +1413,20 @@ def test_as_rfc822_set_metadata(metadata_version: str) -> None:
 
 
 def test_as_rfc822_set_metadata_invalid() -> None:
+    metadata = packaging.project.StandardMetadata.from_pyproject(
+        {
+            "project": {
+                "name": "hi",
+                "version": "1.2",
+            },
+        }
+    )
     with raises_single(
         packaging.metadata.InvalidMetadata,
         "'1.9' is not a valid metadata version",
         "invalid metadata",
     ):
-        packaging.project.StandardMetadata.from_pyproject(
-            {
-                "project": {
-                    "name": "hi",
-                    "version": "1.2",
-                },
-            }
-        ).metadata(
+        metadata.metadata(
             metadata_version="1.9",
         )
 

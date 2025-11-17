@@ -60,6 +60,7 @@ ignore-words-list = [
 [tool.coverage.run]
 branch = true
 source_pkgs = ["packaging"]
+omit = ["src/packaging/project_table.py"]
 
 [tool.coverage.report]
 show_missing = true
