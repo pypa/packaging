@@ -794,6 +794,8 @@ class _Validator(Generic[T]):
             name, semicolon, private = import_name.partition(";")
             name = name.rstrip()
             for identifier in name.split("."):
+                if identifier == "":
+                    continue
                 if not identifier.isidentifier():
                     raise self._invalid_metadata(
                         f"{name!r} is invalid for {self.raw_name!r}; "

@@ -1,16 +1,16 @@
 [project]
-name = 'full_metadata'
+name = 'metadata25'
 version = '3.2.1'
 description = 'A package with all the metadata :)'
 readme = 'README.md'
-license = { text = 'some license text' }
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ['trampolim', 'is', 'interesting']
 authors = [
     { email = 'example@example.com' },
     { name = 'Example!' },
 ]
 maintainers = [
-    { name = 'Emailless' },
     { name = 'Other Example', email = 'other@example.com' },
 ]
 classifiers = [
@@ -26,6 +26,7 @@ dependencies = [
     'dependency4; os_name != "nt"',
     'dependency5[other-extra]>1.0; os_name == "nt"',
 ]
+import-names = ["metadata25"]
 
 [project.optional-dependencies]
 test = [
