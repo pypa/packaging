@@ -127,7 +127,7 @@ class TestDefaultEnvironment:
             "sys_platform": sys.platform,
         }
 
-    def test_multidigit_minor_version(self, monkeypatch) -> None:
+    def test_multidigit_minor_version(self, monkeypatch: pytest.MonkeyPatch) -> None:
         version_info = (3, 10, 0, "final", 0)
         monkeypatch.setattr(sys, "version_info", version_info, raising=False)
 

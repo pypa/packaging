@@ -58,7 +58,9 @@ def test_parse_musl_version(output, version) -> None:
     ],
     ids=["does-not-exist", "glibc", "x86_64", "i386", "aarch64"],
 )
-def test_get_musl_version(monkeypatch, executable, output, version, ld_musl) -> None:
+def test_get_musl_version(
+    monkeypatch: pytest.MonkeyPatch, executable, output, version, ld_musl
+) -> None:
     def mock_run(*args, **kwargs):
         return collections.namedtuple("Proc", "stderr")(output)
 

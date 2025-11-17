@@ -31,7 +31,7 @@ def clear_lru_cache():
 
 
 @pytest.fixture
-def manylinux_module(monkeypatch):
+def manylinux_module(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(_manylinux, "_get_glibc_version", lambda *args: (2, 20))
     module_name = "_manylinux"
     module = types.ModuleType(module_name)
@@ -44,7 +44,7 @@ def manylinux_module(monkeypatch):
     ("attribute", "glibc"), [("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17))]
 )
 def test_module_declaration(
-    monkeypatch, manylinux_module, attribute, glibc, tf
+    monkeypatch: pytest.MonkeyPatch, manylinux_module, attribute, glibc, tf
 ) -> None:
     manylinux = f"manylinux{attribute}_compatible"
     monkeypatch.setattr(manylinux_module, manylinux, tf, raising=False)
@@ -56,7 +56,7 @@ def test_module_declaration(
     ("attribute", "glibc"), [("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17))]
 )
 def test_module_declaration_missing_attribute(
-    monkeypatch, manylinux_module, attribute, glibc
+    monkeypatch: pytest.MonkeyPatch, manylinux_module, attribute, glibc
 ):
     manylinux = f"manylinux{attribute}_compatible"
     monkeypatch.delattr(manylinux_module, manylinux, raising=False)
@@ -67,7 +67,7 @@ def test_module_declaration_missing_attribute(
     ("version", "compatible"), [((2, 0), True), ((2, 5), True), ((2, 10), False)]
 )
 def test_is_manylinux_compatible_glibc_support(
-    version, compatible, monkeypatch
+    version, compatible, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setitem(sys.modules, "_manylinux", None)
     monkeypatch.setattr(_manylinux, "_get_glibc_version", lambda: (2, 5))
@@ -90,7 +90,9 @@ def test_check_glibc_version_warning(version_str) -> None:
         ("2.4", "2.4"),
     ],
 )
-def test_glibc_version_string(version_str, expected, monkeypatch) -> None:
+def test_glibc_version_string(
+    version_str, expected, monkeypatch: pytest.MonkeyPatch
+) -> None:
     class LibcVersion:
         def __init__(self, version_str):
             self.version_str = version_str
@@ -112,12 +114,12 @@ def test_glibc_version_string(version_str, expected, monkeypatch) -> None:
     assert _glibc_version_string() is None
 
 
-def test_glibc_version_string_confstr(monkeypatch) -> None:
+def test_glibc_version_string_confstr(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
     assert _glibc_version_string_confstr() == "2.20"
 
 
-def test_glibc_version_string_fail(monkeypatch) -> None:
+def test_glibc_version_string_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(os, "confstr", lambda _: None, raising=False)
     monkeypatch.setitem(sys.modules, "ctypes", None)
     assert _glibc_version_string() is None
@@ -128,23 +130,27 @@ def test_glibc_version_string_fail(monkeypatch) -> None:
     "failure",
     [pretend.raiser(ValueError), pretend.raiser(OSError), lambda _: "XXX"],
 )
-def test_glibc_version_string_confstr_fail(monkeypatch, failure) -> None:
+def test_glibc_version_string_confstr_fail(
+    monkeypatch: pytest.MonkeyPatch, failure
+) -> None:
     monkeypatch.setattr(os, "confstr", failure, raising=False)
     assert _glibc_version_string_confstr() is None
 
 
-def test_glibc_version_string_confstr_missing(monkeypatch) -> None:
+def test_glibc_version_string_confstr_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delattr(os, "confstr", raising=False)
     assert _glibc_version_string_confstr() is None
 
 
-def test_glibc_version_string_ctypes_missing(monkeypatch) -> None:
+def test_glibc_version_string_ctypes_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "ctypes", None)
     assert _glibc_version_string_ctypes() is None
 
 
 @pytest.mark.xfail(ctypes is None, reason="ctypes not available")
-def test_glibc_version_string_ctypes_raise_oserror(monkeypatch) -> None:
+def test_glibc_version_string_ctypes_raise_oserror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def patched_cdll(_name):
         raise OSError("Dynamic loading not supported")
 
@@ -159,12 +165,12 @@ def test_is_manylinux_compatible_old() -> None:
     assert _is_compatible("any", (2, 0))
 
 
-def test_is_manylinux_compatible(monkeypatch) -> None:
+def test_is_manylinux_compatible(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: "2.4")
     assert _is_compatible("any", (2, 4))
 
 
-def test_glibc_version_string_none(monkeypatch) -> None:
+def test_glibc_version_string_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: None)
     assert not _is_compatible("any", (2, 4))
 
