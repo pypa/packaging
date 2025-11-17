@@ -310,7 +310,7 @@ def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
     return (marker_var_left, marker_op, marker_var_right)
 
 
-def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:
+def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     """
     marker_var = VARIABLE | QUOTED_STRING
     """

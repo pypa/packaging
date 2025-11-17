@@ -117,6 +117,7 @@ extend-select = [
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
     "Q",     # flake8-quotes
+    "RET",   # flake8-return
     "RSE",   # flake8-raise
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
@@ -137,6 +138,10 @@ ignore = [
     "SIM103",  # returning negated value directly not ideal for long chain
     "SIM105",  # try/except is faster than contextlib.suppress
     "TRY003",  # long messages outside exception class
+    "RET505",  # unused else/elif after return
+    "RET506",  # unused else/elif after raise
+    "RET507",  # unused else/elif after continue
+    "RET508",  # unused else/elif after break
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 flake8-unused-arguments.ignore-variadic-names = true
