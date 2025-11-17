@@ -20,13 +20,9 @@ from .utils import NormalizedName, is_normalized_name
 from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
-    import sys
     from pathlib import Path
 
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
+    from typing_extensions import Self
 
 _logger = logging.getLogger(__name__)
 
