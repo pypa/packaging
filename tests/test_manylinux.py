@@ -169,7 +169,8 @@ def test_glibc_version_string_ctypes_raise_oserror(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def patched_cdll(_name: str) -> None:
-        raise OSError("Dynamic loading not supported")
+        msg = "Dynamic loading not supported"
+        raise OSError(msg)
 
     monkeypatch.setattr(ctypes, "CDLL", patched_cdll)
     assert _glibc_version_string_ctypes() is None

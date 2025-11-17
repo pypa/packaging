@@ -200,7 +200,8 @@ class Version(_BaseVersion):
         # Validate the version and parse it into pieces
         match = self._regex.search(version)
         if not match:
-            raise InvalidVersion(f"Invalid version: {version!r}")
+            msg = f"Invalid version: {version!r}"
+            raise InvalidVersion(msg)
 
         # Store the parsed out pieces of the version
         self._version = _Version(

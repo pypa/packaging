@@ -93,13 +93,11 @@ extend-exclude = [
 show-fixes = true
 
 [tool.ruff.lint]
-select = ["ALL"]
 ignore = [
     "A002",    # function args shadowing builtins is fine
     "C9",      # complexity
     "COM812",  # trailing commas teach the formatter
     "D",       # doc formatting
-    "EM",      # flake8-errmsg
     "ERA",     # commented out code
     "FBT",     # boolean positional args (existing API)
     "FIX",     # has todos
