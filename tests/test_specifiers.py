@@ -37,7 +37,7 @@ SPECIFIERS = [
 
 class TestSpecifier:
     @pytest.mark.parametrize("specifier", SPECIFIERS)
-    def test_specifiers_valid(self, specifier):
+    def test_specifiers_valid(self, specifier) -> None:
         Specifier(specifier)
 
     @pytest.mark.parametrize(
@@ -84,7 +84,7 @@ class TestSpecifier:
             "!=1.0.dev1.*",
         ],
     )
-    def test_specifiers_invalid(self, specifier):
+    def test_specifiers_invalid(self, specifier) -> None:
         with pytest.raises(InvalidSpecifier):
             Specifier(specifier)
 
@@ -196,7 +196,7 @@ class TestSpecifier:
             "  \r \f \v v1.0\t\n",
         ],
     )
-    def test_specifiers_normalized(self, version):
+    def test_specifiers_normalized(self, version) -> None:
         if "+" not in version:
             ops = ["~=", "==", "!=", "<=", ">=", "<", ">"]
         else:
@@ -220,14 +220,14 @@ class TestSpecifier:
             ("< 2", "<2"),
         ],
     )
-    def test_specifiers_str_and_repr(self, specifier, expected):
+    def test_specifiers_str_and_repr(self, specifier, expected) -> None:
         spec = Specifier(specifier)
 
         assert str(spec) == expected
         assert repr(spec) == f"<Specifier({expected!r})>"
 
     @pytest.mark.parametrize("specifier", SPECIFIERS)
-    def test_specifiers_hash(self, specifier):
+    def test_specifiers_hash(self, specifier) -> None:
         assert hash(Specifier(specifier)) == hash(Specifier(specifier))
 
     @pytest.mark.parametrize(
@@ -243,13 +243,13 @@ class TestSpecifier:
             ]
         ),
     )
-    def test_comparison_true(self, left, right, op):
+    def test_comparison_true(self, left, right, op) -> None:
         assert op(Specifier(left), Specifier(right))
         assert op(left, Specifier(right))
         assert op(Specifier(left), right)
 
     @pytest.mark.parametrize(("left", "right"), [("==2.8.0", "==2.8")])
-    def test_comparison_canonicalizes(self, left, right):
+    def test_comparison_canonicalizes(self, left, right) -> None:
         assert Specifier(left) == Specifier(right)
         assert left == Specifier(right)
         assert Specifier(left) == right
@@ -267,12 +267,12 @@ class TestSpecifier:
             ]
         ),
     )
-    def test_comparison_false(self, left, right, op):
+    def test_comparison_false(self, left, right, op) -> None:
         assert not op(Specifier(left), Specifier(right))
         assert not op(left, Specifier(right))
         assert not op(Specifier(left), right)
 
-    def test_comparison_non_specifier(self):
+    def test_comparison_non_specifier(self) -> None:
         assert Specifier("==1.0") != 12
         assert not Specifier("==1.0") == 12
         assert Specifier("==1.0") != "12"
@@ -475,7 +475,7 @@ class TestSpecifier:
             ]
         ],
     )
-    def test_specifiers(self, version, spec, expected):
+    def test_specifiers(self, version, spec, expected) -> None:
         spec = Specifier(spec, prereleases=True)
 
         if expected:
@@ -502,7 +502,7 @@ class TestSpecifier:
             ("===invalid", "invalid"),
         ],
     )
-    def test_invalid_spec(self, spec, version):
+    def test_invalid_spec(self, spec, version) -> None:
         spec = Specifier(spec, prereleases=True)
         assert not spec.contains(version)
 
@@ -572,7 +572,7 @@ class TestSpecifier:
             ("1.0.dev0", "===1.0.dev0", True),
         ],
     )
-    def test_specifiers_identity(self, version, spec, expected):
+    def test_specifiers_identity(self, version, spec, expected) -> None:
         spec = Specifier(spec)
 
         if expected:
@@ -601,7 +601,7 @@ class TestSpecifier:
             ("~=1.0.dev1", True),
         ],
     )
-    def test_specifier_prereleases_detection(self, specifier, expected):
+    def test_specifier_prereleases_detection(self, specifier, expected) -> None:
         assert Specifier(specifier).prereleases == expected
 
     @pytest.mark.parametrize(
@@ -687,7 +687,7 @@ class TestSpecifier:
             ("===lolwat", "==="),
         ],
     )
-    def test_specifier_operator_property(self, spec, op):
+    def test_specifier_operator_property(self, spec, op) -> None:
         assert Specifier(spec).operator == op
 
     @pytest.mark.parametrize(
@@ -706,14 +706,14 @@ class TestSpecifier:
             ("===lolwat", "lolwat"),
         ],
     )
-    def test_specifier_version_property(self, spec, version):
+    def test_specifier_version_property(self, spec, version) -> None:
         assert Specifier(spec).version == version
 
     @pytest.mark.parametrize(
         ("spec", "expected_length"),
         [("", 0), ("==2.0", 1), (">=2.0", 1), (">=2.0,<3", 2), (">=2.0,<3,==2.4", 3)],
     )
-    def test_length(self, spec, expected_length):
+    def test_length(self, spec, expected_length) -> None:
         spec = SpecifierSet(spec)
         assert len(spec) == expected_length
 
@@ -727,21 +727,21 @@ class TestSpecifier:
             (">=2.0,<3,==2.4", [">=2.0", "<3", "==2.4"]),
         ],
     )
-    def test_iteration(self, spec, expected_items):
+    def test_iteration(self, spec, expected_items) -> None:
         spec = SpecifierSet(spec)
         items = {str(item) for item in spec}
         assert items == set(expected_items)
 
-    def test_specifier_equal_for_compatible_operator(self):
+    def test_specifier_equal_for_compatible_operator(self) -> None:
         assert Specifier("~=1.18.0") != Specifier("~=1.18")
 
-    def test_specifier_hash_for_compatible_operator(self):
+    def test_specifier_hash_for_compatible_operator(self) -> None:
         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
 
 
 class TestSpecifierSet:
     @pytest.mark.parametrize("version", VERSIONS)
-    def test_empty_specifier(self, version):
+    def test_empty_specifier(self, version) -> None:
         spec = SpecifierSet(prereleases=True)
 
         assert version in spec
@@ -749,7 +749,7 @@ class TestSpecifierSet:
         assert parse(version) in spec
         assert spec.contains(parse(version))
 
-    def test_create_from_specifiers(self):
+    def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
         specs = [Specifier(s) for s in spec_strs]
         spec = SpecifierSet(iter(specs))
@@ -820,7 +820,7 @@ class TestSpecifierSet:
         assert (version in spec) == final_contains
         assert spec.contains(version) == final_contains
 
-    def test_specifier_contains_prereleases(self):
+    def test_specifier_contains_prereleases(self) -> None:
         spec = SpecifierSet()
         assert spec.prereleases is None
         assert spec.contains("1.0.dev1")
@@ -1208,7 +1208,9 @@ class TestSpecifierSet:
             ),
         ],
     )
-    def test_filter_exclusionary_bridges(self, specifier, prereleases, input, expected):
+    def test_filter_exclusionary_bridges(
+        self, specifier, prereleases, input, expected
+    ) -> None:
         """
         Test that filter correctly handles exclusionary bridges.
 
@@ -1351,7 +1353,7 @@ class TestSpecifierSet:
             (">=1.0", "not a valid version"),
         ],
     )
-    def test_contains_rejects_invalid_specifier(self, specifier, input):
+    def test_contains_rejects_invalid_specifier(self, specifier, input) -> None:
         spec = SpecifierSet(specifier, prereleases=True)
         assert not spec.contains(input)
 
@@ -1373,20 +1375,20 @@ class TestSpecifierSet:
             ("!=2.0 ,>1.0", "!=2.0,>1.0"),
         ],
     )
-    def test_specifiers_str_and_repr(self, specifier, expected):
+    def test_specifiers_str_and_repr(self, specifier, expected) -> None:
         spec = SpecifierSet(specifier)
 
         assert str(spec) == expected
         assert repr(spec) == f"<SpecifierSet({expected!r})>"
 
     @pytest.mark.parametrize("specifier", SPECIFIERS + LEGACY_SPECIFIERS)
-    def test_specifiers_hash(self, specifier):
+    def test_specifiers_hash(self, specifier) -> None:
         assert hash(SpecifierSet(specifier)) == hash(SpecifierSet(specifier))
 
     @pytest.mark.parametrize(
         ("left", "right", "expected"), [(">2.0", "<5.0", ">2.0,<5.0")]
     )
-    def test_specifiers_combine(self, left, right, expected):
+    def test_specifiers_combine(self, left, right, expected) -> None:
         result = SpecifierSet(left) & SpecifierSet(right)
         assert result == SpecifierSet(expected)
 
@@ -1441,7 +1443,7 @@ class TestSpecifierSet:
                 right, prereleases=True
             )
 
-    def test_specifiers_combine_not_implemented(self):
+    def test_specifiers_combine_not_implemented(self) -> None:
         with pytest.raises(TypeError):
             SpecifierSet() & 12
 
@@ -1458,7 +1460,7 @@ class TestSpecifierSet:
             ]
         ),
     )
-    def test_comparison_true(self, left, right, op):
+    def test_comparison_true(self, left, right, op) -> None:
         assert op(SpecifierSet(left), SpecifierSet(right))
         assert op(SpecifierSet(left), Specifier(right))
         assert op(Specifier(left), SpecifierSet(right))
@@ -1478,7 +1480,7 @@ class TestSpecifierSet:
             ]
         ),
     )
-    def test_comparison_false(self, left, right, op):
+    def test_comparison_false(self, left, right, op) -> None:
         assert not op(SpecifierSet(left), SpecifierSet(right))
         assert not op(SpecifierSet(left), Specifier(right))
         assert not op(Specifier(left), SpecifierSet(right))
@@ -1486,12 +1488,12 @@ class TestSpecifierSet:
         assert not op(SpecifierSet(left), right)
 
     @pytest.mark.parametrize(("left", "right"), [("==2.8.0", "==2.8")])
-    def test_comparison_canonicalizes(self, left, right):
+    def test_comparison_canonicalizes(self, left, right) -> None:
         assert SpecifierSet(left) == SpecifierSet(right)
         assert left == SpecifierSet(right)
         assert SpecifierSet(left) == right
 
-    def test_comparison_non_specifier(self):
+    def test_comparison_non_specifier(self) -> None:
         assert SpecifierSet("==1.0") != 12
         assert not SpecifierSet("==1.0") == 12
 
@@ -1506,10 +1508,10 @@ class TestSpecifierSet:
             ("1.0.0+local", ">1.0.0", False),
         ],
     )
-    def test_comparison_ignores_local(self, version, specifier, expected):
+    def test_comparison_ignores_local(self, version, specifier, expected) -> None:
         assert (Version(version) in SpecifierSet(specifier)) == expected
 
-    def test_contains_with_compatible_operator(self):
+    def test_contains_with_compatible_operator(self) -> None:
         combination = SpecifierSet("~=1.18.0") & SpecifierSet("~=1.18")
         assert "1.19.5" not in combination
         assert "1.18.0" in combination

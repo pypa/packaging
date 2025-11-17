@@ -33,7 +33,7 @@ from packaging.version import Version
         ("foo----bar", "foo-bar"),
     ],
 )
-def test_canonicalize_name(name, expected):
+def test_canonicalize_name(name, expected) -> None:
     assert canonicalize_name(name) == expected
 
 
@@ -49,7 +49,7 @@ def test_canonicalize_name(name, expected):
         ("h\ri", "h\ri"),
     ],
 )
-def test_canonicalize_name_invalid(name, expected):
+def test_canonicalize_name_invalid(name, expected) -> None:
     with pytest.raises(InvalidName):
         canonicalize_name(name, validate=True)
     assert canonicalize_name(name) == expected
@@ -70,7 +70,7 @@ def test_canonicalize_name_invalid(name, expected):
         ("foo----bar", "foo-bar"),
     ],
 )
-def test_is_normalized_name(name, expected):
+def test_is_normalized_name(name, expected) -> None:
     assert is_normalized_name(expected)
     if name != expected:
         assert not is_normalized_name(name)
@@ -95,12 +95,12 @@ def test_is_normalized_name(name, expected):
         ("1.0.1-test7", "1.0.1-test7"),
     ],
 )
-def test_canonicalize_version(version, expected):
+def test_canonicalize_version(version, expected) -> None:
     assert canonicalize_version(version) == expected
 
 
 @pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
-def test_canonicalize_version_no_strip_trailing_zero(version):
+def test_canonicalize_version_no_strip_trailing_zero(version) -> None:
     assert canonicalize_version(version, strip_trailing_zero=False) == version
 
 
@@ -151,7 +151,7 @@ def test_canonicalize_version_no_strip_trailing_zero(version):
         ),
     ],
 )
-def test_parse_wheel_filename(filename, name, version, build, tags):
+def test_parse_wheel_filename(filename, name, version, build, tags) -> None:
     assert parse_wheel_filename(filename) == (name, version, build, tags)
 
 
@@ -168,7 +168,7 @@ def test_parse_wheel_filename(filename, name, version, build, tags):
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
     ],
 )
-def test_parse_wheel_invalid_filename(filename):
+def test_parse_wheel_invalid_filename(filename) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
 
@@ -177,7 +177,7 @@ def test_parse_wheel_invalid_filename(filename):
     ("filename", "name", "version"),
     [("foo-1.0.tar.gz", "foo", Version("1.0")), ("foo-1.0.zip", "foo", Version("1.0"))],
 )
-def test_parse_sdist_filename(filename, name, version):
+def test_parse_sdist_filename(filename, name, version) -> None:
     assert parse_sdist_filename(filename) == (name, version)
 
 
@@ -189,6 +189,6 @@ def test_parse_sdist_filename(filename, name, version):
         ("foo-1.x.tar.gz"),  # Invalid version
     ],
 )
-def test_parse_sdist_invalid_filename(filename):
+def test_parse_sdist_invalid_filename(filename) -> None:
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)

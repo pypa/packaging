@@ -80,9 +80,10 @@ strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 python_version = "3.8"
+files = ["src", "tests", "noxfile.py"]
 
 [[tool.mypy.overrides]]
-module = ["_manylinux"]
+module = ["_manylinux", "pretend"]
 ignore_missing_imports = true
 
 [tool.ruff]

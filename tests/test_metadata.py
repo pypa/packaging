@@ -13,7 +13,7 @@ from packaging.metadata import ExceptionGroup
 
 class TestRawMetadata:
     @pytest.mark.parametrize("raw_field", sorted(metadata._STRING_FIELDS))
-    def test_non_repeating_fields_only_once(self, raw_field):
+    def test_non_repeating_fields_only_once(self, raw_field) -> None:
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
@@ -24,7 +24,7 @@ class TestRawMetadata:
         assert raw[raw_field] == data
 
     @pytest.mark.parametrize("raw_field", sorted(metadata._STRING_FIELDS))
-    def test_non_repeating_fields_repeated(self, raw_field):
+    def test_non_repeating_fields_repeated(self, raw_field) -> None:
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"
@@ -36,7 +36,7 @@ class TestRawMetadata:
         assert unparsed[header_field] == [data] * 2
 
     @pytest.mark.parametrize("raw_field", sorted(metadata._LIST_FIELDS))
-    def test_repeating_fields_only_once(self, raw_field):
+    def test_repeating_fields_only_once(self, raw_field) -> None:
         data = "VaLuE"
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         single_header = f"{header_field}: {data}"
@@ -47,7 +47,7 @@ class TestRawMetadata:
         assert raw[raw_field] == [data]
 
     @pytest.mark.parametrize("raw_field", sorted(metadata._LIST_FIELDS))
-    def test_repeating_fields_repeated(self, raw_field):
+    def test_repeating_fields_repeated(self, raw_field) -> None:
         header_field = metadata._RAW_TO_EMAIL_MAPPING[raw_field]
         data = "VaLuE"
         single_header = f"{header_field}: {data}"
@@ -71,7 +71,7 @@ class TestRawMetadata:
             ("A B", ["A B"]),
         ],
     )
-    def test_keywords(self, given, expected):
+    def test_keywords(self, given, expected) -> None:
         header = f"Keywords: {given}"
         raw, unparsed = metadata.parse_email(header)
         assert not unparsed
@@ -91,7 +91,7 @@ class TestRawMetadata:
             ("A,B,C", {"A": "B,C"}),
         ],
     )
-    def test_project_urls_parsing(self, given, expected):
+    def test_project_urls_parsing(self, given, expected) -> None:
         header = f"project-url: {given}"
         raw, unparsed = metadata.parse_email(header)
         assert not unparsed
@@ -99,7 +99,7 @@ class TestRawMetadata:
         assert "project_urls" in raw
         assert raw["project_urls"] == expected
 
-    def test_duplicate_project_urls(self):
+    def test_duplicate_project_urls(self) -> None:
         header = "project-url: A, B\nproject-url: A, C"
         raw, unparsed = metadata.parse_email(header)
         assert not raw
@@ -107,7 +107,7 @@ class TestRawMetadata:
         assert "project-url" in unparsed
         assert unparsed["project-url"] == ["A, B", "A, C"]
 
-    def test_str_input(self):
+    def test_str_input(self) -> None:
         name = "Tarek Ziadé"
         header = f"author: {name}"
         raw, unparsed = metadata.parse_email(header)
@@ -116,7 +116,7 @@ class TestRawMetadata:
         assert "author" in raw
         assert raw["author"] == name
 
-    def test_bytes_input(self):
+    def test_bytes_input(self) -> None:
         name = "Tarek Ziadé"
         header = f"author: {name}".encode()
         raw, unparsed = metadata.parse_email(header)
@@ -125,7 +125,7 @@ class TestRawMetadata:
         assert "author" in raw
         assert raw["author"] == name
 
-    def test_header_mojibake(self):
+    def test_header_mojibake(self) -> None:
         value = "\xc0msterdam"
         header_name = "value"
         header_bytes = f"{header_name}: {value}".encode("latin1")
@@ -139,14 +139,14 @@ class TestRawMetadata:
         assert unparsed[header_name] == [value]
 
     @pytest.mark.parametrize("given", ["hello", "description: hello", b"hello"])
-    def test_description(self, given):
+    def test_description(self, given) -> None:
         raw, unparsed = metadata.parse_email(given)
         assert not unparsed
         assert len(raw) == 1
         assert "description" in raw
         assert raw["description"] == "hello"
 
-    def test_description_non_utf8(self):
+    def test_description_non_utf8(self) -> None:
         header = "\xc0msterdam"
         header_bytes = header.encode("latin1")
         raw, unparsed = metadata.parse_email(header_bytes)
@@ -163,14 +163,14 @@ class TestRawMetadata:
             ("description: 1\ndescription: 2\n\n3", ["1", "2", "3"]),
         ],
     )
-    def test_description_multiple(self, given, expected):
+    def test_description_multiple(self, given, expected) -> None:
         raw, unparsed = metadata.parse_email(given)
         assert not raw
         assert len(unparsed) == 1
         assert "description" in unparsed
         assert unparsed["description"] == expected
 
-    def test_lowercase_keys(self):
+    def test_lowercase_keys(self) -> None:
         header = "AUTHOR: Tarek Ziadé\nWhatever: Else"
         raw, unparsed = metadata.parse_email(header)
         assert len(raw) == 1
@@ -178,7 +178,7 @@ class TestRawMetadata:
         assert len(unparsed) == 1
         assert "whatever" in unparsed
 
-    def test_complete(self):
+    def test_complete(self) -> None:
         """Test all fields (except `Obsoletes-Dist`).
 
         `Obsoletes-Dist` was sacrificed to provide a value for `Dynamic`.
@@ -254,13 +254,13 @@ class TestRawMetadata:
 
 
 class TestExceptionGroup:
-    def test_attributes(self):
+    def test_attributes(self) -> None:
         individual_exception = Exception("not important")
         exc = metadata.ExceptionGroup("message", [individual_exception])
         assert exc.message == "message"
         assert list(exc.exceptions) == [individual_exception]
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         individual_exception = RuntimeError("not important")
         exc = metadata.ExceptionGroup("message", [individual_exception])
         assert individual_exception.__class__.__name__ in repr(exc)
@@ -286,7 +286,7 @@ class TestMetadata:
         else:
             assert isinstance(exc.__cause__, cause)
 
-    def test_from_email(self):
+    def test_from_email(self) -> None:
         metadata_version = "2.5"
         meta = metadata.Metadata.from_email(
             f"Metadata-Version: {metadata_version}", validate=False
@@ -295,37 +295,37 @@ class TestMetadata:
         assert meta.metadata_version == metadata_version
         assert meta.import_names is None
 
-    def test_from_email_empty_import_name(self):
+    def test_from_email_empty_import_name(self) -> None:
         meta = metadata.Metadata.from_email(
             "Metadata-Version: 2.5\nImport-Name:\n", validate=False
         )
         assert meta.import_names == []
 
-    def test_from_email_unparsed(self):
+    def test_from_email_unparsed(self) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email("Hello: PyPA")
 
         assert len(exc_info.value.exceptions) == 1
         assert isinstance(exc_info.value.exceptions[0], metadata.InvalidMetadata)
 
-    def test_from_email_validate(self):
+    def test_from_email_validate(self) -> None:
         with pytest.raises(ExceptionGroup):
             # Lacking all required fields.
             metadata.Metadata.from_email("Name: packaging", validate=True)
 
-    def test_from_email_unparsed_valid_field_name(self):
+    def test_from_email_unparsed_valid_field_name(self) -> None:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_email(
                 "Project-URL: A, B\nProject-URL: A, C", validate=True
             )
 
-    def test_required_fields(self):
+    def test_required_fields(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
 
         assert meta.metadata_version == _RAW_EXAMPLE["metadata_version"]
 
     @pytest.mark.parametrize("field", list(_RAW_EXAMPLE.keys()))
-    def test_required_fields_missing(self, field):
+    def test_required_fields_missing(self, field) -> None:
         required_fields = _RAW_EXAMPLE.copy()
 
         del required_fields[field]
@@ -333,7 +333,7 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_raw(required_fields)
 
-    def test_raw_validate_unrecognized_field(self):
+    def test_raw_validate_unrecognized_field(self) -> None:
         raw = {
             "metadata_version": "2.3",
             "name": "packaging",
@@ -348,19 +348,19 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_raw(raw, validate=True)
 
-    def test_raw_data_not_mutated(self):
+    def test_raw_data_not_mutated(self) -> None:
         raw = _RAW_EXAMPLE.copy()
         meta = metadata.Metadata.from_raw(raw, validate=True)
 
         assert meta.version == version.Version(_RAW_EXAMPLE["version"])
         assert raw == _RAW_EXAMPLE
 
-    def test_caching(self):
+    def test_caching(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE, validate=True)
 
         assert meta.version is meta.version
 
-    def test_from_raw_validate(self):
+    def test_from_raw_validate(self) -> None:
         required_fields = _RAW_EXAMPLE.copy()
         required_fields["version"] = "-----"
 
@@ -370,7 +370,7 @@ class TestMetadata:
             metadata.Metadata.from_raw(required_fields)
 
     @pytest.mark.parametrize("meta_version", ["2.2", "2.3"])
-    def test_metadata_version_field_introduction(self, meta_version):
+    def test_metadata_version_field_introduction(self, meta_version) -> None:
         raw = {
             "metadata_version": meta_version,
             "name": "packaging",
@@ -381,7 +381,7 @@ class TestMetadata:
         assert metadata.Metadata.from_raw(raw, validate=True)
 
     @pytest.mark.parametrize("meta_version", ["1.0", "1.1", "1.2", "2.1"])
-    def test_metadata_version_field_introduction_mismatch(self, meta_version):
+    def test_metadata_version_field_introduction_mismatch(self, meta_version) -> None:
         raw = {
             "metadata_version": meta_version,
             "name": "packaging",
@@ -405,7 +405,7 @@ class TestMetadata:
             "license",
         ],
     )
-    def test_single_value_unvalidated_attribute(self, attribute):
+    def test_single_value_unvalidated_attribute(self, attribute) -> None:
         value = "Not important"
         meta = metadata.Metadata.from_raw({attribute: value}, validate=False)
 
@@ -424,47 +424,47 @@ class TestMetadata:
             "obsoletes",
         ],
     )
-    def test_multi_value_unvalidated_attribute(self, attribute):
+    def test_multi_value_unvalidated_attribute(self, attribute) -> None:
         values = ["Not important", "Still not important"]
         meta = metadata.Metadata.from_raw({attribute: values}, validate=False)
 
         assert getattr(meta, attribute) == values
 
     @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
-    def test_valid_metadata_version(self, version):
+    def test_valid_metadata_version(self, version) -> None:
         meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
         assert meta.metadata_version == version
 
     @pytest.mark.parametrize("version", ["1.3", "2.0"])
-    def test_invalid_metadata_version(self, version):
+    def test_invalid_metadata_version(self, version) -> None:
         meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.metadata_version  # noqa: B018
 
-    def test_valid_version(self):
+    def test_valid_version(self) -> None:
         version_str = "1.2.3"
         meta = metadata.Metadata.from_raw({"version": version_str}, validate=False)
         assert meta.version == version.parse(version_str)
 
-    def test_missing_version(self):
+    def test_missing_version(self) -> None:
         meta = metadata.Metadata.from_raw({}, validate=False)
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
             meta.version  # noqa: B018
         assert exc_info.value.field == "version"
 
-    def test_invalid_version(self):
+    def test_invalid_version(self) -> None:
         meta = metadata.Metadata.from_raw({"version": "a.b.c"}, validate=False)
         self._invalid_with_cause(meta, "version", version.InvalidVersion)
 
-    def test_valid_summary(self):
+    def test_valid_summary(self) -> None:
         summary = "Hello"
         meta = metadata.Metadata.from_raw({"summary": summary}, validate=False)
 
         assert meta.summary == summary
 
-    def test_invalid_summary(self):
+    def test_invalid_summary(self) -> None:
         meta = metadata.Metadata.from_raw(
             {"summary": "Hello\n    Again"}, validate=False
         )
@@ -473,12 +473,12 @@ class TestMetadata:
             meta.summary  # noqa: B018
         assert exc_info.value.field == "summary"
 
-    def test_valid_name(self):
+    def test_valid_name(self) -> None:
         name = "Hello_World"
         meta = metadata.Metadata.from_raw({"name": name}, validate=False)
         assert meta.name == name
 
-    def test_invalid_name(self):
+    def test_invalid_name(self) -> None:
         meta = metadata.Metadata.from_raw({"name": "-not-legal"}, validate=False)
         self._invalid_with_cause(meta, "name", utils.InvalidName)
 
@@ -497,7 +497,7 @@ class TestMetadata:
             "text/markdown; variant=CommonMark",
         ],
     )
-    def test_valid_description_content_type(self, content_type):
+    def test_valid_description_content_type(self, content_type) -> None:
         meta = metadata.Metadata.from_raw(
             {"description_content_type": content_type}, validate=False
         )
@@ -514,7 +514,7 @@ class TestMetadata:
             "text/markdown; variant=commonmark",
         ],
     )
-    def test_invalid_description_content_type(self, content_type):
+    def test_invalid_description_content_type(self, content_type) -> None:
         meta = metadata.Metadata.from_raw(
             {"description_content_type": content_type}, validate=False
         )
@@ -522,13 +522,13 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.description_content_type  # noqa: B018
 
-    def test_keywords(self):
+    def test_keywords(self) -> None:
         keywords = ["hello", "world"]
         meta = metadata.Metadata.from_raw({"keywords": keywords}, validate=False)
 
         assert meta.keywords == keywords
 
-    def test_valid_project_urls(self):
+    def test_valid_project_urls(self) -> None:
         urls = {
             "Documentation": "https://example.com/BeagleVote",
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
@@ -538,7 +538,7 @@ class TestMetadata:
         assert meta.project_urls == urls
 
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
-    def test_valid_requires_python(self, specifier):
+    def test_valid_requires_python(self, specifier) -> None:
         expected = specifiers.SpecifierSet(specifier)
         meta = metadata.Metadata.from_raw(
             {"requires_python": specifier}, validate=False
@@ -546,7 +546,7 @@ class TestMetadata:
 
         assert meta.requires_python == expected
 
-    def test_invalid_requires_python(self):
+    def test_invalid_requires_python(self) -> None:
         meta = metadata.Metadata.from_raw(
             {"requires_python": "NotReal"}, validate=False
         )
@@ -557,7 +557,7 @@ class TestMetadata:
             field="requires-python",
         )
 
-    def test_requires_external(self):
+    def test_requires_external(self) -> None:
         externals = [
             "C",
             "libpng (>=1.5)",
@@ -570,20 +570,20 @@ class TestMetadata:
 
         assert meta.requires_external == externals
 
-    def test_valid_provides_extra(self):
+    def test_valid_provides_extra(self) -> None:
         extras = ["dev", "test"]
         meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
 
         assert meta.provides_extra == extras
 
-    def test_invalid_provides_extra(self):
+    def test_invalid_provides_extra(self) -> None:
         extras = ["pdf", "-Not-Valid", "ok"]
         meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
         self._invalid_with_cause(
             meta, "provides_extra", utils.InvalidName, field="provides-extra"
         )
 
-    def test_valid_requires_dist(self):
+    def test_valid_requires_dist(self) -> None:
         requires = [
             "pkginfo",
             "PasteDeploy",
@@ -595,7 +595,7 @@ class TestMetadata:
 
         assert meta.requires_dist == expected_requires
 
-    def test_invalid_requires_dist(self):
+    def test_invalid_requires_dist(self) -> None:
         requires = ["pkginfo", "-not-real", "zope.interface (>3.5.0)"]
         meta = metadata.Metadata.from_raw({"requires_dist": requires}, validate=False)
         self._invalid_with_cause(
@@ -605,13 +605,13 @@ class TestMetadata:
             field="requires-dist",
         )
 
-    def test_valid_dynamic(self):
+    def test_valid_dynamic(self) -> None:
         dynamic = ["Keywords", "Home-Page", "Author"]
         meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
         assert meta.dynamic == [d.lower() for d in dynamic]
 
-    def test_invalid_dynamic_value(self):
+    def test_invalid_dynamic_value(self) -> None:
         dynamic = ["Keywords", "NotReal", "Author"]
         meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)
 
@@ -619,7 +619,7 @@ class TestMetadata:
             meta.dynamic  # noqa: B018
 
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
-    def test_disallowed_dynamic(self, field_name):
+    def test_disallowed_dynamic(self, field_name) -> None:
         meta = metadata.Metadata.from_raw({"dynamic": [field_name]}, validate=False)
 
         message = f"{field_name!r} is not allowed"
@@ -634,7 +634,7 @@ class TestMetadata:
         "field_name",
         sorted(metadata._RAW_TO_EMAIL_MAPPING.keys() - metadata._REQUIRED_ATTRS),
     )
-    def test_optional_defaults_to_none(self, field_name):
+    def test_optional_defaults_to_none(self, field_name) -> None:
         meta = metadata.Metadata.from_raw({}, validate=False)
         assert getattr(meta, field_name) is None
 
@@ -705,7 +705,7 @@ class TestMetadata:
             ("((MIT AND (MIT)))", "((MIT AND (MIT)))"),
         ],
     )
-    def test_valid_license_expression(self, license_expression, expected):
+    def test_valid_license_expression(self, license_expression, expected) -> None:
         meta = metadata.Metadata.from_raw(
             {"license_expression": license_expression}, validate=False
         )
@@ -745,7 +745,7 @@ class TestMetadata:
             "mit with ( ) with ( ) or mit",
         ],
     )
-    def test_invalid_license_expression(self, license_expression):
+    def test_invalid_license_expression(self, license_expression) -> None:
         meta = metadata.Metadata.from_raw(
             {"license_expression": license_expression}, validate=False
         )
@@ -761,7 +761,7 @@ class TestMetadata:
             ["LICENSE"],
         ],
     )
-    def test_valid_license_files(self, license_files):
+    def test_valid_license_files(self, license_files) -> None:
         meta = metadata.Metadata.from_raw(
             {"license_files": license_files}, validate=False
         )
@@ -784,7 +784,7 @@ class TestMetadata:
             ["licenses\\LICENSE"],
         ],
     )
-    def test_invalid_license_files(self, license_files):
+    def test_invalid_license_files(self, license_files) -> None:
         meta = metadata.Metadata.from_raw(
             {"license_files": license_files}, validate=False
         )
@@ -793,7 +793,7 @@ class TestMetadata:
             meta.license_files  # noqa: B018
 
     @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
-    def test_valid_import_names(self, key):
+    def test_valid_import_names(self, key) -> None:
         import_names = [
             "packaging",
             "packaging.metadata",
@@ -808,14 +808,14 @@ class TestMetadata:
     @pytest.mark.parametrize(
         "name", ["not-valid", "still.not-valid", "stuff;", "stuff; extra"]
     )
-    def test_invalid_import_names_identifier(self, key, name):
+    def test_invalid_import_names_identifier(self, key, name) -> None:
         meta = metadata.Metadata.from_raw({key: [name]}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata):
             getattr(meta, key)
 
     @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
-    def test_invalid_import_names_keyword(self, key):
+    def test_invalid_import_names_keyword(self, key) -> None:
         import_names = ["class"]
         meta = metadata.Metadata.from_raw({key: import_names}, validate=False)
 
@@ -824,14 +824,14 @@ class TestMetadata:
 
 
 class TestMetadataWriting:
-    def test_write_metadata(self):
+    def test_write_metadata(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
         written = meta.as_rfc822().as_string()
         assert (
             written == "metadata-version: 2.5\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
-    def test_write_metadata_with_description(self):
+    def test_write_metadata_with_description(self) -> None:
         # Intentionally out of order to make sure it is written in order
         meta = metadata.Metadata.from_raw(
             {
@@ -853,7 +853,7 @@ class TestMetadataWriting:
             "version: 1.2.3\n\nHello\n\nWorld👋".encode()
         )
 
-    def test_multiline_license(self):
+    def test_multiline_license(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
                 "version": "1.2.3",
@@ -874,7 +874,7 @@ class TestMetadataWriting:
             "\nlicense: Hello\n         World🐍\n\n".encode()
         )
 
-    def test_large(self):
+    def test_large(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
                 "author": "Example!",
@@ -952,7 +952,7 @@ class TestMetadataWriting:
 
         assert core_metadata.get_payload() == "some readme 👋\n"
 
-    def test_modern_license(self):
+    def test_modern_license(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
                 "metadata_version": "2.4",
@@ -975,7 +975,7 @@ class TestMetadataWriting:
 
         assert core_metadata.get_payload() is None
 
-    def test__import_names(self):
+    def test__import_names(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
                 "metadata_version": "2.5",
@@ -998,7 +998,7 @@ class TestMetadataWriting:
 
         assert core_metadata.get_payload() is None
 
-    def test_empty_import_names(self):
+    def test_empty_import_names(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
                 "metadata_version": "2.5",

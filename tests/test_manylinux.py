@@ -43,7 +43,9 @@ def manylinux_module(monkeypatch):
 @pytest.mark.parametrize(
     ("attribute", "glibc"), [("1", (2, 5)), ("2010", (2, 12)), ("2014", (2, 17))]
 )
-def test_module_declaration(monkeypatch, manylinux_module, attribute, glibc, tf):
+def test_module_declaration(
+    monkeypatch, manylinux_module, attribute, glibc, tf
+) -> None:
     manylinux = f"manylinux{attribute}_compatible"
     monkeypatch.setattr(manylinux_module, manylinux, tf, raising=False)
     res = _is_compatible("x86_64", glibc)
@@ -64,14 +66,16 @@ def test_module_declaration_missing_attribute(
 @pytest.mark.parametrize(
     ("version", "compatible"), [((2, 0), True), ((2, 5), True), ((2, 10), False)]
 )
-def test_is_manylinux_compatible_glibc_support(version, compatible, monkeypatch):
+def test_is_manylinux_compatible_glibc_support(
+    version, compatible, monkeypatch
+) -> None:
     monkeypatch.setitem(sys.modules, "_manylinux", None)
     monkeypatch.setattr(_manylinux, "_get_glibc_version", lambda: (2, 5))
     assert bool(_is_compatible("any", version)) == compatible
 
 
 @pytest.mark.parametrize("version_str", ["glibc-2.4.5", "2"])
-def test_check_glibc_version_warning(version_str):
+def test_check_glibc_version_warning(version_str) -> None:
     msg = f"Expected glibc version with 2 components major.minor, got: {version_str}"
     with pytest.warns(RuntimeWarning, match=re.escape(msg)):
         _parse_glibc_version(version_str)
@@ -86,7 +90,7 @@ def test_check_glibc_version_warning(version_str):
         ("2.4", "2.4"),
     ],
 )
-def test_glibc_version_string(version_str, expected, monkeypatch):
+def test_glibc_version_string(version_str, expected, monkeypatch) -> None:
     class LibcVersion:
         def __init__(self, version_str):
             self.version_str = version_str
@@ -108,12 +112,12 @@ def test_glibc_version_string(version_str, expected, monkeypatch):
     assert _glibc_version_string() is None
 
 
-def test_glibc_version_string_confstr(monkeypatch):
+def test_glibc_version_string_confstr(monkeypatch) -> None:
     monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
     assert _glibc_version_string_confstr() == "2.20"
 
 
-def test_glibc_version_string_fail(monkeypatch):
+def test_glibc_version_string_fail(monkeypatch) -> None:
     monkeypatch.setattr(os, "confstr", lambda _: None, raising=False)
     monkeypatch.setitem(sys.modules, "ctypes", None)
     assert _glibc_version_string() is None
@@ -124,23 +128,23 @@ def test_glibc_version_string_fail(monkeypatch):
     "failure",
     [pretend.raiser(ValueError), pretend.raiser(OSError), lambda _: "XXX"],
 )
-def test_glibc_version_string_confstr_fail(monkeypatch, failure):
+def test_glibc_version_string_confstr_fail(monkeypatch, failure) -> None:
     monkeypatch.setattr(os, "confstr", failure, raising=False)
     assert _glibc_version_string_confstr() is None
 
 
-def test_glibc_version_string_confstr_missing(monkeypatch):
+def test_glibc_version_string_confstr_missing(monkeypatch) -> None:
     monkeypatch.delattr(os, "confstr", raising=False)
     assert _glibc_version_string_confstr() is None
 
 
-def test_glibc_version_string_ctypes_missing(monkeypatch):
+def test_glibc_version_string_ctypes_missing(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "ctypes", None)
     assert _glibc_version_string_ctypes() is None
 
 
 @pytest.mark.xfail(ctypes is None, reason="ctypes not available")
-def test_glibc_version_string_ctypes_raise_oserror(monkeypatch):
+def test_glibc_version_string_ctypes_raise_oserror(monkeypatch) -> None:
     def patched_cdll(_name):
         raise OSError("Dynamic loading not supported")
 
@@ -149,18 +153,18 @@ def test_glibc_version_string_ctypes_raise_oserror(monkeypatch):
 
 
 @pytest.mark.skipif(platform.system() != "Linux", reason="requires Linux")
-def test_is_manylinux_compatible_old():
+def test_is_manylinux_compatible_old() -> None:
     # Assuming no one is running this test with a version of glibc released in
     # 1997.
     assert _is_compatible("any", (2, 0))
 
 
-def test_is_manylinux_compatible(monkeypatch):
+def test_is_manylinux_compatible(monkeypatch) -> None:
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: "2.4")
     assert _is_compatible("any", (2, 4))
 
 
-def test_glibc_version_string_none(monkeypatch):
+def test_glibc_version_string_none(monkeypatch) -> None:
     monkeypatch.setattr(_manylinux, "_glibc_version_string", lambda: None)
     assert not _is_compatible("any", (2, 4))
 
@@ -168,7 +172,7 @@ def test_glibc_version_string_none(monkeypatch):
 @pytest.mark.parametrize(
     "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
 )
-def test_parse_elf_bad_executable(content):
+def test_parse_elf_bad_executable(content) -> None:
     if content:
         path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
         path = os.fsdecode(path)

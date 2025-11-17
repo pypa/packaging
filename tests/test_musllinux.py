@@ -43,7 +43,7 @@ def clear_lru_cache():
     ],
     ids=["amd64-1.2.2", "i386-1.2.1", "aarch64-1.1.24", "invalid", "unknown"],
 )
-def test_parse_musl_version(output, version):
+def test_parse_musl_version(output, version) -> None:
     assert _parse_musl_version(output) == version
 
 
@@ -58,7 +58,7 @@ def test_parse_musl_version(output, version):
     ],
     ids=["does-not-exist", "glibc", "x86_64", "i386", "aarch64"],
 )
-def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
+def test_get_musl_version(monkeypatch, executable, output, version, ld_musl) -> None:
     def mock_run(*args, **kwargs):
         return collections.namedtuple("Proc", "stderr")(output)
 

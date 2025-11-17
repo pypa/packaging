@@ -26,9 +26,9 @@ repos:
     rev: v1.18.1
     hooks:
       - id: mypy
-        exclude: '^(docs|tasks|tests)|setup\.py'
+        exclude: '^(docs|tasks)'
         args: []
-        additional_dependencies: [pyparsing, nox, orjson]
+        additional_dependencies: [pyparsing, nox, orjson, 'pytest<9', tomli, tomli_w]
 
   - repo: https://github.com/codespell-project/codespell
     rev: "v2.4.1"
