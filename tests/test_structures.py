@@ -2,29 +2,31 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import pytest
 
 from packaging._structures import Infinity, NegativeInfinity
 
 
-def test_infinity_repr():
+def test_infinity_repr() -> None:
     assert repr(Infinity) == "Infinity"
 
 
-def test_negative_infinity_repr():
+def test_negative_infinity_repr() -> None:
     assert repr(NegativeInfinity) == "-Infinity"
 
 
-def test_infinity_hash():
+def test_infinity_hash() -> None:
     assert hash(Infinity) == hash(Infinity)
 
 
-def test_negative_infinity_hash():
+def test_negative_infinity_hash() -> None:
     assert hash(NegativeInfinity) == hash(NegativeInfinity)
 
 
 @pytest.mark.parametrize("left", [1, "a", ("b", 4)])
-def test_infinity_comparison(left):
+def test_infinity_comparison(left: int | str | tuple[str, int]) -> None:
     assert left < Infinity
     assert left <= Infinity
     assert not left == Infinity
@@ -34,7 +36,7 @@ def test_infinity_comparison(left):
 
 
 @pytest.mark.parametrize("left", [1, "a", ("b", 4)])
-def test_negative_infinity_lesser(left):
+def test_negative_infinity_lesser(left: int | str | tuple[str, int]) -> None:
     assert not left < NegativeInfinity
     assert not left <= NegativeInfinity
     assert not left == NegativeInfinity
@@ -43,17 +45,17 @@ def test_negative_infinity_lesser(left):
     assert left >= NegativeInfinity
 
 
-def test_infinity_equal():
+def test_infinity_equal() -> None:
     assert Infinity == Infinity
 
 
-def test_negative_infinity_equal():
+def test_negative_infinity_equal() -> None:
     assert NegativeInfinity == NegativeInfinity
 
 
-def test_negate_infinity():
+def test_negate_infinity() -> None:
     assert isinstance(-Infinity, NegativeInfinity.__class__)
 
 
-def test_negate_negative_infinity():
+def test_negate_negative_infinity() -> None:
     assert isinstance(-NegativeInfinity, Infinity.__class__)

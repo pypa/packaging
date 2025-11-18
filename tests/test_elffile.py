@@ -22,7 +22,9 @@ BIN_MUSL_X86_64 = DIR_MUSLLINUX.joinpath("musl-x86_64").read_bytes()
         ("s390x-s390x", EIClass.C64, EIData.Msb, EMachine.S390),
     ],
 )
-def test_elffile_glibc(name, capacity, encoding, machine):
+def test_elffile_glibc(
+    name: str, capacity: EIClass, encoding: EIData, machine: EMachine
+) -> None:
     path = DIR_MANYLINUX.joinpath(f"hello-world-{name}")
     with path.open("rb") as f:
         ef = ELFFile(f)
@@ -46,7 +48,9 @@ def test_elffile_glibc(name, capacity, encoding, machine):
         ("x86_64", EIClass.C64, EIData.Lsb, EMachine.X8664, "x86_64"),
     ],
 )
-def test_elffile_musl(name, capacity, encoding, machine, interpreter):
+def test_elffile_musl(
+    name: str, capacity: EIClass, encoding: EIData, machine: EMachine, interpreter: str
+) -> None:
     path = DIR_MUSLLINUX.joinpath(f"musl-{name}")
     with path.open("rb") as f:
         ef = ELFFile(f)
@@ -68,25 +72,25 @@ def test_elffile_musl(name, capacity, encoding, machine, interpreter):
     ],
     ids=["no-magic", "wrong-magic", "unknown-format"],
 )
-def test_elffile_bad_ident(data):
+def test_elffile_bad_ident(data: bytes) -> None:
     with pytest.raises(ELFInvalid):
         ELFFile(io.BytesIO(data))
 
 
-def test_elffile_no_section():
+def test_elffile_no_section() -> None:
     """Enough for magic, but not the section definitions."""
     data = BIN_MUSL_X86_64[:25]
     with pytest.raises(ELFInvalid):
         ELFFile(io.BytesIO(data))
 
 
-def test_elffile_invalid_section():
+def test_elffile_invalid_section() -> None:
     """Enough for section definitions, but not the actual sections."""
     data = BIN_MUSL_X86_64[:58]
     assert ELFFile(io.BytesIO(data)).interpreter is None
 
 
-def test_elffle_no_interpreter_section():
+def test_elffle_no_interpreter_section() -> None:
     ef = ELFFile(io.BytesIO(BIN_MUSL_X86_64))
 
     # Change all sections to *not* PT_INTERP.
