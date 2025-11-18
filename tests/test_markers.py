@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import collections
 import itertools
 import os
@@ -60,15 +62,15 @@ VALUES = [
 
 class TestNode:
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
-    def test_accepts_value(self, value) -> None:
-        assert Node(value).value == value
+    def test_accepts_value(self, value: str | None | int | list[str]) -> None:
+        assert Node(value).value == value  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("value", ["one", "two"])
-    def test_str(self, value) -> None:
+    def test_str(self, value: str) -> None:
         assert str(Node(value)) == str(value)
 
     @pytest.mark.parametrize("value", ["one", "two"])
-    def test_repr(self, value) -> None:
+    def test_repr(self, value: str) -> None:
         assert repr(Node(value)) == f"<Node({str(value)!r})>"
 
     def test_base_class(self) -> None:
@@ -141,11 +143,11 @@ class TestDefaultEnvironment:
 
     def tests_when_releaselevel_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "final", 0)
-        assert format_full_version(v) == "3.4.2"
+        assert format_full_version(v) == "3.4.2"  # type: ignore[arg-type]
 
     def tests_when_releaselevel_not_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "beta", 4)
-        assert format_full_version(v) == "3.4.2b4"
+        assert format_full_version(v) == "3.4.2b4"  # type: ignore[arg-type]
 
 
 class TestMarker:
@@ -160,7 +162,7 @@ class TestMarker:
             for i in itertools.product(VARIABLES, OPERATORS, VALUES)
         ],
     )
-    def test_parses_valid(self, marker_string) -> None:
+    def test_parses_valid(self, marker_string: str) -> None:
         Marker(marker_string)
 
     @pytest.mark.parametrize(
@@ -174,7 +176,7 @@ class TestMarker:
             '(python_version == "2.7") with random text',
         ],
     )
-    def test_parses_invalid(self, marker_string) -> None:
+    def test_parses_invalid(self, marker_string: str) -> None:
         with pytest.raises(InvalidMarker):
             Marker(marker_string)
 
@@ -213,7 +215,7 @@ class TestMarker:
             ),
         ],
     )
-    def test_str_repr_eq_hash(self, marker_string, expected) -> None:
+    def test_str_repr_eq_hash(self, marker_string: str, expected: str) -> None:
         m = Marker(marker_string)
         assert str(m) == expected
         assert repr(m) == f"<Marker({str(m)!r})>"
@@ -248,7 +250,9 @@ class TestMarker:
             ),
         ],
     )
-    def test_different_markers_different_hashes(self, example1, example2) -> None:
+    def test_different_markers_different_hashes(
+        self, example1: str, example2: str
+    ) -> None:
         marker1, marker2 = Marker(example1), Marker(example2)
         # Markers created from strings that are not equivalent should differ.
         assert marker1 != marker2
@@ -316,8 +320,10 @@ class TestMarker:
             ),
         ],
     )
-    def test_evaluates(self, marker_string, environment, expected) -> None:
-        args = [] if environment is None else [environment]
+    def test_evaluates(
+        self, marker_string: str, environment: dict[str, str] | None, expected: bool
+    ) -> None:
+        args = () if environment is None else (environment,)
         assert Marker(marker_string).evaluate(*args) == expected
 
     @pytest.mark.parametrize(
@@ -331,7 +337,7 @@ class TestMarker:
             for i in itertools.product(PEP_345_VARIABLES, OPERATORS, VALUES)
         ],
     )
-    def test_parses_pep345_valid(self, marker_string) -> None:
+    def test_parses_pep345_valid(self, marker_string: str) -> None:
         Marker(marker_string)
 
     @pytest.mark.parametrize(
@@ -354,9 +360,9 @@ class TestMarker:
         ],
     )
     def test_evaluate_pep345_markers(
-        self, marker_string, environment, expected
+        self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
-        args = [] if environment is None else [environment]
+        args = () if environment is None else (environment,)
         assert Marker(marker_string).evaluate(*args) == expected
 
     @pytest.mark.parametrize(
@@ -370,12 +376,12 @@ class TestMarker:
             for i in itertools.product(SETUPTOOLS_VARIABLES, OPERATORS, VALUES)
         ],
     )
-    def test_parses_setuptools_legacy_valid(self, marker_string) -> None:
+    def test_parses_setuptools_legacy_valid(self, marker_string: str) -> None:
         Marker(marker_string)
 
     def test_evaluate_setuptools_legacy_markers(self) -> None:
         marker_string = "python_implementation=='Jython'"
-        args = [{"platform_python_implementation": "CPython"}]
+        args = ({"platform_python_implementation": "CPython"},)
         assert Marker(marker_string).evaluate(*args) is False
 
     def test_extra_str_normalization(self) -> None:
@@ -414,12 +420,14 @@ class TestMarker:
             pytest.param('"Foo" in {0}', True, id="case-sensitive"),
         ],
     )
-    def test_extras_and_dependency_groups(self, variable, expression, result) -> None:
+    def test_extras_and_dependency_groups(
+        self, variable: str, expression: str, result: bool
+    ) -> None:
         environment = {variable: {"foo", "bar"}}
         assert Marker(expression.format(variable)).evaluate(environment) == result
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
-    def test_extras_and_dependency_groups_disallowed(self, variable) -> None:
+    def test_extras_and_dependency_groups_disallowed(self, variable: str) -> None:
         marker = Marker(f'"foo" in {variable}')
         assert not marker.evaluate(context="lock_file")
 

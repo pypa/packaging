@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Any, Callable, Literal, TypedDict, Union, cast
+from typing import AbstractSet, Any, Callable, Literal, Mapping, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -314,7 +314,7 @@ class Marker:
 
     def evaluate(
         self,
-        environment: dict[str, str] | None = None,
+        environment: Mapping[str, str | AbstractSet[str]] | None = None,
         context: EvaluateContext = "metadata",
     ) -> bool:
         """Evaluate a marker.

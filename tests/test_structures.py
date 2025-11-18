@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import pytest
 
 from packaging._structures import Infinity, NegativeInfinity
@@ -24,7 +26,7 @@ def test_negative_infinity_hash() -> None:
 
 
 @pytest.mark.parametrize("left", [1, "a", ("b", 4)])
-def test_infinity_comparison(left) -> None:
+def test_infinity_comparison(left: int | str | tuple[str, int]) -> None:
     assert left < Infinity
     assert left <= Infinity
     assert not left == Infinity
@@ -34,7 +36,7 @@ def test_infinity_comparison(left) -> None:
 
 
 @pytest.mark.parametrize("left", [1, "a", ("b", 4)])
-def test_negative_infinity_lesser(left) -> None:
+def test_negative_infinity_lesser(left: int | str | tuple[str, int]) -> None:
     assert not left < NegativeInfinity
     assert not left <= NegativeInfinity
     assert not left == NegativeInfinity

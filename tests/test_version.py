@@ -2,13 +2,19 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import itertools
 import operator
+import typing
 
 import pretend
 import pytest
 
 from packaging.version import InvalidVersion, Version, parse
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def test_parse() -> None:
@@ -317,7 +323,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", "1!1.0.post5"),
         ],
     )
-    def test_version_public(self, version, public) -> None:
+    def test_version_public(self, version: str, public: str) -> None:
         assert Version(version).public == public
 
     @pytest.mark.parametrize(
@@ -354,7 +360,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", "1!1.0"),
         ],
     )
-    def test_version_base_version(self, version, base_version) -> None:
+    def test_version_base_version(self, version: str, base_version: str) -> None:
         assert Version(version).base_version == base_version
 
     @pytest.mark.parametrize(
@@ -391,7 +397,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", 1),
         ],
     )
-    def test_version_epoch(self, version, epoch) -> None:
+    def test_version_epoch(self, version: str, epoch: int) -> None:
         assert Version(version).epoch == epoch
 
     @pytest.mark.parametrize(
@@ -428,7 +434,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", (1, 0)),
         ],
     )
-    def test_version_release(self, version, release) -> None:
+    def test_version_release(self, version: str, release: tuple[int, int]) -> None:
         assert Version(version).release == release
 
     @pytest.mark.parametrize(
@@ -465,7 +471,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", "deadbeef"),
         ],
     )
-    def test_version_local(self, version, local) -> None:
+    def test_version_local(self, version: str, local: str | None) -> None:
         assert Version(version).local == local
 
     @pytest.mark.parametrize(
@@ -502,7 +508,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_pre(self, version, pre) -> None:
+    def test_version_pre(self, version: str, pre: None | tuple[str, int]) -> None:
         assert Version(version).pre == pre
 
     @pytest.mark.parametrize(
@@ -532,7 +538,7 @@ class TestVersion:
             ("1.0.post1+dev", False),
         ],
     )
-    def test_version_is_prerelease(self, version, expected) -> None:
+    def test_version_is_prerelease(self, version: str, expected: bool) -> None:
         assert Version(version).is_prerelease is expected
 
     @pytest.mark.parametrize(
@@ -569,7 +575,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_dev(self, version, dev) -> None:
+    def test_version_dev(self, version: str, dev: int | None) -> None:
         assert Version(version).dev == dev
 
     @pytest.mark.parametrize(
@@ -606,7 +612,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", False),
         ],
     )
-    def test_version_is_devrelease(self, version, expected) -> None:
+    def test_version_is_devrelease(self, version: str, expected: bool) -> None:
         assert Version(version).is_devrelease is expected
 
     @pytest.mark.parametrize(
@@ -643,7 +649,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", 5),
         ],
     )
-    def test_version_post(self, version, post) -> None:
+    def test_version_post(self, version: str, post: int | None) -> None:
         assert Version(version).post == post
 
     @pytest.mark.parametrize(
@@ -656,7 +662,7 @@ class TestVersion:
             ("1.0.post1", True),
         ],
     )
-    def test_version_is_postrelease(self, version, expected) -> None:
+    def test_version_is_postrelease(self, version: str, expected: bool) -> None:
         assert Version(version).is_postrelease is expected
 
     @pytest.mark.parametrize(
@@ -698,7 +704,9 @@ class TestVersion:
             ]
         ),
     )
-    def test_comparison_true(self, left, right, op) -> None:
+    def test_comparison_true(
+        self, left: str, right: str, op: Callable[[Version, Version], bool]
+    ) -> None:
         assert op(Version(left), Version(right))
 
     @pytest.mark.parametrize(
@@ -740,16 +748,18 @@ class TestVersion:
             ]
         ),
     )
-    def test_comparison_false(self, left, right, op) -> None:
+    def test_comparison_false(
+        self, left: str, right: str, op: Callable[[Version, Version], bool]
+    ) -> None:
         assert not op(Version(left), Version(right))
 
     @pytest.mark.parametrize("op", ["lt", "le", "eq", "ge", "gt", "ne"])
-    def test_dunder_op_returns_notimplemented(self, op) -> None:
+    def test_dunder_op_returns_notimplemented(self, op: str) -> None:
         method = getattr(Version, f"__{op}__")
         assert method(Version("1"), 1) is NotImplemented
 
     @pytest.mark.parametrize(("op", "expected"), [("eq", False), ("ne", True)])
-    def test_compare_other(self, op, expected) -> None:
+    def test_compare_other(self, op: str, expected: bool) -> None:
         other = pretend.stub(**{f"__{op}__": lambda _: NotImplemented})
 
         assert getattr(operator, op)(Version("1"), other) is expected
