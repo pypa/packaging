@@ -401,16 +401,16 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
                 # can be independently encoded, so we'll need to check each
                 # of them.
                 chunks: list[tuple[bytes, str | None]] = []
-                for bin, _encoding in email.header.decode_header(h):
+                for binary, _encoding in email.header.decode_header(h):
                     try:
-                        bin.decode("utf8", "strict")
+                        binary.decode("utf8", "strict")
                     except UnicodeDecodeError:
                         # Enable mojibake.
                         encoding = "latin1"
                         valid_encoding = False
                     else:
                         encoding = "utf8"
-                    chunks.append((bin, encoding))
+                    chunks.append((binary, encoding))
 
                 # Turn our chunks back into a Header object, then let that
                 # Header object do the right thing to turn them into a

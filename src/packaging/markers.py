@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Any, Callable, Literal, Mapping, TypedDict, Union, cast
+from typing import AbstractSet, Callable, Literal, Mapping, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -121,7 +121,7 @@ class Environment(TypedDict):
     """
 
 
-def _normalize_extra_values(results: Any) -> Any:
+def _normalize_extra_values(results: MarkerList) -> MarkerList:
     """
     Normalize extra values.
     """

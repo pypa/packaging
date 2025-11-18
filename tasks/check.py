@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import contextlib
 import itertools
 import json
@@ -17,7 +19,7 @@ from packaging.version import Version
 from .paths import CACHE
 
 
-def _parse_version(value):
+def _parse_version(value: str) -> Version | None:
     try:
         return Version(value)
     except ValueError:
@@ -25,7 +27,7 @@ def _parse_version(value):
 
 
 @invoke.task
-def pep440(cached=False):
+def pep440(cached: bool = False) -> None:
     cache_path = os.path.join(CACHE, "pep440.json")
 
     # If we were given --cached, then we want to attempt to use cached data if
