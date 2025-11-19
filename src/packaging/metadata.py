@@ -222,7 +222,8 @@ def _parse_project_urls(data: list[str]) -> dict[str, str]:
             # The label already exists in our set of urls, so this field
             # is unparsable, and we can just add the whole thing to our
             # unparsable data and stop processing it.
-            raise KeyError("duplicate labels in project urls")
+            msg = "duplicate labels in project urls"
+            raise KeyError(msg)
         urls[label] = url
 
     return urls
@@ -244,7 +245,8 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
         try:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError as exc:
-            raise ValueError("payload in an invalid encoding") from exc
+            errmsg = "payload in an invalid encoding"
+            raise ValueError(errmsg) from exc
 
 
 # The various parse_FORMAT functions here are intended to be as lenient as
@@ -590,36 +592,38 @@ class _Validator(Generic[T]):
     def _process_metadata_version(self, value: str) -> _MetadataVersion:
         # Implicitly makes Metadata-Version required.
         if value not in _VALID_METADATA_VERSIONS:
-            raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
+            msg = f"{value!r} is not a valid metadata version"
+            raise self._invalid_metadata(msg)
         return cast("_MetadataVersion", value)
 
     def _process_name(self, value: str) -> str:
         if not value:
-            raise self._invalid_metadata("{field} is a required field")
+            msg = "{field} is a required field"
+            raise self._invalid_metadata(msg)
         # Validate the name as a side-effect.
         try:
             utils.canonicalize_name(value, validate=True)
         except utils.InvalidName as exc:
-            raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{value!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
         else:
             return value
 
     def _process_version(self, value: str) -> version_module.Version:
         if not value:
-            raise self._invalid_metadata("{field} is a required field")
+            msg = "{field} is a required field"
+            raise self._invalid_metadata(msg)
         try:
             return version_module.parse(value)
         except version_module.InvalidVersion as exc:
-            raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{value!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
         if "\n" in value:
-            raise self._invalid_metadata("{field} must be a single line")
+            msg = "{field} must be a single line"
+            raise self._invalid_metadata(msg)
         return value
 
     def _process_description_content_type(self, value: str) -> str:
@@ -635,35 +639,34 @@ class _Validator(Generic[T]):
         # Check if content-type is valid or defaulted to `text/plain` and thus was
         # not parseable.
         if content_type not in content_types or content_type not in value.lower():
-            raise self._invalid_metadata(
-                f"{{field}} must be one of {list(content_types)}, not {value!r}"
-            )
+            msg = f"{{field}} must be one of {list(content_types)}, not {value!r}"
+            raise self._invalid_metadata(msg)
 
         charset = parameters.get("charset", "UTF-8")
         if charset != "UTF-8":
-            raise self._invalid_metadata(
-                f"{{field}} can only specify the UTF-8 charset, not {list(charset)}"
-            )
+            msg = f"{{field}} can only specify the UTF-8 charset, not {list(charset)}"
+            raise self._invalid_metadata(msg)
 
         markdown_variants = {"GFM", "CommonMark"}
         variant = parameters.get("variant", "GFM")  # Use an acceptable default.
         if content_type == "text/markdown" and variant not in markdown_variants:
-            raise self._invalid_metadata(
+            msg = (
                 f"valid Markdown variants for {{field}} are {list(markdown_variants)}, "
-                f"not {variant!r}",
+                f"not {variant!r}"
+            )
+            raise self._invalid_metadata(
+                msg,
             )
         return value
 
     def _process_dynamic(self, value: list[str]) -> list[str]:
         for dynamic_field in map(str.lower, value):
             if dynamic_field in {"name", "version", "metadata-version"}:
-                raise self._invalid_metadata(
-                    f"{dynamic_field!r} is not allowed as a dynamic field"
-                )
+                msg = f"{dynamic_field!r} is not allowed as a dynamic field"
+                raise self._invalid_metadata(msg)
             elif dynamic_field not in _EMAIL_TO_RAW_MAPPING:
-                raise self._invalid_metadata(
-                    f"{dynamic_field!r} is not a valid dynamic field"
-                )
+                msg = f"{dynamic_field!r} is not a valid dynamic field"
+                raise self._invalid_metadata(msg)
         return list(map(str.lower, value))
 
     def _process_provides_extra(
@@ -675,9 +678,8 @@ class _Validator(Generic[T]):
             for name in value:
                 normalized_names.append(utils.canonicalize_name(name, validate=True))
         except utils.InvalidName as exc:
-            raise self._invalid_metadata(
-                f"{name!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{name!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
         else:
             return normalized_names
 
@@ -685,9 +687,8 @@ class _Validator(Generic[T]):
         try:
             return specifiers.SpecifierSet(value)
         except specifiers.InvalidSpecifier as exc:
-            raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{value!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
 
     def _process_requires_dist(
         self,
@@ -698,9 +699,8 @@ class _Validator(Generic[T]):
             for req in value:
                 reqs.append(requirements.Requirement(req))
         except requirements.InvalidRequirement as exc:
-            raise self._invalid_metadata(
-                f"{req!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{req!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
         else:
             return reqs
 
@@ -708,33 +708,30 @@ class _Validator(Generic[T]):
         try:
             return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
-            raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
-            ) from exc
+            msg = f"{value!r} is invalid for {{field}}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
 
     def _process_license_files(self, value: list[str]) -> list[str]:
         paths = []
         for path in value:
             if ".." in path:
-                raise self._invalid_metadata(
+                msg = (
                     f"{path!r} is invalid for {{field}}, "
                     "parent directory indicators are not allowed"
                 )
+                raise self._invalid_metadata(msg)
             if "*" in path:
-                raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must be resolved"
-                )
+                msg = f"{path!r} is invalid for {{field}}, paths must be resolved"
+                raise self._invalid_metadata(msg)
             if (
                 pathlib.PurePosixPath(path).is_absolute()
                 or pathlib.PureWindowsPath(path).is_absolute()
             ):
-                raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must be relative"
-                )
+                msg = f"{path!r} is invalid for {{field}}, paths must be relative"
+                raise self._invalid_metadata(msg)
             if pathlib.PureWindowsPath(path).as_posix() != path:
-                raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must use '/' delimiter"
-                )
+                msg = f"{path!r} is invalid for {{field}}, paths must use '/' delimiter"
+                raise self._invalid_metadata(msg)
             paths.append(path)
         return paths
 
@@ -744,20 +741,23 @@ class _Validator(Generic[T]):
             name = name.rstrip()
             for identifier in name.split("."):
                 if not identifier.isidentifier():
-                    raise self._invalid_metadata(
+                    msg = (
                         f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is not a valid identifier"
                     )
+                    raise self._invalid_metadata(msg)
                 elif keyword.iskeyword(identifier):
-                    raise self._invalid_metadata(
+                    msg = (
                         f"{name!r} is invalid for {{field}}; "
                         f"{identifier!r} is a keyword"
                     )
+                    raise self._invalid_metadata(msg)
             if semicolon and private.lstrip() != "private":
-                raise self._invalid_metadata(
+                msg = (
                     f"{import_name!r} is invalid for {{field}}; "
                     "the only valid option is 'private'"
                 )
+                raise self._invalid_metadata(msg)
         return value
 
     _process_import_namespaces = _process_import_names
@@ -827,7 +827,8 @@ class Metadata:
                     exceptions.append(exc)
 
             if exceptions:
-                raise ExceptionGroup("invalid metadata", exceptions)
+                msg = "invalid metadata"
+                raise ExceptionGroup(msg, exceptions)
 
         return ins
 
@@ -850,14 +851,14 @@ class Metadata:
                 exceptions.append(InvalidMetadata(unparsed_key, message))
 
             if exceptions:
-                raise ExceptionGroup("unparsed", exceptions)
+                msg = "unparsed"
+                raise ExceptionGroup(msg, exceptions)
 
         try:
             return cls.from_raw(raw, validate=validate)
         except ExceptionGroup as exc_group:
-            raise ExceptionGroup(
-                "invalid or unparsed metadata", exc_group.exceptions
-            ) from None
+            msg = "invalid or unparsed metadata"
+            raise ExceptionGroup(msg, exc_group.exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     """:external:ref:`core-metadata-metadata-version`
