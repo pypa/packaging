@@ -63,7 +63,7 @@ def _toml_key(key: str) -> str:
     return key.replace("_", "-")
 
 
-def _toml_value(key: str, value: Any) -> Any:
+def _toml_value(key: str, value: Any) -> Any:  # noqa: ANN401
     if isinstance(value, (Version, Marker, SpecifierSet)):
         return str(value)
     if isinstance(value, Sequence) and key == "environments":
@@ -225,7 +225,7 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
-    if not all(isinstance(hash, str) for hash in hashes.values()):
+    if not all(isinstance(hash_val, str) for hash_val in hashes.values()):
         raise PylockValidationError("Hash values must be strings")
     return hashes
 

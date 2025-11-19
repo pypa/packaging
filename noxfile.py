@@ -1,8 +1,8 @@
-# mypy: disallow-untyped-defs=False, disallow-untyped-calls=False
-
 # /// script
 # dependencies = ["nox>=2025.02.09"]
 # ///
+
+from __future__ import annotations
 
 import contextlib
 import datetime
@@ -18,6 +18,7 @@ import textwrap
 import time
 import webbrowser
 from pathlib import Path
+from typing import IO, Generator
 
 import nox
 
@@ -39,13 +40,15 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
     ],
     default=False,
 )
-def tests(session):
+def tests(session: nox.Session) -> None:
     coverage = ["python", "-m", "coverage"]
 
     session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
     session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
+    assert session.python is not None
+    assert not isinstance(session.python, bool)
     if "pypy" not in session.python:
         session.run(
             *coverage,
@@ -68,7 +71,7 @@ def tests(session):
 
 
 @nox.session(python="3.9")
-def lint(session):
+def lint(session: nox.Session) -> None:
     # Run the linters (via pre-commit)
     session.install("pre-commit")
     session.run("pre-commit", "run", "--all-files", *session.posargs)
@@ -80,7 +83,7 @@ def lint(session):
 
 
 @nox.session(python="3.9", default=False)
-def docs(session):
+def docs(session: nox.Session) -> None:
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")
     session.install("-e", ".")
@@ -106,7 +109,7 @@ def docs(session):
 
 
 @nox.session(default=False)
-def release(session):
+def release(session: nox.Session) -> None:
     package_name = "packaging"
     version_file = Path(f"src/{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
@@ -193,7 +196,7 @@ def update_licenses(session: nox.Session) -> None:
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
-def _get_version_from_arguments(arguments):
+def _get_version_from_arguments(arguments: list[str]) -> str:
     """Checks the arguments passed to `nox -s release`.
 
     Only 1 argument that looks like a version? Return the argument.
@@ -217,7 +220,7 @@ def _get_version_from_arguments(arguments):
     return version
 
 
-def _check_working_directory_state(session):
+def _check_working_directory_state(session: nox.Session) -> None:
     """Check state of the working directory, prior to making the release."""
     should_not_exist = ["build/", "dist/"]
 
@@ -226,7 +229,7 @@ def _check_working_directory_state(session):
         session.error(f"Remove {', '.join(bad_existing_paths)} and try again")
 
 
-def _check_git_state(session, version_tag):
+def _check_git_state(session: nox.Session, version_tag: str) -> None:
     """Check state of the git repository, prior to making the release."""
     # Ensure the upstream remote pushes to the correct URL.
     allowed_upstreams = [
@@ -277,7 +280,7 @@ def _check_git_state(session, version_tag):
     session.run("git", "tag", _release_backup_tag, external=True)
 
 
-def _bump(session, *, version, file, kind):
+def _bump(session: nox.Session, *, version: str, file: Path, kind: str) -> None:
     session.log(f"Bump version to {version!r}")
     contents = file.read_text()
     new_contents = re.sub(
@@ -291,7 +294,9 @@ def _bump(session, *, version, file, kind):
 
 
 @contextlib.contextmanager
-def _replace_file(original_path):
+def _replace_file(
+    original_path: Path,
+) -> Generator[tuple[IO[str], IO[str]], None, None]:
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 
@@ -303,7 +308,7 @@ def _replace_file(original_path):
     shutil.move(replacement_path, original_path)
 
 
-def _changelog_update_unreleased_title(version, *, file):
+def _changelog_update_unreleased_title(version: str, *, file: Path) -> None:
     """Update an "*unreleased*" heading to "{version} - {date}" """
     yyyy_mm_dd = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d")
     title = f"{version} - {yyyy_mm_dd}"
@@ -320,7 +325,7 @@ def _changelog_update_unreleased_title(version, *, file):
                 replacement.write(line)
 
 
-def _changelog_add_unreleased_title(*, file):
+def _changelog_add_unreleased_title(*, file: Path) -> None:
     with _replace_file(file) as (original, replacement):
         # Duplicate first 3 lines from the original file.
         for _ in range(3):
