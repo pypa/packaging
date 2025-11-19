@@ -32,6 +32,8 @@ jobs:
           compression-level: 0
 
   publish:
+    needs:
+    - build
     environment:
       name: pypi
       url: https://pypi.org/project/packaging/${{ github.ref_name }}
