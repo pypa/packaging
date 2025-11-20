@@ -106,7 +106,7 @@ def _glibc_version_string_ctypes() -> str | None:
     Fallback implementation of glibc_version_string using ctypes.
     """
     try:
-        import ctypes
+        import ctypes  # noqa: PLC0415
     except ImportError:
         return None
 
@@ -184,7 +184,7 @@ def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
         return False
     # Check for presence of _manylinux module.
     try:
-        import _manylinux
+        import _manylinux  # noqa: PLC0415
     except ImportError:
         return True
     if hasattr(_manylinux, "manylinux_compatible"):
@@ -192,15 +192,16 @@ def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
         if result is not None:
             return bool(result)
         return True
-    if version == _GLibCVersion(2, 5):
-        if hasattr(_manylinux, "manylinux1_compatible"):
-            return bool(_manylinux.manylinux1_compatible)
-    if version == _GLibCVersion(2, 12):
-        if hasattr(_manylinux, "manylinux2010_compatible"):
-            return bool(_manylinux.manylinux2010_compatible)
-    if version == _GLibCVersion(2, 17):
-        if hasattr(_manylinux, "manylinux2014_compatible"):
-            return bool(_manylinux.manylinux2014_compatible)
+    if version == _GLibCVersion(2, 5) and hasattr(_manylinux, "manylinux1_compatible"):
+        return bool(_manylinux.manylinux1_compatible)
+    if version == _GLibCVersion(2, 12) and hasattr(
+        _manylinux, "manylinux2010_compatible"
+    ):
+        return bool(_manylinux.manylinux2010_compatible)
+    if version == _GLibCVersion(2, 17) and hasattr(
+        _manylinux, "manylinux2014_compatible"
+    ):
+        return bool(_manylinux.manylinux2014_compatible)
     return True
 
 

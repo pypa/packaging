@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import collections
 import pathlib
 import subprocess
+import typing
 
 import pretend
 import pytest
 
 from packaging import _musllinux
 from packaging._musllinux import _get_musl_version, _MuslVersion, _parse_musl_version
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator
 
 MUSL_AMD64 = "musl libc (x86_64)\nVersion 1.2.2\n"
 MUSL_I386 = "musl libc (i386)\nVersion 1.2.1\n"
@@ -27,13 +33,13 @@ LD_MUSL_AARCH64 = "/lib/ld-musl-aarch64.so.1"
 
 
 @pytest.fixture(autouse=True)
-def clear_lru_cache():
+def clear_lru_cache() -> Generator[None, None, None]:
     yield
     _get_musl_version.cache_clear()
 
 
 @pytest.mark.parametrize(
-    "output, version",
+    ("output", "version"),
     [
         (MUSL_AMD64, _MuslVersion(1, 2)),
         (MUSL_I386, _MuslVersion(1, 2)),
@@ -43,12 +49,12 @@ def clear_lru_cache():
     ],
     ids=["amd64-1.2.2", "i386-1.2.1", "aarch64-1.1.24", "invalid", "unknown"],
 )
-def test_parse_musl_version(output, version):
+def test_parse_musl_version(output: str, version: _MuslVersion | None) -> None:
     assert _parse_musl_version(output) == version
 
 
 @pytest.mark.parametrize(
-    "executable, output, version, ld_musl",
+    ("executable", "output", "version", "ld_musl"),
     [
         (MUSL_DIR.joinpath("does-not-exist"), "error", None, None),
         (BIN_GLIBC_X86_64, "error", None, None),
@@ -58,12 +64,18 @@ def test_parse_musl_version(output, version):
     ],
     ids=["does-not-exist", "glibc", "x86_64", "i386", "aarch64"],
 )
-def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
-    def mock_run(*args, **kwargs):
+def test_get_musl_version(
+    monkeypatch: pytest.MonkeyPatch,
+    executable: pathlib.Path,
+    output: str,
+    version: _MuslVersion | None,
+    ld_musl: str | None,
+) -> None:
+    def mock_run(*args: object, **kwargs: object) -> tuple[object, ...]:
         return collections.namedtuple("Proc", "stderr")(output)
 
     run_recorder = pretend.call_recorder(mock_run)
-    monkeypatch.setattr(_musllinux.subprocess, "run", run_recorder)
+    monkeypatch.setattr(_musllinux.subprocess, "run", run_recorder)  # type: ignore[attr-defined]
 
     assert _get_musl_version(str(executable)) == version
 
@@ -71,6 +83,7 @@ def test_get_musl_version(monkeypatch, executable, output, version, ld_musl):
         expected_calls = [
             pretend.call(
                 [ld_musl],
+                check=False,
                 stderr=subprocess.PIPE,
                 text=True,
             )

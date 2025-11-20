@@ -1,4 +1,8 @@
-# mypy: disallow-untyped-defs=False, disallow-untyped-calls=False
+# /// script
+# dependencies = ["nox>=2025.02.09"]
+# ///
+
+from __future__ import annotations
 
 import contextlib
 import datetime
@@ -13,47 +17,47 @@ import tempfile
 import textwrap
 import time
 from pathlib import Path
+from typing import IO, Generator
 
 import nox
 
-nox.options.sessions = ["lint"]
+nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
+nox.options.default_venv_backend = "uv|virtualenv"
+
+PYPROJECT = nox.project.load_toml("pyproject.toml")
+PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 
 
 @nox.session(
     python=[
-        "3.8",
-        "3.9",
-        "3.10",
-        "3.11",
-        "3.12",
-        "3.13",
-        "3.14",
+        *PYTHON_VERSIONS,
         "pypy3.8",
         "pypy3.9",
         "pypy3.10",
         "pypy3.11",
-    ]
+    ],
+    default=False,
 )
-def tests(session):
+def tests(session: nox.Session) -> None:
     coverage = ["python", "-m", "coverage"]
 
-    session.install("-r", "tests/requirements.txt")
-    session.install(".")
+    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
+    session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
+    assert session.python is not None
+    assert not isinstance(session.python, bool)
     if "pypy" not in session.python:
         session.run(
             *coverage,
             "run",
-            "--source",
-            "packaging",
             "-m",
             "pytest",
             *session.posargs,
             env=env,
         )
-        session.run(*coverage, "report", "-m", "--fail-under", "100")
+        session.run(*coverage, "report")
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
@@ -66,7 +70,7 @@ def tests(session):
 
 
 @nox.session(python="3.9")
-def lint(session):
+def lint(session: nox.Session) -> None:
     # Run the linters (via pre-commit)
     session.install("pre-commit")
     session.run("pre-commit", "run", "--all-files", *session.posargs)
@@ -77,8 +81,8 @@ def lint(session):
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.9")
-def docs(session):
+@nox.session(python="3.9", default=False)
+def docs(session: nox.Session) -> None:
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")
     session.install("-e", ".")
@@ -103,8 +107,8 @@ def docs(session):
         )
 
 
-@nox.session
-def release(session):
+@nox.session(default=False)
+def release(session: nox.Session) -> None:
     package_name = "packaging"
     version_file = Path(f"src/{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
@@ -231,7 +235,7 @@ def _build_and_check(session, release_version, remove=False):
         shutil.rmtree("dist", ignore_errors=True)
 
 
-@nox.session
+@nox.session(default=False)
 def update_licenses(session: nox.Session) -> None:
     session.install("httpx")
     session.run("python", "tasks/licenses.py")
@@ -240,7 +244,7 @@ def update_licenses(session: nox.Session) -> None:
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
-def _get_version_from_arguments(arguments):
+def _get_version_from_arguments(arguments: list[str]) -> str:
     """Checks the arguments passed to `nox -s release`.
 
     Only 1 argument that looks like a version? Return the argument.
@@ -264,7 +268,7 @@ def _get_version_from_arguments(arguments):
     return version
 
 
-def _check_working_directory_state(session):
+def _check_working_directory_state(session: nox.Session) -> None:
     """Check state of the working directory, prior to making the release."""
     should_not_exist = ["build/", "dist/"]
 
@@ -273,7 +277,7 @@ def _check_working_directory_state(session):
         session.error(f"Remove {', '.join(bad_existing_paths)} and try again")
 
 
-def _check_git_state(session, version_tag):
+def _check_git_state(session: nox.Session, version_tag: str) -> None:
     """Check state of the git repository, prior to making the release."""
     # Ensure the upstream remote pushes to the correct URL.
     allowed_upstreams = [
@@ -282,6 +286,7 @@ def _check_git_state(session, version_tag):
     ]
     result = subprocess.run(
         ["git", "remote", "get-url", "--push", "upstream"],
+        check=False,
         capture_output=True,
         encoding="utf-8",
     )
@@ -290,6 +295,7 @@ def _check_git_state(session, version_tag):
     # Ensure we're on main branch for cutting a release.
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        check=False,
         capture_output=True,
         encoding="utf-8",
     )
@@ -298,7 +304,10 @@ def _check_git_state(session, version_tag):
 
     # Ensure there are no uncommitted changes.
     result = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, encoding="utf-8"
+        ["git", "status", "--porcelain"],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
     )
     if result.stdout:
         print(result.stdout, end="", file=sys.stderr)
@@ -306,7 +315,10 @@ def _check_git_state(session, version_tag):
 
     # Ensure this tag doesn't exist already.
     result = subprocess.run(
-        ["git", "rev-parse", version_tag], capture_output=True, encoding="utf-8"
+        ["git", "rev-parse", version_tag],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
     )
     if not result.returncode:
         session.error(f"Tag already exists! {version_tag} -- {result.stdout!r}")
@@ -316,7 +328,7 @@ def _check_git_state(session, version_tag):
     session.run("git", "tag", _release_backup_tag, external=True)
 
 
-def _bump(session, *, version, file, kind):
+def _bump(session: nox.Session, *, version: str, file: Path, kind: str) -> None:
     session.log(f"Bump version to {version!r}")
     contents = file.read_text()
     new_contents = re.sub(
@@ -325,30 +337,28 @@ def _bump(session, *, version, file, kind):
     file.write_text(new_contents)
 
     session.log("git commit")
-    subprocess.run(["git", "add", str(file)])
-    subprocess.run(["git", "commit", "-m", f"Bump for {kind}"])
+    subprocess.run(["git", "add", str(file)], check=False)
+    subprocess.run(["git", "commit", "-m", f"Bump for {kind}"], check=False)
 
 
 @contextlib.contextmanager
-def _replace_file(original_path):
+def _replace_file(
+    original_path: Path,
+) -> Generator[tuple[IO[str], IO[str]], None, None]:
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 
-    try:
-        with os.fdopen(fh, "w") as replacement:
-            with open(original_path) as original:
-                yield original, replacement
-    except Exception:
-        raise
-    else:
-        shutil.copymode(original_path, replacement_path)
-        os.remove(original_path)
-        shutil.move(replacement_path, original_path)
+    with os.fdopen(fh, "w") as replacement, open(original_path) as original:
+        yield original, replacement
+
+    shutil.copymode(original_path, replacement_path)
+    os.remove(original_path)
+    shutil.move(replacement_path, original_path)
 
 
-def _changelog_update_unreleased_title(version, *, file):
+def _changelog_update_unreleased_title(version: str, *, file: Path) -> None:
     """Update an "*unreleased*" heading to "{version} - {date}" """
-    yyyy_mm_dd = datetime.datetime.today().strftime("%Y-%m-%d")
+    yyyy_mm_dd = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d")
     title = f"{version} - {yyyy_mm_dd}"
 
     with _replace_file(file) as (original, replacement):
@@ -363,7 +373,7 @@ def _changelog_update_unreleased_title(version, *, file):
                 replacement.write(line)
 
 
-def _changelog_add_unreleased_title(*, file):
+def _changelog_add_unreleased_title(*, file: Path) -> None:
     with _replace_file(file) as (original, replacement):
         # Duplicate first 3 lines from the original file.
         for _ in range(3):
@@ -386,3 +396,7 @@ def _changelog_add_unreleased_title(*, file):
         # Duplicate all the remaining lines.
         for line in original:
             replacement.write(line)
+
+
+if __name__ == "__main__":
+    nox.main()

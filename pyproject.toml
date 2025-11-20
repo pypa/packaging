@@ -35,6 +35,18 @@ Documentation = "https://packaging.pypa.io/"
 Source = "https://github.com/pypa/packaging"
 
 
+[dependency-groups]
+test = [
+  "coverage[toml]>=7.2.0",
+  "pip>=21.1",
+  "pretend",
+  "pytest>=6.2.0",
+  "tomli; python_version<'3.11'",
+  "tomli_w",
+]
+dev = [{ include-group = "test" }]
+
+
 [tool.flit.sdist]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
@@ -47,16 +59,19 @@ ignore-words-list = [
 
 [tool.coverage.run]
 branch = true
+source_pkgs = ["packaging"]
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty"]
+show_missing = true
+fail_under = 100
+exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty", "if typing.TYPE_CHECKING:"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-log_cli_level = "INFO"
+log_level = "INFO"
 testpaths = ["tests"]
 
 
@@ -65,34 +80,54 @@ strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 python_version = "3.8"
+files = ["src", "tests", "noxfile.py"]
 
 [[tool.mypy.overrides]]
-module = ["_manylinux"]
+module = ["_manylinux", "pretend", "progress.*", "pkg_resources"]
 ignore_missing_imports = true
 
 [tool.ruff]
 extend-exclude = [
     "src/packaging/licenses/_spdx.py"
 ]
+show-fixes = true
 
 [tool.ruff.lint]
-extend-select = [
-    "B",
-    "E",
-    "F",
-    "FA",
-    "I",
-    "N",
-    "PYI",
-    "RUF",
-    "UP",
-    "W"
-]
+select = ["ALL"]
 ignore = [
-    "N818",  # exceptions must end in "*Error"
+    "A002",    # function args shadowing builtins is fine
+    "C9",      # complexity
+    "COM812",  # trailing commas teach the formatter
+    "D",       # doc formatting
+    "EM",      # flake8-errmsg
+    "ERA",     # commented out code
+    "FBT",     # boolean positional args (existing API)
+    "FIX",     # has todos
+    "N818",    # exceptions must end in "*Error"
+    "PLR09",   # too many ...
+    "PLR2004", # magic value in comparison
+    "PLW0127", # duplicate of F821
+    "PTH",     # pathlib
+    "RET505",  # unused else/elif after return
+    "RET506",  # unused else/elif after raise
+    "RET507",  # unused else/elif after continue
+    "RET508",  # unused else/elif after break
+    "S101",    # assert is used by mypy and pytest
+    "S105",    # the name token doesn't mean it's a password
+    "S603",    # check for untrusted input
+    "SIM103",  # returning negated value directly not ideal for long chain
+    "SIM105",  # try/except is faster than contextlib.suppress
+    "SLF001",  # private member access
+    "TD",      # todo format
+    "TRY003",  # long messages outside exception class
 ]
+flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = ["PYI024"]
-"tasks/check.py" = ["UP032"]
+"tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20", "S301"]
+"tasks/check.py" = ["UP032", "T20"]
 "tests/test_requirements.py" = ["UP032"]
+"src/packaging/_musllinux.py" = ["T20"]
+"docs/conf.py" = ["INP001", "S", "A001"]
+"noxfile.py" = ["T20", "S"]

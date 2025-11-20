@@ -81,8 +81,10 @@ Reference
     :class:`~packaging.version.Version`. The build number is ``()`` if
     there is no build number in the wheel filename, otherwise a
     two-item tuple of an integer for the leading digits and
-    a string for the rest of the build number. The tags portion is an
-    instance of :class:`~packaging.tags.Tag`.
+    a string for the rest of the build number. The tags portion is a
+    frozen set of :class:`~packaging.tags.Tag` instances (as the tag
+    string format allows multiple tags to be combined into a single
+    string).
 
     :param str filename: The name of the wheel file.
     :raises InvalidWheelFilename: If the filename in question

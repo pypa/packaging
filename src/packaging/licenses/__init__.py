@@ -90,10 +90,11 @@ def canonicalize_license_expression(
             python_tokens.append("False")
         elif token == "with":
             python_tokens.append("or")
-        elif token == "(" and python_tokens and python_tokens[-1] not in {"or", "and"}:
-            message = f"Invalid license expression: {raw_license_expression!r}"
-            raise InvalidLicenseExpression(message)
-        elif token == ")" and python_tokens and python_tokens[-1] == "(":
+        elif (
+            token == "("
+            and python_tokens
+            and python_tokens[-1] not in {"or", "and", "("}
+        ) or (token == ")" and python_tokens and python_tokens[-1] == "("):
             message = f"Invalid license expression: {raw_license_expression!r}"
             raise InvalidLicenseExpression(message)
         else:
@@ -141,6 +142,6 @@ def canonicalize_license_expression(
     normalized_expression = " ".join(normalized_tokens)
 
     return cast(
-        NormalizedLicenseExpression,
+        "NormalizedLicenseExpression",
         normalized_expression.replace("( ", "(").replace(" )", ")"),
     )

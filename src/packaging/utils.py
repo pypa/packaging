@@ -48,7 +48,7 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
         raise InvalidName(f"name is invalid: {name!r}")
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
-    return cast(NormalizedName, value)
+    return cast("NormalizedName", value)
 
 
 def is_normalized_name(name: str) -> bool:
@@ -127,7 +127,7 @@ def parse_wheel_filename(
             raise InvalidWheelFilename(
                 f"Invalid build number: {build_part} in {filename!r}"
             )
-        build = cast(BuildTag, (int(build_match.group(1)), build_match.group(2)))
+        build = cast("BuildTag", (int(build_match.group(1)), build_match.group(2)))
     else:
         build = ()
     tags = parse_tag(parts[-1])

@@ -633,7 +633,7 @@ class TestRequirementBehaviour:
 
     @pytest.mark.parametrize(
         "url_or_specifier",
-        ["", "@ https://url ", "!=2.0", "==2.*"],
+        ["", " @ https://url ", "!=2.0", "==2.*"],
     )
     @pytest.mark.parametrize("extras", ["", "[a]", "[a,b]", "[a1,b1,b2]"])
     @pytest.mark.parametrize(
@@ -653,7 +653,7 @@ class TestRequirementBehaviour:
         assert str(req) == to_parse.strip()
         assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
 
-    @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
         """Requirement objects created from equal strings should be equal."""
         # GIVEN / WHEN
@@ -662,7 +662,7 @@ class TestRequirementBehaviour:
         assert req1 == req2
         assert hash(req1) == hash(req2)
 
-    @pytest.mark.parametrize("dep1, dep2", EQUIVALENT_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), EQUIVALENT_DEPENDENCIES)
     def test_equivalent_reqs_equal_hashes_unequal_strings(
         self, dep1: str, dep2: str
     ) -> None:
@@ -675,7 +675,7 @@ class TestRequirementBehaviour:
         assert hash(req1) == hash(req2)
         assert str(req1) != str(req2)
 
-    @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), DIFFERENT_DEPENDENCIES)
     def test_different_reqs_different_hashes(self, dep1: str, dep2: str) -> None:
         """Requirement objects created from non-equivalent strings should differ."""
         # GIVEN / WHEN
