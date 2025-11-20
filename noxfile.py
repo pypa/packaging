@@ -157,9 +157,10 @@ def release(session: nox.Session) -> None:
 
 
 @nox.session
-def release_build(session):
+def release_build(session: nox.Session) -> None:
     # Parse version from command-line arguments, if provided, otherwise get
     # from Git tag.
+    release_version: str | None
     try:
         release_version = _get_version_from_arguments(session.posargs)
     except ValueError as e:
@@ -180,7 +181,10 @@ def release_build(session):
 
     # Ensure there are no uncommitted changes.
     result = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, encoding="utf-8"
+        ["git", "status", "--porcelain"],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
     )
     if result.stdout:
         print(result.stdout, end="", file=sys.stderr)
@@ -198,7 +202,11 @@ def release_build(session):
         session.run("git", "switch", "-q", "main", external=True)
 
 
-def _build_and_check(session, release_version, remove=False):
+def _build_and_check(
+    session: nox.Session,
+    release_version: str,
+    remove: bool = False,
+) -> None:
     package_name = "packaging"
 
     session.install("build", "twine")
