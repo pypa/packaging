@@ -461,6 +461,7 @@ class TestSpecifier:
                 ("2.0.post1", ">2"),
                 ("2.0.post1.dev1", ">2"),
                 ("2.0+local.version", ">2"),
+                ("1.0+local", ">1.0.dev1"),
                 # Test the less than operation
                 ("2.0.dev1", "<2"),
                 ("2.0a1", "<2"),
