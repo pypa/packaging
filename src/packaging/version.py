@@ -69,7 +69,7 @@ class InvalidVersion(ValueError):
 class _BaseVersion:
     @property
     def _key(self) -> tuple[Any, ...]:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def __hash__(self) -> int:
         return hash(self._key)
