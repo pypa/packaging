@@ -266,6 +266,18 @@ class Specifier(BaseSpecifier):
         # Store whether or not this Specifier should accept prereleases
         self._prereleases = prereleases
 
+        # Specifier version cache
+        self._spec_version: tuple[str, Version] | None = None
+
+    def _get_spec_version(self, version: str) -> Version:
+        """One element cache, as only one spec Version is needed per Specifier."""
+        if self._spec_version is not None and self._spec_version[0] == version:
+            return self._spec_version[1]
+
+        version_specifier = Version(version)
+        self._spec_version = (version, version_specifier)
+        return version_specifier
+
     @property
     def prereleases(self) -> bool:
         # If there is an explicit prereleases set for this, then we'll just
@@ -440,7 +452,7 @@ class Specifier(BaseSpecifier):
             return shortened_prospective == split_spec
         else:
             # Convert our spec string into a Version
-            spec_version = Version(spec)
+            spec_version = self._get_spec_version(spec)
 
             # If the specifier does not have a local segment, then we want to
             # act as if the prospective version also does not have a local
@@ -457,18 +469,18 @@ class Specifier(BaseSpecifier):
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return _public_version(prospective) <= Version(spec)
+        return _public_version(prospective) <= self._get_spec_version(spec)
 
     def _compare_greater_than_equal(self, prospective: Version, spec: str) -> bool:
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return _public_version(prospective) >= Version(spec)
+        return _public_version(prospective) >= self._get_spec_version(spec)
 
     def _compare_less_than(self, prospective: Version, spec_str: str) -> bool:
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = self._get_spec_version(spec_str)
 
         # Check to see if the prospective version is less than the spec
         # version. If it's not we can short circuit and just return False now
@@ -495,7 +507,7 @@ class Specifier(BaseSpecifier):
     def _compare_greater_than(self, prospective: Version, spec_str: str) -> bool:
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = self._get_spec_version(spec_str)
 
         # Check to see if the prospective version is greater than the spec
         # version. If it's not we can short circuit and just return False now
