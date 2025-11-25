@@ -119,14 +119,14 @@ class _BaseVersion:
 _VERSION_PATTERN = r"""
     v?+                                                   # optional leading v
     (?:
-        (?:(?P<epoch>[0-9]+)!)?                           # epoch
+        (?:(?P<epoch>[0-9]+)!)?+                          # epoch
         (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
         (?P<pre>                                          # pre-release
             [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
             [._-]?+
             (?P<pre_n>[0-9]+)?
-        )?
+        )?+
         (?P<post>                                         # post release
             (?:-(?P<post_n1>[0-9]+))
             |
@@ -136,20 +136,20 @@ _VERSION_PATTERN = r"""
                 [._-]?
                 (?P<post_n2>[0-9]+)?
             )
-        )?
+        )?+
         (?P<dev>                                          # dev release
             [._-]?+
             (?P<dev_l>dev)
             [._-]?+
             (?P<dev_n>[0-9]+)?
-        )?
+        )?+
     )
-    (?:\+                                                 # local version
-        (?P<local>
+    (?:\+
+        (?P<local>                                        # local version
             [a-z0-9]+
             (?:[._-][a-z0-9]+)*+
         )
-    )?
+    )?+
 """
 
 _VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
