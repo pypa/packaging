@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import itertools
 import re
 from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
 
@@ -501,6 +500,17 @@ def _parse_local_version(local: str | None) -> LocalType | None:
     return None
 
 
+def _strip_trailing_zeros(release: tuple[int, ...]) -> tuple[int, ...]:
+    # We want to strip trailing zeros from a tuple of values. This starts
+    # from the end and returns as soon as it finds a non-zero value. When
+    # reading a lot of versions, this is a fairly hot function, so not using
+    # enumerate/reversed, which is slightly slower.
+    for i in range(len(release) - 1, -1, -1):
+        if release[i] != 0:
+            return release[: i + 1]
+    return ()
+
+
 def _cmpkey(
     epoch: int,
     release: tuple[int, ...],
@@ -510,13 +520,8 @@ def _cmpkey(
     local: LocalType | None,
 ) -> CmpKey:
     # When we compare a release version, we want to compare it with all of the
-    # trailing zeros removed. So we'll use a reverse the list, drop all the now
-    # leading zeros until we come to something non zero, then take the rest
-    # re-reverse it back into the correct order and make it a tuple and use
-    # that for our sorting key.
-    _release = tuple(
-        reversed(list(itertools.dropwhile(lambda x: x == 0, reversed(release))))
-    )
+    # trailing zeros removed. We will use this for our sorting key.
+    _release = _strip_trailing_zeros(release)
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this
