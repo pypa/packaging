@@ -650,6 +650,11 @@ class TestSpecifier:
             ("1.0A1.POST2.DEV3", "===1.0A1.POST2.DEV3", True),
             ("1.0a1.post2.dev3", "===1.0A1.POST2.DEV3", True),
             ("1.0A1.POST2.DEV3", "===1.0a1.post2.dev3", True),
+            # Test case insensitivity of non-PEP 440 versions
+            ("lolwat", "===LOLWAT", True),
+            ("lolwat", "===LoLWaT", True),
+            ("LOLWAT", "===lolwat", True),
+            ("LoLWaT", "===lOlwAt", True),
         ],
     )
     def test_arbitrary_equality(
