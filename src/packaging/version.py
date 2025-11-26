@@ -197,7 +197,7 @@ class Version(_BaseVersion):
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
     _version: _Version
-    __key: CmpKey | None
+    _key_cache: CmpKey | None
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
@@ -226,12 +226,12 @@ class Version(_BaseVersion):
         )
 
         # Key which will be used for sorting
-        self.__key = None
+        self._key_cache = None
 
     @property
     def _key(self) -> CmpKey:
-        if self.__key is None:
-            self.__key = _cmpkey(
+        if self._key_cache is None:
+            self._key_cache = _cmpkey(
                 self._version.epoch,
                 self._version.release,
                 self._version.pre,
@@ -239,7 +239,7 @@ class Version(_BaseVersion):
                 self._version.dev,
                 self._version.local,
             )
-        return self.__key
+        return self._key_cache
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
