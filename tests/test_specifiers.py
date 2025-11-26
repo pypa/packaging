@@ -533,7 +533,7 @@ class TestSpecifier:
             ("===foobar", "invalid", False),
         ],
     )
-    def test_invalid_version(self, spec_str: str, version, expected: str) -> None:
+    def test_invalid_version(self, spec_str: str, version: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
         assert spec.contains(version) == expected
 
@@ -1035,7 +1035,9 @@ class TestSpecifierSet:
             (True, ["foobar", "1.0a1"], ["foobar", "1.0a1"]),
         ],
     )
-    def test_empty_specifier_arbitrary_string(self, prereleases, versions, expected):
+    def test_empty_specifier_arbitrary_string(
+        self, prereleases: bool | None, versions: list[str], expected: list[str]
+    ) -> None:
         """Test empty SpecifierSet accepts arbitrary strings."""
 
         spec = SpecifierSet("", prereleases=prereleases)
@@ -1044,7 +1046,7 @@ class TestSpecifierSet:
         assert spec.contains("foobar")
 
         # check filter behavior (no override of prereleases passed to filter)
-        kwargs = {}
+        kwargs: dict[str, bool | None] = {}
         assert list(spec.filter(versions, **kwargs)) == expected
 
     def test_create_from_specifiers(self) -> None:
@@ -1757,7 +1759,9 @@ class TestSpecifierSet:
             ("1.5", ">=1.0,!=2.0", True),
         ],
     )
-    def test_contains_arbitrary_equality_contains(self, version, specifier, expected):
+    def test_contains_arbitrary_equality_contains(
+        self, version: str, specifier: str, expected: bool
+    ) -> None:
         spec = SpecifierSet(specifier)
         assert spec.contains(version) == expected
 
