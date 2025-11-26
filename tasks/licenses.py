@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import pathlib
 from contextlib import closing
 from io import StringIO
 from textwrap import dedent
+from typing import Any
 
 import httpx
 
@@ -16,7 +19,7 @@ EXCEPTIONS_URL = (
 )
 
 
-def download_data(url):
+def download_data(url: str) -> Any:  # noqa: ANN401
     transport = httpx.HTTPTransport(retries=3)
     client = httpx.Client(transport=transport)
 
@@ -25,7 +28,7 @@ def download_data(url):
     return response.json()
 
 
-def main():
+def main() -> None:
     latest_version = download_data(LATEST_SPDX_GITHUB_RELEASE_URL)["tag_name"][1:]
 
     licenses = {}

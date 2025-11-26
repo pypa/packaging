@@ -8,7 +8,7 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Any, Callable, Literal, TypedDict, Union, cast
+from typing import AbstractSet, Callable, Literal, Mapping, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -121,7 +121,7 @@ class Environment(TypedDict):
     """
 
 
-def _normalize_extra_values(results: Any) -> Any:
+def _normalize_extra_values(results: MarkerList) -> MarkerList:
     """
     Normalize extra values.
     """
@@ -314,7 +314,7 @@ class Marker:
 
     def evaluate(
         self,
-        environment: dict[str, str] | None = None,
+        environment: Mapping[str, str | AbstractSet[str]] | None = None,
         context: EvaluateContext = "metadata",
     ) -> bool:
         """Evaluate a marker.
@@ -356,7 +356,7 @@ def _repair_python_full_version(
     Work around platform.python_version() returning something that is not PEP 440
     compliant for non-tagged Python builds.
     """
-    python_full_version = cast(str, env["python_full_version"])
+    python_full_version = cast("str", env["python_full_version"])
     if python_full_version.endswith("+"):
         env["python_full_version"] = f"{python_full_version}local"
     return env

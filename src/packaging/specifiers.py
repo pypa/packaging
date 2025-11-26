@@ -32,6 +32,25 @@ def _coerce_version(version: UnparsedVersion) -> Version | None:
     return version
 
 
+def _public_version(version: Version) -> Version:
+    """Skip creation of a new Version instance if no local version to strip."""
+    if version.local is None:
+        return version
+    return Version(version.public)
+
+
+def _base_version(version: Version) -> Version:
+    """Skip creation of a new Version instance if already a base version."""
+    if (
+        version.pre is None
+        and version.post is None
+        and version.dev is None
+        and version.local is None
+    ):
+        return version
+    return Version(version.base_version)
+
+
 class InvalidSpecifier(ValueError):
     """
     Raised when attempting to create a :class:`Specifier` with a specifier
@@ -247,6 +266,18 @@ class Specifier(BaseSpecifier):
         # Store whether or not this Specifier should accept prereleases
         self._prereleases = prereleases
 
+        # Specifier version cache
+        self._spec_version: tuple[str, Version] | None = None
+
+    def _get_spec_version(self, version: str) -> Version:
+        """One element cache, as only one spec Version is needed per Specifier."""
+        if self._spec_version is not None and self._spec_version[0] == version:
+            return self._spec_version[1]
+
+        version_specifier = Version(version)
+        self._spec_version = (version, version_specifier)
+        return version_specifier
+
     @property
     def prereleases(self) -> bool:
         # If there is an explicit prereleases set for this, then we'll just
@@ -421,13 +452,13 @@ class Specifier(BaseSpecifier):
             return shortened_prospective == split_spec
         else:
             # Convert our spec string into a Version
-            spec_version = Version(spec)
+            spec_version = self._get_spec_version(spec)
 
             # If the specifier does not have a local segment, then we want to
             # act as if the prospective version also does not have a local
             # segment.
             if not spec_version.local:
-                prospective = Version(prospective.public)
+                prospective = _public_version(prospective)
 
             return prospective == spec_version
 
@@ -438,18 +469,18 @@ class Specifier(BaseSpecifier):
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return Version(prospective.public) <= Version(spec)
+        return _public_version(prospective) <= self._get_spec_version(spec)
 
     def _compare_greater_than_equal(self, prospective: Version, spec: str) -> bool:
         # NB: Local version identifiers are NOT permitted in the version
         # specifier, so local version labels can be universally removed from
         # the prospective version.
-        return Version(prospective.public) >= Version(spec)
+        return _public_version(prospective) >= self._get_spec_version(spec)
 
     def _compare_less_than(self, prospective: Version, spec_str: str) -> bool:
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = self._get_spec_version(spec_str)
 
         # Check to see if the prospective version is less than the spec
         # version. If it's not we can short circuit and just return False now
@@ -464,7 +495,7 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_prerelease
             and prospective.is_prerelease
-            and Version(prospective.base_version) == Version(spec.base_version)
+            and Version(prospective.base_version) == _base_version(spec)
         ):
             return False
 
@@ -476,7 +507,7 @@ class Specifier(BaseSpecifier):
     def _compare_greater_than(self, prospective: Version, spec_str: str) -> bool:
         # Convert our spec to a Version instance, since we'll want to work with
         # it as a version.
-        spec = Version(spec_str)
+        spec = self._get_spec_version(spec_str)
 
         # Check to see if the prospective version is greater than the spec
         # version. If it's not we can short circuit and just return False now
@@ -491,7 +522,7 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_postrelease
             and prospective.is_postrelease
-            and Version(prospective.base_version) == Version(spec.base_version)
+            and Version(prospective.base_version) == _base_version(spec)
         ):
             return False
 
@@ -499,7 +530,7 @@ class Specifier(BaseSpecifier):
         # in the specifier, which is technically greater than, to match.
         if prospective.local is not None and Version(
             prospective.base_version
-        ) == Version(spec.base_version):
+        ) == _base_version(spec):
             return False
 
         # If we've gotten to here, it means that prospective version is both

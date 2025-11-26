@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import itertools
 import re
 from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
 
@@ -115,34 +114,39 @@ class _BaseVersion:
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
 _VERSION_PATTERN = r"""
-    v?
+    v?                                                    # optional leading v
     (?:
         (?:(?P<epoch>[0-9]+)!)?                           # epoch
         (?P<release>[0-9]+(?:\.[0-9]+)*)                  # release segment
         (?P<pre>                                          # pre-release
-            [-_\.]?
+            [._-]?
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
-            [-_\.]?
+            [._-]?
             (?P<pre_n>[0-9]+)?
         )?
         (?P<post>                                         # post release
             (?:-(?P<post_n1>[0-9]+))
             |
             (?:
-                [-_\.]?
+                [._-]?
                 (?P<post_l>post|rev|r)
-                [-_\.]?
+                [._-]?
                 (?P<post_n2>[0-9]+)?
             )
         )?
         (?P<dev>                                          # dev release
-            [-_\.]?
+            [._-]?
             (?P<dev_l>dev)
-            [-_\.]?
+            [._-]?
             (?P<dev_n>[0-9]+)?
         )?
     )
-    (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
+    (?:\+
+        (?P<local>                                        # local version
+            [a-z0-9]+
+            (?:[._-][a-z0-9]+)*
+        )
+    )?
 """
 
 VERSION_PATTERN = _VERSION_PATTERN
@@ -182,7 +186,7 @@ class Version(_BaseVersion):
     True
     """
 
-    _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
     _version: _Version
     _key: CmpKey
 
@@ -198,7 +202,7 @@ class Version(_BaseVersion):
         """
 
         # Validate the version and parse it into pieces
-        match = self._regex.search(version)
+        match = self._regex.fullmatch(version)
         if not match:
             raise InvalidVersion(f"Invalid version: {version!r}")
 
@@ -501,6 +505,17 @@ def _parse_local_version(local: str | None) -> LocalType | None:
     return None
 
 
+def _strip_trailing_zeros(release: tuple[int, ...]) -> tuple[int, ...]:
+    # We want to strip trailing zeros from a tuple of values. This starts
+    # from the end and returns as soon as it finds a non-zero value. When
+    # reading a lot of versions, this is a fairly hot function, so not using
+    # enumerate/reversed, which is slightly slower.
+    for i in range(len(release) - 1, -1, -1):
+        if release[i] != 0:
+            return release[: i + 1]
+    return ()
+
+
 def _cmpkey(
     epoch: int,
     release: tuple[int, ...],
@@ -510,13 +525,8 @@ def _cmpkey(
     local: LocalType | None,
 ) -> CmpKey:
     # When we compare a release version, we want to compare it with all of the
-    # trailing zeros removed. So we'll use a reverse the list, drop all the now
-    # leading zeros until we come to something non zero, then take the rest
-    # re-reverse it back into the correct order and make it a tuple and use
-    # that for our sorting key.
-    _release = tuple(
-        reversed(list(itertools.dropwhile(lambda x: x == 0, reversed(release))))
-    )
+    # trailing zeros removed. We will use this for our sorting key.
+    _release = _strip_trailing_zeros(release)
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this

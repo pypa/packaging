@@ -64,7 +64,7 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty"]
+exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty", "if typing.TYPE_CHECKING:"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
@@ -80,9 +80,10 @@ strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 python_version = "3.8"
+files = ["src", "tests", "noxfile.py"]
 
 [[tool.mypy.overrides]]
-module = ["_manylinux"]
+module = ["_manylinux", "pretend", "progress.*", "pkg_resources"]
 ignore_missing_imports = true
 
 [tool.ruff]
@@ -92,57 +93,41 @@ extend-exclude = [
 show-fixes = true
 
 [tool.ruff.lint]
-extend-select = [
-    "ARG",   # flake8-unused-argument
-    "B",     # flake8-bugbear
-    "BLE",   # flake8-blind-except
-    "C4",    # flake8-comprehensions
-    "DTZ",   # flake8-datetimez
-    "E",
-    "EXE",   # flake8-executable
-    "F",
-    "FA",    # flake8-future-annotations
-    "FLY",   # flynt
-    "FURB",  # refurb
-    "G",     # flake8-logging-format
-    "I",     # isort
-    "ICN",   # flake8-import-conventions
-    "ISC",   # flake8-implicit-str-concat
-    "LOG",   # flake8-logging
-    "N",     # pep8-naming
-    "PERF",  # perflint
-    "PGH",   # pygrep-hooks
-    "PIE",   # flake8-pie
-    "PL",    # pylint
-    "PT",    # flake8-pytest-style
-    "PYI",   # flake8-pyi
-    "Q",     # flake8-quotes
-    "RSE",   # flake8-raise
-    "RUF",   # Ruff-specific rules
-    "SIM",   # flake8-simplify
-    "SLOT",  # flake8-slots
-    "T10",   # flake8-debugger
-    "T20",   # flake8-print
-    "TRY",   # tryceratops
-    "UP",    # pyupgrade
-    "W",
-    "YTT",   # flake8-2020
-]
+select = ["ALL"]
 ignore = [
+    "A002",    # function args shadowing builtins is fine
+    "C9",      # complexity
+    "COM812",  # trailing commas teach the formatter
+    "D",       # doc formatting
+    "EM",      # flake8-errmsg
+    "ERA",     # commented out code
+    "FBT",     # boolean positional args (existing API)
+    "FIX",     # has todos
     "N818",    # exceptions must end in "*Error"
     "PLR09",   # too many ...
     "PLR2004", # magic value in comparison
     "PLW0127", # duplicate of F821
+    "PTH",     # pathlib
+    "RET505",  # unused else/elif after return
+    "RET506",  # unused else/elif after raise
+    "RET507",  # unused else/elif after continue
+    "RET508",  # unused else/elif after break
+    "S101",    # assert is used by mypy and pytest
+    "S105",    # the name token doesn't mean it's a password
+    "S603",    # check for untrusted input
     "SIM103",  # returning negated value directly not ideal for long chain
     "SIM105",  # try/except is faster than contextlib.suppress
+    "SLF001",  # private member access
+    "TD",      # todo format
     "TRY003",  # long messages outside exception class
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20"]
+"tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20", "S301"]
 "tasks/check.py" = ["UP032", "T20"]
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]
-"noxfile.py" = ["T20"]
+"docs/conf.py" = ["INP001", "S", "A001"]
+"noxfile.py" = ["T20", "S"]

@@ -8,14 +8,6 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.1
-    hooks:
-      - id: mypy
-        exclude: '^(docs|tasks|tests)|setup\.py'
-        args: []
-        additional_dependencies: [pyparsing, nox, orjson]
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.0
     hooks:
@@ -29,6 +21,14 @@ repos:
     - id: rst-backticks
     - id: rst-directive-colons
     - id: rst-inline-touching-normal
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.1
+    hooks:
+      - id: mypy
+        exclude: '^(docs)'
+        args: []
+        additional_dependencies: [pyparsing, nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
 
   - repo: https://github.com/codespell-project/codespell
     rev: "v2.4.1"
