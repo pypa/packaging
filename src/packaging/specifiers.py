@@ -226,7 +226,7 @@ class Specifier(BaseSpecifier):
         """
 
     _regex = re.compile(
-        r"^\s*" + _operator_regex_str + _version_regex_str + r"\s*$",
+        r"\s*" + _operator_regex_str + _version_regex_str + r"\s*",
         re.VERBOSE | re.IGNORECASE,
     )
 
@@ -254,7 +254,7 @@ class Specifier(BaseSpecifier):
         :raises InvalidSpecifier:
             If the given specifier is invalid (i.e. bad syntax).
         """
-        match = self._regex.search(spec)
+        match = self._regex.fullmatch(spec)
         if not match:
             raise InvalidSpecifier(f"Invalid specifier: {spec!r}")
 
@@ -649,7 +649,7 @@ class Specifier(BaseSpecifier):
             yield from prereleases_versions
 
 
-_prefix_regex = re.compile(r"^([0-9]+)((?:a|b|c|rc)[0-9]+)$")
+_prefix_regex = re.compile(r"([0-9]+)((?:a|b|c|rc)[0-9]+)")
 
 
 def _version_split(version: str) -> list[str]:
@@ -666,7 +666,7 @@ def _version_split(version: str) -> list[str]:
     result.append(epoch or "0")
 
     for item in rest.split("."):
-        match = _prefix_regex.search(item)
+        match = _prefix_regex.fullmatch(item)
         if match:
             result.extend(match.groups())
         else:
