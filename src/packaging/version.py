@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
@@ -113,17 +114,19 @@ class _BaseVersion:
 
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
+
+# Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
 _VERSION_PATTERN = r"""
-    v?                                                    # optional leading v
+    v?+                                                   # optional leading v
     (?:
-        (?:(?P<epoch>[0-9]+)!)?                           # epoch
-        (?P<release>[0-9]+(?:\.[0-9]+)*)                  # release segment
+        (?:(?P<epoch>[0-9]+)!)?+                          # epoch
+        (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
         (?P<pre>                                          # pre-release
-            [._-]?
+            [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
-            [._-]?
+            [._-]?+
             (?P<pre_n>[0-9]+)?
-        )?
+        )?+
         (?P<post>                                         # post release
             (?:-(?P<post_n1>[0-9]+))
             |
@@ -133,23 +136,27 @@ _VERSION_PATTERN = r"""
                 [._-]?
                 (?P<post_n2>[0-9]+)?
             )
-        )?
+        )?+
         (?P<dev>                                          # dev release
-            [._-]?
+            [._-]?+
             (?P<dev_l>dev)
-            [._-]?
+            [._-]?+
             (?P<dev_n>[0-9]+)?
-        )?
+        )?+
     )
     (?:\+
         (?P<local>                                        # local version
             [a-z0-9]+
-            (?:[._-][a-z0-9]+)*
+            (?:[._-][a-z0-9]+)*+
         )
-    )?
+    )?+
 """
 
-VERSION_PATTERN = _VERSION_PATTERN
+_VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
+
+VERSION_PATTERN = (
+    _VERSION_PATTERN_OLD if sys.version_info < (3, 11) else _VERSION_PATTERN
+)
 """
 A string containing the regular expression used to match a valid version.
 
