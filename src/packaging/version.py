@@ -67,7 +67,9 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion:
-    _key: tuple[Any, ...]
+    @property
+    def _key(self) -> tuple[Any, ...]:
+        raise NotImplementedError  # pragma: no cover
 
     def __hash__(self) -> int:
         return hash(self._key)
@@ -195,7 +197,7 @@ class Version(_BaseVersion):
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
     _version: _Version
-    _key: CmpKey
+    _key_cache: CmpKey | None
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
@@ -212,8 +214,6 @@ class Version(_BaseVersion):
         match = self._regex.fullmatch(version)
         if not match:
             raise InvalidVersion(f"Invalid version: {version!r}")
-
-        # Store the parsed out pieces of the version
         self._version = _Version(
             epoch=int(match.group("epoch")) if match.group("epoch") else 0,
             release=tuple(int(i) for i in match.group("release").split(".")),
@@ -225,15 +225,21 @@ class Version(_BaseVersion):
             local=_parse_local_version(match.group("local")),
         )
 
-        # Generate a key which will be used for sorting
-        self._key = _cmpkey(
-            self._version.epoch,
-            self._version.release,
-            self._version.pre,
-            self._version.post,
-            self._version.dev,
-            self._version.local,
-        )
+        # Key which will be used for sorting
+        self._key_cache = None
+
+    @property
+    def _key(self) -> CmpKey:
+        if self._key_cache is None:
+            self._key_cache = _cmpkey(
+                self._version.epoch,
+                self._version.release,
+                self._version.pre,
+                self._version.post,
+                self._version.dev,
+                self._version.local,
+            )
+        return self._key_cache
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
