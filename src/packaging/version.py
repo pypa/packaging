@@ -250,25 +250,25 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        parts = [self.base_version]
+        version = self.base_version
 
         # Pre-release
-        if self.pre is not None:
-            parts.append("".join(map(str, self.pre)))
+        if (pre := self.pre) is not None:
+            version += "".join(map(str, pre))
 
         # Post-release
-        if self.post is not None:
-            parts.append(f".post{self.post}")
+        if (post := self.post) is not None:
+            version += f".post{post}"
 
         # Development release
-        if self.dev is not None:
-            parts.append(f".dev{self.dev}")
+        if (dev := self.dev) is not None:
+            version += f".dev{dev}"
 
         # Local version segment
-        if self.local is not None:
-            parts.append(f"+{self.local}")
+        if (local := self.local) is not None:
+            version += f"+{local}"
 
-        return "".join(parts)
+        return version
 
     @property
     def epoch(self) -> int:
