@@ -36,7 +36,7 @@ def _public_version(version: Version) -> Version:
     """Skip creation of a new Version instance if no local version to strip."""
     if version.local is None:
         return version
-    return Version(version.public)
+    return version.replace(local=None)
 
 
 def _base_version(version: Version) -> Version:
@@ -48,7 +48,7 @@ def _base_version(version: Version) -> Version:
         and version.local is None
     ):
         return version
-    return Version(version.base_version)
+    return version.replace(pre=None, post=None, dev=None, local=None)
 
 
 class InvalidSpecifier(ValueError):
@@ -499,7 +499,7 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_prerelease
             and prospective.is_prerelease
-            and Version(prospective.base_version) == _base_version(spec)
+            and _base_version(prospective) == _base_version(spec)
         ):
             return False
 
@@ -526,7 +526,7 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_postrelease
             and prospective.is_postrelease
-            and Version(prospective.base_version) == _base_version(spec)
+            and _base_version(prospective) == _base_version(spec)
         ):
             return False
 
