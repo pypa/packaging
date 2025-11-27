@@ -9,11 +9,16 @@
 
 from __future__ import annotations
 
+import copy
 import re
 import sys
-from typing import Any, Callable, SupportsInt, Tuple, Union
+import typing
+from typing import Any, Callable, Literal, SupportsInt, Tuple, TypedDict, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
+
+if typing.TYPE_CHECKING:
+    from typing_extensions import Self, Unpack
 
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
@@ -33,6 +38,15 @@ CmpKey = Tuple[
     CmpLocalType,
 ]
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
+
+
+class _VersionReplace(TypedDict, total=False):
+    epoch: int | None
+    release: tuple[int, ...] | None
+    pre: tuple[Literal["a", "b", "rc"], int] | None
+    post: int | None
+    dev: int | None
+    local: str | None
 
 
 def parse(version: str) -> Version:
@@ -164,6 +178,10 @@ flags set.
 """
 
 
+# Validation pattern for local version in replace()
+_LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
+
+
 class Version(_BaseVersion):
     """This class abstracts handling of a project's versions.
 
@@ -226,6 +244,100 @@ class Version(_BaseVersion):
 
         # Key which will be used for sorting
         self._key_cache = None
+
+    def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        new_version = self.__class__.__new__(self.__class__)
+        new_version._key_cache = None
+        if "epoch" in kwargs:
+            epoch = kwargs["epoch"] or 0
+            if isinstance(epoch, int) and epoch >= 0:  # type: ignore[redundant-expr]
+                new_version._epoch = epoch
+            else:
+                msg = f"epoch must be non-negative integer, got {epoch}"
+                raise InvalidVersion(msg)
+        else:
+            new_version._epoch = self._epoch
+
+        if "release" in kwargs:
+            release = (0,) if kwargs["release"] is None else kwargs["release"]
+            if (
+                isinstance(release, tuple)  # type: ignore[redundant-expr]
+                and len(release) > 0
+                and all(isinstance(i, int) and i >= 0 for i in release)  # type: ignore[redundant-expr]
+            ):
+                new_version._release = release
+            else:
+                msg = (
+                    "release must be a non-empty tuple of non-negative integers,"
+                    f" got {release}"
+                )
+                raise InvalidVersion(msg)
+        else:
+            new_version._release = self._release
+
+        if "pre" in kwargs:
+            pre = kwargs["pre"]
+            if pre is None or (
+                (
+                    isinstance(pre, tuple)  # type: ignore[redundant-expr]
+                    and len(pre) == 2  # type: ignore[redundant-expr]
+                    and pre[0] in ("a", "b", "rc")
+                    and isinstance(pre[1], int)
+                )
+                and pre[1] >= 0
+            ):
+                new_version._pre = pre
+            else:
+                msg = (
+                    "pre must be a tuple of ('a'|'b'|'rc', non-negative int),"
+                    f" got {pre}"
+                )
+                raise InvalidVersion(msg)
+        else:
+            new_version._pre = self._pre
+
+        if "post" in kwargs:
+            post = kwargs["post"]
+            if post is None:
+                new_version._post = None
+            elif isinstance(post, int) and post >= 0:  # type: ignore[redundant-expr]
+                new_version._post = ("post", post)
+            else:
+                msg = f"post must be non-negative integer, got {post}"
+                raise InvalidVersion(msg)
+        else:
+            new_version._post = self._post
+
+        if "dev" in kwargs:
+            dev = kwargs["dev"]
+            if dev is None:
+                new_version._dev = None
+            elif isinstance(dev, int) and dev >= 0:  # type: ignore[redundant-expr]
+                new_version._dev = ("dev", dev)
+            else:
+                msg = f"dev must be non-negative integer, got {dev}"
+                raise InvalidVersion(msg)
+        else:
+            new_version._dev = self._dev
+
+        if "local" in kwargs:
+            local = kwargs["local"]
+            if local is None:
+                new_version._local = None
+            elif isinstance(local, str) and _LOCAL_PATTERN.fullmatch(local):  # type: ignore[redundant-expr]
+                new_version._local = _parse_local_version(local)
+            else:
+                msg = f"local must be a valid version string, got {local!r}"
+                raise InvalidVersion(msg)
+        else:
+            new_version._local = self._local
+
+        return new_version
+
+    def replace(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        if sys.version_info >= (3, 13):
+            return copy.replace(self, **kwargs)
+        return self.__replace__(**kwargs)
 
     @property
     def _key(self) -> CmpKey:
