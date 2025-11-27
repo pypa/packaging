@@ -377,25 +377,25 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        parts = [self.base_version]
+        version = self.base_version
 
         # Pre-release
         if self.pre is not None:
-            parts.append("".join(map(str, self.pre)))
+            version += "".join(map(str, self.pre))
 
         # Post-release
         if self.post is not None:
-            parts.append(f".post{self.post}")
+            version += f".post{self.post}"
 
         # Development release
         if self.dev is not None:
-            parts.append(f".dev{self.dev}")
+            version += f".dev{self.dev}"
 
         # Local version segment
         if self.local is not None:
-            parts.append(f"+{self.local}")
+            version += f"+{self.local}"
 
-        return "".join(parts)
+        return version
 
     @property
     def _str(self) -> str:
