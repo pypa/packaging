@@ -775,3 +775,205 @@ class TestVersion:
         assert Version("2.1.3").micro == 3
         assert Version("2.1").micro == 0
         assert Version("2").micro == 0
+
+    # Tests for replace() method
+    def test_replace_no_args(self) -> None:
+        """replace() with no arguments should return an equivalent version"""
+        v = Version("1.2.3a1.post2.dev3+local")
+        v_replaced = v.replace()
+        assert v == v_replaced
+        assert str(v) == str(v_replaced)
+
+    def test_replace_epoch(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(epoch=2)) == "2!1.2.3"
+        assert v.replace(epoch=0).epoch == 0
+
+        v_with_epoch = Version("1!1.2.3")
+        assert str(v_with_epoch.replace(epoch=2)) == "2!1.2.3"
+        assert str(v_with_epoch.replace(epoch=None)) == "1.2.3"
+
+    def test_replace_release_tuple(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(release=(2, 0, 0))) == "2.0.0"
+        assert str(v.replace(release=(1,))) == "1"
+        assert str(v.replace(release=(1, 2, 3, 4, 5))) == "1.2.3.4.5"
+
+    def test_replace_release_none(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(release=None)) == "0"
+
+    def test_replace_pre_alpha(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(pre=("a", 1))) == "1.2.3a1"
+        assert str(v.replace(pre=("a", 0))) == "1.2.3a0"
+
+    def test_replace_pre_alpha_none(self) -> None:
+        v = Version("1.2.3a1")
+        assert str(v.replace(pre=None)) == "1.2.3"
+
+    def test_replace_pre_beta(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(pre=("b", 1))) == "1.2.3b1"
+        assert str(v.replace(pre=("b", 0))) == "1.2.3b0"
+
+    def test_replace_pre_beta_none(self) -> None:
+        v = Version("1.2.3b1")
+        assert str(v.replace(pre=None)) == "1.2.3"
+
+    def test_replace_pre_rc(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(pre=("rc", 1))) == "1.2.3rc1"
+        assert str(v.replace(pre=("rc", 0))) == "1.2.3rc0"
+
+    def test_replace_pre_rc_none(self) -> None:
+        v = Version("1.2.3rc1")
+        assert str(v.replace(pre=None)) == "1.2.3"
+
+    def test_replace_post(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(post=1)) == "1.2.3.post1"
+        assert str(v.replace(post=0)) == "1.2.3.post0"
+
+    def test_replace_post_none(self) -> None:
+        v = Version("1.2.3.post1")
+        assert str(v.replace(post=None)) == "1.2.3"
+
+    def test_replace_dev(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(dev=1)) == "1.2.3.dev1"
+        assert str(v.replace(dev=0)) == "1.2.3.dev0"
+
+    def test_replace_dev_none(self) -> None:
+        v = Version("1.2.3.dev1")
+        assert str(v.replace(dev=None)) == "1.2.3"
+
+    def test_replace_local_string(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(local="abc")) == "1.2.3+abc"
+        assert str(v.replace(local="abc.123")) == "1.2.3+abc.123"
+        assert str(v.replace(local="abc-123")) == "1.2.3+abc.123"
+
+    def test_replace_local_none(self) -> None:
+        v = Version("1.2.3+local")
+        assert str(v.replace(local=None)) == "1.2.3"
+
+    def test_replace_multiple_components(self) -> None:
+        v = Version("1.2.3")
+        assert str(v.replace(pre=("a", 1), post=1)) == "1.2.3a1.post1"
+        assert str(v.replace(release=(2, 0, 0), pre=("b", 2), dev=1)) == "2.0.0b2.dev1"
+        assert str(v.replace(epoch=1, release=(3, 0), local="abc")) == "1!3.0+abc"
+
+    def test_replace_clear_all_optional(self) -> None:
+        v = Version("1!1.2.3a1.post2.dev3+local")
+        cleared = v.replace(epoch=None, pre=None, post=None, dev=None, local=None)
+        assert str(cleared) == "1.2.3"
+
+    def test_replace_preserves_comparison(self) -> None:
+        v1 = Version("1.2.3")
+        v2 = Version("1.2.4")
+
+        v1_new = v1.replace(release=(1, 2, 4))
+        assert v1_new == v2
+        assert v1 < v2
+        assert v1_new >= v2
+
+    def test_replace_preserves_hash(self) -> None:
+        v1 = Version("1.2.3")
+        v2 = v1.replace(release=(1, 2, 3))
+        assert hash(v1) == hash(v2)
+
+        v3 = v1.replace(release=(2, 0, 0))
+        assert hash(v1) != hash(v3)
+
+    def test_replace_returns_same_instance_when_unchanged(self) -> None:
+        """replace() returns the exact same object when no components change"""
+        v = Version("1.2.3a1.post2.dev3+local")
+        assert v.replace() is v
+        assert v.replace(epoch=0) is v
+        assert v.replace(release=(1, 2, 3)) is v
+        assert v.replace(pre=("a", 1)) is v
+        assert v.replace(post=2) is v
+        assert v.replace(dev=3) is v
+        assert v.replace(local="local") is v
+
+    def test_replace_change_pre_type(self) -> None:
+        """Can change from one pre-release type to another"""
+        v = Version("1.2.3a1")
+        assert str(v.replace(pre=("b", 2))) == "1.2.3b2"
+        assert str(v.replace(pre=("rc", 1))) == "1.2.3rc1"
+
+        v2 = Version("1.2.3rc5")
+        assert str(v2.replace(pre=("a", 0))) == "1.2.3a0"
+
+    def test_replace_invalid_epoch_type(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="epoch must be non-negative"):
+            v.replace(epoch="1")  # type: ignore[arg-type]
+
+    def test_replace_invalid_post_type(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="post must be non-negative"):
+            v.replace(post="1")  # type: ignore[arg-type]
+
+    def test_replace_invalid_dev_type(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="dev must be non-negative"):
+            v.replace(dev="1")  # type: ignore[arg-type]
+
+    def test_replace_invalid_epoch_negative(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="epoch must be non-negative"):
+            v.replace(epoch=-1)
+
+    def test_replace_invalid_release_empty(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="release must be a non-empty tuple"):
+            v.replace(release=())
+
+    def test_replace_invalid_release_tuple_content(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(
+            InvalidVersion, match="release must be a non-empty tuple of non-negative"
+        ):
+            v.replace(release=(1, -2, 3))
+
+    def test_replace_invalid_pre_negative(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+            v.replace(pre=("a", -1))
+
+    def test_replace_invalid_pre_type(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+            v.replace(pre=("x", 1))  # type: ignore[arg-type]
+
+    def test_replace_invalid_pre_format(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+            v.replace(pre="a1")  # type: ignore[arg-type]
+        with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+            v.replace(pre=("a",))  # type: ignore[arg-type]
+        with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+            v.replace(pre=("a", 1, 2))  # type: ignore[arg-type]
+
+    def test_replace_invalid_post_negative(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="post must be non-negative"):
+            v.replace(post=-1)
+
+    def test_replace_invalid_dev_negative(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(InvalidVersion, match="dev must be non-negative"):
+            v.replace(dev=-1)
+
+    def test_replace_invalid_local_string(self) -> None:
+        v = Version("1.2.3")
+        with pytest.raises(
+            InvalidVersion, match="local must be a valid version string"
+        ):
+            v.replace(local="abc+123")
+        with pytest.raises(
+            InvalidVersion, match="local must be a valid version string"
+        ):
+            v.replace(local="+abc")
