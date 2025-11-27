@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import functools
 import re
 from typing import NewType, Tuple, Union, cast
 
@@ -55,7 +54,6 @@ def is_normalized_name(name: str) -> bool:
     return _normalized_regex.match(name) is not None
 
 
-@functools.singledispatch
 def canonicalize_version(
     version: Version | str, *, strip_trailing_zero: bool = True
 ) -> str:
@@ -78,17 +76,13 @@ def canonicalize_version(
     >>> canonicalize_version('foo bar baz')
     'foo bar baz'
     """
+    if isinstance(version, str):
+        try:
+            version = str(Version(version))
+        except InvalidVersion:
+            return version
+
     return str(_TrimmedRelease(str(version)) if strip_trailing_zero else version)
-
-
-@canonicalize_version.register
-def _(version: str, *, strip_trailing_zero: bool = True) -> str:
-    try:
-        parsed = Version(version)
-    except InvalidVersion:
-        # Legacy versions cannot be normalized
-        return version
-    return canonicalize_version(parsed, strip_trailing_zero=strip_trailing_zero)
 
 
 def parse_wheel_filename(
