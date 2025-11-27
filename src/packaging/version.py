@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import copy
 import re
 import sys
 import typing
@@ -333,11 +332,6 @@ class Version(_BaseVersion):
             new_version._local = self._local
 
         return new_version
-
-    def replace(self, **kwargs: Unpack[_VersionReplace]) -> Self:
-        if sys.version_info >= (3, 13):
-            return copy.replace(self, **kwargs)
-        return self.__replace__(**kwargs)
 
     @property
     def _key(self) -> CmpKey:
