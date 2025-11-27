@@ -253,20 +253,20 @@ class Version(_BaseVersion):
         version = self.base_version
 
         # Pre-release
-        if (pre := self.pre) is not None:
-            version += "".join(map(str, pre))
+        if self.pre is not None:
+            version += "".join(map(str, self.pre))
 
         # Post-release
-        if (post := self.post) is not None:
-            version += f".post{post}"
+        if self.post is not None:
+            version += f".post{self.post}"
 
         # Development release
-        if (dev := self.dev) is not None:
-            version += f".dev{dev}"
+        if self.dev is not None:
+            version += f".dev{self.dev}"
 
         # Local version segment
-        if (local := self.local) is not None:
-            version += f"+{local}"
+        if self.local is not None:
+            version += f"+{self.local}"
 
         return version
 
