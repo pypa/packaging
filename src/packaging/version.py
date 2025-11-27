@@ -58,6 +58,8 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion:
+    __slots__ = ()
+
     @property
     def _key(self) -> tuple[Any, ...]:
         raise NotImplementedError  # pragma: no cover
@@ -185,6 +187,8 @@ class Version(_BaseVersion):
     >>> v1 <= v2
     True
     """
+
+    __slots__ = ("_dev", "_epoch", "_key_cache", "_local", "_post", "_pre", "_release")
 
     _epoch: int
     _release: tuple[int, ...]
@@ -450,6 +454,8 @@ class Version(_BaseVersion):
 
 
 class _TrimmedRelease(Version):
+    __slots__ = ()
+
     def __init__(self, version: str | Version) -> None:
         if isinstance(version, Version):
             self._epoch = version._epoch
