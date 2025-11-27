@@ -76,10 +76,11 @@ def canonicalize_version(
     >>> canonicalize_version('foo bar baz')
     'foo bar baz'
     """
-    try:
-        version = Version(version)
-    except InvalidVersion:
-        return str(version)
+    if isinstance(version, str):
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            return str(version)
     return str(_TrimmedRelease(version) if strip_trailing_zero else version)
 
 

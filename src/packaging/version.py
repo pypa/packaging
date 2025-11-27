@@ -197,7 +197,7 @@ class Version(_BaseVersion):
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
 
-    def __init__(self, version: str | Version) -> None:
+    def __init__(self, version: str) -> None:
         """Initialize a Version object.
 
         :param version:
@@ -207,16 +207,6 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-        if isinstance(version, Version):
-            self._epoch = version._epoch
-            self._release = version._release
-            self._dev = version._dev
-            self._pre = version._pre
-            self._post = version._post
-            self._local = version._local
-            self._key_cache = version._key_cache
-            return
-
         # Validate the version and parse it into pieces
         match = self._regex.fullmatch(version)
         if not match:
@@ -460,6 +450,18 @@ class Version(_BaseVersion):
 
 
 class _TrimmedRelease(Version):
+    def __init__(self, version: str | Version) -> None:
+        if isinstance(version, Version):
+            self._epoch = version._epoch
+            self._release = version._release
+            self._dev = version._dev
+            self._pre = version._pre
+            self._post = version._post
+            self._local = version._local
+            self._key_cache = version._key_cache
+            return
+        super().__init__(version)  # pragma: no cover
+
     @property
     def release(self) -> tuple[int, ...]:
         """
