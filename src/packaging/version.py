@@ -259,7 +259,7 @@ class Version(_BaseVersion):
 
         # Pre-release
         if self.pre is not None:
-            parts.append("".join(str(x) for x in self.pre))
+            parts.append("".join(map(str, self.pre)))
 
         # Post-release
         if self.post is not None:
