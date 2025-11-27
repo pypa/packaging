@@ -11,11 +11,19 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
+from typing import Any, Callable, Literal, NamedTuple, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
+
+
+class _SentinelType:
+    __slots__ = ()
+
+
+_SENTINEL = _SentinelType()
+
 
 LocalType = Tuple[Union[int, str], ...]
 
@@ -169,6 +177,9 @@ flags set.
 
 :meta hide-value:
 """
+
+# Validation pattern for local version in replace()
+_LOCAL_PATTERN = re.compile(r"^[a-z0-9]+(?:[-_\.][a-z0-9]+)*$", re.IGNORECASE)
 
 
 class Version(_BaseVersion):
@@ -452,6 +463,125 @@ class Version(_BaseVersion):
         0
         """
         return self.release[2] if len(self.release) >= 3 else 0
+
+    def replace(
+        self,
+        *,
+        epoch: int | None | _SentinelType = _SENTINEL,
+        release: tuple[int, ...] | None | _SentinelType = _SENTINEL,
+        pre: tuple[Literal["a", "b", "rc"], int] | None | _SentinelType = _SENTINEL,
+        post: int | None | _SentinelType = _SENTINEL,
+        dev: int | None | _SentinelType = _SENTINEL,
+        local: str | None | _SentinelType = _SENTINEL,
+    ) -> Version:
+        """Return a new Version with specified components replaced.
+
+        If no components are changed returns the same Version instance.
+
+        Examples:
+
+        >>> v = Version("1.2.3")
+        >>> v.replace(release=(2, 0, 0))
+        <Version('2.0.0')>
+        >>> v.replace(pre=("a", 1), post=1)
+        <Version('1.2.3a1.post1')>
+        >>> Version("1.2.3a1").replace(pre=None)
+        <Version('1.2.3')>
+        >>> Version("1.2.3+local").replace(local=None)
+        <Version('1.2.3')>
+        """
+        # Process epoch
+        if epoch is _SENTINEL:
+            new_epoch = self._version.epoch
+        elif epoch is None:
+            new_epoch = 0
+        elif isinstance(epoch, int) and epoch >= 0:
+            new_epoch = epoch
+        else:
+            raise InvalidVersion(f"epoch must be non-negative integer, got {epoch}")
+
+        # Process release
+        if release is _SENTINEL:
+            new_release = self._version.release
+        elif release is None:
+            new_release = (0,)
+        elif (
+            isinstance(release, tuple)
+            and len(release) > 0
+            and all(isinstance(i, int) and i >= 0 for i in release)  # type: ignore[redundant-expr]
+        ):
+            new_release = release
+        else:
+            raise InvalidVersion(
+                f"release must be a non-empty tuple of non-negative integers, "
+                f"got {release}"
+            )
+
+        # Process pre
+        if pre is _SENTINEL:
+            new_pre = self._version.pre
+        elif pre is None:
+            new_pre = None
+        elif (
+            isinstance(pre, tuple)
+            and len(pre) == 2  # type: ignore[redundant-expr]
+            and pre[0] in ("a", "b", "rc")
+            and isinstance(pre[1], int)  # type: ignore[redundant-expr]
+            and pre[1] >= 0
+        ):
+            new_pre = pre
+        else:
+            raise InvalidVersion(
+                f"pre must be a tuple of ('a'|'b'|'rc', non-negative int), got {pre}"
+            )
+
+        # Process post
+        if post is _SENTINEL:
+            new_post = self._version.post
+        elif post is None:
+            new_post = None
+        elif isinstance(post, int) and post >= 0:
+            new_post = ("post", post)
+        else:
+            raise InvalidVersion(f"post must be non-negative integer, got {post}")
+
+        # Process dev
+        if dev is _SENTINEL:
+            new_dev = self._version.dev
+        elif dev is None:
+            new_dev = None
+        elif isinstance(dev, int) and dev >= 0:
+            new_dev = ("dev", dev)
+        else:
+            raise InvalidVersion(f"dev must be non-negative integer, got {dev}")
+
+        # Process local
+        if local is _SENTINEL:
+            new_local = self._version.local
+        elif local is None:
+            new_local = None
+        elif isinstance(local, str) and _LOCAL_PATTERN.match(local):
+            new_local = _parse_local_version(local)
+        else:
+            raise InvalidVersion(f"local must be a valid version string, got {local!r}")
+
+        # Return self if nothing changed
+        new_version_tuple = _Version(
+            epoch=new_epoch,
+            release=new_release,
+            pre=new_pre,
+            post=new_post,
+            dev=new_dev,
+            local=new_local,
+        )
+        if new_version_tuple == self._version:
+            return self
+
+        # Create new Version instance bypassing __init__ for efficiency
+        new_version = object.__new__(Version)
+        new_version._version = new_version_tuple
+        new_version._key_cache = None
+        return new_version
 
 
 class _TrimmedRelease(Version):
