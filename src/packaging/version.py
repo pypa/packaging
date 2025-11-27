@@ -216,7 +216,7 @@ class Version(_BaseVersion):
             raise InvalidVersion(f"Invalid version: {version!r}")
         self._version = _Version(
             epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=tuple(int(i) for i in match.group("release").split(".")),
+            release=tuple(map(int, match.group("release").split("."))),
             pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
             post=_parse_letter_version(
                 match.group("post_l"), match.group("post_n1") or match.group("post_n2")
