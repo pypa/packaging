@@ -450,6 +450,18 @@ class Version(_BaseVersion):
 
 
 class _TrimmedRelease(Version):
+    def __init__(self, version: str | Version) -> None:
+        if isinstance(version, Version):
+            self._epoch = version._epoch
+            self._release = version._release
+            self._dev = version._dev
+            self._pre = version._pre
+            self._post = version._post
+            self._local = version._local
+            self._key_cache = version._key_cache
+            return
+        super().__init__(version)  # pragma: no cover
+
     @property
     def release(self) -> tuple[int, ...]:
         """
@@ -460,6 +472,7 @@ class _TrimmedRelease(Version):
         >>> _TrimmedRelease('0.0').release
         (0,)
         """
+        # Unlike _strip_trailing_zeros, this leaves one 0.
         rel = super().release
         i = len(rel)
         while i > 1 and rel[i - 1] == 0:

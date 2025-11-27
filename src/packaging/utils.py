@@ -78,11 +78,10 @@ def canonicalize_version(
     """
     if isinstance(version, str):
         try:
-            version = str(Version(version))
+            version = Version(version)
         except InvalidVersion:
-            return version
-
-    return str(_TrimmedRelease(str(version)) if strip_trailing_zero else version)
+            return str(version)
+    return str(_TrimmedRelease(version) if strip_trailing_zero else version)
 
 
 def parse_wheel_filename(
