@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
+from typing import Any, Callable, SupportsInt, Tuple, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
@@ -33,15 +33,6 @@ CmpKey = Tuple[
     CmpLocalType,
 ]
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
-
-
-class _Version(NamedTuple):
-    epoch: int
-    release: tuple[int, ...]
-    dev: tuple[str, int] | None
-    pre: tuple[str, int] | None
-    post: tuple[str, int] | None
-    local: LocalType | None
 
 
 def parse(version: str) -> Version:
@@ -195,9 +186,16 @@ class Version(_BaseVersion):
     True
     """
 
-    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
-    _version: _Version
+    _epoch: int
+    _release: tuple[int, ...]
+    _dev: tuple[str, int] | None
+    _pre: tuple[str, int] | None
+    _post: tuple[str, int] | None
+    _local: LocalType | None
+
     _key_cache: CmpKey | None
+
+    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
@@ -209,21 +207,18 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-
         # Validate the version and parse it into pieces
         match = self._regex.fullmatch(version)
         if not match:
             raise InvalidVersion(f"Invalid version: {version!r}")
-        self._version = _Version(
-            epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=tuple(map(int, match.group("release").split("."))),
-            pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
-            post=_parse_letter_version(
-                match.group("post_l"), match.group("post_n1") or match.group("post_n2")
-            ),
-            dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
-            local=_parse_local_version(match.group("local")),
+        self._epoch = int(match.group("epoch")) if match.group("epoch") else 0
+        self._release = tuple(map(int, match.group("release").split(".")))
+        self._pre = _parse_letter_version(match.group("pre_l"), match.group("pre_n"))
+        self._post = _parse_letter_version(
+            match.group("post_l"), match.group("post_n1") or match.group("post_n2")
         )
+        self._dev = _parse_letter_version(match.group("dev_l"), match.group("dev_n"))
+        self._local = _parse_local_version(match.group("local"))
 
         # Key which will be used for sorting
         self._key_cache = None
@@ -232,12 +227,12 @@ class Version(_BaseVersion):
     def _key(self) -> CmpKey:
         if self._key_cache is None:
             self._key_cache = _cmpkey(
-                self._version.epoch,
-                self._version.release,
-                self._version.pre,
-                self._version.post,
-                self._version.dev,
-                self._version.local,
+                self._epoch,
+                self._release,
+                self._pre,
+                self._post,
+                self._dev,
+                self._local,
             )
         return self._key_cache
 
@@ -284,7 +279,7 @@ class Version(_BaseVersion):
         >>> Version("1!2.0.0").epoch
         1
         """
-        return self._version.epoch
+        return self._epoch
 
     @property
     def release(self) -> tuple[int, ...]:
@@ -300,7 +295,7 @@ class Version(_BaseVersion):
         Includes trailing zeroes but not the epoch or any pre-release / development /
         post-release suffixes.
         """
-        return self._version.release
+        return self._release
 
     @property
     def pre(self) -> tuple[str, int] | None:
@@ -315,7 +310,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3rc1").pre
         ('rc', 1)
         """
-        return self._version.pre
+        return self._pre
 
     @property
     def post(self) -> int | None:
@@ -326,7 +321,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.post1").post
         1
         """
-        return self._version.post[1] if self._version.post else None
+        return self._post[1] if self._post else None
 
     @property
     def dev(self) -> int | None:
@@ -337,7 +332,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.dev1").dev
         1
         """
-        return self._version.dev[1] if self._version.dev else None
+        return self._dev[1] if self._dev else None
 
     @property
     def local(self) -> str | None:
@@ -348,8 +343,8 @@ class Version(_BaseVersion):
         >>> Version("1.2.3+abc").local
         'abc'
         """
-        if self._version.local:
-            return ".".join(str(x) for x in self._version.local)
+        if self._local:
+            return ".".join(str(x) for x in self._local)
         else:
             return None
 
