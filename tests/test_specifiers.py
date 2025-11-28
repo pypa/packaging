@@ -46,6 +46,10 @@ class TestSpecifier:
     def test_specifiers_valid(self, specifier: str) -> None:
         Specifier(specifier)
 
+    def test_match_args(self) -> None:
+        assert Specifier.__match_args__ == ("_str",)
+        assert Specifier(">=1.0")._str == ">=1.0"
+
     @pytest.mark.parametrize(
         "specifier",
         [
@@ -828,6 +832,10 @@ class TestSpecifierSet:
         specs = [Specifier(s) for s in spec_strs]
         spec = SpecifierSet(iter(specs))
         assert set(spec) == set(specs)
+
+    def test_match_args(self) -> None:
+        assert SpecifierSet.__match_args__ == ("_str",)
+        assert SpecifierSet(">=1.0,<2")._str == str(SpecifierSet(">=1.0,<2"))
 
     @pytest.mark.parametrize(
         (
