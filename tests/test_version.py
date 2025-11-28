@@ -902,6 +902,17 @@ class TestVersion:
         v3 = replace(v1, release=(2, 0, 0))
         assert hash(v1) != hash(v3)
 
+    def test_replace_returns_same_instance_when_unchanged(self) -> None:
+        """replace() returns the exact same object when no components change"""
+        v = Version("1.2.3a1.post2.dev3+local")
+        assert replace(v) is v
+        assert replace(v, epoch=0) is v
+        assert replace(v, release=(1, 2, 3)) is v
+        assert replace(v, pre=("a", 1)) is v
+        assert replace(v, post=2) is v
+        assert replace(v, dev=3) is v
+        assert replace(v, local="local") is v
+
     def test_replace_change_pre_type(self) -> None:
         """Can change from one pre-release type to another"""
         v = Version("1.2.3a1")

@@ -181,6 +181,68 @@ flags set.
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
 
 
+def _validate_epoch(value: object, /) -> int:
+    epoch = value or 0
+    if isinstance(epoch, int) and epoch >= 0:
+        return epoch
+    msg = f"epoch must be non-negative integer, got {epoch}"
+    raise InvalidVersion(msg)
+
+
+def _validate_release(value: object, /) -> tuple[int, ...]:
+    release = (0,) if value is None else value
+    if (
+        isinstance(release, tuple)
+        and len(release) > 0
+        and all(isinstance(i, int) and i >= 0 for i in release)
+    ):
+        return release
+    msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
+    raise InvalidVersion(msg)
+
+
+def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | None:
+    if value is None:
+        return value
+    if (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and value[0] in ("a", "b", "rc")
+        and isinstance(value[1], int)
+        and value[1] >= 0
+    ):
+        return value
+    msg = f"pre must be a tuple of ('a'|'b'|'rc', non-negative int), got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("post", value)
+    msg = f"post must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_dev(value: object, /) -> tuple[Literal["dev"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("dev", value)
+    msg = f"dev must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_local(value: object, /) -> LocalType | None:
+    if value is None:
+        return value
+    if isinstance(value, str) and _LOCAL_PATTERN.fullmatch(value):
+        return _parse_local_version(value)
+    msg = f"local must be a valid version string, got {value!r}"
+    raise InvalidVersion(msg)
+
+
 class Version(_BaseVersion):
     """This class abstracts handling of a project's versions.
 
@@ -245,91 +307,35 @@ class Version(_BaseVersion):
         self._key_cache = None
 
     def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
+        release = (
+            _validate_release(kwargs["release"])
+            if "release" in kwargs
+            else self._release
+        )
+        pre = _validate_pre(kwargs["pre"]) if "pre" in kwargs else self._pre
+        post = _validate_post(kwargs["post"]) if "post" in kwargs else self._post
+        dev = _validate_dev(kwargs["dev"]) if "dev" in kwargs else self._dev
+        local = _validate_local(kwargs["local"]) if "local" in kwargs else self._local
+
+        if (
+            epoch == self._epoch
+            and release == self._release
+            and pre == self._pre
+            and post == self._post
+            and dev == self._dev
+            and local == self._local
+        ):
+            return self
+
         new_version = self.__class__.__new__(self.__class__)
         new_version._key_cache = None
-        if "epoch" in kwargs:
-            epoch = kwargs["epoch"] or 0
-            if isinstance(epoch, int) and epoch >= 0:  # type: ignore[redundant-expr]
-                new_version._epoch = epoch
-            else:
-                msg = f"epoch must be non-negative integer, got {epoch}"
-                raise InvalidVersion(msg)
-        else:
-            new_version._epoch = self._epoch
-
-        if "release" in kwargs:
-            release = (0,) if kwargs["release"] is None else kwargs["release"]
-            if (
-                isinstance(release, tuple)  # type: ignore[redundant-expr]
-                and len(release) > 0
-                and all(isinstance(i, int) and i >= 0 for i in release)  # type: ignore[redundant-expr]
-            ):
-                new_version._release = release
-            else:
-                msg = (
-                    "release must be a non-empty tuple of non-negative integers,"
-                    f" got {release}"
-                )
-                raise InvalidVersion(msg)
-        else:
-            new_version._release = self._release
-
-        if "pre" in kwargs:
-            pre = kwargs["pre"]
-            if pre is None or (
-                (
-                    isinstance(pre, tuple)  # type: ignore[redundant-expr]
-                    and len(pre) == 2  # type: ignore[redundant-expr]
-                    and pre[0] in ("a", "b", "rc")
-                    and isinstance(pre[1], int)
-                )
-                and pre[1] >= 0
-            ):
-                new_version._pre = pre
-            else:
-                msg = (
-                    "pre must be a tuple of ('a'|'b'|'rc', non-negative int),"
-                    f" got {pre}"
-                )
-                raise InvalidVersion(msg)
-        else:
-            new_version._pre = self._pre
-
-        if "post" in kwargs:
-            post = kwargs["post"]
-            if post is None:
-                new_version._post = None
-            elif isinstance(post, int) and post >= 0:  # type: ignore[redundant-expr]
-                new_version._post = ("post", post)
-            else:
-                msg = f"post must be non-negative integer, got {post}"
-                raise InvalidVersion(msg)
-        else:
-            new_version._post = self._post
-
-        if "dev" in kwargs:
-            dev = kwargs["dev"]
-            if dev is None:
-                new_version._dev = None
-            elif isinstance(dev, int) and dev >= 0:  # type: ignore[redundant-expr]
-                new_version._dev = ("dev", dev)
-            else:
-                msg = f"dev must be non-negative integer, got {dev}"
-                raise InvalidVersion(msg)
-        else:
-            new_version._dev = self._dev
-
-        if "local" in kwargs:
-            local = kwargs["local"]
-            if local is None:
-                new_version._local = None
-            elif isinstance(local, str) and _LOCAL_PATTERN.fullmatch(local):  # type: ignore[redundant-expr]
-                new_version._local = _parse_local_version(local)
-            else:
-                msg = f"local must be a valid version string, got {local!r}"
-                raise InvalidVersion(msg)
-        else:
-            new_version._local = self._local
+        new_version._epoch = epoch
+        new_version._release = release
+        new_version._pre = pre
+        new_version._post = post
+        new_version._dev = dev
+        new_version._local = local
 
         return new_version
 
