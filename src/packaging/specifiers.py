@@ -64,6 +64,8 @@ class InvalidSpecifier(ValueError):
 
 
 class BaseSpecifier(metaclass=abc.ABCMeta):
+    __slots__ = ()
+
     @abc.abstractmethod
     def __str__(self) -> str:
         """
@@ -127,6 +129,8 @@ class Specifier(BaseSpecifier):
         prefer to work with :class:`SpecifierSet` instead, which can parse
         comma-separated version specifiers (which is what package metadata contains).
     """
+
+    __slots__ = ("_prereleases", "_spec", "_spec_version")
 
     _operator_regex_str = r"""
         (?P<operator>(~=|==|!=|<=|>=|<|>|===))
@@ -718,6 +722,8 @@ class SpecifierSet(BaseSpecifier):
     It can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
+
+    __slots__ = ("_prereleases", "_specs")
 
     def __init__(
         self,
