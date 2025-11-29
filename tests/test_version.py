@@ -108,6 +108,10 @@ class TestVersion:
     def test_valid_versions(self, version: str) -> None:
         Version(version)
 
+    def test_match_args(self) -> None:
+        assert Version.__match_args__ == ("_str",)
+        assert Version("1.2")._str == "1.2"
+
     @pytest.mark.parametrize(
         "version",
         [

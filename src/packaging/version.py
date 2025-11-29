@@ -268,6 +268,9 @@ class Version(_BaseVersion):
     """
 
     __slots__ = ("_dev", "_epoch", "_key_cache", "_local", "_post", "_pre", "_release")
+    __match_args__ = ("_str",)
+
+    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
 
     _epoch: int
     _release: tuple[int, ...]
@@ -277,8 +280,6 @@ class Version(_BaseVersion):
     _local: LocalType | None
 
     _key_cache: CmpKey | None
-
-    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
@@ -385,6 +386,11 @@ class Version(_BaseVersion):
             parts.append(f"+{self.local}")
 
         return "".join(parts)
+
+    @property
+    def _str(self) -> str:
+        """Internal property for match_args"""
+        return str(self)
 
     @property
     def epoch(self) -> int:
