@@ -11,9 +11,13 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any, Callable, SupportsInt, Tuple, Union
+import typing
+from typing import Any, Callable, Literal, SupportsInt, Tuple, TypedDict, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
+
+if typing.TYPE_CHECKING:
+    from typing_extensions import Self, Unpack
 
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
@@ -33,6 +37,15 @@ CmpKey = Tuple[
     CmpLocalType,
 ]
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
+
+
+class _VersionReplace(TypedDict, total=False):
+    epoch: int | None
+    release: tuple[int, ...] | None
+    pre: tuple[Literal["a", "b", "rc"], int] | None
+    post: int | None
+    dev: int | None
+    local: str | None
 
 
 def parse(version: str) -> Version:
@@ -164,6 +177,72 @@ flags set.
 """
 
 
+# Validation pattern for local version in replace()
+_LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
+
+
+def _validate_epoch(value: object, /) -> int:
+    epoch = value or 0
+    if isinstance(epoch, int) and epoch >= 0:
+        return epoch
+    msg = f"epoch must be non-negative integer, got {epoch}"
+    raise InvalidVersion(msg)
+
+
+def _validate_release(value: object, /) -> tuple[int, ...]:
+    release = (0,) if value is None else value
+    if (
+        isinstance(release, tuple)
+        and len(release) > 0
+        and all(isinstance(i, int) and i >= 0 for i in release)
+    ):
+        return release
+    msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
+    raise InvalidVersion(msg)
+
+
+def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | None:
+    if value is None:
+        return value
+    if (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and value[0] in ("a", "b", "rc")
+        and isinstance(value[1], int)
+        and value[1] >= 0
+    ):
+        return value
+    msg = f"pre must be a tuple of ('a'|'b'|'rc', non-negative int), got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("post", value)
+    msg = f"post must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_dev(value: object, /) -> tuple[Literal["dev"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("dev", value)
+    msg = f"dev must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_local(value: object, /) -> LocalType | None:
+    if value is None:
+        return value
+    if isinstance(value, str) and _LOCAL_PATTERN.fullmatch(value):
+        return _parse_local_version(value)
+    msg = f"local must be a valid version string, got {value!r}"
+    raise InvalidVersion(msg)
+
+
 class Version(_BaseVersion):
     """This class abstracts handling of a project's versions.
 
@@ -226,6 +305,39 @@ class Version(_BaseVersion):
 
         # Key which will be used for sorting
         self._key_cache = None
+
+    def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
+        release = (
+            _validate_release(kwargs["release"])
+            if "release" in kwargs
+            else self._release
+        )
+        pre = _validate_pre(kwargs["pre"]) if "pre" in kwargs else self._pre
+        post = _validate_post(kwargs["post"]) if "post" in kwargs else self._post
+        dev = _validate_dev(kwargs["dev"]) if "dev" in kwargs else self._dev
+        local = _validate_local(kwargs["local"]) if "local" in kwargs else self._local
+
+        if (
+            epoch == self._epoch
+            and release == self._release
+            and pre == self._pre
+            and post == self._post
+            and dev == self._dev
+            and local == self._local
+        ):
+            return self
+
+        new_version = self.__class__.__new__(self.__class__)
+        new_version._key_cache = None
+        new_version._epoch = epoch
+        new_version._release = release
+        new_version._pre = pre
+        new_version._post = post
+        new_version._dev = dev
+        new_version._local = local
+
+        return new_version
 
     @property
     def _key(self) -> CmpKey:
