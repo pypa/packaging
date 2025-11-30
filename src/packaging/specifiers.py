@@ -33,22 +33,11 @@ def _coerce_version(version: UnparsedVersion) -> Version | None:
 
 
 def _public_version(version: Version) -> Version:
-    """Skip creation of a new Version instance if no local version to strip."""
-    if version.local is None:
-        return version
-    return Version(version.public)
+    return version.__replace__(local=None)
 
 
 def _base_version(version: Version) -> Version:
-    """Skip creation of a new Version instance if already a base version."""
-    if (
-        version.pre is None
-        and version.post is None
-        and version.dev is None
-        and version.local is None
-    ):
-        return version
-    return Version(version.base_version)
+    return version.__replace__(pre=None, post=None, dev=None, local=None)
 
 
 class InvalidSpecifier(ValueError):
@@ -437,7 +426,7 @@ class Specifier(BaseSpecifier):
         if spec.endswith(".*"):
             # In the case of prefix matching we want to ignore local segment.
             normalized_prospective = canonicalize_version(
-                prospective.public, strip_trailing_zero=False
+                _public_version(prospective), strip_trailing_zero=False
             )
             # Get the normalized version string ignoring the trailing .*
             normalized_spec = canonicalize_version(spec[:-2], strip_trailing_zero=False)
@@ -505,7 +494,7 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_prerelease
             and prospective.is_prerelease
-            and Version(prospective.base_version) == _base_version(spec)
+            and _base_version(prospective) == _base_version(spec)
         ):
             return False
 
@@ -532,14 +521,14 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_postrelease
             and prospective.is_postrelease
-            and Version(prospective.base_version) == _base_version(spec)
+            and _base_version(prospective) == _base_version(spec)
         ):
             return False
 
         # Ensure that we do not allow a local version of the version mentioned
         # in the specifier, which is technically greater than, to match.
-        if prospective.local is not None and Version(
-            prospective.base_version
+        if prospective.local is not None and _base_version(
+            prospective
         ) == _base_version(spec):
             return False
 
