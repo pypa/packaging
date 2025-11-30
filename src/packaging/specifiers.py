@@ -420,7 +420,7 @@ class Specifier(BaseSpecifier):
         if spec.endswith(".*"):
             # In the case of prefix matching we want to ignore local segment.
             normalized_prospective = canonicalize_version(
-                prospective.public, strip_trailing_zero=False
+                _public_version(prospective), strip_trailing_zero=False
             )
             # Get the normalized version string ignoring the trailing .*
             normalized_spec = canonicalize_version(spec[:-2], strip_trailing_zero=False)
