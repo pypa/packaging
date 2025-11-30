@@ -288,14 +288,14 @@ class Specifier(BaseSpecifier):
         # the version in the specifier is a prerelease.
         operator, version = self._spec
         if operator != "!=":
-            # The == specifier can include a trailing .*, if it does we
-            # want to remove before parsing.
+            # The == specifier with trailing .* cannot include prereleases
+            # e.g. "==1.0a1.*" is not valid.
             if operator == "==" and version.endswith(".*"):
-                version = version[:-2]
+                return False
 
-            # Parse the version, and if it is a pre-release than this
-            # specifier allows pre-releases.
-            if Version(version).is_prerelease:
+            # For all other operators, use the check if spec Version
+            # object implies pre-releases.
+            if self._get_spec_version(version).is_prerelease:
                 return True
 
         return False
@@ -353,11 +353,11 @@ class Specifier(BaseSpecifier):
     @property
     def _canonical_spec(self) -> tuple[str, str]:
         operator, version = self._spec
-        if operator == "===":
+        if operator == "===" or version.endswith(".*"):
             return operator, version
 
         canonical_version = canonicalize_version(
-            version,
+            self._get_spec_version(version),
             strip_trailing_zero=(operator != "~="),
         )
 
