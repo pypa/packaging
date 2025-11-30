@@ -521,8 +521,8 @@ class Specifier(BaseSpecifier):
 
         # Ensure that we do not allow a local version of the version mentioned
         # in the specifier, which is technically greater than, to match.
-        if prospective.local is not None and Version(
-            prospective.base_version
+        if prospective.local is not None and _base_version(
+            prospective
         ) == _base_version(spec):
             return False
 
