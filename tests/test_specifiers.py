@@ -817,6 +817,147 @@ class TestSpecifier:
         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
 
 
+class TestSpecifierInternal:
+    """Tests for internal Specifier._spec_version cache behavior.
+
+    Specifier._spec_version is a one-element cache that stores the parsed Version
+    corresponding to Specifier.version after the first time it is needed for
+    comparison, these tests validate that the cache is set and never changed.
+    """
+
+    @pytest.mark.parametrize(
+        ("specifier", "test_versions"),
+        [
+            (">=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("<=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            (">1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("<1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("==1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("!=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("~=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            (">=1.0a1", ["0.9", "1.0a1", "1.0", "1.1"]),
+            (">=1.0.post1", ["0.9", "1.0", "1.0.post1", "1.1"]),
+            (">=1.0.dev1", ["0.9", "1.0.dev1", "1.0", "1.1"]),
+            ("==1.0+local", ["1.0", "1.0+local", "1.0+other", "1.1"]),
+            (">=1!1.0", ["0!2.0", "1!0.9", "1!1.0", "1!1.1"]),
+        ],
+    )
+    def test_spec_version_cache_consistency(
+        self, specifier: str, test_versions: list[str]
+    ) -> None:
+        """Cache is set on first contains and remains unchanged."""
+        spec = Specifier(specifier, prereleases=True)
+        assert spec._spec_version is None
+
+        _ = test_versions[0] in spec
+        assert spec._spec_version == (spec.version, Version(spec.version))
+        initial_cache = spec._spec_version
+
+        for v in test_versions[1:]:
+            _ = v in spec
+            assert spec._spec_version is initial_cache
+
+        _ = hash(spec)
+        assert spec._spec_version is initial_cache
+
+        _ = spec.prereleases
+        assert spec._spec_version is initial_cache
+
+        _ = spec == Specifier(specifier)
+        assert spec._spec_version is initial_cache
+
+    @pytest.mark.parametrize(
+        ("specifier", "test_versions"),
+        [
+            (
+                "==1.0.*",
+                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
+            ),
+            (
+                "!=1.0.*",
+                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
+            ),
+        ],
+    )
+    def test_spec_version_cache_with_wildcards(
+        self, specifier: str, test_versions: list[str]
+    ) -> None:
+        """Wildcard specifiers use prefix matching, cache stays None."""
+        spec = Specifier(specifier, prereleases=True)
+
+        for v in test_versions:
+            _ = v in spec
+        _ = spec.prereleases
+        _ = hash(spec)
+
+        assert spec._spec_version is None
+
+    @pytest.mark.parametrize(
+        "specifier",
+        [
+            "===1.0",
+            "===1.0.0+local",
+            "===1.0.dev1",
+        ],
+    )
+    def test_spec_version_cache_with_arbitrary_equality(self, specifier: str) -> None:
+        spec = Specifier(specifier)
+
+        _ = "1.0" in spec
+        _ = spec.prereleases
+        _ = hash(spec)
+
+        assert spec._spec_version == (spec.version, Version(spec.version))
+
+    @pytest.mark.parametrize(
+        ("specifier", "versions"),
+        [
+            (
+                "~=1.4.2",
+                [
+                    # Matching versions
+                    "1.4.2",
+                    "1.4.3.dev1",
+                    "1.4.3a1",
+                    "1.4.3",
+                    "1.4.3.post1",
+                    "1.4.3+local",
+                    # Not matching versions
+                    "1.4.1",
+                    "1.4.1.post1",
+                    "1.5.0.dev0",
+                    "1.5.0a1",
+                    "1.5.0",
+                    "2.0",
+                    "2.0+local",
+                ],
+            ),
+        ],
+    )
+    def test_spec_version_cache_compatible_operator(
+        self,
+        specifier: str,
+        versions: list[str],
+    ) -> None:
+        """~= caches the original spec version, not the prefix used for ==."""
+        spec = Specifier(specifier, prereleases=True)
+        assert spec._spec_version is None
+
+        assert versions[0] in spec
+        assert spec._spec_version == (spec.version, Version(spec.version))
+        initial_cache = spec._spec_version
+
+        for v in versions[1:]:
+            _ = v in spec
+            assert spec._spec_version is initial_cache
+
+        _ = hash(spec)
+        assert spec._spec_version is initial_cache
+
+        _ = spec.prereleases
+        assert spec._spec_version is initial_cache
+
+
 class TestSpecifierSet:
     @pytest.mark.parametrize("version", VERSIONS)
     def test_empty_specifier(self, version: str) -> None:
