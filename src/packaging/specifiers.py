@@ -33,22 +33,11 @@ def _coerce_version(version: UnparsedVersion) -> Version | None:
 
 
 def _public_version(version: Version) -> Version:
-    """Skip creation of a new Version instance if no local version to strip."""
-    if version.local is None:
-        return version
-    return version.replace(local=None)
+    return version.__replace__(local=None)
 
 
 def _base_version(version: Version) -> Version:
-    """Skip creation of a new Version instance if already a base version."""
-    if (
-        version.pre is None
-        and version.post is None
-        and version.dev is None
-        and version.local is None
-    ):
-        return version
-    return version.replace(pre=None, post=None, dev=None, local=None)
+    return version.__replace__(pre=None, post=None, dev=None, local=None)
 
 
 class InvalidSpecifier(ValueError):
