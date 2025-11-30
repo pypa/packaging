@@ -54,6 +54,12 @@ class InvalidSpecifier(ValueError):
 
 class BaseSpecifier(metaclass=abc.ABCMeta):
     __slots__ = ()
+    __match_args__ = ("_str",)
+
+    @property
+    def _str(self) -> str:
+        """Internal property for match_args"""
+        return str(self)
 
     @abc.abstractmethod
     def __str__(self) -> str:
