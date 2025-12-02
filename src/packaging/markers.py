@@ -17,6 +17,7 @@ from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
 __all__ = [
+    "Environment",
     "EvaluateContext",
     "InvalidMarker",
     "Marker",
