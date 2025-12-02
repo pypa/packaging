@@ -22,6 +22,7 @@ from packaging.markers import (
     default_environment,
     format_full_version,
 )
+from packaging.version import InvalidVersion
 
 VARIABLES = [
     "extra",
@@ -308,6 +309,11 @@ class TestMarker:
                 {"os_name": "other", "python_version": "2.7.4"},
                 False,
             ),
+            (
+                "platform_release >= '6'",
+                {"platform_release": "6.1-foobar"},
+                InvalidVersion,
+            ),
             ("extra == 'security'", {"extra": "quux"}, False),
             ("extra == 'security'", {"extra": "security"}, True),
             ("extra == 'SECURITY'", {"extra": "security"}, True),
@@ -321,10 +327,17 @@ class TestMarker:
         ],
     )
     def test_evaluates(
-        self, marker_string: str, environment: dict[str, str] | None, expected: bool
+        self,
+        marker_string: str,
+        environment: dict[str, str] | None,
+        expected: bool | type[Exception],
     ) -> None:
         args = () if environment is None else (environment,)
-        assert Marker(marker_string).evaluate(*args) == expected
+        if isinstance(expected, bool):
+            assert Marker(marker_string).evaluate(*args) == expected
+        else:
+            with pytest.raises(expected):
+                Marker(marker_string).evaluate(*args)
 
     @pytest.mark.parametrize(
         "marker_string",
