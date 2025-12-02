@@ -198,7 +198,7 @@ class Specifier(BaseSpecifier):
             )
             |
             (?:
-                # All other operators only allow a sub set of what the
+                # All other operators only allow a subset of what the
                 # (non)equality operators do. Specifically they do not allow
                 # local versions to be specified nor do they allow the prefix
                 # matching wild cards.

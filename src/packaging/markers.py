@@ -15,6 +15,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import Version
 
 __all__ = [
     "EvaluateContext",
@@ -177,13 +178,16 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
+def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
+    # This is here to avoid a behavior change while the spec is being debated.
     if isinstance(rhs, str):
         try:
             spec = Specifier(f"{op.serialize()}{rhs}")
         except InvalidSpecifier:
             pass
         else:
+            if key == "platform_release":
+                Version(lhs)
             return spec.contains(lhs, prereleases=True)
 
     oper: Operator | None = _operators.get(op.serialize())
@@ -236,7 +240,7 @@ def _evaluate_markers(
                 rhs_value = environment[environment_key]
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value))
+            groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
         else:
             assert marker in ["and", "or"]
             if marker == "or":
