@@ -1,8 +1,13 @@
 name: Publish
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        # require SHA as tags and branches are mutable
+        description: Git commit SHA (not branch/tag)
+        required: true
+        type: string
 
 env:
   FORCE_COLOR: 1
@@ -12,8 +17,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Log inputs
+        run: echo "${{ inputs }}"
+
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 2 # shouldn't need much, if any, history
+
+      - name: Log Git tag
+        run: git describe --always --tags
+
+      - name: Check ref is the commit SHA
+        # require SHA as tags and branches are mutable
+        run: test "${{ inputs.ref }}"
+          = "$(git git log --max-count=1 --format=format:%h)"
+          || test "${{ inputs.ref }}"
+          = "$(git git log --max-count=1 --format=format:%H)"
 
       # pipx is pre-installed in 'ubuntu' VMs
 

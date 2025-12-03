@@ -15,8 +15,9 @@ Release Process
 
 #. Add a `release on GitHub <https://github.com/pypa/packaging/releases>`__.
 
-   This schedules a CI workflow which will build and publish the package to
-   PyPI. Publishing will wait for any `required approvals`_.
+#. Run the 'Publish' manual GitHub workflow, specifying the Git tag's commit
+   SHA. This will build and publish the package to PyPI. Publishing will wait
+   for any `required approvals`_.
 
 #. Notify the other project owners of the release.
 
