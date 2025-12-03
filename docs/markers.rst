@@ -58,15 +58,14 @@ Reference
     :raises InvalidMarker: If the given ``markers`` are not parseable, then
                            this exception will be raised.
 
-    .. method:: evaluate(environment=None)
+    .. method:: evaluate(environment=None, context='metadata')
 
     Evaluate the marker given the context of the current Python process.
 
     :param dict environment: A dictionary containing keys and values to
                              override the detected environment.
-    :param str context: A string representing the context in which the marker is evaluated.
-                        Acceptable values are "metadata" (for core metadata; default),
-                        "lock_file", and "requirement" (i.e. all other situations).
+    :param EvaluateContext context: A string representing the context in which
+                                    the marker is evaluated.
     :raises: UndefinedComparison: If the marker uses a comparison on strings
                                   which are not valid versions per the
                                   :ref:`specification of version specifiers
@@ -80,6 +79,14 @@ Reference
 
     A dictionary that represents a Python environment as captured by
     :func:`default_environment`.
+
+.. py:data:: packaging.markers.EvaluateContext
+
+    A ``typing.Literal`` enumerating valid values for the ``context`` passed to ``Marker.evaluate``, namely:
+
+    * "metadata" (for core metadata; default)
+    * "lock_file" (for lock files)
+    * "requirement" (i.e. all other situations)
 
 .. function:: default_environment()
 

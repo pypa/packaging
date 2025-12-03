@@ -46,6 +46,10 @@ class TestSpecifier:
     def test_specifiers_valid(self, specifier: str) -> None:
         Specifier(specifier)
 
+    def test_match_args(self) -> None:
+        assert Specifier.__match_args__ == ("_str",)
+        assert Specifier(">=1.0")._str == ">=1.0"
+
     @pytest.mark.parametrize(
         "specifier",
         [
@@ -461,6 +465,7 @@ class TestSpecifier:
                 ("2.0.post1", ">2"),
                 ("2.0.post1.dev1", ">2"),
                 ("2.0+local.version", ">2"),
+                ("1.0+local", ">1.0.dev1"),
                 # Test the less than operation
                 ("2.0.dev1", "<2"),
                 ("2.0a1", "<2"),
@@ -512,15 +517,25 @@ class TestSpecifier:
             assert not spec.contains(Version(version))
 
     @pytest.mark.parametrize(
-        ("spec_str", "version"),
+        ("spec_str", "version", "expected"),
         [
-            ("==1.0", "not a valid version"),
-            ("===invalid", "invalid"),
+            ("==1.0", "not a valid version", False),
+            ("==1.*", "not a valid version", False),
+            (">=1.0", "not a valid version", False),
+            (">1.0", "not a valid version", False),
+            ("<=1.0", "not a valid version", False),
+            ("<1.0", "not a valid version", False),
+            ("~=1.0", "not a valid version", False),
+            ("!=1.0", "not a valid version", False),
+            ("!=1.*", "not a valid version", False),
+            # Test with arbitrary equality (===)
+            ("===invalid", "invalid", True),
+            ("===foobar", "invalid", False),
         ],
     )
-    def test_invalid_spec(self, spec_str: str, version: str) -> None:
+    def test_invalid_version(self, spec_str: str, version: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
-        assert not spec.contains(version)
+        assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
         (
@@ -586,19 +601,67 @@ class TestSpecifier:
             # Test identity comparison by itself
             ("1.0", "===1.0", True),
             ("1.0.dev0", "===1.0.dev0", True),
+            # Test that local versions don't match
+            ("1.0+downstream1", "===1.0", False),
+            ("1.0", "===1.0+downstream1", False),
+            # Test with arbitrary (non-version) strings
+            ("foobar", "===foobar", True),
+            ("foobar", "===baz", False),
+            # Test case insensitivity for pre-release versions
+            ("1.0a1", "===1.0a1", True),
+            ("1.0A1", "===1.0A1", True),
+            ("1.0a1", "===1.0A1", True),
+            ("1.0A1", "===1.0a1", True),
+            # Test case insensitivity for beta versions
+            ("1.0b1", "===1.0b1", True),
+            ("1.0B1", "===1.0B1", True),
+            ("1.0b1", "===1.0B1", True),
+            ("1.0B1", "===1.0b1", True),
+            # Test case insensitivity for release candidate versions
+            ("1.0rc1", "===1.0rc1", True),
+            ("1.0RC1", "===1.0RC1", True),
+            ("1.0rc1", "===1.0RC1", True),
+            ("1.0RC1", "===1.0rc1", True),
+            # Test case insensitivity for post-release versions
+            ("1.0.post1", "===1.0.post1", True),
+            ("1.0.POST1", "===1.0.POST1", True),
+            ("1.0.post1", "===1.0.POST1", True),
+            ("1.0.POST1", "===1.0.post1", True),
+            # Test case insensitivity for dev versions
+            ("1.0.dev1", "===1.0.dev1", True),
+            ("1.0.DEV1", "===1.0.DEV1", True),
+            ("1.0.dev1", "===1.0.DEV1", True),
+            ("1.0.DEV1", "===1.0.dev1", True),
+            # Test case insensitivity with local versions
+            ("1.0+local", "===1.0+local", True),
+            ("1.0+LOCAL", "===1.0+LOCAL", True),
+            ("1.0+local", "===1.0+LOCAL", True),
+            ("1.0+LOCAL", "===1.0+local", True),
+            ("1.0+abc.def", "===1.0+abc.def", True),
+            ("1.0+ABC.DEF", "===1.0+ABC.DEF", True),
+            ("1.0+abc.def", "===1.0+ABC.DEF", True),
+            ("1.0+ABC.DEF", "===1.0+abc.def", True),
+            # Test case insensitivity with mixed case letters in local
+            ("1.0+AbC", "===1.0+AbC", True),
+            ("1.0+AbC", "===1.0+abc", True),
+            ("1.0+AbC", "===1.0+ABC", True),
+            # Test complex cases with multiple segments
+            ("1.0a1.post2.dev3", "===1.0a1.post2.dev3", True),
+            ("1.0A1.POST2.DEV3", "===1.0A1.POST2.DEV3", True),
+            ("1.0a1.post2.dev3", "===1.0A1.POST2.DEV3", True),
+            ("1.0A1.POST2.DEV3", "===1.0a1.post2.dev3", True),
+            # Test case insensitivity of non-PEP 440 versions
+            ("lolwat", "===LOLWAT", True),
+            ("lolwat", "===LoLWaT", True),
+            ("LOLWAT", "===lolwat", True),
+            ("LoLWaT", "===lOlwAt", True),
         ],
     )
-    def test_specifiers_identity(
+    def test_arbitrary_equality(
         self, version: str, spec_str: str, expected: bool
     ) -> None:
         spec = Specifier(spec_str)
-
-        if expected:
-            # Identity comparisons only support the plain string form
-            assert version in spec
-        else:
-            # Identity comparisons only support the plain string form
-            assert version not in spec
+        assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),
@@ -682,6 +745,41 @@ class TestSpecifier:
             # Test that invalid versions are discarded
             (">=1.0", None, None, ["not a valid version"], []),
             (">=1.0", None, None, ["1.0", "not a valid version"], ["1.0"]),
+            # Test arbitrary equality (===)
+            ("===foobar", None, None, ["foobar", "foo", "bar"], ["foobar"]),
+            ("===foobar", None, None, ["foo", "bar"], []),
+            # Test that === does not match with zero padding
+            ("===1.0", None, None, ["1.0", "1.0.0", "2.0"], ["1.0"]),
+            # Test that === does not match with local versions
+            ("===1.0", None, None, ["1.0", "1.0+downstream1"], ["1.0"]),
+            # Test === with mix of valid versions and arbitrary strings
+            (
+                "===foobar",
+                None,
+                None,
+                ["foobar", "1.0", "2.0a1", "invalid"],
+                ["foobar"],
+            ),
+            ("===1.0", None, None, ["1.0", "foobar", "invalid", "1.0.0"], ["1.0"]),
+            # Test != with invalid versions (should not pass as versions are not valid)
+            ("!=1.0", None, None, ["invalid", "foobar"], []),
+            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["2.0"]),
+            ("!=2.0.*", None, None, ["invalid", "foobar", "2.0"], []),
+            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0"]),
+            # Test that !== ignores prereleases parameter for non-PEP 440 versions
+            ("!=1.0", None, True, ["invalid", "foobar"], []),
+            ("!=1.0", None, False, ["invalid", "foobar"], []),
+            ("!=1.0", True, None, ["invalid", "foobar"], []),
+            ("!=1.0", False, None, ["invalid", "foobar"], []),
+            ("!=1.0", True, True, ["invalid", "foobar"], []),
+            ("!=1.0", False, False, ["invalid", "foobar"], []),
+            # Test that === ignores prereleases parameter for non-PEP 440 versions
+            ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, False, ["foobar", "foo"], ["foobar"]),
         ],
     )
     def test_specifier_filter(
@@ -769,6 +867,147 @@ class TestSpecifier:
         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
 
 
+class TestSpecifierInternal:
+    """Tests for internal Specifier._spec_version cache behavior.
+
+    Specifier._spec_version is a one-element cache that stores the parsed Version
+    corresponding to Specifier.version after the first time it is needed for
+    comparison, these tests validate that the cache is set and never changed.
+    """
+
+    @pytest.mark.parametrize(
+        ("specifier", "test_versions"),
+        [
+            (">=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("<=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            (">1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("<1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("==1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("!=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            ("~=1.0", ["0.9", "1.0", "1.1", "2.0"]),
+            (">=1.0a1", ["0.9", "1.0a1", "1.0", "1.1"]),
+            (">=1.0.post1", ["0.9", "1.0", "1.0.post1", "1.1"]),
+            (">=1.0.dev1", ["0.9", "1.0.dev1", "1.0", "1.1"]),
+            ("==1.0+local", ["1.0", "1.0+local", "1.0+other", "1.1"]),
+            (">=1!1.0", ["0!2.0", "1!0.9", "1!1.0", "1!1.1"]),
+        ],
+    )
+    def test_spec_version_cache_consistency(
+        self, specifier: str, test_versions: list[str]
+    ) -> None:
+        """Cache is set on first contains and remains unchanged."""
+        spec = Specifier(specifier, prereleases=True)
+        assert spec._spec_version is None
+
+        _ = test_versions[0] in spec
+        assert spec._spec_version == (spec.version, Version(spec.version))
+        initial_cache = spec._spec_version
+
+        for v in test_versions[1:]:
+            _ = v in spec
+            assert spec._spec_version is initial_cache
+
+        _ = hash(spec)
+        assert spec._spec_version is initial_cache
+
+        _ = spec.prereleases
+        assert spec._spec_version is initial_cache
+
+        _ = spec == Specifier(specifier)
+        assert spec._spec_version is initial_cache
+
+    @pytest.mark.parametrize(
+        ("specifier", "test_versions"),
+        [
+            (
+                "==1.0.*",
+                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
+            ),
+            (
+                "!=1.0.*",
+                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
+            ),
+        ],
+    )
+    def test_spec_version_cache_with_wildcards(
+        self, specifier: str, test_versions: list[str]
+    ) -> None:
+        """Wildcard specifiers use prefix matching, cache stays None."""
+        spec = Specifier(specifier, prereleases=True)
+
+        for v in test_versions:
+            _ = v in spec
+        _ = spec.prereleases
+        _ = hash(spec)
+
+        assert spec._spec_version is None
+
+    @pytest.mark.parametrize(
+        "specifier",
+        [
+            "===1.0",
+            "===1.0.0+local",
+            "===1.0.dev1",
+        ],
+    )
+    def test_spec_version_cache_with_arbitrary_equality(self, specifier: str) -> None:
+        spec = Specifier(specifier)
+
+        _ = "1.0" in spec
+        _ = spec.prereleases
+        _ = hash(spec)
+
+        assert spec._spec_version == (spec.version, Version(spec.version))
+
+    @pytest.mark.parametrize(
+        ("specifier", "versions"),
+        [
+            (
+                "~=1.4.2",
+                [
+                    # Matching versions
+                    "1.4.2",
+                    "1.4.3.dev1",
+                    "1.4.3a1",
+                    "1.4.3",
+                    "1.4.3.post1",
+                    "1.4.3+local",
+                    # Not matching versions
+                    "1.4.1",
+                    "1.4.1.post1",
+                    "1.5.0.dev0",
+                    "1.5.0a1",
+                    "1.5.0",
+                    "2.0",
+                    "2.0+local",
+                ],
+            ),
+        ],
+    )
+    def test_spec_version_cache_compatible_operator(
+        self,
+        specifier: str,
+        versions: list[str],
+    ) -> None:
+        """~= caches the original spec version, not the prefix used for ==."""
+        spec = Specifier(specifier, prereleases=True)
+        assert spec._spec_version is None
+
+        assert versions[0] in spec
+        assert spec._spec_version == (spec.version, Version(spec.version))
+        initial_cache = spec._spec_version
+
+        for v in versions[1:]:
+            _ = v in spec
+            assert spec._spec_version is initial_cache
+
+        _ = hash(spec)
+        assert spec._spec_version is initial_cache
+
+        _ = spec.prereleases
+        assert spec._spec_version is initial_cache
+
+
 class TestSpecifierSet:
     @pytest.mark.parametrize("version", VERSIONS)
     def test_empty_specifier(self, version: str) -> None:
@@ -779,11 +1018,46 @@ class TestSpecifierSet:
         assert parse(version) in spec
         assert spec.contains(parse(version))
 
+    @pytest.mark.parametrize(
+        ("prereleases", "versions", "expected"),
+        [
+            # single arbitrary string
+            (None, ["foobar"], ["foobar"]),
+            (False, ["foobar"], ["foobar"]),
+            (True, ["foobar"], ["foobar"]),
+            # arbitrary string with a stable version present
+            (None, ["foobar", "1.0"], ["foobar", "1.0"]),
+            (False, ["foobar", "1.0"], ["foobar", "1.0"]),
+            (True, ["foobar", "1.0"], ["foobar", "1.0"]),
+            # arbitrary string with a prerelease only
+            (None, ["foobar", "1.0a1"], ["foobar", "1.0a1"]),
+            (False, ["foobar", "1.0a1"], ["foobar"]),
+            (True, ["foobar", "1.0a1"], ["foobar", "1.0a1"]),
+        ],
+    )
+    def test_empty_specifier_arbitrary_string(
+        self, prereleases: bool | None, versions: list[str], expected: list[str]
+    ) -> None:
+        """Test empty SpecifierSet accepts arbitrary strings."""
+
+        spec = SpecifierSet("", prereleases=prereleases)
+
+        # basic behavior preserved
+        assert spec.contains("foobar")
+
+        # check filter behavior (no override of prereleases passed to filter)
+        kwargs: dict[str, bool | None] = {}
+        assert list(spec.filter(versions, **kwargs)) == expected
+
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
         specs = [Specifier(s) for s in spec_strs]
         spec = SpecifierSet(iter(specs))
         assert set(spec) == set(specs)
+
+    def test_match_args(self) -> None:
+        assert SpecifierSet.__match_args__ == ("_str",)
+        assert SpecifierSet(">=1.0,<2")._str == str(SpecifierSet(">=1.0,<2"))
 
     @pytest.mark.parametrize(
         (
@@ -996,13 +1270,69 @@ class TestSpecifierSet:
             (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
-            # Test that invalid versions are discarded
-            ("", None, None, ["invalid version"], []),
-            ("", None, False, ["invalid version"], []),
-            ("", False, None, ["invalid version"], []),
-            ("", None, None, ["1.0", "invalid version"], ["1.0"]),
-            ("", None, False, ["1.0", "invalid version"], ["1.0"]),
-            ("", False, None, ["1.0", "invalid version"], ["1.0"]),
+            # Test that invalid versions are accepted by empty SpecifierSet
+            ("", None, None, ["invalid version"], ["invalid version"]),
+            ("", None, False, ["invalid version"], ["invalid version"]),
+            ("", False, None, ["invalid version"], ["invalid version"]),
+            ("", None, None, ["1.0", "invalid version"], ["1.0", "invalid version"]),
+            ("", None, False, ["1.0", "invalid version"], ["1.0", "invalid version"]),
+            ("", False, None, ["1.0", "invalid version"], ["1.0", "invalid version"]),
+            # Test arbitrary equality (===)
+            ("===foobar", None, None, ["foobar", "foo", "bar"], ["foobar"]),
+            ("===foobar", None, None, ["foo", "bar"], []),
+            # Test that === does not match with zero padding
+            ("===1.0", None, None, ["1.0", "1.0.0", "2.0"], ["1.0"]),
+            # Test that === does not match with local versions
+            ("===1.0", None, None, ["1.0", "1.0+downstream1"], ["1.0"]),
+            # Test === combined with other operators (arbitrary string)
+            (">=1.0,===foobar", None, None, ["foobar", "1.0", "2.0"], []),
+            ("!=2.0,===foobar", None, None, ["foobar", "2.0", "bar"], []),
+            # Test === combined with other operators (version string)
+            (">=1.0,===1.5", None, None, ["1.0", "1.5", "2.0"], ["1.5"]),
+            (">=2.0,===1.5", None, None, ["1.0", "1.5", "2.0"], []),
+            # Test === with mix of valid and invalid versions
+            (
+                "===foobar",
+                None,
+                None,
+                ["foobar", "1.0", "invalid", "2.0a1"],
+                ["foobar"],
+            ),
+            ("===1.0", None, None, ["1.0", "foobar", "invalid", "1.0.0"], ["1.0"]),
+            (">=1.0,===1.5", None, None, ["1.5", "foobar", "invalid"], ["1.5"]),
+            # Test != with invalid versions (should pass through as "not equal")
+            ("!=1.0", None, None, ["invalid", "foobar"], []),
+            ("!=1.0", None, None, ["1.0", "invalid", "2.0"], ["2.0"]),
+            (
+                "!=2.0.*",
+                None,
+                None,
+                ["invalid", "foobar", "2.0"],
+                [],
+            ),
+            ("!=2.0.*", None, None, ["1.0", "invalid", "2.0.0"], ["1.0"]),
+            # Test != with invalid versions combined with other operators
+            (
+                "!=1.0,!=2.0",
+                None,
+                None,
+                ["invalid", "1.0", "2.0", "3.0"],
+                ["3.0"],
+            ),
+            (
+                ">=1.0,!=2.0",
+                None,
+                None,
+                ["invalid", "1.0", "2.0", "3.0"],
+                ["1.0", "3.0"],
+            ),
+            # Test that === ignores prereleases parameter for non-PEP 440 versions
+            ("===foobar", None, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", None, False, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, None, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", True, True, ["foobar", "foo"], ["foobar"]),
+            ("===foobar", False, False, ["foobar", "foo"], ["foobar"]),
         ],
     )
     def test_specifier_filter(
@@ -1397,6 +1727,43 @@ class TestSpecifierSet:
     ) -> None:
         spec = SpecifierSet(specifier, prereleases=True)
         assert not spec.contains(input)
+
+    @pytest.mark.parametrize(
+        ("version", "specifier", "expected"),
+        [
+            # Test arbitrary equality (===) with arbitrary strings
+            ("foobar", "===foobar", True),
+            ("foo", "===foobar", False),
+            ("bar", "===foobar", False),
+            # Test that === does not match with zero padding
+            ("1.0", "===1.0", True),
+            ("1.0.0", "===1.0", False),
+            # Test that === does not match with local versions
+            ("1.0", "===1.0+downstream1", False),
+            ("1.0+downstream1", "===1.0", False),
+            # Test === combined with other operators (arbitrary string)
+            ("foobar", "===foobar,!=1.0", False),
+            ("1.0", "===foobar,!=1.0", False),
+            ("foobar", ">=1.0,===foobar", False),
+            # Test === combined with other operators (version string)
+            ("1.5", ">=1.0,===1.5", True),
+            ("1.5", ">=2.0,===1.5", False),  # Doesn't meet >=2.0
+            ("2.5", ">=1.0,===2.5", True),
+            # Test != with invalid versions (should not pass as not valid versions)
+            ("invalid", "!=1.0", False),
+            ("foobar", "!=1.0", False),
+            ("invalid", "!=2.0.*", False),
+            # Test != with invalid versions combined with other operators
+            ("invalid", "!=1.0,!=2.0", False),
+            ("foobar", ">=1.0,!=2.0", False),
+            ("1.5", ">=1.0,!=2.0", True),
+        ],
+    )
+    def test_contains_arbitrary_equality_contains(
+        self, version: str, specifier: str, expected: bool
+    ) -> None:
+        spec = SpecifierSet(specifier)
+        assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),

@@ -9,11 +9,15 @@
 
 from __future__ import annotations
 
-import itertools
 import re
-from typing import Any, Callable, NamedTuple, SupportsInt, Tuple, Union
+import sys
+import typing
+from typing import Any, Callable, Literal, SupportsInt, Tuple, TypedDict, Union
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
+
+if typing.TYPE_CHECKING:
+    from typing_extensions import Self, Unpack
 
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
@@ -35,13 +39,13 @@ CmpKey = Tuple[
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
 
-class _Version(NamedTuple):
-    epoch: int
-    release: tuple[int, ...]
-    dev: tuple[str, int] | None
-    pre: tuple[str, int] | None
-    post: tuple[str, int] | None
-    local: LocalType | None
+class _VersionReplace(TypedDict, total=False):
+    epoch: int | None
+    release: tuple[int, ...] | None
+    pre: tuple[Literal["a", "b", "rc"], int] | None
+    post: int | None
+    dev: int | None
+    local: str | None
 
 
 def parse(version: str) -> Version:
@@ -67,7 +71,11 @@ class InvalidVersion(ValueError):
 
 
 class _BaseVersion:
-    _key: tuple[Any, ...]
+    __slots__ = ()
+
+    @property
+    def _key(self) -> tuple[Any, ...]:
+        raise NotImplementedError  # pragma: no cover
 
     def __hash__(self) -> int:
         return hash(self._key)
@@ -114,38 +122,49 @@ class _BaseVersion:
 
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
+
+# Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
 _VERSION_PATTERN = r"""
-    v?
+    v?+                                                   # optional leading v
     (?:
-        (?:(?P<epoch>[0-9]+)!)?                           # epoch
-        (?P<release>[0-9]+(?:\.[0-9]+)*)                  # release segment
+        (?:(?P<epoch>[0-9]+)!)?+                          # epoch
+        (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
         (?P<pre>                                          # pre-release
-            [-_\.]?
+            [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
-            [-_\.]?
+            [._-]?+
             (?P<pre_n>[0-9]+)?
-        )?
+        )?+
         (?P<post>                                         # post release
             (?:-(?P<post_n1>[0-9]+))
             |
             (?:
-                [-_\.]?
+                [._-]?
                 (?P<post_l>post|rev|r)
-                [-_\.]?
+                [._-]?
                 (?P<post_n2>[0-9]+)?
             )
-        )?
+        )?+
         (?P<dev>                                          # dev release
-            [-_\.]?
+            [._-]?+
             (?P<dev_l>dev)
-            [-_\.]?
+            [._-]?+
             (?P<dev_n>[0-9]+)?
-        )?
+        )?+
     )
-    (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
+    (?:\+
+        (?P<local>                                        # local version
+            [a-z0-9]+
+            (?:[._-][a-z0-9]+)*+
+        )
+    )?+
 """
 
-VERSION_PATTERN = _VERSION_PATTERN
+_VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
+
+VERSION_PATTERN = (
+    _VERSION_PATTERN_OLD if sys.version_info < (3, 11) else _VERSION_PATTERN
+)
 """
 A string containing the regular expression used to match a valid version.
 
@@ -156,6 +175,72 @@ flags set.
 
 :meta hide-value:
 """
+
+
+# Validation pattern for local version in replace()
+_LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
+
+
+def _validate_epoch(value: object, /) -> int:
+    epoch = value or 0
+    if isinstance(epoch, int) and epoch >= 0:
+        return epoch
+    msg = f"epoch must be non-negative integer, got {epoch}"
+    raise InvalidVersion(msg)
+
+
+def _validate_release(value: object, /) -> tuple[int, ...]:
+    release = (0,) if value is None else value
+    if (
+        isinstance(release, tuple)
+        and len(release) > 0
+        and all(isinstance(i, int) and i >= 0 for i in release)
+    ):
+        return release
+    msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
+    raise InvalidVersion(msg)
+
+
+def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | None:
+    if value is None:
+        return value
+    if (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and value[0] in ("a", "b", "rc")
+        and isinstance(value[1], int)
+        and value[1] >= 0
+    ):
+        return value
+    msg = f"pre must be a tuple of ('a'|'b'|'rc', non-negative int), got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("post", value)
+    msg = f"post must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_dev(value: object, /) -> tuple[Literal["dev"], int] | None:
+    if value is None:
+        return value
+    if isinstance(value, int) and value >= 0:
+        return ("dev", value)
+    msg = f"dev must be non-negative integer, got {value}"
+    raise InvalidVersion(msg)
+
+
+def _validate_local(value: object, /) -> LocalType | None:
+    if value is None:
+        return value
+    if isinstance(value, str) and _LOCAL_PATTERN.fullmatch(value):
+        return _parse_local_version(value)
+    msg = f"local must be a valid version string, got {value!r}"
+    raise InvalidVersion(msg)
 
 
 class Version(_BaseVersion):
@@ -182,9 +267,19 @@ class Version(_BaseVersion):
     True
     """
 
-    _regex = re.compile(r"^\s*" + VERSION_PATTERN + r"\s*$", re.VERBOSE | re.IGNORECASE)
-    _version: _Version
-    _key: CmpKey
+    __slots__ = ("_dev", "_epoch", "_key_cache", "_local", "_post", "_pre", "_release")
+    __match_args__ = ("_str",)
+
+    _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
+
+    _epoch: int
+    _release: tuple[int, ...]
+    _dev: tuple[str, int] | None
+    _pre: tuple[str, int] | None
+    _post: tuple[str, int] | None
+    _local: LocalType | None
+
+    _key_cache: CmpKey | None
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
@@ -196,33 +291,67 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-
         # Validate the version and parse it into pieces
-        match = self._regex.search(version)
+        match = self._regex.fullmatch(version)
         if not match:
             raise InvalidVersion(f"Invalid version: {version!r}")
-
-        # Store the parsed out pieces of the version
-        self._version = _Version(
-            epoch=int(match.group("epoch")) if match.group("epoch") else 0,
-            release=tuple(int(i) for i in match.group("release").split(".")),
-            pre=_parse_letter_version(match.group("pre_l"), match.group("pre_n")),
-            post=_parse_letter_version(
-                match.group("post_l"), match.group("post_n1") or match.group("post_n2")
-            ),
-            dev=_parse_letter_version(match.group("dev_l"), match.group("dev_n")),
-            local=_parse_local_version(match.group("local")),
+        self._epoch = int(match.group("epoch")) if match.group("epoch") else 0
+        self._release = tuple(map(int, match.group("release").split(".")))
+        self._pre = _parse_letter_version(match.group("pre_l"), match.group("pre_n"))
+        self._post = _parse_letter_version(
+            match.group("post_l"), match.group("post_n1") or match.group("post_n2")
         )
+        self._dev = _parse_letter_version(match.group("dev_l"), match.group("dev_n"))
+        self._local = _parse_local_version(match.group("local"))
 
-        # Generate a key which will be used for sorting
-        self._key = _cmpkey(
-            self._version.epoch,
-            self._version.release,
-            self._version.pre,
-            self._version.post,
-            self._version.dev,
-            self._version.local,
+        # Key which will be used for sorting
+        self._key_cache = None
+
+    def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
+        release = (
+            _validate_release(kwargs["release"])
+            if "release" in kwargs
+            else self._release
         )
+        pre = _validate_pre(kwargs["pre"]) if "pre" in kwargs else self._pre
+        post = _validate_post(kwargs["post"]) if "post" in kwargs else self._post
+        dev = _validate_dev(kwargs["dev"]) if "dev" in kwargs else self._dev
+        local = _validate_local(kwargs["local"]) if "local" in kwargs else self._local
+
+        if (
+            epoch == self._epoch
+            and release == self._release
+            and pre == self._pre
+            and post == self._post
+            and dev == self._dev
+            and local == self._local
+        ):
+            return self
+
+        new_version = self.__class__.__new__(self.__class__)
+        new_version._key_cache = None
+        new_version._epoch = epoch
+        new_version._release = release
+        new_version._pre = pre
+        new_version._post = post
+        new_version._dev = dev
+        new_version._local = local
+
+        return new_version
+
+    @property
+    def _key(self) -> CmpKey:
+        if self._key_cache is None:
+            self._key_cache = _cmpkey(
+                self._epoch,
+                self._release,
+                self._pre,
+                self._post,
+                self._dev,
+                self._local,
+            )
+        return self._key_cache
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
@@ -242,7 +371,7 @@ class Version(_BaseVersion):
 
         # Pre-release
         if self.pre is not None:
-            parts.append("".join(str(x) for x in self.pre))
+            parts.append("".join(map(str, self.pre)))
 
         # Post-release
         if self.post is not None:
@@ -259,6 +388,11 @@ class Version(_BaseVersion):
         return "".join(parts)
 
     @property
+    def _str(self) -> str:
+        """Internal property for match_args"""
+        return str(self)
+
+    @property
     def epoch(self) -> int:
         """The epoch of the version.
 
@@ -267,7 +401,7 @@ class Version(_BaseVersion):
         >>> Version("1!2.0.0").epoch
         1
         """
-        return self._version.epoch
+        return self._epoch
 
     @property
     def release(self) -> tuple[int, ...]:
@@ -283,7 +417,7 @@ class Version(_BaseVersion):
         Includes trailing zeroes but not the epoch or any pre-release / development /
         post-release suffixes.
         """
-        return self._version.release
+        return self._release
 
     @property
     def pre(self) -> tuple[str, int] | None:
@@ -298,7 +432,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3rc1").pre
         ('rc', 1)
         """
-        return self._version.pre
+        return self._pre
 
     @property
     def post(self) -> int | None:
@@ -309,7 +443,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.post1").post
         1
         """
-        return self._version.post[1] if self._version.post else None
+        return self._post[1] if self._post else None
 
     @property
     def dev(self) -> int | None:
@@ -320,7 +454,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3.dev1").dev
         1
         """
-        return self._version.dev[1] if self._version.dev else None
+        return self._dev[1] if self._dev else None
 
     @property
     def local(self) -> str | None:
@@ -331,8 +465,8 @@ class Version(_BaseVersion):
         >>> Version("1.2.3+abc").local
         'abc'
         """
-        if self._version.local:
-            return ".".join(str(x) for x in self._version.local)
+        if self._local:
+            return ".".join(str(x) for x in self._local)
         else:
             return None
 
@@ -438,6 +572,20 @@ class Version(_BaseVersion):
 
 
 class _TrimmedRelease(Version):
+    __slots__ = ()
+
+    def __init__(self, version: str | Version) -> None:
+        if isinstance(version, Version):
+            self._epoch = version._epoch
+            self._release = version._release
+            self._dev = version._dev
+            self._pre = version._pre
+            self._post = version._post
+            self._local = version._local
+            self._key_cache = version._key_cache
+            return
+        super().__init__(version)  # pragma: no cover
+
     @property
     def release(self) -> tuple[int, ...]:
         """
@@ -448,6 +596,7 @@ class _TrimmedRelease(Version):
         >>> _TrimmedRelease('0.0').release
         (0,)
         """
+        # Unlike _strip_trailing_zeros, this leaves one 0.
         rel = super().release
         i = len(rel)
         while i > 1 and rel[i - 1] == 0:
@@ -501,6 +650,17 @@ def _parse_local_version(local: str | None) -> LocalType | None:
     return None
 
 
+def _strip_trailing_zeros(release: tuple[int, ...]) -> tuple[int, ...]:
+    # We want to strip trailing zeros from a tuple of values. This starts
+    # from the end and returns as soon as it finds a non-zero value. When
+    # reading a lot of versions, this is a fairly hot function, so not using
+    # enumerate/reversed, which is slightly slower.
+    for i in range(len(release) - 1, -1, -1):
+        if release[i] != 0:
+            return release[: i + 1]
+    return ()
+
+
 def _cmpkey(
     epoch: int,
     release: tuple[int, ...],
@@ -510,13 +670,8 @@ def _cmpkey(
     local: LocalType | None,
 ) -> CmpKey:
     # When we compare a release version, we want to compare it with all of the
-    # trailing zeros removed. So we'll use a reverse the list, drop all the now
-    # leading zeros until we come to something non zero, then take the rest
-    # re-reverse it back into the correct order and make it a tuple and use
-    # that for our sorting key.
-    _release = tuple(
-        reversed(list(itertools.dropwhile(lambda x: x == 0, reversed(release))))
-    )
+    # trailing zeros removed. We will use this for our sorting key.
+    _release = _strip_trailing_zeros(release)
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this
