@@ -183,12 +183,12 @@ def _format_marker(
 _operators: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
-    "<": operator.lt,
-    "<=": operator.le,
+    "<": lambda _lhs, _rhs: False,
+    "<=": operator.eq,
     "==": operator.eq,
     "!=": operator.ne,
-    ">=": operator.ge,
-    ">": operator.gt,
+    ">=": operator.eq,
+    ">": lambda _lhs, _rhs: False,
 }
 
 
