@@ -30,9 +30,10 @@ Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 MARKERS_REQUIRING_VERSION = {
-    "python_version",
-    "python_full_version",
     "implementation_version",
+    "platform_release",
+    "python_full_version",
+    "python_version",
 }
 
 

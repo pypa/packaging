@@ -80,9 +80,12 @@ class TestNode:
 
 class TestOperatorEvaluation:
     def test_prefers_pep440(self) -> None:
-        assert Marker('"2.7.9" < "foo"').evaluate(dict(foo="2.7.10"))
+        assert Marker('"2.7.9" < python_full_version').evaluate(dict(python_full_version="2.7.10"))
+        assert not Marker('"2.7.9" < python_full_version').evaluate(dict(python_full_version="2.7.8"))
 
     def test_falls_back_to_python(self) -> None:
+        assert Marker('"b" < python_full_version').evaluate(dict(python_full_version="c"))
+        assert not Marker('"b" < python_full_version').evaluate(dict(python_full_version="a"))
         assert Marker('"b" > "a"').evaluate(dict(a="a"))
 
     def test_fails_when_undefined(self) -> None:
