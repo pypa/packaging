@@ -31,6 +31,7 @@ Fixes:
 * Support nested parens in license expressions (:pull:`931`)
 * Add space before at symbol in ``Requirements`` string (:pull:`953`)
 * A root logger use found, use a ``packaging`` logger instead (:pull:`965`)
+* Better support for subclassing ``Marker`` and ``Requirement`` (:pull:`1022`)
 
 Performance:
 
