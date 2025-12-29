@@ -34,6 +34,7 @@ Fixes:
 
 Performance:
 
+* Avoid recompiling regexes in the tokenizer for a 3x speedup (:pull:`1019`)
 * Improve performance in ``_manylinux.py`` (:pull:`869`)
 * Minor cleanups to ``Version`` (:pull:`913`)
 * Skip redundant creation of ``Versions`` in specifier comparison (:pull:`986`)
