@@ -6,76 +6,76 @@ Changelog
 
 Features:
 
-* PEP 751: support pylock (:pr:`900`)
-* PEP 794: import name metadata (:pr:`948`)
-* Support for writing metadata to a file (:pr:`846`)
-* Support ``__replace__`` on Version (:pr:`1003`)
-* Support positional pattern matching for ``Version`` and ``SpecifierSet`` (:pr:`1004`)
+* PEP 751: support pylock (:pull:`900`)
+* PEP 794: import name metadata (:pull:`948`)
+* Support for writing metadata to a file (:pull:`846`)
+* Support ``__replace__`` on Version (:pull:`1003`)
+* Support positional pattern matching for ``Version`` and ``SpecifierSet`` (:pull:`1004`)
 
 Behavior adaptations:
 
-* PEP 440 handling of prereleases for ``Specifier.contains``, ``SpecifierSet.contains``, and ``SpecifierSet.filter`` (:pr:`897`)
-* Handle PEP 440 edge case in ``SpecifierSet.filter`` (:pr:`942`)
-* Adjust arbitrary equality intersection preservation in ``SpecifierSet`` (:pr:`951`)
-* Return ``False`` instead of raising for ``.contains`` with invalid version (:pr:`932`)
-* Support arbitrary equality on arbitrary strings for ``Specifier`` and ``SpecifierSet``'s ``filter`` and ``contains`` method. (:pr:`954`)
+* PEP 440 handling of prereleases for ``Specifier.contains``, ``SpecifierSet.contains``, and ``SpecifierSet.filter`` (:pull:`897`)
+* Handle PEP 440 edge case in ``SpecifierSet.filter`` (:pull:`942`)
+* Adjust arbitrary equality intersection preservation in ``SpecifierSet`` (:pull:`951`)
+* Return ``False`` instead of raising for ``.contains`` with invalid version (:pull:`932`)
+* Support arbitrary equality on arbitrary strings for ``Specifier`` and ``SpecifierSet``'s ``filter`` and ``contains`` method. (:pull:`954`)
 
 Fixes:
 
-* Update ``_hash`` when unpickling ``Tag()`` (:pr:`860`)
-* Correct comment and simplify implicit prerelease handling in ``Specifier.prereleases`` (:pr:`896`)
-* Use explicit ``_GLibCVersion`` ``NamedTuple`` in ``_manylinux`` (:pr:`868`)
-* Detect invalid license expressions containing ``()`` (:pr:`879`)
-* Correct regex for metadata ``'name'`` format (:pr:`925`)
-* Improve the message around expecting a semicolon (:pr:`833`)
-* Support nested parens in license expressions (:pr:`931`)
-* Add space before at symbol in ``Requirements`` string (:pr:`953`)
-* A root logger use found, use a ``packaging`` logger instead (:pr:`965`)
+* Update ``_hash`` when unpickling ``Tag()`` (:pull:`860`)
+* Correct comment and simplify implicit prerelease handling in ``Specifier.prereleases`` (:pull:`896`)
+* Use explicit ``_GLibCVersion`` ``NamedTuple`` in ``_manylinux`` (:pull:`868`)
+* Detect invalid license expressions containing ``()`` (:pull:`879`)
+* Correct regex for metadata ``'name'`` format (:pull:`925`)
+* Improve the message around expecting a semicolon (:pull:`833`)
+* Support nested parens in license expressions (:pull:`931`)
+* Add space before at symbol in ``Requirements`` string (:pull:`953`)
+* A root logger use found, use a ``packaging`` logger instead (:pull:`965`)
 
 Performance:
 
-* Improve performance in ``_manylinux.py`` (:pr:`869`)
-* Minor cleanups to ``Version`` (:pr:`913`)
-* Skip redundant creation of ``Versions`` in specifier comparison (:pr:`986`)
-* Cache the ``Specifier``'s ``Version`` (:pr:`985`)
-* Make ``Version`` a little faster (:pr:`987`)
-* Minor ``Version`` regex cleanup (:pr:`990`)
-* Faster regex on Python 3.11+ for ``Version`` (:pr:`988`)
-* Lazily calculate ``_key`` in ``Version`` (:pr:`989`)
-* Faster ``canonicalize_version`` (:pr:`993`)
-* Use ``re.fullmatch`` in a couple more places (:pr:`992`)
-* Use ``map`` instead of generator (:pr:`996`)
-* Drop ``._version`` (``_Version``, a ``NamedTuple``) (:pr:`995`)
-* Avoid duplicate ``Version`` creation in ``canonicalize_version`` (:pr:`994`)
-* Add ``__slots__`` to ``Version`` (:pr:`1001`)
-* Add ``__slots__`` to ``Specifier``'s (:pr:`1002`)
-* Use ``Version.__replace__`` in specifier comparison (:pr:`999`)
-* Use ``_get_spec_version`` in more places in ``Specifier`` (:pr:`1005`)
-* Pull ``set`` construction out of function (:pr:`1012`)
-* Letter normalization dict for prereleases and the like (:pr:`1014`)
-* Use ``str.partition`` in ``_parse_project_urls`` (:pr:`1013`)
+* Improve performance in ``_manylinux.py`` (:pull:`869`)
+* Minor cleanups to ``Version`` (:pull:`913`)
+* Skip redundant creation of ``Versions`` in specifier comparison (:pull:`986`)
+* Cache the ``Specifier``'s ``Version`` (:pull:`985`)
+* Make ``Version`` a little faster (:pull:`987`)
+* Minor ``Version`` regex cleanup (:pull:`990`)
+* Faster regex on Python 3.11+ for ``Version`` (:pull:`988`)
+* Lazily calculate ``_key`` in ``Version`` (:pull:`989`)
+* Faster ``canonicalize_version`` (:pull:`993`)
+* Use ``re.fullmatch`` in a couple more places (:pull:`992`)
+* Use ``map`` instead of generator (:pull:`996`)
+* Drop ``._version`` (``_Version``, a ``NamedTuple``) (:pull:`995`)
+* Avoid duplicate ``Version`` creation in ``canonicalize_version`` (:pull:`994`)
+* Add ``__slots__`` to ``Version`` (:pull:`1001`)
+* Add ``__slots__`` to ``Specifier``'s (:pull:`1002`)
+* Use ``Version.__replace__`` in specifier comparison (:pull:`999`)
+* Use ``_get_spec_version`` in more places in ``Specifier`` (:pull:`1005`)
+* Pull ``set`` construction out of function (:pull:`1012`)
+* Letter normalization dict for prereleases and the like (:pull:`1014`)
+* Use ``str.partition`` in ``_parse_project_urls`` (:pull:`1013`)
 
 Type annotations:
 
-* Fix a type annotation (:pr:`907`)
-* Fix tags return type in ``parse_wheel_filename`` docs (:pr:`973`)
-* Add type hint for ``_version`` in ``.version.Version`` (:pr:`927`)
-* Changed static type annotations in prereleases setter method in ``specifier.py`` (:pr:`930`)
-* Statically type our test suite (:pr:`892`)
+* Fix a type annotation (:pull:`907`)
+* Fix tags return type in ``parse_wheel_filename`` docs (:pull:`973`)
+* Add type hint for ``_version`` in ``.version.Version`` (:pull:`927`)
+* Changed static type annotations in prereleases setter method in ``specifier.py`` (:pull:`930`)
+* Statically type our test suite (:pull:`892`)
 
 Internal:
 
-* Test and declare support for Python 3.14 (:pr:`901`)
-* Change our license metadata to use an SPDX license expression (:pr:`881`, :pr:`924`)
-* Expand the Ruff checks run on our codebase (:pr:`835`, :pr:`957`, :pr:`959`,
-  :pr:`963`, :pr:`956`, :pr:`961`, :pr:`964`, :pr:`958`, :pr:`960`, :pr:`968`,
-  :pr:`967`, :pr:`966`, :pr:`969`, :pr:`980`, :pr:`979`, :pr:`962`, :pr:`984`,
-  :pr:`972`)
-* Add spell checking (:pr:`904`, :pr:`910`)
-* Improve links back to source in the documentation (:pr:`991`)
-* Add case insensitivity tests for arbitrary equality (:pr:`975`)
-* Fix incorrectly implicitly concatenated string in specifiers test (:pr:`946`)
-* Synchronize documentation and code for markers (:pr:`1008`)
+* Test and declare support for Python 3.14 (:pull:`901`)
+* Change our license metadata to use an SPDX license expression (:pull:`881`, :pull:`924`)
+* Expand the Ruff checks run on our codebase (:pull:`835`, :pull:`957`, :pull:`959`,
+  :pull:`963`, :pull:`956`, :pull:`961`, :pull:`964`, :pull:`958`, :pull:`960`, :pull:`968`,
+  :pull:`967`, :pull:`966`, :pull:`969`, :pull:`980`, :pull:`979`, :pull:`962`, :pull:`984`,
+  :pull:`972`)
+* Add spell checking (:pull:`904`, :pull:`910`)
+* Improve links back to source in the documentation (:pull:`991`)
+* Add case insensitivity tests for arbitrary equality (:pull:`975`)
+* Fix incorrectly implicitly concatenated string in specifiers test (:pull:`946`)
+* Synchronize documentation and code for markers (:pull:`1008`)
 
 
 25.0 - 2025-04-19
