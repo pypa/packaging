@@ -19,6 +19,16 @@ from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfin
 if typing.TYPE_CHECKING:
     from typing_extensions import Self, Unpack
 
+_LETTER_NORMALIZATION = {
+    "alpha": "a",
+    "beta": "b",
+    "c": "rc",
+    "pre": "rc",
+    "preview": "rc",
+    "rev": "post",
+    "r": "post",
+}
+
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
 LocalType = Tuple[Union[int, str], ...]
@@ -614,14 +624,7 @@ def _parse_letter_version(
         # We consider some words to be alternate spellings of other words and
         # in those cases we want to normalize the spellings to our preferred
         # spelling.
-        if letter == "alpha":
-            letter = "a"
-        elif letter == "beta":
-            letter = "b"
-        elif letter in ["c", "pre", "preview"]:
-            letter = "rc"
-        elif letter in ["rev", "r"]:
-            letter = "post"
+        letter = _LETTER_NORMALIZATION.get(letter, letter)
 
         # We consider there to be an implicit 0 in a pre-release if there is
         # not a numeral associated with it.

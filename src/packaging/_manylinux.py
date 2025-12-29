@@ -15,6 +15,16 @@ EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000
 EF_ARM_ABI_FLOAT_HARD = 0x00000400
 
+_ALLOWED_ARCHS = {
+    "x86_64",
+    "aarch64",
+    "ppc64",
+    "ppc64le",
+    "s390x",
+    "loongarch64",
+    "riscv64",
+}
+
 
 # `os.PathLike` not a generic type until Python 3.9, so sticking with `str`
 # as the type for `path` until then.
@@ -57,16 +67,7 @@ def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
         return _is_linux_armhf(executable)
     if "i686" in archs:
         return _is_linux_i686(executable)
-    allowed_archs = {
-        "x86_64",
-        "aarch64",
-        "ppc64",
-        "ppc64le",
-        "s390x",
-        "loongarch64",
-        "riscv64",
-    }
-    return any(arch in allowed_archs for arch in archs)
+    return any(arch in _ALLOWED_ARCHS for arch in archs)
 
 
 # If glibc ever changes its major version, we need to know what the last

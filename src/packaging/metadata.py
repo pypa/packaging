@@ -209,15 +209,14 @@ def _parse_project_urls(data: list[str]) -> dict[str, str]:
         # answer with what to do in that case. As such, we'll do the only
         # thing we can, which is treat the field as unparsable and add it
         # to our list of unparsed fields.
-        parts = [p.strip() for p in pair.split(",", 1)]
-        parts.extend([""] * (max(0, 2 - len(parts))))  # Ensure 2 items
-
+        #
         # TODO: The spec doesn't say anything about if the keys should be
         #       considered case sensitive or not... logically they should
         #       be case-preserving and case-insensitive, but doing that
         #       would open up more cases where we might have duplicate
         #       entries.
-        label, url = parts
+        label, _, url = (s.strip() for s in pair.partition(","))
+
         if label in urls:
             # The label already exists in our set of urls, so this field
             # is unparsable, and we can just add the whole thing to our
