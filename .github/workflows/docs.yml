@@ -1,16 +1,6 @@
 name: Documentation
 
-on:
-  pull_request:
-    paths:
-      - ".github/workflows/docs.yml"
-      - "docs/**"
-      - "src/**"
-  push:
-    paths:
-      - ".github/workflows/docs.yml"
-      - "docs/**"
-      - "src/**"
+on: [push, pull_request, workflow_dispatch]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
