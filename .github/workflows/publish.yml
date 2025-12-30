@@ -32,9 +32,9 @@ jobs:
       - name: Check ref is the commit SHA
         # require SHA as tags and branches are mutable
         run: test "${{ inputs.ref }}"
-          = "$(git git log --max-count=1 --format=format:%h)"
+          = "$(git log --max-count=1 --format=format:%h)"
           || test "${{ inputs.ref }}"
-          = "$(git git log --max-count=1 --format=format:%H)"
+          = "$(git log --max-count=1 --format=format:%H)"
 
       # pipx is pre-installed in 'ubuntu' VMs
 
