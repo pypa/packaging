@@ -23,6 +23,29 @@ from typing import (
 
 from . import _manylinux, _musllinux
 
+__all__ = [
+    "INTERPRETER_SHORT_NAMES",
+    "AppleVersion",
+    "PythonVersion",
+    "Tag",
+    "android_platforms",
+    "compatible_tags",
+    "cpython_tags",
+    "generic_tags",
+    "interpreter_name",
+    "interpreter_version",
+    "ios_platforms",
+    "mac_platforms",
+    "parse_tag",
+    "platform_tags",
+    "sys_tags",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
