@@ -8,6 +8,7 @@ from . import add_attributes
 
 DIR = Path(__file__).parent.resolve()
 
+
 class TimeMarkerSuite:
     def setup(self) -> None:
         with (DIR / "dist_sample.txt").open() as f:

@@ -1,15 +1,16 @@
 # Select a subset of specifiers
 
+import json
 import random
 import sqlite3
-import json
 
-from packaging.requirements import Requirement, InvalidRequirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 # Get data with:
 # curl -L
 # https://github.com/pypi-data/pypi-json-data/releases/download/latest/pypi-data.sqlite.gz
 # | gzip -d > pypi-data.sqlite
+
 
 def valid_requirement(req: str) -> bool:
     try:
@@ -17,6 +18,7 @@ def valid_requirement(req: str) -> bool:
     except InvalidRequirement:
         return False
     return True
+
 
 with sqlite3.connect("pypi-data.sqlite") as conn:
     NESTED_DIST = (
