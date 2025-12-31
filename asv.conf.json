@@ -1,0 +1,11 @@
+{
+    "version": 1,
+    "project": "packaging",
+    "project_url": "https//github.com/pypa/packaging",
+    "repo": ".",
+    "environment_type": "virtualenv",
+    "branches": ["main"],
+    "build_command": [],
+    "install_command": ["python -m pip install ."],
+    "default_benchmark_timeout": 180
+}
