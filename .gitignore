@@ -16,3 +16,5 @@ _build/
 build/
 dist/
 htmlcov/
+html/
+results/

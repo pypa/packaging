@@ -7,5 +7,8 @@
     "branches": ["main"],
     "build_command": [],
     "install_command": ["python -m pip install ."],
-    "default_benchmark_timeout": 180
+    "default_benchmark_timeout": 180,
+    "regressions_thresholds": {
+        ".*": 0.01
+    }
 }
