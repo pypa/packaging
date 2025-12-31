@@ -8,6 +8,7 @@ from . import add_attributes
 
 DIR = Path(__file__).parent.resolve()
 
+
 class TimeRequirementSuite:
     def setup(self) -> None:
         with (DIR / "dist_sample.txt").open() as f:

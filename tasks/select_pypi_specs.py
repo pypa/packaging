@@ -29,4 +29,4 @@ with sqlite3.connect("pypi-data.sqlite") as conn:
 specs = random.sample(list(TEST_ALL_SPECS), 500)
 
 with open("specs_sample.txt", "w") as f:
-    f.writelines(f"{v}\n" for v in TEST_ALL_SPECS)
+    f.writelines(f"{v}\n" for v in specs)
