@@ -220,8 +220,6 @@ def _evaluate_markers(
     groups: list[list[bool]] = [[]]
 
     for marker in markers:
-        assert isinstance(marker, (list, tuple, str))
-
         if isinstance(marker, list):
             groups[-1].append(_evaluate_markers(marker, environment))
         elif isinstance(marker, tuple):
@@ -238,10 +236,15 @@ def _evaluate_markers(
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
-        else:
-            assert marker in ["and", "or"]
+        elif isinstance(marker, str):
             if marker == "or":
                 groups.append([])
+            elif marker == "and":
+                pass
+            else:  # pragma: nocover
+                raise ValueError(f"Unexpected logical operator: {marker!r}")
+        else:  # pragma: nocover
+            raise TypeError(f"Unexpected marker type: {type(marker)!r}")
 
     return any(all(item) for item in groups)
 
