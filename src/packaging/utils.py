@@ -34,24 +34,29 @@ class InvalidSdistFilename(ValueError):
 
 # Core metadata spec for `Name`
 _validate_regex = re.compile(
-    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\Z", re.IGNORECASE
+    r"[A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9]", re.IGNORECASE
 )
 _canonicalize_regex = re.compile(r"[-_.]+")
-_normalized_regex = re.compile(r"^([a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9])$")
+_normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
-    if validate and not _validate_regex.match(name):
+    if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
+
+    # Just return if already normalized
+    if name.islower() and _normalized_regex.fullmatch(name):
+        return cast("NormalizedName", name)
+
     # This is taken from PEP 503.
     value = _canonicalize_regex.sub("-", name).lower()
     return cast("NormalizedName", value)
 
 
 def is_normalized_name(name: str) -> bool:
-    return _normalized_regex.match(name) is not None
+    return _normalized_regex.fullmatch(name) is not None
 
 
 def canonicalize_version(
