@@ -33,9 +33,7 @@ class InvalidSdistFilename(ValueError):
 
 
 # Core metadata spec for `Name`
-_validate_regex = re.compile(
-    r"[A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9]", re.IGNORECASE
-)
+_validate_regex = re.compile(r"[A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9]", re.IGNORECASE)
 _canonicalize_regex = re.compile(r"[-_.]+")
 _normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]")
 # PEP 427: The build number must start with a digit.
@@ -46,12 +44,15 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
 
+    if not name.islower():
+        name = name.lower()
+
     # Just return if already normalized
-    if name.islower() and _normalized_regex.fullmatch(name):
+    if _normalized_regex.fullmatch(name):
         return cast("NormalizedName", name)
 
     # This is taken from PEP 503.
-    value = _canonicalize_regex.sub("-", name).lower()
+    value = _canonicalize_regex.sub("-", name)
     return cast("NormalizedName", value)
 
 
