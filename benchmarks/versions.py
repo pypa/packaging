@@ -32,7 +32,7 @@ class TimeVersionSuite:
 
     @add_attributes(pretty_name="Version __str__")
     def time_str(self) -> None:
-        for version in self.versions:
+        for version in self.valid_versions:
             str(version)
 
     @add_attributes(pretty_name="Version sorting")
