@@ -236,15 +236,12 @@ def _evaluate_markers(
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value))
-        elif isinstance(marker, str):
-            if marker == "or":
-                groups.append([])
-            elif marker == "and":
-                pass
-            else:  # pragma: nocover
-                raise ValueError(f"Unexpected logical operator: {marker!r}")
+        elif marker == "or":
+            groups.append([])
+        elif marker == "and":
+            pass
         else:  # pragma: nocover
-            raise TypeError(f"Unexpected marker type: {type(marker)!r}")
+            raise TypeError(f"Unexpected marker {marker!r}")
 
     return any(all(item) for item in groups)
 
