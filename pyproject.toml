@@ -51,11 +51,16 @@ dev = [{ include-group = "test" }]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
 exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
 
-[tool.codespell]
-ignore-words-list = [
-    "dynamc",
-    "notin"
-]
+[tool.typos.default.extend-identifiers]
+iMatix = "iMatix"
+ANDed = "ANDed"
+ORed = "ORed"
+
+[tool.typos.default.extend-words]
+dynamc = "dynamc"
+notin = "notin"
+nd = "nd"
+tou = "tou"
 
 [tool.coverage.run]
 branch = true
