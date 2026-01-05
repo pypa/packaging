@@ -122,20 +122,28 @@ class Environment(TypedDict):
     """
 
 
+def _normalize_extras(
+    result: MarkerList | MarkerAtom | str,
+) -> MarkerList | MarkerAtom | str:
+    if not isinstance(result, tuple):
+        return result
+
+    lhs, op, rhs = result
+    if isinstance(lhs, Variable) and lhs.value == "extra":
+        normalized_extra = canonicalize_name(rhs.value)
+        rhs = Value(normalized_extra)
+    elif isinstance(rhs, Variable) and rhs.value == "extra":
+        normalized_extra = canonicalize_name(lhs.value)
+        lhs = Value(normalized_extra)
+    return lhs, op, rhs
+
+
 def _normalize_extra_values(results: MarkerList) -> MarkerList:
     """
     Normalize extra values.
     """
-    if isinstance(results[0], tuple):
-        lhs, op, rhs = results[0]
-        if isinstance(lhs, Variable) and lhs.value == "extra":
-            normalized_extra = canonicalize_name(rhs.value)
-            rhs = Value(normalized_extra)
-        elif isinstance(rhs, Variable) and rhs.value == "extra":
-            normalized_extra = canonicalize_name(lhs.value)
-            lhs = Value(normalized_extra)
-        results[0] = lhs, op, rhs
-    return results
+
+    return [_normalize_extras(r) for r in results]
 
 
 def _format_marker(

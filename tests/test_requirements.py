@@ -145,6 +145,24 @@ def test_basic_valid_requirement_parsing(
     assert req.marker == (Marker(marker.format(ws="")) if marker else None)
 
 
+@pytest.mark.parametrize(
+    ("input_req", "norm_req"),
+    [
+        (
+            'mariadb>=1.0.1; extra == "mariadb_connector"',
+            'mariadb>=1.0.1; extra == "mariadb-connector"',
+        ),
+        (
+            'mariadb>=1.0.1; python_version >= "3" and extra == "mariadb_connector"',
+            'mariadb>=1.0.1; python_version >= "3" and extra == "mariadb-connector"',
+        ),
+    ],
+)
+def test_normalized_requirements(input_req: str, norm_req: str) -> None:
+    req = Requirement(input_req)
+    assert str(req) == norm_req
+
+
 class TestRequirementParsing:
     @pytest.mark.parametrize(
         "marker",
