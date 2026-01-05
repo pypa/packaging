@@ -310,10 +310,10 @@ class Marker:
         return _format_marker(self._markers)
 
     def __repr__(self) -> str:
-        return f"<Marker('{self}')>"
+        return f"<{self.__class__.__name__}('{self}')>"
 
     def __hash__(self) -> int:
-        return hash((self.__class__.__name__, str(self)))
+        return hash(str(self))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Marker):
