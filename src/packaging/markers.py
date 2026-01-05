@@ -285,6 +285,11 @@ class Marker:
         # Note: We create a Marker object without calling this constructor in
         #       packaging.requirements.Requirement. If any additional logic is
         #       added here, make sure to mirror/adapt Requirement.
+
+        # If this fails and throws an error, the repr still expects _markers to
+        # be defined.
+        self._markers: MarkerList = []
+
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
             # The attribute `_markers` can be described in terms of a recursive type:
