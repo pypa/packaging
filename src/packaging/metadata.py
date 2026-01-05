@@ -129,7 +129,7 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.3 - PEP 685
     # No new fields were added in PEP 685, just some edge case were
-    # tightened up to provide better interoptability.
+    # tightened up to provide better interoperability.
 
     # Metadata 2.4 - PEP 639
     license_expression: str
