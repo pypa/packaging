@@ -45,6 +45,8 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
     # Ensure all ``.`` and ``_`` are ``-``
+    # Emulates ``re.sub(r"[-_.]+", "-", name).lower()`` from PEP 503
+    # About 2x faster, safe since packages only support alphanumeric characters
     value = name.translate(_canonicalize_table)
     # Condense repeats (faster than regex)
     while "--" in value:
