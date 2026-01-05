@@ -377,7 +377,12 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        version = self.base_version
+        # This is a hot function, so not calling self.base_version
+        version = ".".join(map(str, self.release))
+
+        # Epoch
+        if self.epoch:
+            version = f"{self.epoch}!{version}"
 
         # Pre-release
         if self.pre is not None:
