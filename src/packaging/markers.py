@@ -29,6 +29,12 @@ __all__ = [
 Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
+MARKERS_REQUIRING_VERSION = {
+    "implementation_version",
+    "platform_release",
+    "python_full_version",
+    "python_version",
+}
 
 
 class InvalidMarker(ValueError):
@@ -177,25 +183,26 @@ def _format_marker(
 _operators: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
-    "<": operator.lt,
-    "<=": operator.le,
+    "<": lambda _lhs, _rhs: False,
+    "<=": operator.eq,
     "==": operator.eq,
     "!=": operator.ne,
-    ">=": operator.ge,
-    ">": operator.gt,
+    ">=": operator.eq,
+    ">": lambda _lhs, _rhs: False,
 }
 
 
-def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str]) -> bool:
-    if isinstance(rhs, str):
+def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
+    op_str = op.serialize()
+    if key in MARKERS_REQUIRING_VERSION:
         try:
-            spec = Specifier(f"{op.serialize()}{rhs}")
+            spec = Specifier(f"{op_str}{rhs}")
         except InvalidSpecifier:
             pass
         else:
             return spec.contains(lhs, prereleases=True)
 
-    oper: Operator | None = _operators.get(op.serialize())
+    oper: Operator | None = _operators.get(op_str)
     if oper is None:
         raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
 
@@ -242,9 +249,10 @@ def _evaluate_markers(
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = environment[environment_key]
+
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value))
+            groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
         elif marker == "or":
             groups.append([])
         elif marker == "and":
