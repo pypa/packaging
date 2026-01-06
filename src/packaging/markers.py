@@ -211,7 +211,8 @@ def _normalize(
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
         assert isinstance(rhs, str), "extra value must be a string"
-        return (canonicalize_name(lhs), canonicalize_name(rhs))
+        # Both sides are normalized at this point already
+        return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
         if isinstance(rhs, str):  # pragma: no cover
             return (canonicalize_name(lhs), canonicalize_name(rhs))
@@ -351,12 +352,15 @@ class Marker:
             )
         elif context == "metadata":
             current_environment["extra"] = ""
+
         if environment is not None:
             current_environment.update(environment)
-            # The API used to allow setting extra to None. We need to handle this
-            # case for backwards compatibility.
-            if "extra" in current_environment and current_environment["extra"] is None:
-                current_environment["extra"] = ""
+            if "extra" in current_environment:
+                # The API used to allow setting extra to None. We need to handle
+                # this case for backwards compatibility. Also skip running
+                # normalize name if extra is empty.
+                extra = cast("str | None", current_environment["extra"])
+                current_environment["extra"] = canonicalize_name(extra) if extra else ""
 
         return _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)

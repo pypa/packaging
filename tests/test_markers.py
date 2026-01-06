@@ -280,6 +280,13 @@ class TestMarker:
         # THEN
         assert marker.evaluate(environment) is False
 
+    def test_environment_with_no_extras(self) -> None:
+        # Environment is set but no 'extra' key is present; branch only hit on
+        # non-metadata context.
+        marker = Marker("os_name == 'foo'")
+        assert marker.evaluate({"os_name": "foo"}, context="requirement")
+        assert not marker.evaluate({"os_name": "bar"}, context="requirement")
+
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
