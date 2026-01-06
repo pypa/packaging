@@ -7,12 +7,14 @@ the implementation.
 from __future__ import annotations
 
 import ast
-from typing import List, NamedTuple, Sequence, Tuple, Union
+from typing import List, Literal, NamedTuple, Sequence, Tuple, Union
 
 from ._tokenizer import DEFAULT_RULES, Tokenizer
 
 
 class Node:
+    __slots__ = ("value",)
+
     def __init__(self, value: str) -> None:
         self.value = value
 
@@ -20,31 +22,38 @@ class Node:
         return self.value
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}('{self}')>"
+        return f"<{self.__class__.__name__}({self.value!r})>"
 
     def serialize(self) -> str:
         raise NotImplementedError
 
 
 class Variable(Node):
+    __slots__ = ()
+
     def serialize(self) -> str:
         return str(self)
 
 
 class Value(Node):
+    __slots__ = ()
+
     def serialize(self) -> str:
         return f'"{self}"'
 
 
 class Op(Node):
+    __slots__ = ()
+
     def serialize(self) -> str:
         return str(self)
 
 
+MarkerLogical = Literal["and", "or"]
 MarkerVar = Union[Variable, Value]
 MarkerItem = Tuple[MarkerVar, Op, MarkerVar]
 MarkerAtom = Union[MarkerItem, Sequence["MarkerAtom"]]
-MarkerList = List[Union["MarkerList", MarkerAtom, str]]
+MarkerList = List[Union["MarkerList", MarkerAtom, MarkerLogical]]
 
 
 class ParsedRequirement(NamedTuple):

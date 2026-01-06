@@ -80,10 +80,25 @@ class TestNode:
 
 class TestOperatorEvaluation:
     def test_prefers_pep440(self) -> None:
-        assert Marker('"2.7.9" < "foo"').evaluate(dict(foo="2.7.10"))
+        assert Marker('"2.7.9" < python_full_version').evaluate(
+            dict(python_full_version="2.7.10")
+        )
+        assert not Marker('"2.7.9" < python_full_version').evaluate(
+            dict(python_full_version="2.7.8")
+        )
 
-    def test_falls_back_to_python(self) -> None:
-        assert Marker('"b" > "a"').evaluate(dict(a="a"))
+    def test_new_string_rules(self) -> None:
+        assert not Marker('"b" < python_full_version').evaluate(
+            dict(python_full_version="c")
+        )
+        assert not Marker('"b" < python_full_version').evaluate(
+            dict(python_full_version="a")
+        )
+        assert not Marker('"b" > "a"').evaluate(dict(a="a"))
+        assert not Marker('"b" < "a"').evaluate(dict(a="a"))
+        assert not Marker('"b" >= "a"').evaluate(dict(a="a"))
+        assert not Marker('"b" <= "a"').evaluate(dict(a="a"))
+        assert Marker('"a" <= "a"').evaluate(dict(a="a"))
 
     def test_fails_when_undefined(self) -> None:
         with pytest.raises(UndefinedComparison):
@@ -280,6 +295,13 @@ class TestMarker:
         # THEN
         assert marker.evaluate(environment) is False
 
+    def test_environment_with_no_extras(self) -> None:
+        # Environment is set but no 'extra' key is present; branch only hit on
+        # non-metadata context.
+        marker = Marker("os_name == 'foo'")
+        assert marker.evaluate({"os_name": "foo"}, context="requirement")
+        assert not marker.evaluate({"os_name": "bar"}, context="requirement")
+
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
@@ -436,3 +458,24 @@ class TestMarker:
 
         with pytest.raises(KeyError):
             marker.evaluate(context="requirement")
+
+    @pytest.mark.parametrize(
+        ("marker_string", "environment", "expected"),
+        [
+            ('extra == "v2"', None, False),
+            ('extra == "v2"', {"extra": ""}, False),
+            ('extra == "v2"', {"extra": "v2"}, True),
+            ('extra == "v2"', {"extra": "v2a3"}, False),
+            ('extra == "v2a3"', {"extra": "v2"}, False),
+            ('extra == "v2a3"', {"extra": "v2a3"}, True),
+        ],
+    )
+    def test_version_like_equality(
+        self, marker_string: str, environment: dict[str, str] | None, expected: bool
+    ) -> None:
+        """
+        Test for issue #938: Extras are meant to be literal strings, even if
+        they look like versions, and therefore should not be parsed as version.
+        """
+        marker = Marker(marker_string)
+        assert marker.evaluate(environment) is expected

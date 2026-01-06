@@ -30,9 +30,8 @@ repos:
         args: []
         additional_dependencies: [pyparsing, nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: "v2.4.1"
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.40.0
     hooks:
-      - id: codespell
-        additional_dependencies:
-          - tomli; python_version<'3.11'
+      - id: typos
+        args: []

@@ -19,6 +19,7 @@ Behavior adaptations:
 * Adjust arbitrary equality intersection preservation in ``SpecifierSet`` (:pull:`951`)
 * Return ``False`` instead of raising for ``.contains`` with invalid version (:pull:`932`)
 * Support arbitrary equality on arbitrary strings for ``Specifier`` and ``SpecifierSet``'s ``filter`` and ``contains`` method. (:pull:`954`)
+* Only try to parse as ``Version`` on certain marker keys, return ``False`` on unequal ordered comparisons (:pull:`939`)
 
 Fixes:
 
@@ -31,6 +32,7 @@ Fixes:
 * Support nested parens in license expressions (:pull:`931`)
 * Add space before at symbol in ``Requirements`` string (:pull:`953`)
 * A root logger use found, use a ``packaging`` logger instead (:pull:`965`)
+* Better support for subclassing ``Marker`` and ``Requirement`` (:pull:`1022`)
 
 Performance:
 
