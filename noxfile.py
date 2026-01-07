@@ -40,6 +40,9 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
     default=False,
 )
 def tests(session: nox.Session) -> None:
+    """
+    Run the tests, with coverage.
+    """
     coverage = ["python", "-m", "coverage"]
 
     session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
@@ -71,6 +74,9 @@ def tests(session: nox.Session) -> None:
 
 @nox.session(python="3.9")
 def lint(session: nox.Session) -> None:
+    """
+    Run the linters.
+    """
     session.install("prek", "build", "twine")
 
     # Run the linters (via prek, a Rust pre-commit runner)
@@ -83,6 +89,9 @@ def lint(session: nox.Session) -> None:
 
 @nox.session(python="3.9", default=False)
 def docs(session: nox.Session) -> None:
+    """
+    Build the docs.
+    """
     shutil.rmtree("docs/_build", ignore_errors=True)
     session.install("-r", "docs/requirements.txt")
     session.install("-e", ".")
@@ -109,6 +118,9 @@ def docs(session: nox.Session) -> None:
 
 @nox.session(default=False)
 def release(session: nox.Session) -> None:
+    """
+    Give a version number to use as tag.
+    """
     package_name = "packaging"
     version_file = Path(f"src/{package_name}/__init__.py")
     changelog_file = Path("CHANGELOG.rst")
@@ -158,8 +170,9 @@ def release(session: nox.Session) -> None:
 
 @nox.session
 def release_build(session: nox.Session) -> None:
-    # Parse version from command-line arguments, if provided, otherwise get
-    # from Git tag.
+    """
+    Build version from command-line arguments otherwise current Git tag.
+    """
     release_version: str | None
     try:
         release_version = _get_version_from_arguments(session.posargs)
@@ -200,6 +213,20 @@ def release_build(session: nox.Session) -> None:
     # Get back out into main, if we checked out before.
     if checkout:
         session.run("git", "switch", "-q", "main", external=True)
+
+
+@nox.session(default=False)
+def update_licenses(session: nox.Session) -> None:
+    """
+    Update licenses.
+    """
+    session.install("httpx")
+    session.run("python", "tasks/licenses.py")
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
 
 
 def _build_and_check(
@@ -243,15 +270,6 @@ def _build_and_check(
         shutil.rmtree("dist", ignore_errors=True)
 
 
-@nox.session(default=False)
-def update_licenses(session: nox.Session) -> None:
-    session.install("httpx")
-    session.run("python", "tasks/licenses.py")
-
-
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
 def _get_version_from_arguments(arguments: list[str]) -> str:
     """Checks the arguments passed to `nox -s release`.
 
