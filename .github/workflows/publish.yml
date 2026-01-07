@@ -5,7 +5,7 @@ on:
     inputs:
       ref:
         # require SHA as tags and branches are mutable
-        description: Git commit SHA (not branch/tag)
+        description: Full git commit SHA (not branch/tag)
         required: true
         type: string
 
@@ -24,7 +24,6 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.ref }}
-          fetch-depth: 2 # shouldn't need much, if any, history
 
       - name: Log Git tag
         run: git describe --always --tags
@@ -35,8 +34,6 @@ jobs:
           = "$(git log --max-count=1 --format=format:%h)"
           || test "${{ inputs.ref }}"
           = "$(git log --max-count=1 --format=format:%H)"
-
-      # pipx is pre-installed in 'ubuntu' VMs
 
       - name: Provision nox environment
         run: pipx run nox --install-only
