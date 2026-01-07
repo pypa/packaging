@@ -16,7 +16,6 @@ import sys
 import tempfile
 import textwrap
 import time
-import webbrowser
 from pathlib import Path
 from typing import IO, Generator
 
@@ -129,6 +128,9 @@ def release(session: nox.Session) -> None:
     session.run("git", "add", str(changelog_file), external=True)
     _bump(session, version=release_version, file=version_file, kind="release")
 
+    # Check the built distribution.
+    _build_and_check(session, release_version, remove=True)
+
     # Tag the release commit.
     # fmt: off
     session.run(
@@ -147,10 +149,75 @@ def release(session: nox.Session) -> None:
     next_version = f"{major}.{minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
 
-    # Checkout the git tag.
-    session.run("git", "checkout", "-q", release_version, external=True)
+    # Push the commits and tag.
+    # NOTE: The following fails if pushing to the branch is not allowed. This can
+    #       happen on GitHub, if the main branch is protected, there are required
+    #       CI checks and "Include administrators" is enabled on the protection.
+    session.run("git", "push", "upstream", "main", release_version, external=True)
+
+
+@nox.session
+def release_build(session: nox.Session) -> None:
+    # Parse version from command-line arguments, if provided, otherwise get
+    # from Git tag.
+    release_version: str | None
+    try:
+        release_version = _get_version_from_arguments(session.posargs)
+    except ValueError as e:
+        if session.posargs:
+            session.error(f"Invalid arguments: {e}")
+
+        release_version = session.run(
+            "git", "describe", "--exact-match", silent=True, external=True
+        )
+        release_version = "" if release_version is None else release_version.strip()
+        session.debug(f"version: {release_version}")
+        checkout = False
+    else:
+        checkout = True
+
+    # Check state of working directory.
+    _check_working_directory_state(session)
+
+    # Ensure there are no uncommitted changes.
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    if result.stdout:
+        print(result.stdout, end="", file=sys.stderr)
+        session.error("The working tree has uncommitted changes")
+
+    # Check out the Git tag, if provided.
+    if checkout:
+        session.run("git", "switch", "-q", release_version, external=True)
+
+    # Build the distribution.
+    _build_and_check(session, release_version)
+
+    # Get back out into main, if we checked out before.
+    if checkout:
+        session.run("git", "switch", "-q", "main", external=True)
+
+
+def _build_and_check(
+    session: nox.Session,
+    release_version: str,
+    remove: bool = False,
+) -> None:
+    package_name = "packaging"
 
     session.install("build", "twine")
+
+    # Determine if we're in install-only mode. This works as `python --version`
+    # should always succeed when running `nox`, but in install-only mode
+    # `session.run(..., silent=True)` always immediately returns `None` instead
+    # of invoking the command and returning the command's output. See the
+    # documentation at:
+    # https://nox.thea.codes/en/stable/usage.html#skipping-everything-but-install-commands
+    install_only = session.run("python", "--version", silent=True) is None
 
     # Build the distribution.
     session.run("python", "-m", "build")
@@ -161,30 +228,19 @@ def release(session: nox.Session) -> None:
         f"dist/{package_name}-{release_version}-py3-none-any.whl",
         f"dist/{package_name}-{release_version}.tar.gz",
     ]
-    if files != expected:
+    if files != expected and not install_only:
         diff_generator = difflib.context_diff(
             expected, files, fromfile="expected", tofile="got", lineterm=""
         )
         diff = "\n".join(diff_generator)
         session.error(f"Got the wrong files:\n{diff}")
 
-    # Get back out into main.
-    session.run("git", "checkout", "-q", "main", external=True)
+    # Check distribution files.
+    session.run("twine", "check", "--strict", *files)
 
-    # Check and upload distribution files.
-    session.run("twine", "check", *files)
-
-    # Push the commits and tag.
-    # NOTE: The following fails if pushing to the branch is not allowed. This can
-    #       happen on GitHub, if the main branch is protected, there are required
-    #       CI checks and "Include administrators" is enabled on the protection.
-    session.run("git", "push", "upstream", "main", release_version, external=True)
-
-    # Upload the distribution.
-    session.run("twine", "upload", *files)
-
-    # Open up the GitHub release page.
-    webbrowser.open("https://github.com/pypa/packaging/releases")
+    # Remove distribution files, if requested.
+    if remove and not install_only:
+        shutil.rmtree("dist", ignore_errors=True)
 
 
 @nox.session(default=False)

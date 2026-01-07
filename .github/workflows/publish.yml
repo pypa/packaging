@@ -1,0 +1,73 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        # require SHA as tags and branches are mutable
+        description: Full git commit SHA (not branch/tag)
+        required: true
+        type: string
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log inputs
+        run: echo "${{ inputs }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Log Git tag
+        run: git describe --always --tags
+
+      - name: Check ref is the commit SHA
+        # require SHA as tags and branches are mutable
+        run: test "${{ inputs.ref }}"
+          = "$(git log --max-count=1 --format=format:%h)"
+          || test "${{ inputs.ref }}"
+          = "$(git log --max-count=1 --format=format:%H)"
+
+      - name: Provision nox environment
+        run: pipx run nox --install-only
+
+      - name: Build distribution via nox
+        run: pipx run nox --no-install --error-on-missing-interpreters -s release_build
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # 6.0.0
+        with:
+          name: packages
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs:
+    - build
+    environment:
+      name: pypi
+      url: https://pypi.org/project/packaging/${{ github.ref_name }}
+    permissions:
+      id-token: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # 7.0.0
+        with:
+          name: packages
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          print-hash: true
