@@ -33,6 +33,8 @@ Fixes:
 * Add space before at symbol in ``Requirements`` string (:pull:`953`)
 * A root logger use found, use a ``packaging`` logger instead (:pull:`965`)
 * Better support for subclassing ``Marker`` and ``Requirement`` (:pull:`1022`)
+* Normalize all extras, not just if it comes first (:pull:`1024`)
+* Don't produce a broken repr if ``Marker`` fails to construct (:pull:`1033`)
 
 Performance:
 
@@ -46,17 +48,19 @@ Performance:
 * Faster regex on Python 3.11+ for ``Version`` (:pull:`988`)
 * Lazily calculate ``_key`` in ``Version`` (:pull:`989`)
 * Faster ``canonicalize_version`` (:pull:`993`)
-* Use ``re.fullmatch`` in a couple more places (:pull:`992`)
+* Use ``re.fullmatch`` in a couple more places (:pull:`992`, :pull:`1029`)
 * Use ``map`` instead of generator (:pull:`996`)
 * Drop ``._version`` (``_Version``, a ``NamedTuple``) (:pull:`995`)
 * Avoid duplicate ``Version`` creation in ``canonicalize_version`` (:pull:`994`)
-* Add ``__slots__`` to ``Version`` (:pull:`1001`)
-* Add ``__slots__`` to ``Specifier``'s (:pull:`1002`)
+* Add ``__slots__`` to core classes  (:pull:`1001`, :pull:`1002`, :pull:`1032`)
 * Use ``Version.__replace__`` in specifier comparison (:pull:`999`)
 * Use ``_get_spec_version`` in more places in ``Specifier`` (:pull:`1005`)
 * Pull ``set`` construction out of function (:pull:`1012`)
 * Letter normalization dict for prereleases and the like (:pull:`1014`)
 * Use ``str.partition`` in ``_parse_project_urls`` (:pull:`1013`)
+* Avoid normalizing extras again when comparing (:pull:`1028`)
+* Speed up ``Version.__str__`` by about 10% (:pull:`997`)
+* Double the performance of ``canonicalize_name`` by avoiding a regex (:pull:`1030`)
 
 Type annotations:
 
@@ -74,11 +78,13 @@ Internal:
   :pull:`963`, :pull:`956`, :pull:`961`, :pull:`964`, :pull:`958`, :pull:`960`, :pull:`968`,
   :pull:`967`, :pull:`966`, :pull:`969`, :pull:`980`, :pull:`979`, :pull:`962`, :pull:`984`,
   :pull:`972`)
-* Add spell checking (:pull:`904`, :pull:`910`)
+* Add spell checking (:pull:`904`, :pull:`910`, :pull:`1015`)
 * Improve links back to source in the documentation (:pull:`991`)
 * Add case insensitivity tests for arbitrary equality (:pull:`975`)
 * Fix incorrectly implicitly concatenated string in specifiers test (:pull:`946`)
+* Simpler else instead of assert in a check (:pull:`1027`, :pull:`1031`)
 * Synchronize documentation and code for markers (:pull:`1008`)
+* Use the GitHub Actions slim runner for the all pass check (:pull:`1021`)
 
 
 25.0 - 2025-04-19
