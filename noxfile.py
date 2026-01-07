@@ -71,12 +71,12 @@ def tests(session: nox.Session) -> None:
 
 @nox.session(python="3.9")
 def lint(session: nox.Session) -> None:
-    # Run the linters (via pre-commit)
-    session.install("pre-commit")
-    session.run("pre-commit", "run", "--all-files", *session.posargs)
+    session.install("prek", "build", "twine")
+
+    # Run the linters (via prek, a Rust pre-commit runner)
+    session.run("prek", "run", "--all-files", *session.posargs)
 
     # Check the distribution
-    session.install("build", "twine")
     session.run("pyproject-build")
     session.run("twine", "check", *glob.glob("dist/*"))
 
