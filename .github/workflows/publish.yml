@@ -12,28 +12,35 @@ on:
 env:
   FORCE_COLOR: 1
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Log inputs
-        run: echo "${{ inputs }}"
+        run: echo "${INPUTS}"
+        env:
+          INPUTS: ${{ inputs }}
 
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Log Git tag
         run: git describe --always --tags
 
       - name: Check ref is the commit SHA
         # require SHA as tags and branches are mutable
-        run: test "${{ inputs.ref }}"
+        run: test "${INPUTS_REF}"
           = "$(git log --max-count=1 --format=format:%h)"
-          || test "${{ inputs.ref }}"
+          || test "${INPUTS_REF}"
           = "$(git log --max-count=1 --format=format:%H)"
+        env:
+          INPUTS_REF: ${{ inputs.ref }}
 
       - name: Provision nox environment
         run: pipx run nox --install-only
@@ -57,6 +64,7 @@ jobs:
       url: https://pypi.org/project/packaging/${{ github.ref_name }}
     permissions:
       id-token: write
+    if: '!github.event.repository.fork'
 
     runs-on: ubuntu-latest
 
