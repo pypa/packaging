@@ -167,7 +167,8 @@ def release(session: nox.Session) -> None:
     # NOTE: The following fails if pushing to the branch is not allowed. This can
     #       happen on GitHub, if the main branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
-    session.run("git", "push", "upstream", "main", release_version, external=True)
+    session.log("Run the following to push changes and tag (assuming 'upstream')")
+    print("git", "push", "upstream", "main", release_version)
 
 
 @nox.session
