@@ -34,7 +34,7 @@ from __future__ import annotations
 import re
 from typing import NewType, cast
 
-from packaging.licenses._spdx import EXCEPTIONS, LICENSES
+from ._spdx import EXCEPTIONS, LICENSES
 
 __all__ = [
     "InvalidLicenseExpression",
