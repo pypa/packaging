@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["nox>=2025.02.09"]
+# dependencies = ["nox>=2025.02.09", "packaging"]
 # ///
 
 from __future__ import annotations
@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import IO, Generator
 
 import nox
+
+import packaging.version  # will always be present with nox
 
 nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
@@ -165,7 +167,8 @@ def release(session: nox.Session) -> None:
     # NOTE: The following fails if pushing to the branch is not allowed. This can
     #       happen on GitHub, if the main branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
-    session.run("git", "push", "upstream", "main", release_version, external=True)
+    session.log("Run the following to push changes and tag (assuming 'upstream')")
+    print("git", "push", "upstream", "main", release_version)
 
 
 @nox.session
@@ -286,9 +289,9 @@ def _get_version_from_arguments(arguments: list[str]) -> str:
         # Not of the form: YY.N
         raise ValueError("not of the form: YY.N")
 
-    if not all(part.isdigit() for part in parts):
-        # Not all segments are integers.
-        raise ValueError("non-integer segments")
+    norm_version = str(packaging.version.Version(version))
+    if norm_version != version:
+        raise ValueError(f"Must be normalized version {norm_version!r}")
 
     # All is good.
     return version
