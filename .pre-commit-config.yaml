@@ -35,3 +35,10 @@ repos:
     hooks:
       - id: typos
         args: []
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.20.0
+    hooks:
+      - id: zizmor
+        files: "^\\.github"
+        exclude: "\\.github/release.yml"

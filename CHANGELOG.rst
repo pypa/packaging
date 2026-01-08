@@ -85,6 +85,8 @@ Internal:
 * Simpler else instead of assert in a check (:pull:`1027`, :pull:`1031`)
 * Synchronize documentation and code for markers (:pull:`1008`)
 * Use the GitHub Actions slim runner for the all pass check (:pull:`1021`)
+* Use Trusted Publishing (:pull:`893`)
+* Use zizmor to check CI (:pull:`1035`)
 
 
 25.0 - 2025-04-19

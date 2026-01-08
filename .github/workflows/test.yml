@@ -17,6 +17,8 @@ concurrency:
 env:
   FORCE_COLOR: 1
 
+permissions: {}
+
 jobs:
   test:
     name: ${{ matrix.os }} / ${{ matrix.python_version }}
@@ -30,6 +32,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         name: Install Python ${{ matrix.python_version }}
@@ -52,6 +56,6 @@ jobs:
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@release/v1
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe  # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}
