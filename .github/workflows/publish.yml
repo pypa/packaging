@@ -43,11 +43,14 @@ jobs:
         env:
           INPUTS_REF: ${{ inputs.ref }}
 
-      - name: Provision nox environment
+      - name: Install nox with pbs
         run: pipx install nox[pbs]
 
+      - name: Provision nox environment
+        run: nox --install-only -s release_build
+
       - name: Build distribution via nox
-        run: nox --no-install --error-on-missing-interpreters -s release_build
+        run: nox --no-install -R -s release_build
 
       - name: Upload distribution
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # 6.0.0
