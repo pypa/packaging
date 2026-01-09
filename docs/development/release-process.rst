@@ -7,7 +7,9 @@ Release Process
 
     $ pip install nox
 
-#. Manually update the changelog to list all unreleased changes. Also verify that no new changes were added to a previous release in an earlier PR due to merge/rebase issues.
+#. Manually update the changelog to list all unreleased changes. Also verify
+   that no new changes were added to a previous release in an earlier PR due to
+   merge/rebase issues.
 
 #. Run the release automation with the required version number (YY.N)::
 
@@ -17,13 +19,14 @@ Release Process
 
 #. Push the tag (command will be printed out in the last step).
 
-#. Add a `release on GitHub <https://github.com/pypa/packaging/releases>`__.
-
 #. Run the 'Publish' manual GitHub workflow, specifying the Git tag's commit
    SHA. This will build and publish the package to PyPI. Publishing will wait
    for any `required approvals`_.
 
-#. Notify the other project owners of the release.
+#. Once it is approved and published to PyPI, add a
+   `release on GitHub <https://github.com/pypa/packaging/releases>`__.
+   Changelog can be auto-generated, but compare with the official changelog
+   too.
 
 .. note::
 
