@@ -159,8 +159,8 @@ def release(session: nox.Session) -> None:
     _changelog_add_unreleased_title(file=changelog_file)
     session.run("git", "add", str(changelog_file), external=True)
 
-    major, minor = map(int, release_version.split("."))
-    next_version = f"{major}.{minor + 1}.dev0"
+    rel_ver = packaging.version.Version(release_version)
+    next_version = f"{rel_ver.major}.{rel_ver.minor + 1}.dev0"
     _bump(session, version=next_version, file=version_file, kind="development")
 
     # Push the commits and tag.
@@ -168,7 +168,9 @@ def release(session: nox.Session) -> None:
     #       happen on GitHub, if the main branch is protected, there are required
     #       CI checks and "Include administrators" is enabled on the protection.
     session.log("Run the following to push changes and tag (assuming 'upstream')")
-    print("git", "push", "upstream", "main", release_version)
+    print()
+    print(f"  git push upstream main {release_version}")
+    print()
 
 
 @nox.session
