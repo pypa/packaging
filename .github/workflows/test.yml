@@ -2,13 +2,9 @@ name: Test
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/test.yml"
-      - "**.py"
   push:
-    paths:
-      - ".github/workflows/test.yml"
-      - "**.py"
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
