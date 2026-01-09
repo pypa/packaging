@@ -46,7 +46,7 @@ Performance:
 * Avoid recompiling regexes in the tokenizer for a 3x speedup (:pull:`1019`)
 * Improve performance in ``_manylinux.py`` (:pull:`869`)
 * Minor cleanups to ``Version`` (:pull:`913`)
-* Skip redundant creation of ``Versions`` in specifier comparison (:pull:`986`)
+* Skip redundant creation of ``Version``'s in specifier comparison (:pull:`986`)
 * Cache the ``Specifier``'s ``Version`` (:pull:`985`)
 * Make ``Version`` a little faster (:pull:`987`)
 * Minor ``Version`` regex cleanup (:pull:`990`)
@@ -73,7 +73,7 @@ Type annotations:
 * Fix tags return type in ``parse_wheel_filename`` docs (:pull:`973`)
 * Add type hint for ``_version`` in ``.version.Version`` (:pull:`927`)
 * Changed static type annotations in prereleases setter method in ``specifier.py`` (:pull:`930`)
-* Statically type our test suite (:pull:`892`)
+* Statically type our test suite (:pull:`982`)
 
 Internal:
 
