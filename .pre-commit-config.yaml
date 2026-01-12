@@ -42,3 +42,8 @@ repos:
       - id: zizmor
         files: "^\\.github"
         exclude: "\\.github/release.yml"
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.10
+    hooks:
+      - id: actionlint
