@@ -83,7 +83,7 @@ class InvalidVersion(ValueError):
 class _BaseVersion:
     __slots__ = ()
 
-    key: typle[Any, ...]
+    _key: tuple[Any, ...]
 
     def __hash__(self) -> int:
         return hash(self._key)
