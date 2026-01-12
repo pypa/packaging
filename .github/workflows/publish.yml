@@ -44,7 +44,7 @@ jobs:
 
       - name: Get git tag
         id: get-tag
-        run: echo "tag=$(git tag --points-at $INPUTS_REF)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(git tag --points-at "$INPUTS_REF")" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_REF: ${{ inputs.ref }}
 
