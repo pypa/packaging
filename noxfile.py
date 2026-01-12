@@ -76,6 +76,30 @@ def tests(session: nox.Session) -> None:
         )
 
 
+PROJECTS = {"packaging_legacy": "https://github.com/di/packaging_legacy.git"}
+
+
+@nox.parametrize("project", list(PROJECTS))
+@nox.session(default=False)
+def downstream(session: nox.Session, project: str) -> None:
+    session.install("-e.", "pip")
+
+    tmp_dir = Path(session.create_tmp())
+    session.chdir(tmp_dir)
+
+    shutil.rmtree(project, ignore_errors=True)
+    session.run("git", "clone", PROJECTS[project], external=True)
+    session.chdir(project)
+
+    if project == "packaging_legacy":
+        session.install("-r", "tests/requirements.txt")
+        session.install("-e.")
+        session.run("pip", "list")
+        session.run("pytest")
+    else:
+        session.error("Unknown package")
+
+
 @nox.session(python="3.10")
 def lint(session: nox.Session) -> None:
     """
