@@ -67,13 +67,14 @@ jobs:
 
   publish:
     needs:
-    - build
+      - build
     environment:
       name: pypi
       url: https://pypi.org/project/packaging/${{ needs.build.outputs.tag }}
     permissions:
       id-token: write
-    if: '!github.event.repository.fork && needs.build.outputs.tag != ""'
+    # Only publish if there's a matching tag, and if this is not a fork
+    if: needs.build.outputs.tag != '' && !github.event.repository.fork
 
     runs-on: ubuntu-latest
 
