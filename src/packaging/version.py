@@ -83,9 +83,7 @@ class InvalidVersion(ValueError):
 class _BaseVersion:
     __slots__ = ()
 
-    @property
-    def _key(self) -> tuple[Any, ...]:
-        raise NotImplementedError  # pragma: no cover
+    key: typle[Any, ...]
 
     def __hash__(self) -> int:
         return hash(self._key)
