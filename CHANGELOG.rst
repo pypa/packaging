@@ -4,7 +4,19 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Fixes:
+
+* Fix regression in (private) ``Version._key`` for ``packaging_legacy`` by @henryiii in https://github.com/pypa/packaging/pull/1048
+
+Performance:
+
+* Tiny import time improvement and simplification by @henryiii in https://github.com/pypa/packaging/pull/1047
+
+Internal:
+
+* Fix type hint of function used with ``contextlib.contextmanager`` by @SpecLad in https://github.com/pypa/packaging/pull/1046
+* Fix the publish job by @henryiii in https://github.com/pypa/packaging/pull/1043
+* Get the correct tag on publish by @henryiii in https://github.com/pypa/packaging/pull/1045
 
 26.0rc1 - 2026-01-09
 ~~~~~~~~~~~~~~~~~~~~
