@@ -176,8 +176,15 @@ _VERSION_PATTERN = r"""
 
 _VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
 
+# Possessive qualifiers were added in Python 3.11.
+# CPython 3.11.0-3.11.4 had a bug: https://github.com/python/cpython/pull/107795
+# Older PyPy also had a bug.
 VERSION_PATTERN = (
-    _VERSION_PATTERN_OLD if sys.version_info < (3, 11) else _VERSION_PATTERN
+    _VERSION_PATTERN_OLD
+    if (sys.implementation.name == "cpython" and sys.version_info < (3, 11, 5))
+    or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
+    or sys.version_info < (3, 11)
+    else _VERSION_PATTERN
 )
 """
 A string containing the regular expression used to match a valid version.
