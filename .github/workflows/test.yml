@@ -41,7 +41,7 @@ jobs:
         name: Setup uv
 
       - name: Run nox
-        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+        run: uvx nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
 
   pass:
     name: All pass
