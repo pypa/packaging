@@ -622,12 +622,11 @@ class _TrimmedRelease(Version):
         >>> _TrimmedRelease('0.0').release
         (0,)
         """
-        # Unlike _strip_trailing_zeros, this leaves one 0.
-        rel = super().release
-        i = len(rel)
-        while i > 1 and rel[i - 1] == 0:
-            i -= 1
-        return rel[:i]
+        # This leaves one 0.
+        _release = super().release
+        while len(_release) > 1 and _release[-1] == 0:
+            _release = _release[:-1]
+        return _release
 
 
 def _parse_letter_version(
@@ -669,17 +668,6 @@ def _parse_local_version(local: str | None) -> LocalType | None:
     return None
 
 
-def _strip_trailing_zeros(release: tuple[int, ...]) -> tuple[int, ...]:
-    # We want to strip trailing zeros from a tuple of values. This starts
-    # from the end and returns as soon as it finds a non-zero value. When
-    # reading a lot of versions, this is a fairly hot function, so not using
-    # enumerate/reversed, which is slightly slower.
-    for i in range(len(release) - 1, -1, -1):
-        if release[i] != 0:
-            return release[: i + 1]
-    return ()
-
-
 def _cmpkey(
     epoch: int,
     release: tuple[int, ...],
@@ -690,7 +678,8 @@ def _cmpkey(
 ) -> CmpKey:
     # When we compare a release version, we want to compare it with all of the
     # trailing zeros removed. We will use this for our sorting key.
-    _release = _strip_trailing_zeros(release)
+    while release and release[-1] == 0:
+        release = release[:-1]
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this
@@ -734,4 +723,4 @@ def _cmpkey(
             (i, "") if isinstance(i, int) else (NegativeInfinity, i) for i in local
         )
 
-    return epoch, _release, _pre, _post, _dev, _local
+    return epoch, release, _pre, _post, _dev, _local
