@@ -624,10 +624,11 @@ class _TrimmedRelease(Version):
         """
         # This leaves one 0.
         rel = super().release
-        i = len(rel)
+        len_release = len(rel)
+        i = len_release
         while i > 1 and rel[i - 1] == 0:
             i -= 1
-        return rel[:i]
+        return rel if i == len_release else rel[:i]
 
 
 def _parse_letter_version(
@@ -679,10 +680,11 @@ def _cmpkey(
 ) -> CmpKey:
     # When we compare a release version, we want to compare it with all of the
     # trailing zeros removed. We will use this for our sorting key.
-    i = len(release)
-    while i > 0 and release[i - 1] == 0:
+    len_release = len(release)
+    i = len_release
+    while i and release[i - 1] == 0:
         i -= 1
-    _release = release[:i]
+    _release = release if i == len_release else release[:i]
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
     # We'll do this by abusing the pre segment, but we _only_ want to do this
