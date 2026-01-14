@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Fixes:
+
+* Support CPython 3.11.0-3.11.4 and older PyPy3.11 (:pull:`1055`)
 
 26.0rc2 - 2026-01-12
 ~~~~~~~~~~~~~~~~~~~~
