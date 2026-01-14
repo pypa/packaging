@@ -23,6 +23,7 @@ NAMES = [
     "CamelName",
 ]
 
+
 class TimeUtils:
     @add_attributes(pretty_name="canonicalize_name")
     def time_canonicalize_name(self) -> None:
