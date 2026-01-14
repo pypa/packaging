@@ -25,6 +25,15 @@ jobs:
         os: [Ubuntu, Windows, macOS]
         python_version:
           ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "pypy3.8", "pypy3.9", "pypy3.10", "pypy3.11"]
+        include:
+          - os: Ubuntu
+            python_version: "3.11.0"
+          - os: Ubuntu
+            python_version: "3.12.0"
+          - os: Ubuntu
+            python_version: "3.13.0"
+          - os: Ubuntu
+            python_version: "3.14.0"
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -39,7 +48,7 @@ jobs:
           allow-prereleases: true
 
       - name: Run nox
-        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+        run: pipx run nox -s tests --force-python=${{ matrix.python_version }}
 
   pass:
     name: All pass
