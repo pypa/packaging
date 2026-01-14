@@ -45,6 +45,11 @@ test = [
   "tomli_w",
 ]
 dev = [{ include-group = "test" }]
+docs = [
+    "furo",
+    "sphinx-toolbox",
+    "typing-extensions>=4.1.0; python_version < '3.9'",
+]
 
 
 [tool.flit.sdist]
