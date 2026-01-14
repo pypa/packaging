@@ -16,6 +16,16 @@ def valid_version(v: str) -> Version | None:
         return None
 
 
+VERSIONS_WITH_ZEROS = [
+    "1.0.0.0.0",
+    "3.1.0.0",
+    "0.1.0.0.0",
+    "1.0.0",
+    "2.0.0",
+    "1.2.0",
+]
+
+
 class TimeVersionSuite:
     def setup(self) -> None:
         with (DIR / "version_sample.txt").open() as f:
@@ -38,3 +48,9 @@ class TimeVersionSuite:
     @add_attributes(pretty_name="Version sorting")
     def time_sort(self) -> None:
         sorted(self.valid_versions)
+
+    @add_attributes(pretty_name="Stripping zeros")
+    def time_zeros_key(self) -> None:
+        ver = Version("2.0.0")
+        for v in VERSIONS_WITH_ZEROS:
+            Version(v) > ver  # noqa: B015
