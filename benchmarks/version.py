@@ -30,11 +30,11 @@ class TimeVersionSuite:
             except InvalidVersion:  # noqa: PERF203
                 pass
 
-    @add_attributes(pretty_name="Version comparison")
-    def time_compare(self) -> None:
-        ver = Version("1.0")
+    @add_attributes(pretty_name="Version hash")
+    def time_hash(self) -> None:
         for v in self.valid_versions:
-            Version(v) > ver  # noqa: B015
+            v._key_cache = None
+            hash(v)
 
     @add_attributes(pretty_name="Version __str__")
     def time_str(self) -> None:
@@ -43,4 +43,6 @@ class TimeVersionSuite:
 
     @add_attributes(pretty_name="Version sorting")
     def time_sort(self) -> None:
+        for v in self.valid_versions:
+            v._key_cache = None
         sorted(self.valid_versions)
