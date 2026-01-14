@@ -35,11 +35,13 @@ jobs:
         name: Install Python ${{ matrix.python_version }}
         with:
           python-version: ${{ matrix.python_version }}
-          cache: "pip"
           allow-prereleases: true
 
+      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+        name: Setup uv
+
       - name: Run nox
-        run: pipx run nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
+        run: uvx nox --error-on-missing-interpreters -s tests-${{ matrix.python_version }}
 
   pass:
     name: All pass
