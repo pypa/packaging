@@ -80,6 +80,7 @@ def tests(session: nox.Session) -> None:
 PROJECTS = {
     "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
     "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
+    "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.10.0.tar.gz",
 }
 
 
@@ -106,8 +107,10 @@ def downstream(session: nox.Session, project: str) -> None:
         session.install("-e.")
         session.run(*pip_cmd, "list")
         session.run("pytest")
-    elif project == "build":
+    elif project in {"build", "pyproject_metadata"}:
         session.install("-e.", "--group=test")
+        if project != "build":
+            session.run(*pip_cmd, "list")
         session.run("pytest")
     else:
         session.error("Unknown package")
