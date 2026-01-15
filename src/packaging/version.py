@@ -29,14 +29,14 @@ if typing.TYPE_CHECKING:
     from typing_extensions import Self, Unpack
 
 if sys.version_info >= (3, 13):  # pragma: no cover
-    from warnings import deprecated
+    from warnings import deprecated as _deprecated
 elif typing.TYPE_CHECKING:
-    from typing_extensions import deprecated
+    from typing_extensions import deprecated as _deprecated
 else:  # pragma: no cover
     import functools
     import warnings
 
-    def deprecated(message: str) -> object:
+    def _deprecated(message: str) -> object:
         def decorator(func: object) -> object:
             @functools.wraps(func)
             def wrapper(*args: object, **kwargs: object) -> object:
@@ -418,14 +418,14 @@ class Version(_BaseVersion):
         return self._key_cache
 
     @property
-    @deprecated("Version._version is private and will be removed soon")
+    @_deprecated("Version._version is private and will be removed soon")
     def _version(self) -> _Version:
         return _Version(
             self._epoch, self._release, self._dev, self._pre, self._post, self._local
         )
 
     @_version.setter
-    @deprecated("Version._version is private and will be removed soon")
+    @_deprecated("Version._version is private and will be removed soon")
     def _version(self, value: _Version) -> None:
         self._epoch = value.epoch
         self._release = value.release
