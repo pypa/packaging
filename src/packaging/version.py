@@ -12,7 +12,16 @@ from __future__ import annotations
 import re
 import sys
 import typing
-from typing import Any, Callable, Literal, SupportsInt, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    NamedTuple,
+    SupportsInt,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
@@ -264,6 +273,16 @@ def _validate_local(value: object, /) -> LocalType | None:
     raise InvalidVersion(msg)
 
 
+# Backward compatibility for internals before 26.0. Do not use.
+class _Version(NamedTuple):
+    epoch: int
+    release: tuple[int, ...]
+    dev: tuple[str, int] | None
+    pre: tuple[str, int] | None
+    post: tuple[str, int] | None
+    local: LocalType | None
+
+
 class Version(_BaseVersion):
     """This class abstracts handling of a project's versions.
 
@@ -373,6 +392,23 @@ class Version(_BaseVersion):
                 self._local,
             )
         return self._key_cache
+
+    # These will be deprecated in 26.1, and removed in the future
+    @property
+    def _version(self) -> _Version:
+        return _Version(
+            self._epoch, self._release, self._dev, self._pre, self._post, self._local
+        )
+
+    @_version.setter
+    def _version(self, value: _Version) -> None:
+        self._epoch = value.epoch
+        self._release = value.release
+        self._dev = value.dev
+        self._pre = value.pre
+        self._post = value.post
+        self._local = value.local
+        self._key_cache = None
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
