@@ -8,6 +8,16 @@ Fixes:
 
 * Support CPython 3.11.0-3.11.4 and older PyPy3.11 (:pull:`1055`)
 
+Performance:
+
+* Faster zero stripping (:pull:`1058`)
+
+CI:
+
+* Test on first public release of CPython 3.11 and newer (:pull:`1056`)
+* Fix publication job (again) (:pull:`1051`)
+* Use ``actionlint`` to check CI workflows (:pull:`1052`)
+
 26.0rc2 - 2026-01-12
 ~~~~~~~~~~~~~~~~~~~~
 
