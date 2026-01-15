@@ -89,6 +89,7 @@ PROJECTS = {
 @nox.parametrize("project", list(PROJECTS))
 @nox.session(default=False)
 def downstream(session: nox.Session, project: str) -> None:
+    env = {"FORCE_COLOR": None}
     session.install("-e.")
 
     tmp_dir = Path(session.create_tmp())
@@ -108,12 +109,12 @@ def downstream(session: nox.Session, project: str) -> None:
         session.install("-r", "tests/requirements.txt")
         session.install("-e.")
         session.run(*pip_cmd, "list")
-        session.run("pytest")
+        session.run("pytest", env=env)
     elif project in {"build", "pyproject_metadata"}:
         session.install("-e.", "--group=test")
         if project != "build":
             session.run(*pip_cmd, "list")
-        session.run("pytest")
+        session.run("pytest", env=env)
     else:
         session.error("Unknown package")
 
