@@ -80,14 +80,15 @@ def tests(session: nox.Session) -> None:
 
 
 PROJECTS = {
-    "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz"
+    "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
+    "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
 }
 
 
 @nox.parametrize("project", list(PROJECTS))
 @nox.session(default=False)
 def downstream(session: nox.Session, project: str) -> None:
-    session.install("-e.", "pip")
+    session.install("-e.")
 
     tmp_dir = Path(session.create_tmp())
     session.chdir(tmp_dir)
@@ -100,10 +101,15 @@ def downstream(session: nox.Session, project: str) -> None:
     (inner_dir,) = Path(project).iterdir()
     session.chdir(inner_dir)
 
+    pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
+
     if project == "packaging_legacy":
         session.install("-r", "tests/requirements.txt")
         session.install("-e.")
-        session.run("pip", "list")
+        session.run(*pip_cmd, "list")
+        session.run("pytest")
+    elif project == "build":
+        session.install("-e.", "--group=test")
         session.run("pytest")
     else:
         session.error("Unknown package")
