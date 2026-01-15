@@ -298,7 +298,6 @@ def _validate_local(value: object, /) -> LocalType | None:
 
 
 # Backward compatibility for internals before 26.0. Do not use.
-@deprecated("_Version is private and will be removed soon")
 class _Version(NamedTuple):
     epoch: int
     release: tuple[int, ...]
