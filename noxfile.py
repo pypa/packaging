@@ -8,14 +8,17 @@ import contextlib
 import datetime
 import difflib
 import glob
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import textwrap
 import time
+import urllib.request
 from pathlib import Path
 from typing import IO, Generator
 
@@ -76,7 +79,9 @@ def tests(session: nox.Session) -> None:
         )
 
 
-PROJECTS = {"packaging_legacy": "https://github.com/di/packaging_legacy.git"}
+PROJECTS = {
+    "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz"
+}
 
 
 @nox.parametrize("project", list(PROJECTS))
@@ -88,8 +93,12 @@ def downstream(session: nox.Session, project: str) -> None:
     session.chdir(tmp_dir)
 
     shutil.rmtree(project, ignore_errors=True)
-    session.run("git", "clone", PROJECTS[project], external=True)
-    session.chdir(project)
+    with urllib.request.urlopen(PROJECTS[project]) as resp:
+        data = resp.read()
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+        tf.extractall(project)
+    (inner_dir,) = Path(project).iterdir()
+    session.chdir(inner_dir)
 
     if project == "packaging_legacy":
         session.install("-r", "tests/requirements.txt")
