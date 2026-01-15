@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 26.0rc3 - 2026-01-15
 ~~~~~~~~~~~~~~~~~~~~
 
