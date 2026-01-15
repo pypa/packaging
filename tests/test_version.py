@@ -997,3 +997,37 @@ class TestVersion:
             InvalidVersion, match="local must be a valid version string"
         ):
             replace(v, local="+abc")
+
+
+# Taken from hatchling 1.28
+def reset_version_parts(version: Version, **kwargs: typing.Any) -> None:  # noqa: ANN401
+    # https://github.com/pypa/packaging/blob/20.9/packaging/version.py#L301-L310
+    internal_version = version._version
+    parts: dict[str, typing.Any] = {}
+    ordered_part_names = ("epoch", "release", "pre", "post", "dev", "local")
+
+    reset = False
+    for part_name in ordered_part_names:
+        if reset:
+            parts[part_name] = kwargs.get(part_name)
+        elif part_name in kwargs:
+            parts[part_name] = kwargs[part_name]
+            reset = True
+        else:
+            parts[part_name] = getattr(internal_version, part_name)
+
+    version._version = type(internal_version)(**parts)
+
+
+# These will be deprecated in 26.1, and removed in the future
+def test_deprecated__version() -> None:
+    v = Version("1.2.3")
+    with pytest.warns(DeprecationWarning, match="is private"):
+        assert v._version.release == (1, 2, 3)
+
+
+def test_hatchling_usage__version() -> None:
+    v = Version("2.3.4")
+    with pytest.warns(DeprecationWarning, match="is private"):
+        reset_version_parts(v, post=("post", 1))
+    assert v == Version("2.3.4.post1")
