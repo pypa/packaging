@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Fixes:
+
+* Restore ``Version._version`` as a compatibility shim with a ``DeprecationWarning`` (:pull:`1062`)
 
 26.0rc3 - 2026-01-15
 ~~~~~~~~~~~~~~~~~~~~

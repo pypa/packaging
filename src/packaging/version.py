@@ -28,6 +28,30 @@ from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfin
 if typing.TYPE_CHECKING:
     from typing_extensions import Self, Unpack
 
+if sys.version_info >= (3, 13):  # pragma: no cover
+    from warnings import deprecated
+elif typing.TYPE_CHECKING:
+    from typing_extensions import deprecated
+else:  # pragma: no cover
+    import functools
+    import warnings
+
+    def deprecated(message: str) -> object:
+        def decorator(func: object) -> object:
+            @functools.wraps(func)
+            def wrapper(*args: object, **kwargs: object) -> object:
+                warnings.warn(
+                    message,
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                return func(*args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
+
 _LETTER_NORMALIZATION = {
     "alpha": "a",
     "beta": "b",
@@ -274,6 +298,7 @@ def _validate_local(value: object, /) -> LocalType | None:
 
 
 # Backward compatibility for internals before 26.0. Do not use.
+@deprecated("_Version is private and will be removed soon")
 class _Version(NamedTuple):
     epoch: int
     release: tuple[int, ...]
@@ -393,14 +418,15 @@ class Version(_BaseVersion):
             )
         return self._key_cache
 
-    # These will be deprecated in 26.1, and removed in the future
     @property
+    @deprecated("Version._version is private and will be removed soon")
     def _version(self) -> _Version:
         return _Version(
             self._epoch, self._release, self._dev, self._pre, self._post, self._local
         )
 
     @_version.setter
+    @deprecated("Version._version is private and will be removed soon")
     def _version(self, value: _Version) -> None:
         self._epoch = value.epoch
         self._release = value.release

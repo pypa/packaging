@@ -1000,7 +1000,7 @@ class TestVersion:
 
 
 # Taken from hatchling 1.28
-def reset_version_parts(version: Version, **kwargs: Any) -> None:
+def reset_version_parts(version: Version, **kwargs: typing.Any) -> None:  # noqa: ANN401
     # https://github.com/pypa/packaging/blob/20.9/packaging/version.py#L301-L310
     internal_version = version._version
     parts: dict[str, typing.Any] = {}
@@ -1022,10 +1022,12 @@ def reset_version_parts(version: Version, **kwargs: Any) -> None:
 # These will be deprecated in 26.1, and removed in the future
 def test_deprecated__version() -> None:
     v = Version("1.2.3")
-    assert v._version.release == (1, 2, 3)
+    with pytest.warns(DeprecationWarning, match="is private"):
+        assert v._version.release == (1, 2, 3)
 
 
 def test_hatchling_usage__version() -> None:
     v = Version("2.3.4")
-    reset_version_parts(v, post=("post", 1))
+    with pytest.warns(DeprecationWarning, match="is private"):
+        reset_version_parts(v, post=("post", 1))
     assert v == Version("2.3.4.post1")
