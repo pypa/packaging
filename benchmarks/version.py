@@ -20,7 +20,7 @@ class TimeVersionSuite:
     def setup(self) -> None:
         with (DIR / "version_sample.txt").open() as f:
             self.versions = [v.strip() for v in f.readlines()]
-        self.valid_versions = [ver for v in self.versions if (ver := valid_version(v))]
+        self.valid_versions = [v for v in self.versions if valid_version(v)]
 
     @add_attributes(pretty_name="Version constructor")
     def time_constructor(self) -> None:
@@ -33,16 +33,13 @@ class TimeVersionSuite:
     @add_attributes(pretty_name="Version hash")
     def time_hash(self) -> None:
         for v in self.valid_versions:
-            v._key_cache = None
-            hash(v)
+            hash(Version(v))
 
     @add_attributes(pretty_name="Version __str__")
     def time_str(self) -> None:
         for version in self.valid_versions:
-            str(version)
+            str(Version(version))
 
     @add_attributes(pretty_name="Version sorting")
     def time_sort(self) -> None:
-        for v in self.valid_versions:
-            v._key_cache = None
-        sorted(self.valid_versions)
+        sorted(Version(v) for v in self.valid_versions)
