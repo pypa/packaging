@@ -2,6 +2,7 @@
     "version": 1,
     "project": "packaging",
     "project_url": "https//github.com/pypa/packaging",
+    "show_commit_url": "https://github.com/pypa/packaging/commit/",
     "repo": ".",
     "environment_type": "virtualenv",
     "branches": ["main"],
@@ -10,5 +11,6 @@
     "default_benchmark_timeout": 180,
     "regressions_thresholds": {
         ".*": 0.01
-    }
+    },
+    "pythons": ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 }
