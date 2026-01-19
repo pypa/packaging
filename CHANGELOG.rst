@@ -92,6 +92,29 @@ Internal:
 * Use zizmor to check CI (:pull:`1035`)
 * Test on first public release of CPython 3.11 and newer (:pull:`1056`)
 
+
+Since the final release candidate: Faster ``canonicalize_name``, especially on
+Python 3.12 and 3.13, where performance regressed previously (:pull:`1064`),
+and reintroduce (deprecated) support for ``Version._.version`` (:pull:`1062`).
+
+26.0rc3 - 2026-01-15
+~~~~~~~~~~~~~~~~~~~~
+
+Third release candidate for 26.0. Avoid bug in CPython 3.11.0-3.11.4 and older
+PyPy 3.11 (:pull:`1055`).
+
+26.0rc2 - 2026-01-12
+~~~~~~~~~~~~~~~~~~~~
+
+Second release candidate for 26.0. Fixed a regression in (private)
+``Version._key`` for ``packaging_legacy`` (:pull:`1048`), and speed up
+stripping zeros a little more (:pull:`1058`).
+
+26.0rc1 - 2026-01-09
+~~~~~~~~~~~~~~~~~~~~
+
+First release candidate for 26.0.
+
 25.0 - 2025-04-19
 ~~~~~~~~~~~~~~~~~
 
