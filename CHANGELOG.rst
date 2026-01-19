@@ -60,7 +60,7 @@ Performance:
 * Use ``str.partition`` in ``_parse_project_urls`` (:pull:`1013`)
 * Avoid normalizing extras again when comparing (:pull:`1028`)
 * Speed up ``Version.__str__`` by about 10% (:pull:`997`)
-* Double the performance of ``canonicalize_name`` by avoiding a regex (:pull:`1030`, :pull:`1047`)
+* Much faster ``canonicalize_name`` by avoiding a regex (:pull:`1030`, :pull:`1047`, :pull:`1064`)
 * Faster zero stripping (:pull:`1058`)
 
 Type annotations:
