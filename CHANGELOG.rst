@@ -4,47 +4,6 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-Fixes:
-
-* Restore ``Version._version`` as a compatibility shim with a ``DeprecationWarning`` (:pull:`1062`)
-
-26.0rc3 - 2026-01-15
-~~~~~~~~~~~~~~~~~~~~
-
-Fixes:
-
-* Support CPython 3.11.0-3.11.4 and older PyPy3.11 (:pull:`1055`)
-
-Performance:
-
-* Faster zero stripping (:pull:`1058`)
-
-CI:
-
-* Test on first public release of CPython 3.11 and newer (:pull:`1056`)
-* Fix publication job (again) (:pull:`1051`)
-* Use ``actionlint`` to check CI workflows (:pull:`1052`)
-
-26.0rc2 - 2026-01-12
-~~~~~~~~~~~~~~~~~~~~
-
-Fixes:
-
-* Fix regression in (private) ``Version._key`` for ``packaging_legacy`` by @henryiii in https://github.com/pypa/packaging/pull/1048
-
-Performance:
-
-* Tiny import time improvement and simplification by @henryiii in https://github.com/pypa/packaging/pull/1047
-
-Internal:
-
-* Fix type hint of function used with ``contextlib.contextmanager`` by @SpecLad in https://github.com/pypa/packaging/pull/1046
-* Fix the publish job by @henryiii in https://github.com/pypa/packaging/pull/1043
-* Get the correct tag on publish by @henryiii in https://github.com/pypa/packaging/pull/1045
-
-26.0rc1 - 2026-01-09
-~~~~~~~~~~~~~~~~~~~~
-
 Features:
 
 * PEP 751: support pylock (:pull:`900`)
@@ -86,12 +45,12 @@ Performance:
 * Cache the ``Specifier``'s ``Version`` (:pull:`985`)
 * Make ``Version`` a little faster (:pull:`987`)
 * Minor ``Version`` regex cleanup (:pull:`990`)
-* Faster regex on Python 3.11+ for ``Version`` (:pull:`988`)
-* Lazily calculate ``_key`` in ``Version`` (:pull:`989`)
+* Faster regex on Python 3.11.5+ for ``Version`` (:pull:`988`, :pull:`1055`)
+* Lazily calculate ``_key`` in ``Version`` (:pull:`989`, :pull:`1048`)
 * Faster ``canonicalize_version`` (:pull:`993`)
 * Use ``re.fullmatch`` in a couple more places (:pull:`992`, :pull:`1029`)
 * Use ``map`` instead of generator (:pull:`996`)
-* Drop ``._version`` (``_Version``, a ``NamedTuple``) (:pull:`995`)
+* Deprecate ``._version`` (``_Version``, a ``NamedTuple``) (:pull:`995`, :pull:`1062`)
 * Avoid duplicate ``Version`` creation in ``canonicalize_version`` (:pull:`994`)
 * Add ``__slots__`` to core classes  (:pull:`1001`, :pull:`1002`, :pull:`1032`)
 * Use ``Version.__replace__`` in specifier comparison (:pull:`999`)
@@ -101,11 +60,13 @@ Performance:
 * Use ``str.partition`` in ``_parse_project_urls`` (:pull:`1013`)
 * Avoid normalizing extras again when comparing (:pull:`1028`)
 * Speed up ``Version.__str__`` by about 10% (:pull:`997`)
-* Double the performance of ``canonicalize_name`` by avoiding a regex (:pull:`1030`)
+* Much faster ``canonicalize_name`` by avoiding a regex (:pull:`1030`, :pull:`1047`, :pull:`1064`)
+* Faster zero stripping (:pull:`1058`)
 
 Type annotations:
 
 * Fix a type annotation (:pull:`907`)
+* Fix type hint of function used with ``contextlib.contextmanager`` (:pull:`1046`)
 * Fix tags return type in ``parse_wheel_filename`` docs (:pull:`973`)
 * Add type hint for ``_version`` in ``.version.Version`` (:pull:`927`)
 * Changed static type annotations in prereleases setter method in ``specifier.py`` (:pull:`930`)
@@ -126,9 +87,33 @@ Internal:
 * Simpler else instead of assert in a check (:pull:`1027`, :pull:`1031`)
 * Synchronize documentation and code for markers (:pull:`1008`)
 * Use the GitHub Actions slim runner for the all pass check (:pull:`1021`)
-* Use Trusted Publishing (:pull:`893`)
+* Use ``actionlint`` to check CI workflows (:pull:`1052`)
+* Use Trusted Publishing (:pull:`893`, :pull:`1043`, :pull:`1045`, :pull:`1051`)
 * Use zizmor to check CI (:pull:`1035`)
+* Test on first public release of CPython 3.11 and newer (:pull:`1056`)
 
+
+Since the final release candidate: Faster ``canonicalize_name``, especially on
+Python 3.12 and 3.13, where performance regressed previously (:pull:`1064`),
+and reintroduce (deprecated) support for ``Version._.version`` (:pull:`1062`).
+
+26.0rc3 - 2026-01-15
+~~~~~~~~~~~~~~~~~~~~
+
+Third release candidate for 26.0. Avoid bug in CPython 3.11.0-3.11.4 and older
+PyPy 3.11 (:pull:`1055`).
+
+26.0rc2 - 2026-01-12
+~~~~~~~~~~~~~~~~~~~~
+
+Second release candidate for 26.0. Fixed a regression in (private)
+``Version._key`` for ``packaging_legacy`` (:pull:`1048`), and speed up
+stripping zeros a little more (:pull:`1058`).
+
+26.0rc1 - 2026-01-09
+~~~~~~~~~~~~~~~~~~~~
+
+First release candidate for 26.0.
 
 25.0 - 2025-04-19
 ~~~~~~~~~~~~~~~~~
