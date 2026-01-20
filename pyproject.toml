@@ -44,7 +44,14 @@ test = [
   "tomli; python_version<'3.11'",
   "tomli_w",
 ]
-dev = [{ include-group = "test" }]
+benchmark = [
+  "asv",
+  "pip",
+]
+dev = [
+  { include-group = "test" },
+  { include-group = "benchmark" },
+]
 
 
 [tool.flit.sdist]
