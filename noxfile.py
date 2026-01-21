@@ -82,6 +82,7 @@ def tests(session: nox.Session) -> None:
 PROJECTS = {
     "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
     "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
+    "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v80.10.1.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.10.0.tar.gz",
 }
 
@@ -89,6 +90,7 @@ PROJECTS = {
 @nox.parametrize("project", list(PROJECTS))
 @nox.session(default=False)
 def downstream(session: nox.Session, project: str) -> None:
+    pkg_dir = Path.cwd() / "src/packaging"
     env = {"FORCE_COLOR": None}
     session.install("-e.")
 
@@ -109,12 +111,19 @@ def downstream(session: nox.Session, project: str) -> None:
         session.install("-r", "tests/requirements.txt")
         session.install("-e.")
         session.run(*pip_cmd, "list")
-        session.run("pytest", env=env)
+        session.run("pytest", *session.posargs, env=env)
     elif project in {"build", "pyproject_metadata"}:
         session.install("-e.", "--group=test")
         if project != "build":
             session.run(*pip_cmd, "list")
-        session.run("pytest", env=env)
+        session.run("pytest", *session.posargs, env=env)
+    elif project == "setuptools":
+        session.install("-e.[test,cover]")
+        session.run(*pip_cmd, "list")
+        repl_dir = "setuptools/_vendor/packaging"
+        shutil.rmtree(repl_dir)
+        shutil.copytree(pkg_dir, repl_dir)
+        session.run("pytest", *session.posargs, env=env)
     else:
         session.error("Unknown package")
 
