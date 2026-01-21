@@ -89,14 +89,14 @@ def lint(session: nox.Session) -> None:
     session.run("twine", "check", *glob.glob("dist/*"))
 
 
-@nox.session(python="3.9", default=False)
+@nox.session(default=False)
 def docs(session: nox.Session) -> None:
     """
     Build the docs.
     """
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install("-r", "docs/requirements.txt")
-    session.install("-e", ".")
+    session.install(*nox.project.dependency_groups(PYPROJECT, "docs"))
+    session.install("-e.")
 
     variants = [
         # (builder, dest)
