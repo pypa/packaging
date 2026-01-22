@@ -84,6 +84,7 @@ PROJECTS = {
     "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
     "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v80.10.1.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.10.0.tar.gz",
+    "pip": "https://github.com/pypa/pip/archive/refs/tags/25.3.tar.gz",
 }
 
 
@@ -124,6 +125,21 @@ def downstream(session: nox.Session, project: str) -> None:
         shutil.rmtree(repl_dir)
         shutil.copytree(pkg_dir, repl_dir)
         session.run("pytest", *session.posargs, env=env)
+    elif project == "pip":
+        session.install("-e.", "--group=test")
+        session.run(
+            "pip",
+            "wheel",
+            "-w",
+            "tests/data/common_wheels",
+            "--group",
+            "test-common-wheels",
+        )
+        session.run(*pip_cmd, "list")
+        repl_dir = "src/pip/_vendor/packaging"
+        shutil.rmtree(repl_dir)
+        shutil.copytree(pkg_dir, repl_dir)
+        session.run("pytest", "tests/unit", "--numprocesses=auto", *session.posargs)
     else:
         session.error("Unknown package")
 
