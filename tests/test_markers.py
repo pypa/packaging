@@ -4,12 +4,11 @@
 
 from __future__ import annotations
 
-import collections
 import itertools
 import os
 import platform
 import sys
-from typing import cast
+from typing import NamedTuple, cast
 from unittest import mock
 
 import pytest
@@ -110,9 +109,12 @@ class TestOperatorEvaluation:
         )
 
 
-FakeVersionInfo = collections.namedtuple(
-    "FakeVersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
-)
+class FakeVersionInfo(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    releaselevel: str
+    serial: int
 
 
 class TestDefaultEnvironment:

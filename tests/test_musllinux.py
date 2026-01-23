@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 import pathlib
 import subprocess
 import typing
@@ -13,6 +12,11 @@ from packaging._musllinux import _get_musl_version, _MuslVersion, _parse_musl_ve
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator
+
+
+class Proc(typing.NamedTuple):
+    stderr: str
+
 
 MUSL_AMD64 = "musl libc (x86_64)\nVersion 1.2.2\n"
 MUSL_I386 = "musl libc (i386)\nVersion 1.2.1\n"
@@ -71,8 +75,8 @@ def test_get_musl_version(
     version: _MuslVersion | None,
     ld_musl: str | None,
 ) -> None:
-    def mock_run(*args: object, **kwargs: object) -> tuple[object, ...]:
-        return collections.namedtuple("Proc", "stderr")(output)
+    def mock_run(*args: object, **kwargs: object) -> Proc:
+        return Proc(stderr=output)
 
     run_recorder = pretend.call_recorder(mock_run)
     monkeypatch.setattr(_musllinux.subprocess, "run", run_recorder)  # type: ignore[attr-defined]
