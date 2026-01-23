@@ -39,6 +39,11 @@ __all__ = [
     "is_valid_pylock_path",
 ]
 
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 _T = TypeVar("_T")
 _T2 = TypeVar("_T2")
 
