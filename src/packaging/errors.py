@@ -37,7 +37,21 @@ else:  # pragma: no cover
 @dataclasses.dataclass
 class ErrorCollector:
     """
-    Collect errors.
+    Collect errors into ExceptionGroups.
+
+    Used like this:
+
+        collector = ErrorCollector()
+        # Add a single exception
+        collector.error(ValueError("one"))
+
+        # Supports nesting, including combining ExceptionGroups
+        with collector.collect():
+            raise ValueError("two")
+        collector.finalize("Found some errors")
+
+    Since making a collector and then calling finalize later is a common pattern,
+    a convenience method ``on_exit`` is provided.
     """
 
     errors: list[Exception] = dataclasses.field(default_factory=list, init=False)
@@ -48,15 +62,28 @@ class ErrorCollector:
             raise ExceptionGroup(msg, self.errors)
 
     @contextlib.contextmanager
-    def collect(
-        self, err_cls: type[Exception] = Exception
-    ) -> typing.Generator[None, None, None]:
-        """Collect errors into the error list. Must be inside loops."""
+    def on_exit(self, msg: str) -> typing.Generator[ErrorCollector, None, None]:
+        """
+        Calls finalize if no uncollected errors were present.
+
+        Uncollected errors are raised normally.
+        """
+        yield self
+        self.finalize(msg)
+
+    @contextlib.contextmanager
+    def collect(self, *err_cls: type[Exception]) -> typing.Generator[None, None, None]:
+        """
+        Context manager to collect errors into the error list.
+
+        Must be inside loops, as only one error can be collected at a time.
+        """
+        error_classes = err_cls or (Exception,)
         try:
             yield
         except ExceptionGroup as error:
             self.errors.extend(error.exceptions)
-        except err_cls as error:
+        except error_classes as error:
             self.errors.append(error)
 
     def error(

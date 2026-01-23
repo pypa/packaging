@@ -56,3 +56,53 @@ def test_error_collector_exception_group() -> None:
     assert str(exception_group.exceptions[0]) == "inner error 1"
     assert isinstance(exception_group.exceptions[1], KeyError)
     assert str(exception_group.exceptions[1]) == "'inner error 2'"
+
+
+def test_error_collector_on_exit() -> None:
+    collector = packaging.errors.ErrorCollector()
+
+    with pytest.raises(packaging.errors.ExceptionGroup) as exc_info, collector.on_exit(
+        "exiting"
+    ):
+        collector.error(ValueError("an error"))
+
+    exception_group = exc_info.value
+    assert exception_group.message == "exiting"
+    assert len(exception_group.exceptions) == 1
+    assert isinstance(exception_group.exceptions[0], ValueError)
+    assert str(exception_group.exceptions[0]) == "an error"
+
+
+def test_error_collector_on_exit_no_errors() -> None:
+    collector = packaging.errors.ErrorCollector()
+
+    with collector.on_exit("exiting"):
+        pass  # No errors added
+
+
+def test_error_collector_collect_specific_exception() -> None:
+    collector = packaging.errors.ErrorCollector()
+
+    with collector.collect(KeyError):
+        raise KeyError("a key error")
+
+    with pytest.raises(packaging.errors.ExceptionGroup) as exc_info:
+        collector.finalize("collected errors")
+
+    exception_group = exc_info.value
+    assert exception_group.message == "collected errors"
+    assert len(exception_group.exceptions) == 1
+    assert isinstance(exception_group.exceptions[0], KeyError)
+    assert str(exception_group.exceptions[0]) == "'a key error'"
+
+
+def test_error_collector_collect_unmatched_exception() -> None:
+    collector = packaging.errors.ErrorCollector()
+
+    # Now test that other exceptions are not collected
+    with pytest.raises(
+        ValueError, match="a value error"
+    ) as exc_info, collector.collect(KeyError):
+        raise ValueError("a value error")
+
+    assert str(exc_info.value) == "a value error"
