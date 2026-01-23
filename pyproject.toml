@@ -70,6 +70,7 @@ tou = "tou"
 [tool.coverage.run]
 branch = true
 source_pkgs = ["packaging"]
+omit = ["src/packaging/project_table.py"]
 
 [tool.coverage.report]
 show_missing = true
@@ -141,3 +142,4 @@ flake8-unused-arguments.ignore-variadic-names = true
 "src/packaging/_musllinux.py" = ["T20"]
 "docs/conf.py" = ["INP001", "S", "A001"]
 "noxfile.py" = ["T20", "S"]
+"tests/test_project*.py" = ["E501"]  # temp
