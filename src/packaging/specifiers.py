@@ -676,8 +676,8 @@ class Specifier(BaseSpecifier):
         >>> list(Specifier(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
         ['1.3', '1.5a1']
         >>> list(Specifier(">=1.2.3").filter(
-            [{"ver": "1.2"}, {"ver": "1.3"}],
-            key=lambda x: x["ver"]))
+        ... [{"ver": "1.2"}, {"ver": "1.3"}],
+        ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
         """
         prereleases_versions = []
@@ -1069,8 +1069,8 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
         ['1.3', '1.5a1']
         >>> list(SpecifierSet(">=1.2.3").filter(
-            [{"ver": "1.2"}, {"ver": "1.3"}],
-            key=lambda x: x["ver"]))
+        ... [{"ver": "1.2"}, {"ver": "1.3"}],
+        ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
 
         An "empty" SpecifierSet will filter items based on the presence of prerelease
