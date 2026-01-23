@@ -84,7 +84,7 @@ PROJECTS = {
     "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
     "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v80.10.1.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.10.0.tar.gz",
-    "pip": "https://github.com/pypa/pip/archive/refs/tags/25.3.tar.gz",
+    "pip": "https://github.com/pypa/pip/archive/200251ab8df071b6c0a83504c29db7871a29b8c9.tar.gz",
 }
 
 
