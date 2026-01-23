@@ -74,7 +74,7 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@abc.abstractmethod", "@abc.abstractproperty", "if typing.TYPE_CHECKING:", "@overload"]
+exclude_also = ["@(abc.)?abstractmethod", "@(abc.)?abstractproperty", "if (typing.)?TYPE_CHECKING:", "@(typing.)?overload"]
 
 [tool.pytest.ini_options]
 minversion = "6.2"

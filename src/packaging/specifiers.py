@@ -13,7 +13,8 @@ from __future__ import annotations
 import abc
 import itertools
 import re
-from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union, overload
+import typing
+from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
@@ -106,7 +107,7 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         Determines if the given item is contained within this specifier.
         """
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[UnparsedVersionVar],
@@ -114,7 +115,7 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         key: None = ...,
     ) -> Iterator[UnparsedVersionVar]: ...
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[T],
@@ -628,7 +629,7 @@ class Specifier(BaseSpecifier):
 
         return bool(list(self.filter([item], prereleases=prereleases)))
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[UnparsedVersionVar],
@@ -636,7 +637,7 @@ class Specifier(BaseSpecifier):
         key: None = ...,
     ) -> Iterator[UnparsedVersionVar]: ...
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[T],
@@ -1021,7 +1022,7 @@ class SpecifierSet(BaseSpecifier):
         check_item = item if version is None else version
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[UnparsedVersionVar],
@@ -1029,7 +1030,7 @@ class SpecifierSet(BaseSpecifier):
         key: None = ...,
     ) -> Iterator[UnparsedVersionVar]: ...
 
-    @overload
+    @typing.overload
     def filter(
         self,
         iterable: Iterable[T],
