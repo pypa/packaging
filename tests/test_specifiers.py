@@ -795,9 +795,40 @@ class TestSpecifier:
         else:
             spec = Specifier(specifier, prereleases=specifier_prereleases)
 
-        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+        if prereleases is None:
+            result = list(spec.filter(input))
+        else:
+            result = list(spec.filter(input, prereleases=prereleases))
 
-        assert list(spec.filter(input, **kwargs)) == expected
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        ("prereleases", "expected_indexes"),
+        [
+            (None, [1]),
+            (True, [1]),
+            (False, []),
+        ],
+    )
+    def test_specifier_filter_with_key(
+        self, prereleases: bool | None, expected_indexes: list[int]
+    ) -> None:
+        items = [
+            {"version": "1.0"},
+            {"version": "2.1a1"},
+        ]
+        spec = Specifier(">=2.0")
+        if prereleases is None:
+            result = list(spec.filter(items, key=lambda item: item["version"]))
+        else:
+            result = list(
+                spec.filter(
+                    items, key=lambda item: item["version"], prereleases=prereleases
+                )
+            )
+
+        expected = [items[index] for index in expected_indexes]
+        assert result == expected
 
     @pytest.mark.parametrize(
         ("spec", "op"),
@@ -1046,8 +1077,7 @@ class TestSpecifierSet:
         assert spec.contains("foobar")
 
         # check filter behavior (no override of prereleases passed to filter)
-        kwargs: dict[str, bool | None] = {}
-        assert list(spec.filter(versions, **kwargs)) == expected
+        assert list(spec.filter(versions)) == expected
 
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
@@ -1348,9 +1378,40 @@ class TestSpecifierSet:
         else:
             spec = SpecifierSet(specifier, prereleases=specifier_prereleases)
 
-        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+        if prereleases is None:
+            result = list(spec.filter(input))
+        else:
+            result = list(spec.filter(input, prereleases=prereleases))
 
-        assert list(spec.filter(input, **kwargs)) == expected
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        ("prereleases", "expected_indexes"),
+        [
+            (None, [1]),
+            (True, [1]),
+            (False, []),
+        ],
+    )
+    def test_specifierset_filter_with_key(
+        self, prereleases: bool | None, expected_indexes: list[int]
+    ) -> None:
+        items = [
+            {"version": "1.0"},
+            {"version": "2.1a1"},
+        ]
+        spec = SpecifierSet(">=2")
+        if prereleases is None:
+            result = list(spec.filter(items, key=lambda item: item["version"]))
+        else:
+            result = list(
+                spec.filter(
+                    items, key=lambda item: item["version"], prereleases=prereleases
+                )
+            )
+
+        expected = [items[index] for index in expected_indexes]
+        assert result == expected
 
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "input", "expected"),
@@ -1589,8 +1650,12 @@ class TestSpecifierSet:
         non-matching non-prerelease versions are present in the input.
         """
         spec = SpecifierSet(specifier)
-        kwargs = {"prereleases": prereleases} if prereleases is not None else {}
-        assert list(spec.filter(input, **kwargs)) == expected
+        if prereleases is None:
+            result = list(spec.filter(input))
+        else:
+            result = list(spec.filter(input, prereleases=prereleases))
+
+        assert result == expected
 
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "version", "expected"),
