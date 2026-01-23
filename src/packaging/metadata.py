@@ -6,7 +6,6 @@ import email.parser
 import email.policy
 import keyword
 import pathlib
-import sys
 import typing
 from typing import (
     Any,
@@ -19,33 +18,12 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .errors import ExceptionGroup
 
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
-
-
-if sys.version_info >= (3, 11):  # pragma: no cover
-    ExceptionGroup = ExceptionGroup  # noqa: F821
-else:  # pragma: no cover
-
-    class ExceptionGroup(Exception):
-        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
-
-        If :external:exc:`ExceptionGroup` is already defined by Python itself,
-        that version is used instead.
-        """
-
-        message: str
-        exceptions: list[Exception]
-
-        def __init__(self, message: str, exceptions: list[Exception]) -> None:
-            self.message = message
-            self.exceptions = exceptions
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
 __all__ = [
