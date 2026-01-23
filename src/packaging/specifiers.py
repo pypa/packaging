@@ -13,17 +13,7 @@ from __future__ import annotations
 import abc
 import itertools
 import re
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Final,
-    Iterable,
-    Iterator,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union, overload
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
@@ -116,23 +106,21 @@ class BaseSpecifier(metaclass=abc.ABCMeta):
         Determines if the given item is contained within this specifier.
         """
 
-    if TYPE_CHECKING:
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[UnparsedVersionVar],
+        prereleases: bool | None = None,
+        key: None = ...,
+    ) -> Iterator[UnparsedVersionVar]: ...
 
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[UnparsedVersionVar],
-            prereleases: bool | None = None,
-            key: None = ...,
-        ) -> Iterator[UnparsedVersionVar]: ...
-
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[T],
-            prereleases: bool | None = None,
-            key: Callable[[T], UnparsedVersion] = ...,
-        ) -> Iterator[T]: ...
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[T],
+        prereleases: bool | None = None,
+        key: Callable[[T], UnparsedVersion] = ...,
+    ) -> Iterator[T]: ...
 
     @abc.abstractmethod
     def filter(
@@ -640,23 +628,21 @@ class Specifier(BaseSpecifier):
 
         return bool(list(self.filter([item], prereleases=prereleases)))
 
-    if TYPE_CHECKING:
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[UnparsedVersionVar],
+        prereleases: bool | None = None,
+        key: None = ...,
+    ) -> Iterator[UnparsedVersionVar]: ...
 
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[UnparsedVersionVar],
-            prereleases: bool | None = None,
-            key: None = ...,
-        ) -> Iterator[UnparsedVersionVar]: ...
-
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[T],
-            prereleases: bool | None = None,
-            key: Callable[[T], UnparsedVersion] = ...,
-        ) -> Iterator[T]: ...
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[T],
+        prereleases: bool | None = None,
+        key: Callable[[T], UnparsedVersion] = ...,
+    ) -> Iterator[T]: ...
 
     def filter(
         self,
@@ -673,6 +659,10 @@ class Specifier(BaseSpecifier):
             Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
             and match prereleases if there are no other versions.
+        :param key:
+            A callable that takes a single argument (an item from the iterable) and
+            returns a version string or :class:`Version` instance to be used for
+            filtering.
 
         >>> list(Specifier(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
@@ -684,6 +674,10 @@ class Specifier(BaseSpecifier):
         ['1.3', '1.5a1']
         >>> list(Specifier(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
         ['1.3', '1.5a1']
+        >>> list(Specifier(">=1.2.3").filter(
+            [{"ver": "1.2"}, {"ver": "1.3"}],
+            key=lambda x: x["ver"]))
+        [{'ver': '1.3'}]
         """
         prereleases_versions = []
         found_non_prereleases = False
@@ -1027,23 +1021,21 @@ class SpecifierSet(BaseSpecifier):
         check_item = item if version is None else version
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
-    if TYPE_CHECKING:
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[UnparsedVersionVar],
+        prereleases: bool | None = None,
+        key: None = ...,
+    ) -> Iterator[UnparsedVersionVar]: ...
 
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[UnparsedVersionVar],
-            prereleases: bool | None = None,
-            key: None = ...,
-        ) -> Iterator[UnparsedVersionVar]: ...
-
-        @overload
-        def filter(
-            self,
-            iterable: Iterable[T],
-            prereleases: bool | None = None,
-            key: Callable[[T], UnparsedVersion] = ...,
-        ) -> Iterator[T]: ...
+    @overload
+    def filter(
+        self,
+        iterable: Iterable[T],
+        prereleases: bool | None = None,
+        key: Callable[[T], UnparsedVersion] = ...,
+    ) -> Iterator[T]: ...
 
     def filter(
         self,
@@ -1060,6 +1052,10 @@ class SpecifierSet(BaseSpecifier):
             Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
             and match prereleases if there are no other versions.
+        :param key:
+            A callable that takes a single argument (an item from the iterable) and
+            returns a version string or :class:`Version` instance to be used for
+            filtering.
 
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
@@ -1071,6 +1067,10 @@ class SpecifierSet(BaseSpecifier):
         ['1.3', '1.5a1']
         >>> list(SpecifierSet(">=1.2.3", prereleases=True).filter(["1.3", "1.5a1"]))
         ['1.3', '1.5a1']
+        >>> list(SpecifierSet(">=1.2.3").filter(
+            [{"ver": "1.2"}, {"ver": "1.3"}],
+            key=lambda x: x["ver"]))
+        [{'ver': '1.3'}]
 
         An "empty" SpecifierSet will filter items based on the presence of prerelease
         versions in the set.
