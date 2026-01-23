@@ -776,12 +776,10 @@ class Metadata:
 
         if validate:
             collector = ErrorCollector()
-            try:
+            metadata_version = None
+            with collector.collect(InvalidMetadata):
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
-            except InvalidMetadata as metadata_version_exc:
-                collector.error(metadata_version_exc)
-                metadata_version = None
 
             # Make sure to check for the fields that are present, the required
             # fields (so their absence can be reported).
@@ -830,15 +828,13 @@ class Metadata:
         raw, unparsed = parse_email(data)
 
         if validate:
-            collector = ErrorCollector()
-            for unparsed_key in unparsed:
-                if unparsed_key in _EMAIL_TO_RAW_MAPPING:
-                    message = f"{unparsed_key!r} has invalid data"
-                else:
-                    message = f"unrecognized field: {unparsed_key!r}"
-                collector.error(InvalidMetadata(unparsed_key, message))
-
-            collector.finalize("unparsed")
+            with ErrorCollector().on_exit("unparsed") as collector:
+                for unparsed_key in unparsed:
+                    if unparsed_key in _EMAIL_TO_RAW_MAPPING:
+                        message = f"{unparsed_key!r} has invalid data"
+                    else:
+                        message = f"unrecognized field: {unparsed_key!r}"
+                    collector.error(InvalidMetadata(unparsed_key, message))
 
         try:
             return cls.from_raw(raw, validate=validate)
