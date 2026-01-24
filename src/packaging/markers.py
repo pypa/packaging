@@ -26,6 +26,11 @@ __all__ = [
     "default_environment",
 ]
 
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}

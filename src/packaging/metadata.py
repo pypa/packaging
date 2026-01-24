@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import email.feedparser
 import email.header
 import email.message
 import email.parser
@@ -47,6 +46,20 @@ else:  # pragma: no cover
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
+
+
+__all__ = [
+    "InvalidMetadata",
+    "Metadata",
+    "RFC822Message",
+    "RFC822Policy",
+    "RawMetadata",
+    "parse_email",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
 
 
 class InvalidMetadata(ValueError):
