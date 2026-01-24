@@ -333,22 +333,24 @@ class Specifier(BaseSpecifier):
         # Only the "!=" operator does not imply prereleases when
         # the version in the specifier is a prerelease.
         operator, version_str = self._spec
-        if operator != "!=":
-            # The == specifier with trailing .* cannot include prereleases
-            # e.g. "==1.0a1.*" is not valid.
-            if operator == "==" and version_str.endswith(".*"):
-                return False
+        if operator == "!=":
+            return False
 
-            # "===" can have arbitrary string versions, so we cannot parse
-            # those, we take prereleases as unknown (None) for those.
-            version = self._get_spec_version(version_str)
-            if version is None:
-                return None
+        # The == specifier with trailing .* cannot include prereleases
+        # e.g. "==1.0a1.*" is not valid.
+        if operator == "==" and version_str.endswith(".*"):
+            return False
 
-            # For all other operators, use the check if spec Version
-            # object implies pre-releases.
-            if version.is_prerelease:
-                return True
+        # "===" can have arbitrary string versions, so we cannot parse
+        # those, we take prereleases as unknown (None) for those.
+        version = self._get_spec_version(version_str)
+        if version is None:
+            return None
+
+        # For all other operators, use the check if spec Version
+        # object implies pre-releases.
+        if version.is_prerelease:
+            return True
 
         return False
 
