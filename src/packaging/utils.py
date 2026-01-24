@@ -13,6 +13,23 @@ from .version import InvalidVersion, Version, _TrimmedRelease
 BuildTag = Union[Tuple[()], Tuple[int, str]]
 NormalizedName = NewType("NormalizedName", str)
 
+__all__ = [
+    "BuildTag",
+    "InvalidName",
+    "InvalidSdistFilename",
+    "InvalidWheelFilename",
+    "NormalizedName",
+    "canonicalize_name",
+    "canonicalize_version",
+    "is_normalized_name",
+    "parse_sdist_filename",
+    "parse_wheel_filename",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
 
 class InvalidName(ValueError):
     """

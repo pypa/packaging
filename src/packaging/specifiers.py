@@ -19,6 +19,18 @@ from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
 
+__all__ = [
+    "BaseSpecifier",
+    "InvalidSpecifier",
+    "Specifier",
+    "SpecifierSet",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)

@@ -64,6 +64,11 @@ _LETTER_NORMALIZATION = {
 
 __all__ = ["VERSION_PATTERN", "InvalidVersion", "Version", "parse"]
 
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 LocalType = Tuple[Union[int, str], ...]
 
 CmpPrePostDevType = Union[InfinityType, NegativeInfinityType, Tuple[str, int]]
