@@ -349,10 +349,7 @@ class Specifier(BaseSpecifier):
 
         # For all other operators, use the check if spec Version
         # object implies pre-releases.
-        if version.is_prerelease:
-            return True
-
-        return False
+        return version.is_prerelease
 
     @prereleases.setter
     def prereleases(self, value: bool | None) -> None:
