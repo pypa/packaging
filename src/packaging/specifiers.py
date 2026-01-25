@@ -923,10 +923,10 @@ class SpecifierSet(BaseSpecifier):
         specifier._specs = frozenset(self._specs | other._specs)
 
         # Combine prerelease settings: use common or non-None value
-        if self._prereleases == other._prereleases or other._prereleases is None:
-            specifier._prereleases = self._prereleases
-        elif self._prereleases is None:
+        if self._prereleases is None or self._prereleases == other._prereleases:
             specifier._prereleases = other._prereleases
+        elif other._prereleases is None:
+            specifier._prereleases = self._prereleases
         else:
             raise ValueError(
                 "Cannot combine SpecifierSets with True and False prerelease overrides."
