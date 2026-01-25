@@ -42,6 +42,12 @@ __all__ = [
     "canonicalize_license_expression",
 ]
 
+
+# Simple __dir__ implementation since there are no public submodules
+def __dir__() -> list[str]:
+    return __all__
+
+
 license_ref_allowed = re.compile("^[A-Za-z0-9.-]*$")
 
 NormalizedLicenseExpression = NewType("NormalizedLicenseExpression", str)

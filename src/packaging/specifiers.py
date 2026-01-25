@@ -19,6 +19,18 @@ from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
 
+__all__ = [
+    "BaseSpecifier",
+    "InvalidSpecifier",
+    "Specifier",
+    "SpecifierSet",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
@@ -321,22 +333,24 @@ class Specifier(BaseSpecifier):
         # Only the "!=" operator does not imply prereleases when
         # the version in the specifier is a prerelease.
         operator, version_str = self._spec
-        if operator != "!=":
-            # The == specifier with trailing .* cannot include prereleases
-            # e.g. "==1.0a1.*" is not valid.
-            if operator == "==" and version_str.endswith(".*"):
-                return False
+        if operator == "!=":
+            return False
 
-            # "===" can have arbitrary string versions, so we cannot parse
-            # those, we take prereleases as unknown (None) for those.
-            version = self._get_spec_version(version_str)
-            if version is None:
-                return None
+        # The == specifier with trailing .* cannot include prereleases
+        # e.g. "==1.0a1.*" is not valid.
+        if operator == "==" and version_str.endswith(".*"):
+            return False
 
-            # For all other operators, use the check if spec Version
-            # object implies pre-releases.
-            if version.is_prerelease:
-                return True
+        # "===" can have arbitrary string versions, so we cannot parse
+        # those, we take prereleases as unknown (None) for those.
+        version = self._get_spec_version(version_str)
+        if version is None:
+            return None
+
+        # For all other operators, use the check if spec Version
+        # object implies pre-releases.
+        if version.is_prerelease:
+            return True
 
         return False
 

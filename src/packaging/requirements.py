@@ -11,6 +11,15 @@ from .markers import Marker, _normalize_extra_values
 from .specifiers import SpecifierSet
 from .utils import canonicalize_name
 
+__all__ = [
+    "InvalidRequirement",
+    "Requirement",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
 
 class InvalidRequirement(ValueError):
     """
