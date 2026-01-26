@@ -5,7 +5,7 @@ import dataclasses
 import sys
 import typing
 
-__all__ = ["ErrorCollector", "ExceptionGroup"]
+__all__ = ["ExceptionGroup"]
 
 
 def __dir__() -> list[str]:
@@ -35,13 +35,13 @@ else:  # pragma: no cover
 
 
 @dataclasses.dataclass
-class ErrorCollector:
+class _ErrorCollector:
     """
     Collect errors into ExceptionGroups.
 
     Used like this:
 
-        collector = ErrorCollector()
+        collector = _ErrorCollector()
         # Add a single exception
         collector.error(ValueError("one"))
 
@@ -62,7 +62,7 @@ class ErrorCollector:
             raise ExceptionGroup(msg, self.errors)
 
     @contextlib.contextmanager
-    def on_exit(self, msg: str) -> typing.Generator[ErrorCollector, None, None]:
+    def on_exit(self, msg: str) -> typing.Generator[_ErrorCollector, None, None]:
         """
         Calls finalize if no uncollected errors were present.
 
