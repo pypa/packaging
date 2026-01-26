@@ -33,6 +33,15 @@ if typing.TYPE_CHECKING:
     from collections.abc import Callable
 
 
+class AndroidVer(typing.NamedTuple):
+    release: str
+    api_level: int
+    manufacturer: str
+    model: str
+    device: str
+    is_emulator: bool
+
+
 @pytest.fixture
 def example_tag() -> tags.Tag:
     return tags.Tag("py3", "none", "any")
@@ -89,9 +98,6 @@ def mock_android(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(platform, "system", lambda: "Android")
     monkeypatch.setattr(sysconfig, "get_platform", lambda: "android-21-arm64_v8a")
 
-    AndroidVer = collections.namedtuple(
-        "AndroidVer", "release api_level manufacturer model device is_emulator"
-    )
     monkeypatch.setattr(
         platform,
         "android_ver",
