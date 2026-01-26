@@ -18,7 +18,7 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
-from .errors import ErrorCollector, ExceptionGroup
+from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
@@ -775,7 +775,7 @@ class Metadata:
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
         if validate:
-            collector = ErrorCollector()
+            collector = _ErrorCollector()
             metadata_version = None
             with collector.collect(InvalidMetadata):
                 metadata_version = ins.metadata_version
@@ -828,7 +828,7 @@ class Metadata:
         raw, unparsed = parse_email(data)
 
         if validate:
-            with ErrorCollector().on_exit("unparsed") as collector:
+            with _ErrorCollector().on_exit("unparsed") as collector:
                 for unparsed_key in unparsed:
                     if unparsed_key in _EMAIL_TO_RAW_MAPPING:
                         message = f"{unparsed_key!r} has invalid data"

@@ -4,7 +4,7 @@ import packaging.errors
 
 
 def test_error_collector_collect() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with collector.collect():
         raise ValueError("first error")
@@ -29,7 +29,7 @@ def test_error_collector_collect() -> None:
 
 
 def test_error_collector_no_errors() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with collector.collect():
         pass  # No error
@@ -38,7 +38,7 @@ def test_error_collector_no_errors() -> None:
 
 
 def test_error_collector_exception_group() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with collector.collect():
         raise packaging.errors.ExceptionGroup(
@@ -59,7 +59,7 @@ def test_error_collector_exception_group() -> None:
 
 
 def test_error_collector_on_exit() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with pytest.raises(packaging.errors.ExceptionGroup) as exc_info, collector.on_exit(
         "exiting"
@@ -74,14 +74,14 @@ def test_error_collector_on_exit() -> None:
 
 
 def test_error_collector_on_exit_no_errors() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with collector.on_exit("exiting"):
         pass  # No errors added
 
 
 def test_error_collector_collect_specific_exception() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     with collector.collect(KeyError):
         raise KeyError("a key error")
@@ -97,7 +97,7 @@ def test_error_collector_collect_specific_exception() -> None:
 
 
 def test_error_collector_collect_unmatched_exception() -> None:
-    collector = packaging.errors.ErrorCollector()
+    collector = packaging.errors._ErrorCollector()
 
     # Now test that other exceptions are not collected
     with pytest.raises(
