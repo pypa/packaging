@@ -185,7 +185,11 @@ to the implementation to provide.
 
 .. function:: platform_tags(version=None, arch=None)
 
+    .. versionchanged:: 21.3
+        Added the `pp3-none-any` tag (:issue:`311`).
+
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
+
 
 
 .. function:: compatible_tags(python_version=None, interpreter=None, platforms=None)
