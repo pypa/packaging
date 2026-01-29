@@ -733,6 +733,48 @@ class Specifier(BaseSpecifier):
 _prefix_regex = re.compile(r"([0-9]+)((?:a|b|c|rc)[0-9]+)")
 
 
+def _pep440_filter_prereleases(
+    iterable: Iterable[Any], key: Callable[[Any], UnparsedVersion] | None
+) -> Iterator[Any]:
+    """Filter per PEP 440: exclude prereleases unless no finals exist."""
+    # Two lists used:
+    #   * all_nonfinal to preserve order if no finals exist
+    #   * arbitrary_strings for streaming when first final found
+    all_nonfinal: list[Any] = []
+    arbitrary_strings: list[Any] = []
+
+    found_final = False
+    for item in iterable:
+        parsed = _coerce_version(item if key is None else key(item))
+
+        if parsed is None:
+            # Arbitrary strings are always included as it is not
+            # possible to determine if they are prereleases,
+            # and they have already passed all specifiers.
+            if found_final:
+                yield item
+            else:
+                arbitrary_strings.append(item)
+                all_nonfinal.append(item)
+            continue
+
+        if not parsed.is_prerelease:
+            # Final release found - flush arbitrary strings, then yield
+            if not found_final:
+                yield from arbitrary_strings
+                found_final = True
+            yield item
+            continue
+
+        # Prerelease - buffer if no finals yet, otherwise skip
+        if not found_final:
+            all_nonfinal.append(item)
+
+    # No finals found - yield all buffered items
+    if not found_final:
+        yield from all_nonfinal
+
+
 def _version_split(version: str) -> list[str]:
     """Split version into components.
 
@@ -1132,24 +1174,5 @@ class SpecifierSet(BaseSpecifier):
                     or not version.is_prerelease
                 )
 
-        # Finally if prereleases is None, apply PEP 440 logic:
-        # exclude prereleases unless there are no final releases that matched.
-        filtered_items: list[Any] = []
-        found_prereleases: list[Any] = []
-        found_final_release = False
-
-        for item in iterable:
-            parsed_version = _coerce_version(item if key is None else key(item))
-            # Arbitrary strings are always included as it is not
-            # possible to determine if they are prereleases,
-            # and they have already passed all specifiers.
-            if parsed_version is None:
-                filtered_items.append(item)
-                found_prereleases.append(item)
-            elif parsed_version.is_prerelease:
-                found_prereleases.append(item)
-            else:
-                filtered_items.append(item)
-                found_final_release = True
-
-        return iter(filtered_items if found_final_release else found_prereleases)
+        # PEP 440: exclude prereleases unless no final releases matched
+        return _pep440_filter_prereleases(iterable, key)
