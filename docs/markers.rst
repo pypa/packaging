@@ -96,14 +96,6 @@ Reference
 
     :rtype: Environment
 
- .. function:: format_full_version(info)
-
-    Formats a Python version from a ``sys.version_info``-like object.
-
-    :param info: An object with ``major``, ``minor``, ``micro``,
-                 ``releaselevel`` and ``serial`` attributes.
-    :rtype: str
-
 .. exception:: InvalidMarker
 
     Raised when attempting to create a :class:`Marker` with a string that
