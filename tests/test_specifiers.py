@@ -1079,6 +1079,33 @@ class TestSpecifierSet:
         # check filter behavior (no override of prereleases passed to filter)
         assert list(spec.filter(versions)) == expected
 
+    @pytest.mark.parametrize(
+        ("versions", "expected"),
+        [
+            # Mixed prerelease, arbitrary, final - return arbitrary and final in order
+            (
+                ["1.0a1", "foobar", "1.0", "2.0a1", "bazqux", "2.0"],
+                ["foobar", "1.0", "bazqux", "2.0"],
+            ),
+            # Mixed arbitrary, final - return all in order
+            (
+                ["foobar", "1.0", "bazqux", "2.0", "hello"],
+                ["foobar", "1.0", "bazqux", "2.0", "hello"],
+            ),
+            # Mixed prerelease, arbitrary (no final) - return all in order
+            (
+                ["1.0a1", "foobar", "2.0a1", "bazqux", "3.0a1"],
+                ["1.0a1", "foobar", "2.0a1", "bazqux", "3.0a1"],
+            ),
+        ],
+    )
+    def test_empty_specifier_ordering_with_arbitrary(
+        self, versions: list[str], expected: list[str]
+    ) -> None:
+        spec = SpecifierSet("")
+        result = list(spec.filter(versions))
+        assert result == expected
+
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
         specs = [Specifier(s) for s in spec_strs]
