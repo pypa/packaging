@@ -1657,6 +1657,44 @@ class TestSysTags:
         interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
 
+    def test_emscripten(self, mock_interpreter_name, monkeypatch):
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-3.1.58-wasm32"
+        )
+        assert list(tags.platform_tags()) == ["emscripten_3_1_58_wasm32"]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "emscripten_3_1_58_wasm32"
+        )
+
+    def test_pyodide(self, mock_interpreter_name, monkeypatch):
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        monkeypatch.setitem(
+            sysconfig.get_config_vars(), "PYODIDE_ABI_VERSION", "2024_0"
+        )
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-3.1.58-wasm32"
+        )
+        assert list(tags.platform_tags()) == [
+            "pyodide_2024_0_wasm32",
+            "emscripten_3_1_58_wasm32",
+        ]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "pyodide_2024_0_wasm32"
+        )
+
 
 class TestBitness:
     def teardown_method(self) -> None:
