@@ -6,7 +6,6 @@ import email.parser
 import email.policy
 import keyword
 import pathlib
-import sys
 import typing
 from typing import (
     Any,
@@ -19,33 +18,12 @@ from typing import (
 
 from . import licenses, requirements, specifiers, utils
 from . import version as version_module
+from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")
-
-
-if sys.version_info >= (3, 11):  # pragma: no cover
-    ExceptionGroup = ExceptionGroup  # noqa: F821
-else:  # pragma: no cover
-
-    class ExceptionGroup(Exception):
-        """A minimal implementation of :external:exc:`ExceptionGroup` from Python 3.11.
-
-        If :external:exc:`ExceptionGroup` is already defined by Python itself,
-        that version is used instead.
-        """
-
-        message: str
-        exceptions: list[Exception]
-
-        def __init__(self, message: str, exceptions: list[Exception]) -> None:
-            self.message = message
-            self.exceptions = exceptions
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
 __all__ = [
@@ -797,13 +775,11 @@ class Metadata:
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
         if validate:
-            exceptions: list[Exception] = []
-            try:
+            collector = _ErrorCollector()
+            metadata_version = None
+            with collector.collect(InvalidMetadata):
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
-            except InvalidMetadata as metadata_version_exc:
-                exceptions.append(metadata_version_exc)
-                metadata_version = None
 
             # Make sure to check for the fields that are present, the required
             # fields (so their absence can be reported).
@@ -820,7 +796,7 @@ class Metadata:
                             field_metadata_version = cls.__dict__[key].added
                         except KeyError:
                             exc = InvalidMetadata(key, f"unrecognized field: {key!r}")
-                            exceptions.append(exc)
+                            collector.error(exc)
                             continue
                         field_age = _VALID_METADATA_VERSIONS.index(
                             field_metadata_version
@@ -832,14 +808,13 @@ class Metadata:
                                 f"{field} introduced in metadata version "
                                 f"{field_metadata_version}, not {metadata_version}",
                             )
-                            exceptions.append(exc)
+                            collector.error(exc)
                             continue
                     getattr(ins, key)
                 except InvalidMetadata as exc:
-                    exceptions.append(exc)
+                    collector.error(exc)
 
-            if exceptions:
-                raise ExceptionGroup("invalid metadata", exceptions)
+            collector.finalize("invalid metadata")
 
         return ins
 
@@ -853,16 +828,13 @@ class Metadata:
         raw, unparsed = parse_email(data)
 
         if validate:
-            exceptions: list[Exception] = []
-            for unparsed_key in unparsed:
-                if unparsed_key in _EMAIL_TO_RAW_MAPPING:
-                    message = f"{unparsed_key!r} has invalid data"
-                else:
-                    message = f"unrecognized field: {unparsed_key!r}"
-                exceptions.append(InvalidMetadata(unparsed_key, message))
-
-            if exceptions:
-                raise ExceptionGroup("unparsed", exceptions)
+            with _ErrorCollector().on_exit("unparsed") as collector:
+                for unparsed_key in unparsed:
+                    if unparsed_key in _EMAIL_TO_RAW_MAPPING:
+                        message = f"{unparsed_key!r} has invalid data"
+                    else:
+                        message = f"unrecognized field: {unparsed_key!r}"
+                    collector.error(InvalidMetadata(unparsed_key, message))
 
         try:
             return cls.from_raw(raw, validate=validate)
