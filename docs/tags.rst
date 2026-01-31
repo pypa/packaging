@@ -187,7 +187,6 @@ to the implementation to provide.
 
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
 
-
 .. function:: compatible_tags(python_version=None, interpreter=None, platforms=None)
 
     Yields the tags for an interpreter compatible with the Python version
