@@ -966,7 +966,7 @@ class TestVersion:
     def test_replace_invalid_pre_type(self) -> None:
         v = Version("1.2.3")
         with pytest.raises(InvalidVersion, match="pre must be a tuple"):
-            replace(v, pre=("x", 1))  # type: ignore[arg-type]
+            replace(v, pre=("x", 1))
 
     def test_replace_invalid_pre_format(self) -> None:
         v = Version("1.2.3")
