@@ -347,8 +347,10 @@ class TestMarker:
     def test_evaluates(
         self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
-        args = () if environment is None else (environment,)
-        assert Marker(marker_string).evaluate(*args) == expected
+        if environment is None:
+            assert Marker(marker_string).evaluate() == expected
+        else:
+            assert Marker(marker_string).evaluate(environment) == expected
 
     @pytest.mark.parametrize(
         "marker_string",
@@ -386,8 +388,10 @@ class TestMarker:
     def test_evaluate_pep345_markers(
         self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
-        args = () if environment is None else (environment,)
-        assert Marker(marker_string).evaluate(*args) == expected
+        if environment is None:
+            assert Marker(marker_string).evaluate() == expected
+        else:
+            assert Marker(marker_string).evaluate(environment) == expected
 
     @pytest.mark.parametrize(
         "marker_string",
