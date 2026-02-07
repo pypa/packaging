@@ -47,10 +47,19 @@ def _coerce_version(version: UnparsedVersion) -> Version | None:
 
 
 def _public_version(version: Version) -> Version:
+    if version.local is None:
+        return version
     return version.__replace__(local=None)
 
 
 def _base_version(version: Version) -> Version:
+    if (
+        version.pre is None
+        and version.post is None
+        and version.dev is None
+        and version.local is None
+    ):
+        return version
     return version.__replace__(pre=None, post=None, dev=None, local=None)
 
 
