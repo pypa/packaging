@@ -22,7 +22,7 @@ Usage
 
     # parse and validate pylock file
     toml_dict = tomllib.loads(Path("pylock.toml").read_text(encoding="utf-8"))
-    pylock = PyLock.from_dict(toml_dict)
+    pylock = Pylock.from_dict(toml_dict)
     # the resulting pylock object is validated against the specification,
     # else a PylockValidationError is raised
 

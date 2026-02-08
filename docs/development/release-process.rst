@@ -30,7 +30,7 @@ Release Process
 
 .. note::
 
-   Access needed for making the release are:
+   Access is needed for making the release:
 
    - PyPI maintainer (or owner) access to ``packaging``
    - push directly to the ``main`` branch on the source repository
