@@ -883,6 +883,20 @@ class TestVersion:
         result = v4 != v3
         assert result is True
 
+    def test_version_le_with_uncached_keys(self) -> None:
+        """Test Version.__le__ populates cache when comparing with another Version"""
+        v1 = Version("1.0")
+        v2 = Version("2.0")
+
+        # Test <= with both caches None
+        result = v1 <= v2
+        assert result is True
+
+        # Test with v1 cached (from above), v3 uncached
+        v3 = Version("1.5")
+        result = v1 <= v3
+        assert result is True
+
     def test_major_version(self) -> None:
         assert Version("2.1.0").major == 2
 
