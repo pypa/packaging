@@ -548,6 +548,172 @@ class Version(_BaseVersion):
             )
         return self._key_cache
 
+    def __hash__(self) -> int:
+        return hash(self._key)
+
+    # Override comparison methods to use direct _key_cache access
+    def __lt__(self, other: _BaseVersion) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache < other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__lt__(other)
+
+    def __le__(self, other: _BaseVersion) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache <= other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__le__(other)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache == other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__eq__(other)
+
+    def __ge__(self, other: _BaseVersion) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache >= other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__ge__(other)
+
+    def __gt__(self, other: _BaseVersion) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache > other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__gt__(other)
+
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, Version):
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if other._key_cache is None:
+                other._key_cache = _cmpkey(
+                    other._epoch,
+                    other._release,
+                    other._pre,
+                    other._post,
+                    other._dev,
+                    other._local,
+                )
+            return self._key_cache != other._key_cache
+
+        if not isinstance(other, _BaseVersion):
+            return NotImplemented
+
+        return super().__ne__(other)
+
     @property
     @_deprecated("Version._version is private and will be removed soon")
     def _version(self) -> _Version:
