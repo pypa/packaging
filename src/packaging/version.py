@@ -252,6 +252,17 @@ flags set.
 :meta hide-value:
 """
 
+# Fast path regex: digits and dots only
+_FASTPATH_VERSION_PATTERN = r"[0-9]++(?:\.[0-9]++)*+"
+_FASTPATH_VERSION_PATTERN_OLD = r"[0-9]+(?:\.[0-9]+)*"
+_FASTPATH_VERSION_PATTERN_SELECTED = (
+    _FASTPATH_VERSION_PATTERN_OLD
+    if (sys.implementation.name == "cpython" and sys.version_info < (3, 11, 5))
+    or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
+    or sys.version_info < (3, 11)
+    else _FASTPATH_VERSION_PATTERN
+)
+
 
 # Validation pattern for local version in replace()
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
@@ -355,6 +366,7 @@ class Version(_BaseVersion):
     __match_args__ = ("_str",)
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
+    _fastpath_regex = re.compile(r"\s*" + _FASTPATH_VERSION_PATTERN_SELECTED + r"\s*")
 
     _epoch: int
     _release: tuple[int, ...]
@@ -375,6 +387,16 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
+        if self._fastpath_regex.fullmatch(version):
+            self._epoch = 0
+            self._release = tuple(map(int, version.split(".")))
+            self._pre = None
+            self._post = None
+            self._dev = None
+            self._local = None
+            self._key_cache = None
+            return
+
         # Validate the version and parse it into pieces
         match = self._regex.fullmatch(version)
         if not match:
