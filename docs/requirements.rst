@@ -83,7 +83,7 @@ Reference
 
     .. attribute:: url
 
-      The URL, if any where to download the requirement from. Can be None.
+      The URL, if any, where to download the requirement from. Can be None.
 
     .. attribute:: extras
 

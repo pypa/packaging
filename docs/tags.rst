@@ -139,7 +139,7 @@ to the implementation to provide.
 
     Yields the :attr:`~Tag.platform` tags for macOS.
 
-    :param tuple version: A two-item tuple presenting the version of macOS.
+    :param tuple version: A two-item tuple representing the version of macOS.
                           Defaults to the current system's version.
     :param str arch: The CPU architecture. Defaults to the architecture of the
                      current system, e.g. ``"x86_64"``.
@@ -161,7 +161,7 @@ to the implementation to provide.
                           Defaults to the current system's version.
     :param str multiarch: The CPU architecture+ABI to be used. This should be in
                           the format by ``sys.implementation._multiarch`` (e.g.,
-                          ``arm64_iphoneos`` or ``x84_64_iphonesimulator``).
+                          ``arm64_iphoneos`` or ``x86_64_iphonesimulator``).
                           Defaults to the current system's multiarch value.
 
     .. note::
@@ -178,7 +178,7 @@ to the implementation to provide.
         <https://developer.android.com/tools/releases/platforms>`__ to return. Defaults
         to the current system's version, as returned by ``platform.android_ver``.
     :param str abi: The `Android ABI <https://developer.android.com/ndk/guides/abis>`__,
-        e.g. ``arm64_v8a``. Defaults to the current system's ABI , as returned by
+        e.g. ``arm64_v8a``. Defaults to the current system's ABI, as returned by
         ``sysconfig.get_platform``. Hyphens and periods will be replaced with
         underscores.
 
