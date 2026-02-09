@@ -1,7 +1,7 @@
 Metadata
 ========
 
-.. currentmodule:: packaging.markers
+.. currentmodule:: packaging.metadata
 
 
 Both `source distributions`_ and `binary distributions`_

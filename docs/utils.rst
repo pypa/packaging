@@ -134,10 +134,10 @@ Reference
 
 .. exception:: InvalidWheelFilename
 
-    Raised when a file name for a wheel is invalid.
+    Raised when a filename for a wheel is invalid.
 
 .. exception:: InvalidSdistFilename
 
-    Raised when a source distribution file name is considered invalid.
+    Raised when a source distribution filename is considered invalid.
 
 .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
