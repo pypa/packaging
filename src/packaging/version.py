@@ -37,7 +37,7 @@ else:  # pragma: no cover
     import warnings
 
     def _deprecated(message: str) -> object:
-        def decorator(func: object) -> object:
+        def decorator(func: Callable[[...], object]) -> object:
             @functools.wraps(func)
             def wrapper(*args: object, **kwargs: object) -> object:
                 warnings.warn(

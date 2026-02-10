@@ -9,10 +9,10 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+    rev: v0.15.0
     hooks:
       - id: ruff-check
-        args: [ --fix, --show-fixes ]
+        args: [ --fix ]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pygrep-hooks
@@ -23,21 +23,21 @@ repos:
     - id: rst-inline-touching-normal
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.1
+    rev: v1.19.1
     hooks:
       - id: mypy
         exclude: '^(docs)'
         args: []
-        additional_dependencies: [pyparsing, nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
+        additional_dependencies: [nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.40.0
+    rev: v1.43.1
     hooks:
       - id: typos
         args: []
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.20.0
+    rev: v1.22.0
     hooks:
       - id: zizmor
         files: "^\\.github"
