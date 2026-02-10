@@ -252,20 +252,16 @@ flags set.
 :meta hide-value:
 """
 
-# Fast path regex: digits and dots only
-_FASTPATH_VERSION_PATTERN = r"[0-9]++(?:\.[0-9]++)*+"
-_FASTPATH_VERSION_PATTERN_OLD = r"[0-9]+(?:\.[0-9]+)*"
-_FASTPATH_VERSION_PATTERN_SELECTED = (
-    _FASTPATH_VERSION_PATTERN_OLD
-    if (sys.implementation.name == "cpython" and sys.version_info < (3, 11, 5))
-    or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
-    or sys.version_info < (3, 11)
-    else _FASTPATH_VERSION_PATTERN
-)
-
 
 # Validation pattern for local version in replace()
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
+
+# Fast path: If a version doesn't have one of these characters then
+# it is a simple version with just numbers and dots (e.g. 1.2.3).
+# Covers lower and upper letters from: alpha, beta, rc, c, pre,
+# preview, post, rev, r, dev, epoch (!), local (+), leading v,
+# and separators (-, _)
+_NON_SIMPLE_VERSION_INDICATORS = frozenset("!+-ABCDEHILOPRSTVW_abcdehiloprstvw")
 
 
 def _validate_epoch(value: object, /) -> int:
@@ -366,7 +362,6 @@ class Version(_BaseVersion):
     __match_args__ = ("_str",)
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
-    _fastpath_regex = re.compile(r"\s*" + _FASTPATH_VERSION_PATTERN_SELECTED + r"\s*")
 
     _epoch: int
     _release: tuple[int, ...]
@@ -387,9 +382,13 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-        if self._fastpath_regex.fullmatch(version):
+        if _NON_SIMPLE_VERSION_INDICATORS.isdisjoint(version):
+            try:
+                self._release = tuple(map(int, version.strip().split(".")))
+            except ValueError:
+                raise InvalidVersion(f"Invalid version: {version!r}") from None
+
             self._epoch = 0
-            self._release = tuple(map(int, version.split(".")))
             self._pre = None
             self._post = None
             self._dev = None
