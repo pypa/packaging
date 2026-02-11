@@ -381,7 +381,7 @@ class Version(_BaseVersion):
         """
         if _SIMPLE_VERSION_INDICATORS.issuperset(version):
             try:
-                self._release = tuple(map(int, version.strip().split(".")))
+                self._release = tuple(map(int, version.split(".")))
             except ValueError:
                 raise InvalidVersion(f"Invalid version: {version!r}") from None
 
