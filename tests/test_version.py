@@ -123,6 +123,13 @@ class TestVersion:
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
+            # Invalid versions that trigger the fast path (digits/dots only)
+            ".",
+            "..",
+            "1..0",
+            "1.0.",
+            ".1.0",
+            "1..2.3",
         ],
     )
     def test_invalid_versions(self, version: str) -> None:
