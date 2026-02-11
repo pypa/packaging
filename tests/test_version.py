@@ -826,7 +826,8 @@ class TestVersion:
     def test_replace_pre_alpha(self) -> None:
         v = Version("1.2.3")
         assert str(replace(v, pre=("a", 1))) == "1.2.3a1"
-        assert str(replace(v, pre=("a", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("A", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("Alpha", 2))) == "1.2.3a2"
 
     def test_replace_pre_alpha_none(self) -> None:
         v = Version("1.2.3a1")
@@ -836,6 +837,7 @@ class TestVersion:
         v = Version("1.2.3")
         assert str(replace(v, pre=("b", 1))) == "1.2.3b1"
         assert str(replace(v, pre=("b", 0))) == "1.2.3b0"
+        assert str(replace(v, pre=("bEta", 2))) == "1.2.3b2"
 
     def test_replace_pre_beta_none(self) -> None:
         v = Version("1.2.3b1")
@@ -966,7 +968,7 @@ class TestVersion:
     def test_replace_invalid_pre_type(self) -> None:
         v = Version("1.2.3")
         with pytest.raises(InvalidVersion, match="pre must be a tuple"):
-            replace(v, pre=("x", 1))  # type: ignore[arg-type]
+            replace(v, pre=("x", 1))
 
     def test_replace_invalid_pre_format(self) -> None:
         v = Version("1.2.3")
@@ -1031,3 +1033,43 @@ def test_hatchling_usage__version() -> None:
     with pytest.warns(DeprecationWarning, match="is private"):
         reset_version_parts(v, post=("post", 1))
     assert v == Version("2.3.4.post1")
+
+
+@pytest.mark.parametrize(
+    ("args", "string"),
+    [
+        ({"release": (1, 2, 3)}, "1.2.3"),
+        ({"release": (1, 2, 3), "epoch": 2}, "2!1.2.3"),
+        ({"release": (1, 2, 3), "pre": ("b", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("B", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("beta", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "post": 2}, "1.2.3post2"),
+        ({"release": (1, 2, 3), "dev": 3}, "1.2.3.dev3"),
+        ({"release": (1, 2, 3), "local": "abc"}, "1.2.3+abc"),
+        (
+            {
+                "release": (1, 2, 3),
+                "epoch": None,
+                "pre": None,
+                "post": None,
+                "dev": None,
+                "local": None,
+            },
+            "1.2.3",
+        ),
+        (
+            {
+                "release": (2, 3, 4),
+                "epoch": 1,
+                "pre": ("a", 5),
+                "post": 6,
+                "dev": 7,
+                "local": "zzz",
+            },
+            "1!2.3.4a5.post6.dev7+zzz",
+        ),
+    ],
+)
+def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
+    v = Version.from_parts(**args)
+    assert v == Version(string)
