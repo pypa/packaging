@@ -826,7 +826,8 @@ class TestVersion:
     def test_replace_pre_alpha(self) -> None:
         v = Version("1.2.3")
         assert str(replace(v, pre=("a", 1))) == "1.2.3a1"
-        assert str(replace(v, pre=("a", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("A", 0))) == "1.2.3a0"
+        assert str(replace(v, pre=("Alpha", 2))) == "1.2.3a2"
 
     def test_replace_pre_alpha_none(self) -> None:
         v = Version("1.2.3a1")
@@ -836,6 +837,7 @@ class TestVersion:
         v = Version("1.2.3")
         assert str(replace(v, pre=("b", 1))) == "1.2.3b1"
         assert str(replace(v, pre=("b", 0))) == "1.2.3b0"
+        assert str(replace(v, pre=("bEta", 2))) == "1.2.3b2"
 
     def test_replace_pre_beta_none(self) -> None:
         v = Version("1.2.3b1")
@@ -1039,6 +1041,8 @@ def test_hatchling_usage__version() -> None:
         ({"release": (1, 2, 3)}, "1.2.3"),
         ({"release": (1, 2, 3), "epoch": 2}, "2!1.2.3"),
         ({"release": (1, 2, 3), "pre": ("b", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("B", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "pre": ("beta", 1)}, "1.2.3b1"),
         ({"release": (1, 2, 3), "post": 2}, "1.2.3post2"),
         ({"release": (1, 2, 3), "dev": 3}, "1.2.3.dev3"),
         ({"release": (1, 2, 3), "local": "abc"}, "1.2.3+abc"),
