@@ -256,8 +256,8 @@ flags set.
 # Validation pattern for local version in replace()
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
 
-# Fast path: If a version has only digits, dots, then we can
-# skip the regex and parse it as a release segment.
+# Fast path: If a version has only digits and dots then we
+# can skip the regex and parse it as a release segment
 _SIMPLE_VERSION_INDICATORS = frozenset(".0123456789")
 
 
