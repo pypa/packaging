@@ -123,6 +123,15 @@ class TestVersion:
             "1.0+_foobar",
             "1.0+foo&asd",
             "1.0+1+1",
+            # Spaces in versions are also invalid
+            "1. 0",
+            "1 .0",
+            "1. 0a1",
+            "1 .0a1",
+            "1.0 a1",
+            "1.0a 1",
+            # Versions do need to be standard numbers
+            "٠١٢.٣٤٥.٦٧٨٩",
             # Invalid versions that trigger the fast path (digits/dots only)
             ".",
             "..",
