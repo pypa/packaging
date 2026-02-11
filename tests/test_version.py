@@ -1031,3 +1031,41 @@ def test_hatchling_usage__version() -> None:
     with pytest.warns(DeprecationWarning, match="is private"):
         reset_version_parts(v, post=("post", 1))
     assert v == Version("2.3.4.post1")
+
+
+@pytest.mark.parametrize(
+    ("args", "string"),
+    [
+        ({"release": (1, 2, 3)}, "1.2.3"),
+        ({"release": (1, 2, 3), "epoch": 2}, "2!1.2.3"),
+        ({"release": (1, 2, 3), "pre": ("b", 1)}, "1.2.3b1"),
+        ({"release": (1, 2, 3), "post": 2}, "1.2.3post2"),
+        ({"release": (1, 2, 3), "dev": 3}, "1.2.3.dev3"),
+        ({"release": (1, 2, 3), "local": "abc"}, "1.2.3+abc"),
+        (
+            {
+                "release": (1, 2, 3),
+                "epoch": None,
+                "pre": None,
+                "post": None,
+                "dev": None,
+                "local": None,
+            },
+            "1.2.3",
+        ),
+        (
+            {
+                "release": (2, 3, 4),
+                "epoch": 1,
+                "pre": ("a", 5),
+                "post": 6,
+                "dev": 7,
+                "local": "zzz",
+            },
+            "1!2.3.4a5.post6.dev7+zzz",
+        ),
+    ],
+)
+def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
+    v = Version.from_parts(**args)
+    assert v == Version(string)

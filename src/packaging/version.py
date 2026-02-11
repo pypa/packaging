@@ -4,7 +4,7 @@
 """
 .. testsetup::
 
-    from packaging.version import parse, Version
+    from packaging.version import parse, normalize_pre, Version
 """
 
 from __future__ import annotations
