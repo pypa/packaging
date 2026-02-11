@@ -256,6 +256,10 @@ flags set.
 # Validation pattern for local version in replace()
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
 
+# Fast path: If a version has only digits and dots then we
+# can skip the regex and parse it as a release segment
+_SIMPLE_VERSION_INDICATORS = frozenset(".0123456789")
+
 
 def _validate_epoch(value: object, /) -> int:
     epoch = value or 0
@@ -375,6 +379,20 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
+        if _SIMPLE_VERSION_INDICATORS.issuperset(version):
+            try:
+                self._release = tuple(map(int, version.split(".")))
+            except ValueError:
+                raise InvalidVersion(f"Invalid version: {version!r}") from None
+
+            self._epoch = 0
+            self._pre = None
+            self._post = None
+            self._dev = None
+            self._local = None
+            self._key_cache = None
+            return
+
         # Validate the version and parse it into pieces
         match = self._regex.fullmatch(version)
         if not match:
