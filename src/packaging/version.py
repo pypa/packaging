@@ -256,12 +256,9 @@ flags set.
 # Validation pattern for local version in replace()
 _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
 
-# Fast path: If a version doesn't have one of these characters then
-# it is a simple version with just numbers and dots (e.g. 1.2.3).
-# Covers lower and upper letters from: alpha, beta, rc, c, pre,
-# preview, post, rev, r, dev, epoch (!), local (+), leading v,
-# and separators (-, _)
-_NON_SIMPLE_VERSION_INDICATORS = frozenset("!+-ABCDEHILOPRSTVW_abcdehiloprstvw")
+# Fast path: If a version has only digits, dots, then we can
+# skip the regex and parse it as a release segment.
+_SIMPLE_VERSION_INDICATORS = frozenset(".0123456789")
 
 
 def _validate_epoch(value: object, /) -> int:
@@ -382,7 +379,7 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-        if _NON_SIMPLE_VERSION_INDICATORS.isdisjoint(version):
+        if _SIMPLE_VERSION_INDICATORS.issuperset(version):
             try:
                 self._release = tuple(map(int, version.strip().split(".")))
             except ValueError:
