@@ -329,7 +329,7 @@ class Marker:
         return _format_marker(self._markers)
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}('{self}')>"
+        return f"<{self.__class__.__name__}({str(self)!r})>"
 
     def __hash__(self) -> int:
         return hash(str(self))

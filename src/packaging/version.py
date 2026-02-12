@@ -510,7 +510,7 @@ class Version(_BaseVersion):
         >>> Version('1.0.0')
         <Version('1.0.0')>
         """
-        return f"<Version('{self}')>"
+        return f"<{self.__class__.__name__}({str(self)!r})>"
 
     def __str__(self) -> str:
         """A string representation of the version that can be round-tripped.
