@@ -75,6 +75,12 @@ html_show_sourcelink = False
 
 autodoc_member_order = "bysource"
 autodoc_preserve_defaults = True
+autodoc_default_options = {
+    "exclude-members": "__weakref__",
+}
+
+# Allow the signature to be overridden
+autodoc_docstring_signature = True
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.

@@ -108,6 +108,10 @@ def normalize_pre(letter: str, /) -> str:
     'b'
     >>> normalize_pre('rc')
     'rc'
+
+    :param letter:
+
+    .. versionadded:: 26.1
     """
     letter = letter.lower()
     return _LETTER_NORMALIZATION.get(letter, letter)
@@ -115,6 +119,8 @@ def normalize_pre(letter: str, /) -> str:
 
 def parse(version: str) -> Version:
     """Parse the given version string.
+
+    This is identical to the :class:`Version` constructor.
 
     >>> parse('1.0.dev1')
     <Version('1.0.dev1')>
@@ -249,6 +255,11 @@ expressions (for example, matching a version number as part of a file name). The
 regular expression should be compiled with the ``re.VERBOSE`` and ``re.IGNORECASE``
 flags set.
 
+.. versionchanged:: 26.0
+
+   The regex now uses possessive qualifiers on Python 3.11 if they are
+   supported (CPython 3.11.5+, PyPy 3.11.13+).
+
 :meta hide-value:
 """
 
@@ -353,10 +364,20 @@ class Version(_BaseVersion):
     False
     >>> v1 <= v2
     True
+
+    :class:`Version` is immutable; use :meth:`__replace__` to change
+    part of a version.
     """
 
     __slots__ = ("_dev", "_epoch", "_key_cache", "_local", "_post", "_pre", "_release")
     __match_args__ = ("_str",)
+    """
+    Pattern matching is supported on Python 3.10+.
+
+    .. versionadded:: 26.0
+
+    :meta hide-value:
+    """
 
     _regex = re.compile(r"\s*" + VERSION_PATTERN + r"\s*", re.VERBOSE | re.IGNORECASE)
 
@@ -422,6 +443,23 @@ class Version(_BaseVersion):
         dev: int | None = None,
         local: str | None = None,
     ) -> Self:
+        """
+        Return a new version composed of the various parts.
+
+        This allows you to build a version without going though a string and
+        running a regular expression. It normalizes pre-release strings. The
+        ``release=`` keyword argument is required.
+
+        >>> Version.from_parts(release=(1,2,3))
+        <Version('1.2.3')>
+        >>> Version.from_parts(release=(0,1,0), pre=("b", 1))
+        <Version('0.1.0b1')>
+
+        :param epoch:
+        :param release: This version tuple is required
+
+        .. versionadded:: 26.0
+        """
         _epoch = _validate_epoch(epoch)
         _release = _validate_release(release)
         _pre = _validate_pre(pre) if pre is not None else None
@@ -441,6 +479,30 @@ class Version(_BaseVersion):
         return new_version
 
     def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+        """
+        __replace__(*, epoch=..., release=..., pre=..., post=..., dev=..., local=...)
+
+        Return a new version with parts replaced.
+
+        This returns a new version (unless no parts were changed). The
+        pre-release is normalized. Setting a value to ``None`` clears it.
+
+        >>> v = Version("1.2.3")
+        >>> v.__replace__(pre=("a", 1))
+        <Version('1.2.3a1')>
+
+        :param int | None epoch:
+        :param tuple[int, ...] | None release:
+        :param tuple[str, int] | None pre:
+        :param int | None post:
+        :param int | None dev:
+        :param str | None local:
+
+        .. versionadded:: 26.0
+        .. versionchanged:: 26.1
+
+           The pre-release portion is now normalized.
+        """
         epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
         release = (
             _validate_release(kwargs["release"])
@@ -630,6 +692,9 @@ class Version(_BaseVersion):
     def public(self) -> str:
         """The public portion of the version.
 
+        This returns a string. If you want a :class:`Version` again and care
+        about performance, use ``v.__replace__(local=None)`` instead.
+
         >>> Version("1.2.3").public
         '1.2.3'
         >>> Version("1.2.3+abc").public
@@ -642,6 +707,10 @@ class Version(_BaseVersion):
     @property
     def base_version(self) -> str:
         """The "base version" of the version.
+
+        This returns a string. If you want a :class:`Version` again and care
+        about performance, use
+        ``v.__replace__(pre=None, post=None, dev=None, local=None)`` instead.
 
         >>> Version("1.2.3").base_version
         '1.2.3'
@@ -790,7 +859,8 @@ _local_version_separators = re.compile(r"[\._-]")
 
 def _parse_local_version(local: str | None) -> LocalType | None:
     """
-    Takes a string like abc.1.twelve and turns it into ("abc", 1, "twelve").
+    Takes a string like ``"abc.1.twelve"`` and turns it into
+    ``("abc", 1, "twelve")``.
     """
     if local is not None:
         return tuple(
