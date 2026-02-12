@@ -934,7 +934,7 @@ class SpecifierSet(BaseSpecifier):
             else ""
         )
 
-        return f"<SpecifierSet({str(self)!r}{pre})>"
+        return f"<{self.__class__.__name__}({str(self)!r}{pre})>"
 
     def __str__(self) -> str:
         """A string representation of the specifier set that can be round-tripped.
