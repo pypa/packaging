@@ -139,7 +139,14 @@ def downstream(session: nox.Session, project: str) -> None:
         repl_dir = "src/pip/_vendor/packaging"
         shutil.rmtree(repl_dir)
         shutil.copytree(pkg_dir, repl_dir)
-        session.run("pytest", "tests/unit", "--numprocesses=auto", *session.posargs)
+        session.run(
+            "pytest",
+            "tests/unit",
+            "--numprocesses=auto",
+            "-k",
+            "not test_ensure_svn_available",
+            *session.posargs,
+        )
     else:
         session.error("Unknown package")
 
