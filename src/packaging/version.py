@@ -1149,7 +1149,6 @@ def _cmpkey(
 
 if __name__ == "__main__":
     import argparse
-    import sys
     import operator
 
     operations = {
@@ -1159,10 +1158,16 @@ if __name__ == "__main__":
         "ne": operator.ne,
         "ge": operator.ge,
         "gt": operator.gt,
+        "<": operator.lt,
+        "<=": operator.le,
+        "==": operator.eq,
+        "!=": operator.ne,
+        ">=": operator.ge,
+        ">": operator.gt,
     }
 
     # Argument parsing
-    parser = argparse.ArgumentParser(description="Compare two semantic versions.")
+    parser = argparse.ArgumentParser(description="Compare two semantic versions. Return code is 0 or 1.")
     parser.add_argument("version1", type=Version, help="First version to compare")
     parser.add_argument(
         "operator",
@@ -1174,5 +1179,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     result = operations[args.operator](args.version1, args.version2)
-    sys.exit(not result)
+    raise SystemExit(not result)
 
