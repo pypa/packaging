@@ -82,9 +82,9 @@ def tests(session: nox.Session) -> None:
 PROJECTS = {
     "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
     "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
-    "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v80.10.1.tar.gz",
-    "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.10.0.tar.gz",
-    "pip": "https://github.com/pypa/pip/archive/200251ab8df071b6c0a83504c29db7871a29b8c9.tar.gz",
+    "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
+    "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
+    "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
 }
 
 
