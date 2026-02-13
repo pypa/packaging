@@ -316,7 +316,7 @@ class TestVersion:
     )
     def test_version_str_repr(self, version: str, expected: str) -> None:
         assert str(Version(version)) == expected
-        assert repr(Version(version)) == f"<Version({expected!r})>"
+        assert repr(Version(version)) == f"Version({expected!r})"
 
     def test_version_rc_and_c_equals(self) -> None:
         assert Version("1.0rc1") == Version("1.0c1")

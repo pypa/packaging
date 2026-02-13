@@ -669,7 +669,7 @@ class TestRequirementBehaviour:
 
         # THEN
         assert str(req) == to_parse.strip()
-        assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
+        assert repr(req) == f"Requirement({to_parse.strip()!r})"
 
     @pytest.mark.parametrize(("dep1", "dep2"), EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:

@@ -30,7 +30,7 @@ Usage
     >>> parsed.name
     'packaging'
     >>> parsed.version
-    <Version('24.0')>
+    Version('24.0')
 
 
 Reference
