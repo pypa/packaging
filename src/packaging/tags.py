@@ -116,7 +116,7 @@ class Tag:
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}"
-            f"({self._interpreter!r}, {self._abi!r}, {self._interpreter!r})"
+            f"({self._interpreter!r}, {self._abi!r}, {self._platform!r})"
         )
 
     def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
