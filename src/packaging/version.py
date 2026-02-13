@@ -930,6 +930,7 @@ def _cmpkey(
 
     return epoch, _release, _pre, _post, _dev, _local
 
+
 if __name__ == "__main__":
     import argparse
     import operator
@@ -949,18 +950,24 @@ if __name__ == "__main__":
         ">": operator.gt,
     }
 
-    # Argument parsing
-    parser = argparse.ArgumentParser(description="Compare two semantic versions. Return code is 0 or 1.")
-    parser.add_argument("version1", type=Version, help="First version to compare")
-    parser.add_argument(
+    parser = argparse.ArgumentParser(description="Version utilities")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="Compare two semantic versions.",
+        description="Compare two semantic versions. Return code is 0 or 1.",
+    )
+    compare.add_argument("version1", type=Version, help="First version to compare")
+    compare.add_argument(
         "operator",
-        type=str,
         choices=operations.keys(),
         help="Comparison operator",
     )
-    parser.add_argument("version2", type=Version, help="Second version to compare")
+    compare.add_argument("version2", type=Version, help="Second version to compare")
+
     args = parser.parse_args()
 
-    result = operations[args.operator](args.version1, args.version2)
-    raise SystemExit(not result)
-
+    if args.command == "compare":
+        result = operations[args.operator](args.version1, args.version2)
+        raise SystemExit(not result)
