@@ -70,7 +70,7 @@ class TestNode:
 
     @pytest.mark.parametrize("value", ["one", "two"])
     def test_repr(self, value: str) -> None:
-        assert repr(Node(value)) == f"<Node({str(value)!r})>"
+        assert repr(Node(value)) == f"Node({str(value)!r})"
 
     def test_base_class(self) -> None:
         with pytest.raises(NotImplementedError):
@@ -235,7 +235,7 @@ class TestMarker:
     def test_str_repr_eq_hash(self, marker_string: str, expected: str) -> None:
         m = Marker(marker_string)
         assert str(m) == expected
-        assert repr(m) == f"<Marker({str(m)!r})>"
+        assert repr(m) == f"Marker({str(m)!r})"
         # Objects created from the same string should be equal.
         assert m == Marker(marker_string)
         # Objects created from the equivalent strings should also be equal.

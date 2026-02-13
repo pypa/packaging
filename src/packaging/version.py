@@ -123,7 +123,7 @@ def parse(version: str) -> Version:
     This is identical to the :class:`Version` constructor.
 
     >>> parse('1.0.dev1')
-    <Version('1.0.dev1')>
+    Version('1.0.dev1')
 
     :param version: The version string to parse.
     :raises InvalidVersion: When the version string is not a valid version.
@@ -351,9 +351,9 @@ class Version(_BaseVersion):
     >>> v1 = Version("1.0a5")
     >>> v2 = Version("1.0")
     >>> v1
-    <Version('1.0a5')>
+    Version('1.0a5')
     >>> v2
-    <Version('1.0')>
+    Version('1.0')
     >>> v1 < v2
     True
     >>> v1 == v2
@@ -451,9 +451,9 @@ class Version(_BaseVersion):
         ``release=`` keyword argument is required.
 
         >>> Version.from_parts(release=(1,2,3))
-        <Version('1.2.3')>
+        Version('1.2.3')
         >>> Version.from_parts(release=(0,1,0), pre=("b", 1))
-        <Version('0.1.0b1')>
+        Version('0.1.0b1')
 
         :param epoch:
         :param release: This version tuple is required
@@ -489,7 +489,7 @@ class Version(_BaseVersion):
 
         >>> v = Version("1.2.3")
         >>> v.__replace__(pre=("a", 1))
-        <Version('1.2.3a1')>
+        Version('1.2.3a1')
 
         :param int | None epoch:
         :param tuple[int, ...] | None release:
@@ -570,9 +570,9 @@ class Version(_BaseVersion):
         """A representation of the Version that shows all internal state.
 
         >>> Version('1.0.0')
-        <Version('1.0.0')>
+        Version('1.0.0')
         """
-        return f"<{self.__class__.__name__}({str(self)!r})>"
+        return f"{self.__class__.__name__}({str(self)!r})"
 
     def __str__(self) -> str:
         """A string representation of the version that can be round-tripped.

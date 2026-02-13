@@ -114,7 +114,10 @@ class Tag:
         return f"{self._interpreter}-{self._abi}-{self._platform}"
 
     def __repr__(self) -> str:
-        return f"<{self} @ {id(self)}>"
+        return (
+            f"{self.__class__.__name__}"
+            f"({self._interpreter!r}, {self._abi!r}, {self._interpreter!r})"
+        )
 
     def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
         # The cached _hash is wrong when unpickling.
