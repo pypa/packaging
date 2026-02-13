@@ -1129,9 +1129,9 @@ def _cmpkey(
     return epoch, trimmed, suffix, cmp_local
 
 
-if __name__ == "__main__":
-    import argparse
-    import operator
+def main() -> None:
+    import argparse  # noqa: PLC0415
+    import operator  # noqa: PLC0415
 
     operations = {
         "lt": operator.lt,
@@ -1169,3 +1169,7 @@ if __name__ == "__main__":
     if args.command == "compare":
         result = operations[args.operator](args.version1, args.version2)
         raise SystemExit(not result)
+
+
+if __name__ == "__main__":
+    main()
