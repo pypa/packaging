@@ -41,4 +41,7 @@ jobs:
           asv machine --yes
 
       - name: Run ASV continuous benchmark
-        run: asv continuous origin/main HEAD --sort default --no-only-changed | tee -a "$GITHUB_STEP_SUMMARY" || true
+        run: asv continuous origin/main HEAD --sort default --no-only-changed | tee -a asv_output.txt || true
+
+      - name: Write out to GitHub Summary
+        run: sed -n '/All benchmarks/,$p' asv_output.txt >> "$GITHUB_STEP_SUMMARY"

@@ -21,6 +21,10 @@ class TimeVersionSuite:
         with (DIR / "version_sample.txt").open() as f:
             self.versions = [v.strip() for v in f.readlines()]
         self.valid_versions = [v for v in self.versions if valid_version(v)]
+        self.version_objects_cold = [Version(v) for v in self.valid_versions]
+        self.version_objects_warm = [Version(v) for v in self.valid_versions]
+        for v in self.version_objects_warm:
+            _ = v._key
 
     @add_attributes(pretty_name="Version constructor")
     def time_constructor(self) -> None:
@@ -40,6 +44,14 @@ class TimeVersionSuite:
         for version in self.valid_versions:
             str(Version(version))
 
-    @add_attributes(pretty_name="Version sorting")
-    def time_sort(self) -> None:
-        sorted(Version(v) for v in self.valid_versions)
+    @add_attributes(pretty_name="Version sorting (cold cache)")
+    def time_sort_cold(self) -> None:
+        """Sorting when _key needs to be calculated during comparison."""
+        for v in self.version_objects_cold:
+            v._key_cache = None
+        sorted(self.version_objects_cold)
+
+    @add_attributes(pretty_name="Version sorting (warm cache)")
+    def time_sort_warm(self) -> None:
+        """Sorting when _key is already cached."""
+        sorted(self.version_objects_warm)
