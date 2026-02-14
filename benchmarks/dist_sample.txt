@@ -1,0 +1,500 @@
+pyarrow<15.0,>=14.0.2; extra == "parquet"
+gen8randomdoublesbattle; extra == "randbats-all"
+mypy-boto3-lookoutequipment (<1.26.0,>=1.25.0) ; extra == 'all'
+protobuf<7,>=4; python_version >= "3.11"
+kubernetes<34.0,>=26.1; extra == "kubernetes"
+google-cloud-storage (==1.19.1)
+pygmsh (==7.0.0) ; extra == 'benchmarking'
+sphinxcontrib-katex ==0.8.6 ; extra == 'docs'
+livekit-plugins-cartesia>=1.2.7; extra == "cartesia"
+foursight-core (==4.1.0)
+genie.libs.conf <24.3.0,>=24.2.0
+tzdata; (python_version >= "3.9" and sys_platform == "win32") and extra == "mariadb"
+backports.functools-lru-cache>=1.0.2; python_version < "3"
+pip-tools<8,>=7
+couchbase<5,>=4.3.0
+promptflow-devkit[all]==1.15.0; extra == "all"
+requests!=2.32.0,!=2.32.1,>=2.5
+torch>=1.8.0; python_version < "3.10"
+odoo14-addon-l10n-es-vat-book-invoice-summary
+requests_toolbelt; extra == "all-handlers-extras"
+mypy-boto3-budgets (==1.14.59.1) ; extra == 'all'
+large-image-converter[sources]>=1.29.3.dev24; extra == "worker"
+notion-client (>=0.5)
+param-sweeps (==0.1.3)
+boto3==1.35.52
+numba>0.53; python_version>='3.9'
+azureml-contrib-server~=1.59.0; extra == "contrib"
+happytransformer (==2.4.1)
+freeopcua
+transformers>=4.30.0; extra == "pro"
+xtarfile
+mypy-boto3-honeycode (==1.17.92.post1) ; extra == 'all'
+mypy-boto3-opsworkscm (==1.16.47.0) ; extra == 'opsworkscm'
+PyLinks==0.0.0.dev29
+cloudevents>=1.2.0
+janis-pipelines.runner (>=v0.6.0)
+defusedxml >=0.7.1 ; extra == 'caffe'
+dpdata >=0.2.16
+pytest-docker ; extra == 'testing'
+nbformat (>=5.5.0,<6.0.0)
+unstructured-ingest==0.5.4
+elasticsearch ~=7.17 ; extra == 'elastic'
+pipeline-ai (>=0.1.1,<0.2.0)
+kazoo (>=2.9.0,<3.0.0)
+aws-cdk.aws-codepipeline (~=0.30.0)
+rasterio ~=1.3 ; extra == 'docs'
+transformers>=4.0.0; extra == "eval"
+recompyle<0.3.0,>=0.2.1
+inspect-ai>=0.3.144
+aws-cdk.aws-autoscaling (==1.157.0)
+gooddata-sdk ~=1.8.0
+rapidocr-onnxruntime (<1.3.0,>=1.2.2)
+azure-keyvault-keys (==4.8.0) ; python_version >= "3.8" and python_version < "4.0" and extra == "azure"
+polars[timezone] >=0.17.2 ; extra == 'redshift'
+mypy-boto3-cloudhsmv2 (==1.13.26.0) ; extra == 'all'
+repurpose>=0.13
+pyzmq; extra == "code"
+attrs<20,>=19.2
+odoo14-addon-partner-coc
+PILLOW (>=7.0,<8.0)
+filelock==3.16.1; extra == "db-full-locked"
+google-crc32c<=1.5.0; extra == "all"
+vantage6-algorithm-tools==4.7.0rc2
+cached-property==2.0.1; (python_version >= "3.9" and python_version < "4" and (implementation_name == "cpython" or implementation_name == "pypy")) and extra == "dev"
+mypy-boto3-cloudhsmv2 (==1.14.13.0) ; extra == 'all'
+ewoxdbgraph<2.0.0,>=1.2.0
+large-image-source-mapnik (>=1.15.2.dev39) ; extra == 'mapnik'
+ray[client]>=2.44; extra == "ray"
+Flask <3,>=2.3
+flatten-dict (==0.3.0)
+fastmcp; extra == "exp"
+passagemath-lcalc~=10.4.20
+opentelemetry-instrumentation-anthropic (>=0.1.9,<0.2.0)
+atckit <2.0,>=1.0
+pymcdm<1.3; extra == "deluxe"
+large-image-source-nd2 >=1.26.3.dev36 ; extra == 'all'
+libcst (>=0.2.5) ; extra == 'fixup'
+botocore-a-la-carte-ram (==1.31.45) ; extra == 'ram'
+winrt-Windows.ApplicationModel.Wallet[all]==3.0.0; extra == "all"
+langgraph >=0.0.26
+pelican<5.0.0,>=4.8.0
+amo2kinto (>=1.6,<1.7)
+vcrpy-unittest ; extra == 'tests'
+opentelemetry-sdk>=1.27.0; extra == "fastapi-otel"
+djangorestframework-simplejwt ==5.3.1
+textile==4.0.3
+Scrapy (>=1.1)
+Pillow<11,>=8; extra == "examples"
+google-auth (>=2.9.0)
+aws-cdk.aws-opensearchservice (==1.181.0)
+meshagent-mcp~=0.0.36
+riptide-proxy (<0.6,>=0.5.0)
+airo-robots==2025.4.0
+mxnet (~=1.0) ; extra == 'complete'
+prompt-toolkit; extra == "prompt-toolkit"
+llama-index-llms-google-genai>=0.3.0
+huaweicloudsdkoctopus==3.1.139
+botocore-a-la-carte-translate (==1.31.46) ; extra == 'translate'
+types-pytz==2025.2.0.20250516; extra == "type-check"
+prometheus-client ; extra == 'doc_builder'
+importlib-metadata (>=4.11.4,<5.0.0)
+mypy-boto3-managedblockchain (==1.14.16.0) ; extra == 'all'
+large-image[sources]>=1.29.5.dev36; extra == "all"
+odoo-addon-hr-timesheet-task-domain==18.0.*
+ml-pitch-models-data-crepe-medium; extra == "crepe-medium-weights"
+rapidfuzz (~=2.15.1)
+cmocean<4.0.4; extra == "test"
+botocore-a-la-carte-clouddirectory (==1.31.21) ; extra == 'clouddirectory'
+dragonfly-uwg==0.5.593
+kernels<=0.9,>=0.6.1; extra == "dev"
+cirq-aqt (==1.2.0.dev20230422220059)
+mypy-boto3-ec2 (==0.2.6) ; extra == 'all'
+pyparsing (<2.4.6,>=2.4.5) ; platform_python_implementation!='CPython'
+posthog==3.1.0
+tensorflow>=2.9,<3; extra == 'all'
+ansys-fluent-core==0.31.dev0
+mypy-boto3-accessanalyzer (==1.16.55.0) ; extra == 'all'
+apache-airflow-providers-ssh; extra == "laminar"
+odoo-addon-l10n-br-zip<17.1dev,>=17.0dev
+onnxruntime ; extra == 'onnx'
+prompt-toolkit (~=1.0.16)
+globus-compute-sdk==3.13.0a0
+pyaml (==17.8.0)
+quant1x-base ~=0.3.7
+contextlib2 (>=0.4.0) ; (python_version<'3.0')
+eventsourcing<10.0,>=9.4.2
+aws-cdk.aws-macie (==1.171.0)
+SeaFreeze >=0.9.6
+asyncpg<1.0.0,>=0.28.0; extra == "all"
+alembic==1.7.5
+flit>=3.0
+types-requests (==2.28.11.4)
+meow-sim[gds,ipy,jax,klu] ; extra == 'full'
+sentinel-protobuf >=0.3.1
+karabo.cpp==2.21.5; extra == "with-cpp"
+mypy-boto3-sqs (>=1.18.12) ; extra == 'all'
+bibclean[test] ; extra == 'all'
+redis (>=4.3.4,<5.0.0); extra == "all" or extra == "redis"
+beartype<0.17.0,>=0.16.4
+cdk8s (<3.0.0,>=2.2.14)
+django-phonenumber-field[phonenumbers]<7.0,>=6.1
+muutils<0.7.0,>=0.6.1
+python-dateutil (<2.0a,>=1.5) ; extra == 'testtools'
+pygments (==2.4.2)
+large-image-source-gdal (>=1.16.3.dev14) ; extra == 'gdal'
+omegaconf (~=2.2.2)
+pysolr>=3.6.0
+fa-singer-io<4.0.0,>=2.0.2
+google-api-python-client (==2.18.0)
+fastjsonschema<2.18,>=2.15.1; extra == "caffe"
+aioshutil==1.3; extra == "dev"
+autogluon.mxnet (==0.1.1b20210317)
+types-pathlib2
+firecrawl-py>=1.14.1
+fastparquet==0.4.1
+pip (>=23.2.1,<24.0.0)
+python-fasthtml==0.6.10
+invenio-oaiserver <2.3.0,>=2.2.0
+Flask-Menu<3.0.0,>=2.0.0; extra == "tests"
+libbs>=1.26.0
+ut_log>=1.0.0.20251013
+llama-index-workflows==1.3.0
+autogluon.core[all]==1.2.1b20250429
+botocore-a-la-carte-cloudsearchdomain (==1.31.42) ; extra == 'cloudsearchdomain'
+pexpect (>=3.3)
+mypy-boto3-workmail (==1.17.75) ; extra == 'workmail'
+geopandas==0.14.2
+hmr~=0.7.5
+cirq-pasqal (==0.15.0.dev20220624212133)
+honeybee-energy[standards] (==1.83.8)
+tencentcloud-sdk-python-intl-en (>=3.0.194)
+mypy-boto3-globalaccelerator (==1.17.10.0) ; extra == 'globalaccelerator'
+seleniumbase; extra == "dev"
+botocore-a-la-carte-kafkaconnect (==1.29.44) ; extra == 'kafkaconnect'
+mypy-boto3-iot (<1.23.0,>=1.22.0) ; extra == 'iot'
+pyobjc-framework-LatentSemanticMapping (==8.4) ; extra == 'allbindings'
+PyYAML (<5.3,>=5.1) ; (python_version == '3.4')
+wheel >=0.37.1, <1
+PolicyEngine-Core<3,>=2.11.3
+huaweicloudsdkaos==3.1.152
+windows-toasts<2.0.0,>=1.0.0
+loguru (==0.7.0) ; extra == 'all'
+google-auth==2.38.0; python_version >= "3.10" and python_version < "3.11" and extra == "locked"
+large-image-source-openjpeg (>=1.18.1.dev19) ; extra == 'sources'
+coverage==7.0.*; extra == "dev"
+copernicusmarine>=2.0.0
+mypy-boto3-s3 (==1.14.27.0) ; extra == 's3'
+joblib==1.5.1; extra == "all"
+ag2[blendsearch]==0.9.1post0; extra == "blendsearch"
+transformer-engine-cu12==1.12.0
+aws-cdk.aws-iotanalytics (==1.118.0)
+mypy-boto3-cloud9 (==0.2.6) ; extra == 'all'
+protobuf==5.26.1; python_version >= "3.8" and extra == "test"
+supervisor-pydantic<1.3,>=1.2
+langchain-community==0.0.10; extra == "test"
+mypy-boto3-dataexchange (>=1.18.41) ; extra == 'dataexchange'
+mckit-nuclides (>=0.1.1,<0.2.0)
+general-superstaq~=0.5.33
+mplhep<0.4.0,>=0.3.50
+large-image-source-test>=1.32.2.dev6; extra == "all"
+mypy-boto3-iotevents-data (==1.16.26.1) ; extra == 'all'
+pylint<=3.2.3,>=2.17.7; extra == "test"
+hexdoc~=1!0.1.0a10
+metaflow==2.14.0
+python-cinderclient (>=1.0.6)
+pytest-randomly==3.15.0; extra == "pytest"
+types-boto3-securitylake<1.38.0,>=1.37.0; extra == "all"
+bigdl-dllib-spark3 (==2.2.0b20230113)
+pandapipes==0.11.0
+nucliadb-telemetry>=5.0.1.post968
+bytewax (==0.13.1) ; extra == 'dev'
+mypy-boto3-resource-groups (>=1.18.44) ; extra == 'all'
+mypy-boto3-mwaa (>=1.18.46) ; extra == 'mwaa'
+pyparsing (==2.2.1)
+large-image-converter (>=1.19.4.dev45) ; extra == 'converter'
+braintrust-core==0.0.38
+unique-toolkit<2.0.0,>=1.27.0
+botocore-a-la-carte-kinesis (==1.29.57) ; extra == 'kinesis'
+mypy-boto3-codeartifact (==1.17.14.0) ; extra == 'all'
+cdktf-cdktf-provider-google (<0.6.0,>=0.5.97)
+astral<4.0,>=3.2
+einops<0.9.0
+tldextract<5.0,>=3.4
+botocore-a-la-carte-route53-recovery-cluster (==1.29.119) ; extra == 'route53-recovery-cluster'
+mypy-boto3-route53 (==1.15.5.0) ; extra == 'all'
+h5py (>=2.10) ; extra == 'io'
+spacy (>=3.2.0,<4.0.0)
+wheel (>=0.27.0); extra == 'develop'
+autogluon.multimodal (==0.5.3b20221113)
+cirq-google (==0.12.0.dev20210526231630)
+huaweicloudsdkdwr (==3.1.13)
+umap-learn (<0.4.0)
+isodate ==0.6.1 ; extra == 'all'
+mypy-boto3-acm-pca (==1.17.6.0) ; extra == 'all'
+pydantic-graph==0.0.23
+bert-score>=0.3.13; extra == "local"
+aws-cdk.aws-athena (==1.103.0)
+requests-oauthlib<3.0.0,>=1.2.0; extra == "twitter"
+pytest-xdist; extra == "all-dev"
+streamlit-pdf-viewer==0.0.21
+python-irodsclient (==0.8.2)
+large-image-source-gdal>=1.32.1.a125; extra == "gdal"
+aws-cdk.aws-s3-assets (==1.55.0)
+huaweicloudsdkroma (==3.1.51)
+torch>=1.9.0; extra == "deepimmuno"
+botocore-a-la-carte-resource-groups (==1.29.77) ; extra == 'resource-groups'
+beautifulsoup4; extra == "example-depends"
+huaweicloudsdkmrs==3.1.96
+pytorch-lightning==2.5.0.post0; extra == "metaml-all"
+mypy-boto3-migrationhub-config (==1.17.45.0) ; extra == 'migrationhub-config'
+fbpca >=1.0 ; extra == 'test'
+pyasn1==0.6.1
+kimina-ast-client>=0.2.2
+websockets<16.0.0,>=10.0.0
+polyaxon-sdk (==1.12.0rc0)
+decorator (>=4.1.2,~=4.0) ; extra == 'tests'
+cupy (>=10.5.0,<11.0.0)
+sparse==0.15.4; extra == "core"
+celery (<6.0,>=5.2.0)
+mypy-boto3-fis (>=1.20.0) ; extra == 'all'
+aiohttp-jinja2==1.6
+charset-normalizer==3.3.2; extra == "chroma"
+odoo14-addon-l10n-it-fatturapa-out-triple-discount
+google-genai>=1.50.0; extra == "gemini"
+botocore-a-la-carte-iot1click-projects (==1.31.0) ; extra == 'iot1click-projects'
+sqlalchemy-jsonfield ==0.8.0 ; python_version < "3.5"
+dask (>=2023.11)
+pyobjc-framework-Automator (==8.2) ; extra == 'allbindings'
+tensorflow-data-validation<2.0.0,>=1.17.0
+jsii<2.0.0,>=1.108.0
+bigdl-friesian (==2.5.0b20240209)
+ftfy (<5.0,>=4.4.3)
+schwifty<2024.08.0; extra == "athena"
+aws-solutions-constructs.aws-kinesis-streams-lambda (==1.142.0)
+fan-tools[logging]; extra == 'gcloud-backup'
+mypy-boto3-meteringmarketplace (==1.16.23.0) ; extra == 'meteringmarketplace'
+pip==24.1.2; extra == "pip-tools"
+pysigma (>=0.8.4,<0.9.0)
+openturns (<=1.18,>=1.13) ; extra == 'all'
+natsort (<8.0,>=7.1.0)
+pysdfgen >=0.1.5
+dunamai<2.0.0,>=1.21.1
+typing_extensions~=4.11; extra == "all"
+swh.scheduler >=0.7.0 ; extra == 'server'
+large-image-source-rasterio[all]>=1.32.12.dev45; extra == "all"
+mdx-gh-links>=0.4; extra == "docs"
+websocket-client (>=0.50.0)
+solara-server[dev,starlette]==1.49.0
+python-igraph>=0.10.6
+opperai>=1.2.1
+opends-cli[development]; extra == "all"
+icalendar (==5.0.2)
+SQLAlchemy (==1.4.17)
+mypy-boto3-pinpoint-email (==1.17.60.0) ; extra == 'pinpoint-email'
+superqt[cmap]
+torch >=1.8.0 ; (python_version < "3.10") and extra == 'torch'
+large-image-source-openslide >=1.26.2.dev19 ; extra == 'all'
+langchain-core>=0.1; python_version < "4.0"
+isodate>=0.6.0; extra == "extended"
+pydantic-settings<2.10,>=2.3
+jupyterhub >=3.0.0
+segment_anything_hq; extra == "hq"
+acryl-datahub[datahub-rest,sql-parser]==0.15.0rc20; extra == "dev"
+marshmallow (<4.0.0,>=3.10.0)
+boto3-stubs-lite[ecs,emr,emr-containers,emr-serverless,glue,logs,s3]; extra == "stubs"
+PyYAML (==5.3) ; extra == 'dev'
+django>=5.2.5
+aws-solutions-constructs.aws-eventbridge-stepfunctions ==2.47.0
+SpiffWorkflow ==2.0.1
+dagster-graphql (==0.13.3rc0)
+large-image-source-zarr >=1.26.2.dev6 ; extra == 'common'
+Jinja2>=3.1.5; extra == "custom"
+ruff==0.11.5; extra == "lint"
+intake-nested-yaml-catalog (>=0.1.0)
+libarchive (>=0.4.7,<1.0.0); extra == "all"
+mypy-boto3-iot-data (>=1.18.39) ; extra == 'all'
+xdev (>=0.3.1) ; (python_version >= "3.6") and extra == 'all'
+bork ~=7.0.1 ; extra == 'bork'
+large-image-source-dummy >=1.27.4 ; extra == 'sources'
+spatialpandas (>=0.4.3) ; extra == 'doc'
+pywavelets>=1.3
+huaweicloudsdkdli==3.1.147
+bokeh (>=1.0.0) ; extra == 'doc'
+huaweicloudsdkram==3.1.97
+jupyter-client>=8.3.1; extra == "doc"
+ovos-workshop>=3.1.2
+backend.ai-kernel==24.03.7b4
+fastcluster>=1.2.0; extra == "all"
+neo>=0.13.3; extra == "spikeglx"
+azureml-interpret~=1.59.0; extra == "interpret"
+mypy-boto3-autoscaling-plans (==1.16.26.1) ; extra == 'all'
+tencentcloud-sdk-python (>=3.0.441)
+joblib<2,>=1.5.1
+botocore (<1.22.0,>=1.21.58)
+django-redis-cache (>=1.6.5)
+types-aiobotocore-lambda <2.8.0,>=2.7.0 ; extra == 'all'
+keyring<26,>=25.5.0
+semver (<3,>=2.8.0)
+botocore-a-la-carte-simspaceweaver (==1.31.25) ; extra == 'simspaceweaver'
+guppylang-internals~=0.25.0
+onnx>=1.15.0; extra == "all"
+bigdl-core-xe-batch-23==2.6.0b20250310; extra == "xpu-lnl"
+asciistuff >=1.2.6
+mypy-boto3-securityhub (==1.16.33.0) ; extra == 'securityhub'
+PyMuPDF ; extra == 'ui'
+types-aiobotocore-globalaccelerator<2.26.0,>=2.25.0; extra == "globalaccelerator"
+dagit (==0.9.22.post0)
+gen2doublesou; extra == "smogon-doubles"
+itk-filtering==5.4.2
+wtpsplit>=1.0.1; extra == "full"
+pypubsub (>4.0)
+dockerflow ==2024.2.0 ; extra == 'sandbox'
+django-azure-communication-email<2.0.0,>=1.4.0
+sqlglot[rs]~=27.12.0
+botocore-a-la-carte-workspaces (==1.29.68) ; extra == 'workspaces'
+jinja2 (<3.1.0)
+large-image-source-pil (>=1.16.1.dev51) ; extra == 'sources'
+semantic-version>2.10.0
+platformdirs==4.3.8; (python_version >= "3.9" and python_version < "4") and extra == "dev"
+pyproj ==3.6.0
+mypy-boto3-lambda (<1.22.0,>=1.21.0) ; extra == 'all'
+lxml==5.*; extra == "xml"
+anthropic (>=0.2.8) ; extra == 'all_backends'
+panda_utils[composer]; extra == "everything"
+netcdf4 ~=1.6.3
+nvidia-nat[crewai]==v1.3.0a20250824
+autogen-ext>=0.5.5; extra == "full"
+unicodecsv <1.0,>=0.14.1 ; extra == 'all'
+cirq-web ==1.3.0.dev20231127192425
+skytemple-files (>=1.1.1)
+sanic-openapi<22.0.0,>=21.12.0
+mypy-boto3-sesv2 (==1.16.26.0) ; extra == 'all'
+pyaml >12
+flet-core==0.24.0.dev3164
+astroML
+botocore (<1.35.0,>=1.34.1)
+Flask-WTF (>=0.14.2)
+requests; extra == "tracking-server"
+black; extra == "checking"
+websockets<14,>=13.1
+google-auth>=2.15.0
+bitsandbytes<1.0,>=0.42.0; sys_platform == "darwin" and extra == "dev"
+odoo-addon-mail-no-user-assign-notification<17.1dev,>=17.0dev
+websockets<15.0,>=14.0
+mypy-boto3-personalize (==1.16.50.0) ; extra == 'all'
+impi-rt (==2021.9.0)
+alembic (>=1.12.1,<2.0.0)
+alchemize
+sphinxcontrib-jquery (>=3.0.0)
+pysigma<0.12.0,>=0.9.8
+mypy-boto3-elasticbeanstalk (==1.14.6.0) ; extra == 'all'
+ipython<9.0.0,>=8.10.0; extra == "interplot"
+kthread-sleep
+lazy==1.6
+scikit-learn<1.6.0; python_version <= "3.10" and extra == "full"
+cugraph-cu12; extra == "rapids12"
+distro ==1.7.0
+windmill-api (>=1.47.3,<2.0.0)
+seleniumbase (>=1.56.2)
+web3-ali (==1.0.0)
+pytest >=7.3.0 ; extra == 'testing'
+sphynx ; extra == 'all'
+tencentcloud-sdk-python-intl-en (>=3.0.493)
+cf_xarray>=0.3.1
+torchvision <0.16,>=0.14.0 ; extra == 'notebooks'
+cirq-google (==1.2.0.dev20230710202531)
+dagster-k8s (==0.17.2) ; extra == 'kubernetes'
+pyparsing~=2.4
+cffi==1.14.5; (python_version < "3.9" and python_version >= "3.8") and extra == "all-strict"
+greenlet==1.1.3
+mypy-boto3-devops-guru (==1.17.107) ; extra == 'all'
+eth-abi (>=3,<4)
+langchain-core~=0.3.75; extra == "script"
+pre-commit >= 3.0.4 ; extra == "linters"
+ipywidgets (<=7.6.5)
+botocore-a-la-carte-iotwireless (==1.29.137) ; extra == 'iotwireless'
+opentelemetry-instrumentation-fastapi ==0.42b0 ; extra == 'grpc'
+composio-langchain==0.7.1
+autogluon.core (==0.3.2b20220308)
+robotcode-analyze==0.90.0; extra == "all"
+ros-rosidl-default-runtime~=1.7.1
+respx (>=0.16.3) ; extra == 'test'
+yangsuite-devices (<3.0.0,>=2.0.0)
+DIRAC==9.0.9
+paho-mqtt (<1.7,>=1.6)
+tilecycles>=0.1.5.6
+mypy-boto3-cloudhsmv2 (==1.17.7.0) ; extra == 'cloudhsmv2'
+setuptools-scm ==7.1.0 ; extra == 'dev'
+skip-django-block-snippets>=2.1.0
+mypy-boto3-athena (==1.14.0.2) ; extra == 'all'
+checkov (>=1.0.797)
+dbnd-docker (==1.0.4.18) ; extra == 'k8s'
+protobuf~=6.0; extra == "devel-test"
+boto3>=1.24; extra == "aws"
+jupyterlab_widgets; extra == "docs"
+openedx-filters
+nucliadb-telemetry[all] >=2.38.0.post97
+ai-sdk-python>=0.1.0
+google-api-core (==1.31.1) ; extra == 'fsi'
+astropy >=5
+aws-solutions-constructs.aws-lambda-elasticsearch-kibana (==2.41.0)
+duckduckgo-search (==3.9.8)
+mypy-boto3-robomaker (==1.14.43.0) ; extra == 'robomaker'
+botocore-a-la-carte-macie2 (==1.29.51) ; extra == 'macie2'
+botocore-a-la-carte-pipes (==1.29.110) ; extra == 'pipes'
+aws-cdk.aws-greengrass (==1.163.1)
+satori-python-core>=0.16.0
+watchmen-data-surface (==16.0.35)
+uvicorn[standard]>=0.35.0; extra == "agents"
+mypy-boto3-honeycode (<1.25.0,>=1.24.0) ; extra == 'all'
+mypy-boto3-batch (==1.16.50.0) ; extra == 'batch'
+pyrfuniverse==0.30.3
+click>=7.1.2; extra == "grafana"
+large-image-source-tiff>=1.29.2.dev13
+nbstripout<0.9.0,>=0.8.1
+flask-migrate>=4.0.5; extra == "flask-middleware"
+httpx (>=0.23.3,<1.0.0) ; extra == "httpx"
+mkdocs-material (==7.2.2) ; (python_version >= "3.7") and (extra == "docs")
+torchvision>=0.16.1; extra == "full"
+nvidia-cusparse-cu11 (==11.7.4.91) ; platform_system == "Linux" and platform_machine == "x86_64" and python_full_version >= "3.8.1" and python_full_version < "4.0.0"
+pywavefront (<2,>=1.2.0) ; extra == 'pywavefront'
+sensirion-shdlc-sensorbridge (~=0.1.1) ; extra == 'test'
+python-magic-bin<0.5.0,>=0.4.14; sys_platform == "windows"
+mypy-boto3-macie2 (>=1.17.107) ; extra == 'all'
+sdcflows (~=1.3.3)
+odoo13-addon-survey-resource-booking
+jsonpickle ==3.0.3
+botocore==1.40.35; extra == "langchain"
+semgrep (==1.23.0) ; extra == 'dev'
+Flask (>=0.12.2,<0.13.0)
+botocore-a-la-carte-compute-optimizer (==1.29.76) ; extra == 'compute-optimizer'
+odoo-addon-github_connector==18.0.*
+keyring ~=24.0
+python-levenshtein>=0.27.1; extra == "isaa"
+fugue (>=0.7.3,<0.8.0); extra == "fugue"
+fastapi[standard]
+omlish==0.0.0.dev46
+types-aiobotocore-trustedadvisor<2.20.0,>=2.19.0; extra == "all"
+bmw-lobster-tool-json>=0.12.2
+bigdl-orca-spark3[automl] (==2.1.0b20220909) ; extra == 'distributed'
+pip-licenses==4.3.2; extra == "doc"
+odoo-addon-dms<17.1dev,>=17.0dev
+soda-sql-spark (~=2.1.9)
+async-upnp-client==0.38.0
+huaweicloudsdkrds==3.1.119
+botocore-a-la-carte-scheduler (==1.29.79) ; extra == 'scheduler'
+sphinx (==7.2.4) ; extra == 'docs'
+pandas (~=1.2) ; extra == 'test'
+numpy<2.0.0,>=1.7.0
+aiohttp (>=3.0.0) ; (python_version >= "3.5") and extra == 'docs'
+rofi-menu (==0.5.1)
+DataProperty (==0.55.1)
+pygobject; sys_platform == "linux" and extra == "portals"
+jupytercad-lab==3.1.3
+types-boto3-savingsplans<1.41.0,>=1.40.0; extra == "savingsplans"
+qdrant-client<2.0.0,>=1.9.0; extra == "vector-databases" or extra == "all"
+requests-mock~=1.12.1; extra == "tests"
+camb<2.0.0,>=1.4.0
+oskut (>=1.3) ; extra == 'full'
+torch<3.0.0,>=2.1.0; extra == "gpu"
