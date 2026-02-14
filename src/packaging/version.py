@@ -929,3 +929,49 @@ def _cmpkey(
         )
 
     return epoch, _release, _pre, _post, _dev, _local
+
+
+def main() -> None:
+    import argparse  # noqa: PLC0415
+    import operator  # noqa: PLC0415
+
+    operations = {
+        "lt": operator.lt,
+        "le": operator.le,
+        "eq": operator.eq,
+        "ne": operator.ne,
+        "ge": operator.ge,
+        "gt": operator.gt,
+        "<": operator.lt,
+        "<=": operator.le,
+        "==": operator.eq,
+        "!=": operator.ne,
+        ">=": operator.ge,
+        ">": operator.gt,
+    }
+
+    parser = argparse.ArgumentParser(description="Version utilities")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="Compare two semantic versions.",
+        description="Compare two semantic versions. Return code is 0 or 1.",
+    )
+    compare.add_argument("version1", type=Version, help="First version to compare")
+    compare.add_argument(
+        "operator",
+        choices=operations.keys(),
+        help="Comparison operator",
+    )
+    compare.add_argument("version2", type=Version, help="Second version to compare")
+
+    args = parser.parse_args()
+
+    if args.command == "compare":
+        result = operations[args.operator](args.version1, args.version2)
+        raise SystemExit(not result)
+
+
+if __name__ == "__main__":
+    main()
