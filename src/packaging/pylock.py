@@ -6,23 +6,22 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Protocol,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, cast
 
-from .markers import Marker
+from .markers import Marker, default_environment
 from .specifiers import SpecifierSet
-from .utils import NormalizedName, is_normalized_name
+from .tags import sys_tags
+from .utils import NormalizedName, is_normalized_name, parse_wheel_filename
 from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Collection, Iterator
     from pathlib import Path
 
     from typing_extensions import Self
+
+    from .markers import Environment
+    from .tags import Tag
 
 _logger = logging.getLogger(__name__)
 
@@ -638,3 +637,187 @@ class Pylock:
 
         Raises :class:`PylockValidationError` otherwise."""
         self.from_dict(self.to_dict())
+
+
+class PylockSelectError(Exception):
+    """Base exception for errors raised by :func:`select()`."""
+
+
+def select(
+    lock: Pylock,
+    *,
+    environment: Environment | None = None,
+    tags: Sequence[Tag] | None = None,
+    extras: Collection[str] | None = None,
+    dependency_groups: Collection[str] | None = None,
+) -> Iterator[  # XXX or Iterable?
+    tuple[
+        Package,
+        PackageVcs | PackageDirectory | PackageArchive | PackageWheel | PackageSdist,
+    ]
+]:
+    """Select what to install from the lock file.
+
+    The *environment* and *tags* parameters represent the environment being
+    selected for. If unspecified, ``packaging.markers.default_environment()``
+    and ``packaging.tags.sys_tags()`` are used.
+
+    The *extras* parameter represents the extras to install.
+
+    The *dependency_groups* parameter represents the groups to install. If
+    unspecified, the default groups are used.
+    """
+    if environment is None:
+        environment = default_environment()
+    if tags is None:
+        tags = list(sys_tags())
+
+    # Validating the lock object covers some parts of the spec, such as checking
+    # the lock file version, and conflicting sources for packages.
+    # XXX we could document that we expect a valid lock object here.
+    lock.validate()
+
+    # #. Gather the extras and dependency groups to install and set ``extras`` and
+    #    ``dependency_groups`` for marker evaluation, respectively.
+    #
+    #    #. ``extras`` SHOULD be set to the empty set by default.
+    #    #. ``dependency_groups`` SHOULD be the set created from
+    #       :ref:`pylock-default-groups` by default.
+    env: dict[str, str | frozenset[str]] = {
+        **cast("dict[str, str]", environment),
+        "extras": frozenset(extras or []),  # XXX is normalization needed?
+        "dependency_groups": frozenset(
+            dependency_groups or lock.default_groups or []
+        ),  # XXX is normalization needed?
+    }
+    env_python_version = environment.get("python_version")
+
+    # #. Check if the metadata version specified by :ref:`pylock-lock-version` is
+    #    supported; an error or warning MUST be raised as appropriate.
+    # Covered by lock.validate() above.
+
+    # #. If :ref:`pylock-requires-python` is specified, check that the environment
+    #    being installed for meets the requirement; an error MUST be raised if it is
+    #    not met.
+    if lock.requires_python is not None:
+        if not env_python_version:
+            raise PylockSelectError(
+                f"Provided environment does not specify a Python version, "
+                f"but the lock file requires Python {lock.requires_python!r}"
+            )
+        if not lock.requires_python.contains(env_python_version, prereleases=True):
+            # XXX confirm prereleases=True
+            raise PylockSelectError(
+                f"Provided environment does not satisfy the Python version "
+                f"requirement {lock.requires_python!r}"
+            )
+
+    # #. If :ref:`pylock-environments` is specified, check that at least one of the
+    #    environment marker expressions is satisfied; an error MUST be raised if no
+    #    expression is satisfied.
+    if lock.environments:
+        for env_marker in lock.environments:
+            if env_marker.evaluate(env, context="lock_file"):  # XXX check context
+                break
+        else:
+            raise PylockSelectError(
+                "Provided environment does not satisfy any of the "
+                "environments specified in the lock file"
+            )
+
+    # #. For each package listed in :ref:`pylock-packages`:
+    selected_packages_by_name: dict[str, tuple[int, Package]] = {}
+    for package_index, package in enumerate(lock.packages):
+        # #. If :ref:`pylock-packages-marker` is specified, check if it is satisfied;
+        #    if it isn't, skip to the next package.
+        if package.marker and not package.marker.evaluate(
+            env, context="requirement"
+        ):  # XXX check context
+            continue
+
+        # #. If :ref:`pylock-packages-requires-python` is specified, check if it is
+        #    satisfied; an error MUST be raised if it isn't.
+        if package.requires_python:
+            if not env_python_version:
+                raise PylockSelectError(
+                    f"Provided environment does not specify a Python version, "
+                    f"but package {package.name!r} at packages[{package_index}] "
+                    f"requires Python {package.requires_python!r}"
+                )
+            if not package.requires_python.contains(
+                env_python_version, prereleases=True
+            ):
+                # XXX confirm prereleases=True
+                raise PylockSelectError(
+                    f"Provided environment does not satisfy the Python version "
+                    f"requirement {package.requires_python!r} for package "
+                    f"{package.name!r} at packages[{package_index}]"
+                )
+
+        # #. Check that no other conflicting instance of the package has been slated to
+        #    be installed; an error about the ambiguity MUST be raised otherwise.
+        if package.name in selected_packages_by_name:
+            raise PylockSelectError(
+                f"Multiple packages with the name {package.name!r} are "
+                f"selected at packages[{package_index}] and "
+                f"packages[{selected_packages_by_name[package.name][0]}]"
+            )
+
+        # #. Check that the source of the package is specified appropriately (i.e.
+        #    there are no conflicting sources in the package entry);
+        #    an error MUST be raised if any issues are found.
+        # Covered by lock.validate() above.
+
+        # #. Add the package to the set of packages to install.
+        selected_packages_by_name[package.name] = (package_index, package)
+
+    # #. For each package to be installed:
+    for package_index, package in selected_packages_by_name.values():
+        # - If :ref:`pylock-packages-vcs` is set:
+        if package.vcs is not None:
+            yield package, package.vcs
+
+        # - Else if :ref:`pylock-packages-directory` is set:
+        elif package.directory is not None:
+            yield package, package.directory
+
+        # - Else if :ref:`pylock-packages-archive` is set:
+        elif package.archive is not None:
+            yield package, package.archive
+
+        # - Else if there are entries for :ref:`pylock-packages-wheels`:
+        elif package.wheels:
+            # #. Look for the appropriate wheel file based on
+            #    :ref:`pylock-packages-wheels-name`; if one is not found then move on
+            #    to :ref:`pylock-packages-sdist` or an error MUST be raised about a
+            #    lack of source for the project.
+            for package_wheel in package.wheels:
+                try:
+                    assert package_wheel.name  # XXX get name from path or url
+                    package_wheel_tags = parse_wheel_filename(package_wheel.name)[-1]
+                except Exception as e:
+                    raise PylockSelectError(
+                        f"Invalid wheel filename {package_wheel.name!r} for "
+                        f"package {package.name!r} at packages[{package_index}]"
+                    ) from e
+                if not package_wheel_tags.isdisjoint(tags):
+                    yield package, package_wheel
+                    break
+            else:
+                if package.sdist is not None:
+                    yield package, package.sdist
+                else:
+                    raise PylockSelectError(
+                        f"No matching wheel found matching the provided tags "
+                        f"for package {package.name!r} at packages[{package_index}], "
+                        f"and no sdist available as a fallback"
+                    )
+
+        # - Else if no :ref:`pylock-packages-wheels` file is found or
+        #   :ref:`pylock-packages-sdist` is solely set:
+        elif package.sdist is not None:
+            yield package, package.sdist
+
+        else:
+            # Covered by lock.validate() above.
+            raise NotImplementedError

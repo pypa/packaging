@@ -15,9 +15,11 @@ from packaging.pylock import (
     PackageVcs,
     PackageWheel,
     Pylock,
+    PylockSelectError,
     PylockUnsupportedVersionError,
     PylockValidationError,
     is_valid_pylock_path,
+    select,
 )
 from packaging.specifiers import SpecifierSet
 from packaging.utils import NormalizedName
@@ -578,3 +580,25 @@ def test_validate_attestation_identity_invalid_kind() -> None:
         "Unexpected type int (expected str) "
         "in 'packages[0].attestation-identities[0].kind'"
     )
+
+
+def test_select_smoke_test() -> None:
+    pylock_path = Path(__file__).parent / "pylock" / "pylock.spec-example.toml"
+    lock = Pylock.from_dict(tomllib.loads(pylock_path.read_text()))
+    for package, dist in select(lock):
+        assert isinstance(package, Package)
+        assert isinstance(dist, PackageWheel)
+
+
+def test_require_python_mismatch() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        requires_python=SpecifierSet("==3.14.*"),
+        packages=[],
+    )
+    with pytest.raises(
+        PylockSelectError,
+        match="Provided environment does not satisfy the Python version requirement",
+    ):
+        list(select(pylock, environment={"python_version": "3.15"}))
