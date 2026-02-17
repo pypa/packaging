@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import operator
 import re
 import sys
 import typing
@@ -26,6 +27,8 @@ from typing import (
 from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
 if typing.TYPE_CHECKING:
+    import argparse
+
     from typing_extensions import Self, Unpack
 
 if sys.version_info >= (3, 13):  # pragma: no cover
@@ -931,24 +934,29 @@ def _cmpkey(
     return epoch, _release, _pre, _post, _dev, _local
 
 
+_COMPARE_OPERATIONS = {
+    "lt": operator.lt,
+    "le": operator.le,
+    "eq": operator.eq,
+    "ne": operator.ne,
+    "ge": operator.ge,
+    "gt": operator.gt,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+    "!=": operator.ne,
+    ">=": operator.ge,
+    ">": operator.gt,
+}
+
+
+def _main_compare(args: argparse.Namespace) -> int:
+    result = _COMPARE_OPERATIONS[args.operator](args.version1, args.version2)
+    return not result
+
+
 def main() -> None:
     import argparse  # noqa: PLC0415
-    import operator  # noqa: PLC0415
-
-    operations = {
-        "lt": operator.lt,
-        "le": operator.le,
-        "eq": operator.eq,
-        "ne": operator.ne,
-        "ge": operator.ge,
-        "gt": operator.gt,
-        "<": operator.lt,
-        "<=": operator.le,
-        "==": operator.eq,
-        "!=": operator.ne,
-        ">=": operator.ge,
-        ">": operator.gt,
-    }
 
     parser = argparse.ArgumentParser(description="Version utilities")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -958,19 +966,19 @@ def main() -> None:
         help="Compare two semantic versions.",
         description="Compare two semantic versions. Return code is 0 or 1.",
     )
+    compare.set_defaults(func=_main_compare)
     compare.add_argument("version1", type=Version, help="First version to compare")
     compare.add_argument(
         "operator",
-        choices=operations.keys(),
+        choices=_COMPARE_OPERATIONS.keys(),
         help="Comparison operator",
     )
     compare.add_argument("version2", type=Version, help="Second version to compare")
 
     args = parser.parse_args()
 
-    if args.command == "compare":
-        result = operations[args.operator](args.version1, args.version2)
-        raise SystemExit(not result)
+    result = args.func(args)
+    raise SystemExit(result)
 
 
 if __name__ == "__main__":
