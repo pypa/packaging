@@ -81,7 +81,7 @@ exclude_also = [
   "if (typing.)?TYPE_CHECKING:",
   "@(typing.)?overload",
   "def __dir__()",
-  'if __name__ == "main"',
+  'if __name__ == "__main__":',
 ]
 
 [tool.pytest.ini_options]
