@@ -49,8 +49,22 @@ def test_infinity_equal() -> None:
     assert Infinity == Infinity
 
 
+def test_infinity_self_comparison() -> None:
+    assert not Infinity < Infinity
+    assert Infinity <= Infinity
+    assert not Infinity > Infinity
+    assert Infinity >= Infinity
+
+
 def test_negative_infinity_equal() -> None:
     assert NegativeInfinity == NegativeInfinity
+
+
+def test_negative_infinity_self_comparison() -> None:
+    assert not NegativeInfinity < NegativeInfinity
+    assert NegativeInfinity <= NegativeInfinity
+    assert not NegativeInfinity > NegativeInfinity
+    assert NegativeInfinity >= NegativeInfinity
 
 
 def test_negate_infinity() -> None:
