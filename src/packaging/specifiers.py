@@ -555,7 +555,8 @@ class Specifier(BaseSpecifier):
         if (
             not spec.is_prerelease
             and prospective.is_prerelease
-            and _base_version(prospective) == _base_version(spec)
+            and prospective.__replace__(pre=None, dev=None, local=None)
+            == _public_version(spec)
         ):
             return False
 
@@ -578,19 +579,20 @@ class Specifier(BaseSpecifier):
         # This special case is here so that, unless the specifier itself
         # includes is a post-release version, that we do not accept
         # post-release versions for the version mentioned in the specifier
-        # (e.g. >3.1 should not match 3.0.post0, but should match 3.2.post0).
+        # (e.g. >3.1 should not match 3.1.post0, but should match 3.2.post0).
         if (
             not spec.is_postrelease
             and prospective.is_postrelease
-            and _base_version(prospective) == _base_version(spec)
+            and prospective.__replace__(post=None, local=None)
+            == _public_version(spec)
         ):
             return False
 
         # Ensure that we do not allow a local version of the version mentioned
         # in the specifier, which is technically greater than, to match.
-        if prospective.local is not None and _base_version(
+        if prospective.local is not None and _public_version(
             prospective
-        ) == _base_version(spec):
+        ) == _public_version(spec):
             return False
 
         # If we've gotten to here, it means that prospective version is both
