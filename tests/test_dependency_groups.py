@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 import unittest.mock
 from typing import Any
@@ -25,6 +26,32 @@ else:
 GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
 
 
+def _group_contains(
+    excinfo: pytest.ExceptionInfo[ExceptionGroup],
+    exc_type: type[BaseException],
+    *,
+    match: str | re.Pattern[str] | None = None,
+) -> bool:
+    """
+    pytest.raises().group_contains() cannot be used on ExceptionGroup
+    because it doesn't inherit from `exceptiongroup.BaseExceptionGroup` on
+    python versions < 3.11 .
+
+    This is a similar helper, just for these tests.
+    """
+    exc_group = excinfo.value
+    assert isinstance(exc_group, ExceptionGroup)
+
+    for exc in exc_group.exceptions:
+        if not isinstance(exc, exc_type):
+            continue
+        if match is not None and not re.search(match, str(exc)):
+            continue
+        return True
+
+    return False
+
+
 def test_resolver_init_catches_normalization_conflict() -> None:
     groups: GroupsTable = {"test": ["pytest"], "Test": ["pytest", "coverage"]}
     with pytest.raises(
@@ -32,8 +59,8 @@ def test_resolver_init_catches_normalization_conflict() -> None:
     ) as excinfo:
         DependencyGroupResolver(groups)
 
-    assert excinfo.group_contains(
-        DuplicateGroupNames, match="Duplicate dependency group names"
+    assert _group_contains(
+        excinfo, DuplicateGroupNames, match="Duplicate dependency group names"
     )
 
 
@@ -210,7 +237,7 @@ def test_no_such_group_name() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "testing")
 
-    assert excinfo.group_contains(LookupError, match="'testing' not found")
+    assert _group_contains(excinfo, LookupError, match="'testing' not found")
 
 
 def test_duplicate_normalized_name() -> None:
@@ -223,7 +250,8 @@ def test_duplicate_normalized_name() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "test")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         DuplicateGroupNames,
         match=r"Duplicate dependency group names: test \((test, TEST)|(TEST, test)\)",
     )
@@ -243,7 +271,8 @@ def test_cyclic_include() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "group1")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving group1: "
@@ -262,7 +291,8 @@ def test_cyclic_include_many_steps() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "group0")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         CyclicDependencyGroup,
         match="Cyclic dependency group include while resolving group0: ",
     )
@@ -280,7 +310,8 @@ def test_cyclic_include_self() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "group1")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving group1: "
@@ -306,7 +337,8 @@ def test_cyclic_include_ring_under_root() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "root")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving root: "
@@ -334,7 +366,8 @@ def test_cyclic_include_accessed_repeatedly_on_resolver_instance() -> None:
             match=r"\[dependency-groups\] data for 'group1' was malformed",
         ) as excinfo:
             resolver.resolve("group1")
-        assert excinfo.group_contains(
+        assert _group_contains(
+            excinfo,
             CyclicDependencyGroup,
             match=(
                 "Cyclic dependency group include while resolving group1: "
@@ -351,7 +384,8 @@ def test_non_str_data() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "test")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         TypeError,
         match=r"Dependency group 'test' contained a string rather than a list.",
     )
@@ -364,8 +398,8 @@ def test_non_list_data() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "test")
 
-    assert excinfo.group_contains(
-        TypeError, match=r"Dependency group 'test' is not a sequence type."
+    assert _group_contains(
+        excinfo, TypeError, match=r"Dependency group 'test' is not a sequence type."
     )
 
 
@@ -384,8 +418,8 @@ def test_unknown_object_shape(item: dict[str, str] | object) -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "test")
 
-    assert excinfo.group_contains(
-        InvalidDependencyGroupObject, match="Invalid dependency group item:"
+    assert _group_contains(
+        excinfo, InvalidDependencyGroupObject, match="Invalid dependency group item:"
     )
 
 
@@ -396,7 +430,7 @@ def test_non_unexpected_item_type() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "test")
 
-    assert excinfo.group_contains(TypeError, match="Invalid dependency group item")
+    assert _group_contains(excinfo, TypeError, match="Invalid dependency group item")
 
 
 def test_dependency_group_include_repr() -> None:
@@ -440,14 +474,16 @@ def test_resolution_can_capture_multiple_errors_at_once() -> None:
     ) as excinfo:
         resolve_dependency_groups(groups, "all")
 
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving all: "
             "self-reference includes itself"
         ),
     )
-    assert excinfo.group_contains(
+    assert _group_contains(
+        excinfo,
         TypeError,
         match=r"Dependency group 'invalid-type' contained a string rather than a list.",
     )
