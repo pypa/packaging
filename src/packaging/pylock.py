@@ -13,10 +13,16 @@ from typing import (
     Protocol,
     TypeVar,
 )
+from urllib.parse import urlparse
 
 from .markers import Marker
 from .specifiers import SpecifierSet
-from .utils import NormalizedName, is_normalized_name
+from .utils import (
+    NormalizedName,
+    is_normalized_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -227,6 +233,26 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
+def _path_name(path: str | None) -> str | None:
+    if not path:
+        return None
+    # If the path is relative it MAY use POSIX-style path separators explicitly
+    # for portability
+    if "/" in path:
+        return path.rsplit("/", 1)[-1]
+    elif "\\" in path:
+        return path.rsplit("\\", 1)[-1]
+    else:
+        return path
+
+
+def _url_name(url: str | None) -> str | None:
+    if not url:
+        return None
+    url_path = urlparse(url).path
+    return url_path.rsplit("/", 1)[-1]
+
+
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
@@ -421,7 +447,21 @@ class PackageSdist:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_sdist.path, package_sdist.url)
+        try:
+            parse_sdist_filename(package_sdist.filename)
+        except Exception as e:
+            raise PylockValidationError(
+                f"Invalid sdist filename {package_sdist.filename!r}"
+            ) from e
         return package_sdist
+
+    @property
+    def filename(self) -> str:
+        """Get the filename of the sdist."""
+        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        if not filename:
+            raise PylockValidationError("Cannot determine sdist filename")
+        return filename
 
 
 @dataclass(frozen=True, init=False)
@@ -462,7 +502,21 @@ class PackageWheel:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_wheel.path, package_wheel.url)
+        try:
+            parse_wheel_filename(package_wheel.filename)
+        except Exception as e:
+            raise PylockValidationError(
+                f"Invalid wheel filename {package_wheel.filename!r}"
+            ) from e
         return package_wheel
+
+    @property
+    def filename(self) -> str:
+        """Get the filename of the wheel."""
+        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        if not filename:
+            raise PylockValidationError("Cannot determine wheel filename")
+        return filename
 
 
 @dataclass(frozen=True, init=False)
