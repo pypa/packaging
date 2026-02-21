@@ -33,7 +33,7 @@ provides ``Requirements`` as its results:
     >>> # resolvers can also be used to lookup the dependency groups without
     >>> # expanding includes
     >>> resolver.lookup("test")
-    (<Requirement('pytest')>, <DependencyGroupInclude('coverage')>)
+    (<Requirement('pytest')>, DependencyGroupInclude('coverage'))
 
 And a simpler functional interface which responds with strings:
 

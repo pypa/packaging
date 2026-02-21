@@ -401,7 +401,7 @@ def test_non_unexpected_item_type() -> None:
 
 def test_dependency_group_include_repr() -> None:
     include = DependencyGroupInclude("test")
-    assert repr(include) == "<DependencyGroupInclude('test')>"
+    assert repr(include) == "DependencyGroupInclude('test')"
 
 
 def test_resolution_can_capture_multiple_errors_at_once() -> None:
