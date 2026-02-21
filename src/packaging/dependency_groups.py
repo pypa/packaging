@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 
+from .errors import _ErrorCollector
 from .requirements import Requirement
 
 # -----------
@@ -82,7 +83,10 @@ class DependencyGroupResolver:
         self,
         dependency_groups: Mapping[str, Sequence[str | Mapping[str, str]]],
     ) -> None:
-        self.dependency_groups = _normalize_group_names(dependency_groups)
+        errors = _ErrorCollector()
+
+        self.dependency_groups = _normalize_group_names(dependency_groups, errors)
+
         # a map of group names to parsed data
         self._parsed_groups: dict[
             str, tuple[Requirement | DependencyGroupInclude, ...]
@@ -92,6 +96,8 @@ class DependencyGroupResolver:
         # a cache of completed resolutions to Requirement lists
         self._resolve_cache: dict[str, tuple[Requirement, ...]] = {}
 
+        errors.finalize("[dependency-groups] data was invalid")
+
     def lookup(self, group: str) -> tuple[Requirement | DependencyGroupInclude, ...]:
         """
         Lookup a group name, returning the parsed dependency data for that group.
@@ -100,7 +106,11 @@ class DependencyGroupResolver:
         :param group: the name of the group to lookup
         """
         group = _normalize_name(group)
-        return self._parse_group(group)
+
+        with _ErrorCollector().on_exit(
+            f"[dependency-groups] data for {group!r} was malformed"
+        ) as errors:
+            return self._parse_group(group, errors)
 
     def resolve(self, group: str) -> tuple[Requirement, ...]:
         """
@@ -109,63 +119,95 @@ class DependencyGroupResolver:
         :param group: the name of the group to resolve
         """
         group = _normalize_name(group)
-        return self._resolve(group, group)
 
-    def _resolve(self, group: str, requested_group: str) -> tuple[Requirement, ...]:
+        with _ErrorCollector().on_exit(
+            f"[dependency-groups] data for {group!r} was malformed"
+        ) as errors:
+            return self._resolve(group, group, errors)
+
+    def _resolve(
+        self, group: str, requested_group: str, errors: _ErrorCollector
+    ) -> tuple[Requirement, ...]:
         """
         This is a helper for cached resolution to strings. It preserves the name of the
         group which the user initially requested in order to present a clearer error in
         the event that a cycle is detected.
 
-        :param group: The name of the group to resolve.
+        :param group: The normalized name of the group to resolve.
         :param requested_group: The group which was used in the original, user-facing
             request.
         """
         if group in self._resolve_cache:
             return self._resolve_cache[group]
 
-        parsed = self._parse_group(group)
+        parsed = self._parse_group(group, errors)
 
         resolved_group = []
+
         for item in parsed:
             if isinstance(item, Requirement):
                 resolved_group.append(item)
             elif isinstance(item, DependencyGroupInclude):
                 include_group = _normalize_name(item.include_group)
+
+                # if a group is cyclic, record the error
+                # otherwise, follow the include_group reference
+                #
+                # this allows us to examine all includes in a group, even in the
+                # presence of errors
                 if include_group in self._include_graph_ancestors.get(group, ()):
-                    raise CyclicDependencyGroup(
-                        requested_group, group, item.include_group
+                    errors.error(
+                        CyclicDependencyGroup(
+                            requested_group, group, item.include_group
+                        )
                     )
-                self._include_graph_ancestors[include_group] = (
-                    *self._include_graph_ancestors.get(group, ()),
-                    group,
-                )
-                resolved_group.extend(self._resolve(include_group, requested_group))
+                else:
+                    self._include_graph_ancestors[include_group] = (
+                        *self._include_graph_ancestors.get(group, ()),
+                        group,
+                    )
+                    resolved_group.extend(
+                        self._resolve(include_group, requested_group, errors)
+                    )
             else:  # pragma: no cover
                 raise NotImplementedError(
                     f"Invalid dependency group item after parse: {item}"
                 )
 
+        # in the event that errors were detected, present the group as empty and do not
+        # cache the result
+        # this ensures that repeated access to a cyclic group will raise multiple errors
+        if errors.errors:
+            return ()
+
         self._resolve_cache[group] = tuple(resolved_group)
         return self._resolve_cache[group]
 
     def _parse_group(
-        self, group: str
+        self, group: str, errors: _ErrorCollector
     ) -> tuple[Requirement | DependencyGroupInclude, ...]:
         # short circuit -- never do the work twice
         if group in self._parsed_groups:
             return self._parsed_groups[group]
 
         if group not in self.dependency_groups:
-            raise LookupError(f"Dependency group '{group}' not found")
+            errors.error(LookupError(f"Dependency group '{group}' not found"))
+            return ()
 
         raw_group = self.dependency_groups[group]
         if isinstance(raw_group, str):
-            raise TypeError(
-                f"Dependency group {group!r} contained a string rather than a list."
+            errors.error(
+                TypeError(
+                    f"Dependency group {group!r} contained a string rather than a list."
+                )
             )
+            return ()
+
         if not isinstance(raw_group, Sequence):
-            raise TypeError(f"Dependency group {group!r} is not a sequence type.")
+            errors.error(
+                TypeError(f"Dependency group {group!r} is not a sequence type.")
+            )
+            return ()
 
         elements: list[Requirement | DependencyGroupInclude] = []
         for item in raw_group:
@@ -176,14 +218,16 @@ class DependencyGroupResolver:
                 elements.append(Requirement(item))
             elif isinstance(item, Mapping):
                 if tuple(item.keys()) != ("include-group",):
-                    raise InvalidDependencyGroupObject(
-                        f"Invalid dependency group item: {item!r}"
+                    errors.error(
+                        InvalidDependencyGroupObject(
+                            f"Invalid dependency group item: {item!r}"
+                        )
                     )
-
-                include_group = next(iter(item.values()))
-                elements.append(DependencyGroupInclude(include_group=include_group))
+                else:
+                    include_group = next(iter(item.values()))
+                    elements.append(DependencyGroupInclude(include_group=include_group))
             else:
-                raise TypeError(f"Invalid dependency group item: {item!r}")
+                errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
         self._parsed_groups[group] = tuple(elements)
         return self._parsed_groups[group]
@@ -219,6 +263,7 @@ def _normalize_name(name: str) -> str:
 
 def _normalize_group_names(
     dependency_groups: Mapping[str, Sequence[str | Mapping[str, str]]],
+    errors: _ErrorCollector,
 ) -> dict[str, Sequence[str | Mapping[str, str]]]:
     original_names: dict[str, list[str]] = {}
     normalized_groups: dict[str, Sequence[str | Mapping[str, str]]] = {}
@@ -228,13 +273,13 @@ def _normalize_group_names(
         original_names.setdefault(normed_group_name, []).append(group_name)
         normalized_groups[normed_group_name] = value
 
-    errors = []
     for normed_name, names in original_names.items():
         if len(names) > 1:
-            errors.append(f"{normed_name} ({', '.join(names)})")
-    if errors:
-        raise DuplicateGroupNames(
-            f"Duplicate dependency group names: {', '.join(errors)}"
-        )
+            errors.error(
+                DuplicateGroupNames(
+                    "Duplicate dependency group names: "
+                    f"{normed_name} ({', '.join(names)})"
+                )
+            )
 
     return normalized_groups

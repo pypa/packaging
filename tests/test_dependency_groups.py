@@ -14,6 +14,7 @@ from packaging.dependency_groups import (
     InvalidDependencyGroupObject,
     resolve_dependency_groups,
 )
+from packaging.errors import ExceptionGroup
 from packaging.requirements import Requirement
 
 if sys.version_info >= (3, 10):
@@ -26,8 +27,14 @@ GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
 
 def test_resolver_init_catches_normalization_conflict() -> None:
     groups: GroupsTable = {"test": ["pytest"], "Test": ["pytest", "coverage"]}
-    with pytest.raises(ValueError, match="Duplicate dependency group names"):
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data was invalid"
+    ) as excinfo:
         DependencyGroupResolver(groups)
+
+    assert excinfo.group_contains(
+        DuplicateGroupNames, match="Duplicate dependency group names"
+    )
 
 
 def test_lookup_on_trivial_normalization() -> None:
@@ -98,7 +105,7 @@ def test_expand_contract_model_only_does_inner_lookup_once() -> None:
         # each of the `mid` nodes will call resolution with `contract`, but only the
         # first of those evaluations should call for resolution of `leaf` -- after that,
         # `contract` will be in the cache and `leaf` will not need to be resolved
-        spy.assert_any_call("leaf", "root")
+        spy.assert_any_call("leaf", "root", unittest.mock.ANY)
         leaf_calls = [c for c in spy.mock_calls if c.args[0] == "leaf"]
         assert len(leaf_calls) == 1
 
@@ -198,8 +205,12 @@ def test_no_such_group_name() -> None:
     groups: GroupsTable = {
         "test": ["pytest"],
     }
-    with pytest.raises(LookupError, match="'testing' not found"):
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'testing' was malformed"
+    ) as excinfo:
         resolve_dependency_groups(groups, "testing")
+
+    assert excinfo.group_contains(LookupError, match="'testing' not found")
 
 
 def test_duplicate_normalized_name() -> None:
@@ -208,10 +219,14 @@ def test_duplicate_normalized_name() -> None:
         "TEST": ["nose2"],
     }
     with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data was invalid"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "test")
+
+    assert excinfo.group_contains(
         DuplicateGroupNames,
         match=r"Duplicate dependency group names: test \((test, TEST)|(TEST, test)\)",
-    ):
-        resolve_dependency_groups(groups, "test")
+    )
 
 
 def test_cyclic_include() -> None:
@@ -224,13 +239,17 @@ def test_cyclic_include() -> None:
         ],
     }
     with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'group1' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "group1")
+
+    assert excinfo.group_contains(
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving group1: "
             "group1 -> group2, group2 -> group1"
         ),
-    ):
-        resolve_dependency_groups(groups, "group1")
+    )
 
 
 def test_cyclic_include_many_steps() -> None:
@@ -239,10 +258,14 @@ def test_cyclic_include_many_steps() -> None:
         groups[f"group{i}"] = [{"include-group": f"group{i + 1}"}]
     groups["group100"] = [{"include-group": "group0"}]
     with pytest.raises(
-        CyclicDependencyGroup,
-        match="Cyclic dependency group include while resolving group0:",
-    ):
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'group0' was malformed"
+    ) as excinfo:
         resolve_dependency_groups(groups, "group0")
+
+    assert excinfo.group_contains(
+        CyclicDependencyGroup,
+        match="Cyclic dependency group include while resolving group0: ",
+    )
 
 
 def test_cyclic_include_self() -> None:
@@ -251,14 +274,19 @@ def test_cyclic_include_self() -> None:
             {"include-group": "group1"},
         ],
     }
+
     with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'group1' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "group1")
+
+    assert excinfo.group_contains(
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving group1: "
             "group1 includes itself"
         ),
-    ):
-        resolve_dependency_groups(groups, "group1")
+    )
 
 
 def test_cyclic_include_ring_under_root() -> None:
@@ -274,31 +302,71 @@ def test_cyclic_include_ring_under_root() -> None:
         ],
     }
     with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'root' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    assert excinfo.group_contains(
         CyclicDependencyGroup,
         match=(
             "Cyclic dependency group include while resolving root: "
             "group1 -> group2, group2 -> group1"
         ),
-    ):
-        resolve_dependency_groups(groups, "root")
+    )
+
+
+# each access to a cyclic group should raise an error
+def test_cyclic_include_accessed_repeatedly_on_resolver_instance() -> None:
+    groups: GroupsTable = {
+        "group1": [
+            {"include-group": "group2"},
+        ],
+        "group2": [
+            {"include-group": "group1"},
+        ],
+    }
+    resolver = DependencyGroupResolver(groups)
+
+    # each access raises an exception group of the same shape
+    for _ in range(3):
+        with pytest.raises(
+            ExceptionGroup,
+            match=r"\[dependency-groups\] data for 'group1' was malformed",
+        ) as excinfo:
+            resolver.resolve("group1")
+        assert excinfo.group_contains(
+            CyclicDependencyGroup,
+            match=(
+                "Cyclic dependency group include while resolving group1: "
+                "group1 -> group2, group2 -> group1"
+            ),
+        )
 
 
 # a string is a Sequence[str] but is explicitly checked and rejected
 def test_non_str_data() -> None:
     groups: Any = {"test": "pytest, coverage"}
     with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "test")
+
+    assert excinfo.group_contains(
         TypeError,
         match=r"Dependency group 'test' contained a string rather than a list.",
-    ):
-        resolve_dependency_groups(groups, "test")
+    )
 
 
 def test_non_list_data() -> None:
     groups: Any = {"test": 101}
     with pytest.raises(
-        TypeError, match=r"Dependency group 'test' is not a sequence type."
-    ):
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+    ) as excinfo:
         resolve_dependency_groups(groups, "test")
+
+    assert excinfo.group_contains(
+        TypeError, match=r"Dependency group 'test' is not a sequence type."
+    )
 
 
 @pytest.mark.parametrize(
@@ -312,17 +380,74 @@ def test_non_list_data() -> None:
 def test_unknown_object_shape(item: dict[str, str] | object) -> None:
     groups: Any = {"test": [item]}
     with pytest.raises(
-        InvalidDependencyGroupObject, match="Invalid dependency group item:"
-    ):
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+    ) as excinfo:
         resolve_dependency_groups(groups, "test")
+
+    assert excinfo.group_contains(
+        InvalidDependencyGroupObject, match="Invalid dependency group item:"
+    )
 
 
 def test_non_unexpected_item_type() -> None:
     groups: Any = {"test": [object()]}
-    with pytest.raises(TypeError, match="Invalid dependency group item"):
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+    ) as excinfo:
         resolve_dependency_groups(groups, "test")
+
+    assert excinfo.group_contains(TypeError, match="Invalid dependency group item")
 
 
 def test_dependency_group_include_repr() -> None:
     include = DependencyGroupInclude("test")
     assert repr(include) == "<DependencyGroupInclude('test')>"
+
+
+def test_resolution_can_capture_multiple_errors_at_once() -> None:
+    groups: Any = {
+        "all": [
+            {"include-group": "all-invalid"},
+            {"include-group": "all-valid"},
+        ],
+        "all-valid": [
+            {"include-group": "empty"},
+            {"include-group": "simple"},
+        ],
+        "all-invalid": [
+            {"include-group": "self-reference"},
+            {"include-group": "invalid-object"},
+            {"include-group": "invalid-type"},
+            {"include-group": "invalid-type"},
+        ],
+        "self-reference": [{"include-group": "self-reference"}],
+        "invalid-object": [{}],
+        "invalid-type": "foo",
+        "empty": [],
+        "simple": ["jsonschema<5"],
+    }
+
+    # sanity check: even in the presence of these invalid data, we can extract the valid
+    # parts
+    valid_resolution = resolve_dependency_groups(groups, "all-valid")
+    assert len(valid_resolution) == 1
+    assert valid_resolution[0] == "jsonschema<5"
+
+    # however, resolving everything triggers *multiple* errors, from the various
+    # incorrect pieces of data, collected in an exception group
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'all' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "all")
+
+    assert excinfo.group_contains(
+        CyclicDependencyGroup,
+        match=(
+            "Cyclic dependency group include while resolving all: "
+            "self-reference includes itself"
+        ),
+    )
+    assert excinfo.group_contains(
+        TypeError,
+        match=r"Dependency group 'invalid-type' contained a string rather than a list.",
+    )
