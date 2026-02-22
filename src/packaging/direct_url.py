@@ -233,6 +233,8 @@ class DirInfo:
 
 @dataclass(frozen=True, init=False)
 class DirectUrl:
+    """A class representing a direct URL."""
+
     url: str
     archive_info: ArchiveInfo | None = None
     vcs_info: VcsInfo | None = None
@@ -281,6 +283,7 @@ class DirectUrl:
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any], /) -> Self:
+        """Create and validate a DirectUrl instance from a JSON dictionary."""
         return cls._from_dict(d)
 
     def to_dict(
@@ -290,8 +293,7 @@ class DirectUrl:
         strip_user_password: bool = True,
         safe_user_passwords: Collection[str] = ("git",),
     ) -> Mapping[str, Any]:
-        """Convert the DirectUrl instance to a dictionary suitable for JSON
-        serialization.
+        """Convert the DirectUrl instance to a JSON dictionary.
 
         :param generate_legacy_hash: If True, include a legacy `hash` field in
             `archive_info` for backward compatibility with tools that don't
