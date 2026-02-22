@@ -7,6 +7,8 @@ from packaging.direct_url import (
     DirectUrl,
     DirectUrlValidationError,
     DirInfo,
+    VcsInfo,
+    _strip_url,
 )
 
 
@@ -251,3 +253,65 @@ def test_validate_error() -> None:
     direct_url = DirectUrl(url="file:///projects/myproject")
     with pytest.raises(DirectUrlValidationError):
         direct_url.validate()
+
+
+@pytest.mark.parametrize(
+    ("url", "safe_user_passwords", "expected_url"),
+    [
+        ("https://g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
+        ("https://user:pass@g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
+        ("ssh://git@g.c/user/repo.git", [], "ssh://g.c/user/repo.git"),
+        ("ssh://git@g.c/user/repo.git", ["git"], "ssh://git@g.c/user/repo.git"),
+        ("ssh://cvs@g.c/user/repo.git", ["git"], "ssh://g.c/user/repo.git"),
+        ("ssh://cvs@g.c/user/repo.git", ["git", "cvs"], "ssh://cvs@g.c/user/repo.git"),
+        (
+            "https://${USER}:${PASSWORD}@g.c/user/repo.git",
+            ["git"],
+            "https://${USER}:${PASSWORD}@g.c/user/repo.git",
+        ),
+        (
+            "https://user:${PASSWORD}@g.c/user/repo.git",
+            ["git"],
+            "https://g.c/user/repo.git",
+        ),
+        (
+            "https://git:${PASSWORD}@g.c/user/repo.git",
+            ["git"],
+            "https://g.c/user/repo.git",
+        ),
+        (
+            "https://${TOKEN}@g.c/user/repo.git",
+            ["git"],
+            "https://${TOKEN}@g.c/user/repo.git",
+        ),
+    ],
+)
+def test_strip_url(url: str, safe_user_passwords: list[str], expected_url: str) -> None:
+    assert _strip_url(url, safe_user_passwords) == expected_url
+
+
+def test_to_dict_strip_url() -> None:
+    direct_url = DirectUrl(
+        url="https://user:pass@g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+    )
+    assert direct_url.to_dict()["url"] == "https://g.c/user/repo.git"
+
+
+def test_to_dict_no_strip_url() -> None:
+    direct_url = DirectUrl(
+        url="https://user:pass@g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+    )
+    assert (
+        direct_url.to_dict(strip_user_password=False)["url"]
+        == "https://user:pass@g.c/user/repo.git"
+    )
+
+
+def test_to_dict_strip_url_git_safe_default() -> None:
+    direct_url = DirectUrl(
+        url="ssh://git@g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+    )
+    assert direct_url.to_dict()["url"] == "ssh://git@g.c/user/repo.git"

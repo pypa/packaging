@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import dataclasses
+import re
+import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     import sys
+    from collections.abc import Collection
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -66,6 +69,40 @@ def _get_object(
         return target_type._from_dict(value)
     except Exception as e:
         raise DirectUrlValidationError(e, context=key) from e
+
+
+_PEP610_USER_PASS_ENV_VARS_REGEX = re.compile(
+    r"^\$\{[A-Za-z0-9-_]+\}(:\$\{[A-Za-z0-9-_]+\})?$"
+)
+
+
+def _strip_auth_from_netloc(netloc: str, safe_user_passwords: Collection[str]) -> str:
+    if "@" not in netloc:
+        return netloc
+    user_pass, netloc_no_user_pass = netloc.split("@", 1)
+    if user_pass in safe_user_passwords:
+        return netloc
+    if _PEP610_USER_PASS_ENV_VARS_REGEX.match(user_pass):
+        return netloc
+    return netloc_no_user_pass
+
+
+def _strip_url(url: str, safe_user_passwords: Collection[str]) -> str:
+    """url with user:password part removed unless it is formed with
+    environment variables as specified in PEP 610, or it is a safe user:password
+    such as `git`.
+    """
+    parsed_url = urllib.parse.urlsplit(url)
+    netloc = _strip_auth_from_netloc(parsed_url.netloc, safe_user_passwords)
+    return urllib.parse.urlunsplit(
+        (
+            parsed_url.scheme,
+            netloc,
+            parsed_url.path,
+            parsed_url.query,
+            parsed_url.fragment,
+        )
+    )
 
 
 class DirectUrlValidationError(Exception):
@@ -240,25 +277,43 @@ class DirectUrl:
                 context="url",
             )
         # XXX subdirectory must be relative, can we, should we validate that here?
-        # XXX url MUST be stripped of any sensitive authentication information.
-        #     We can't validate it here because it MAY contain git or other non security
-        #     sensitive auth strings.
         return direct_url
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any], /) -> Self:
         return cls._from_dict(d)
 
-    def to_dict(self, *, generate_legacy_hash: bool = False) -> Mapping[str, Any]:
+    def to_dict(
+        self,
+        *,
+        generate_legacy_hash: bool = False,
+        strip_user_password: bool = True,
+        safe_user_passwords: Collection[str] = ("git",),
+    ) -> Mapping[str, Any]:
+        """Convert the DirectUrl instance to a dictionary suitable for JSON
+        serialization.
+
+        :param generate_legacy_hash: If True, include a legacy `hash` field in
+            `archive_info` for backward compatibility with tools that don't
+            support the `hashes` field.
+        :param strip_user_password: If True, strip user:password from the URL
+            unless it is formed with environment variables as specified in PEP
+            610, or it is a safe user:password such as `git`.
+        :param safe_user_passwords: A collection of user:password strings that
+            should not be stripped from the URL even if `strip_user_password` is
+            True.
+        """
         res = dataclasses.asdict(self, dict_factory=_json_dict_factory)
         if generate_legacy_hash and self.archive_info and self.archive_info.hashes:
             hash_algorithm, hash_value = next(iter(self.archive_info.hashes.items()))
             res["archive_info"]["hash"] = f"{hash_algorithm}={hash_value}"
+        if strip_user_password:
+            res["url"] = _strip_url(self.url, safe_user_passwords)
         return res
 
     def validate(self) -> None:
         """Validate the DirectUrl instance against the specification.
 
-        Raises :class:`DirectUrlValidationError` otherwise.
+        Raises :class:`DirectUrlValidationError` if invalid.
         """
         self.from_dict(self.to_dict())
