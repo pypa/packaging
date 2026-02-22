@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from packaging.direct_url import DirectUrl, DirectUrlValidationError, DirInfo
+from packaging.direct_url import (
+    ArchiveInfo,
+    DirectUrl,
+    DirectUrlValidationError,
+    DirInfo,
+)
 
 
 @pytest.mark.parametrize(
@@ -24,19 +29,6 @@ from packaging.direct_url import DirectUrl, DirectUrlValidationError, DirInfo
             "url": "https://example.com/archive.zip",
             "archive_info": {
                 "hashes": {"sha256": "f" * 40},
-                "hash": f"sha256={'f' * 40}",
-            },
-        },
-        {
-            "url": "https://example.com/archive.zip",
-            "archive_info": {
-                "hashes": {"sha256": "f" * 40},
-            },
-        },
-        {
-            "url": "https://example.com/archive.zip",
-            "archive_info": {
-                "hash": f"sha256={'f' * 40}",
             },
         },
         {
@@ -51,6 +43,50 @@ from packaging.direct_url import DirectUrl, DirectUrlValidationError, DirInfo
 )
 def test_direct_url_round_trips(direct_url_dict: dict[str, object]) -> None:
     assert DirectUrl.from_dict(direct_url_dict).to_dict() == direct_url_dict
+
+
+def test_legacy_hash_populates_hashes() -> None:
+    direct_url = DirectUrl.from_dict(
+        {
+            "url": "https://example.com/archive.zip",
+            "archive_info": {
+                "hash": "sha256=" + "f" * 40,
+            },
+        }
+    )
+    assert direct_url.archive_info
+    assert direct_url.archive_info.hashes == {"sha256": "f" * 40}
+
+
+def test_to_dict_generate_legacy_hash() -> None:
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes={"sha256": "f" * 40}),
+    )
+    assert "hash" not in direct_url.to_dict()["archive_info"]
+    assert (
+        direct_url.to_dict(generate_legacy_hash=True)["archive_info"]["hash"]
+        == "sha256=" + "f" * 40
+    )
+
+
+def test_to_dict_generate_legacy_hash_no_hashes() -> None:
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(),
+    )
+    assert "hash" not in direct_url.to_dict(generate_legacy_hash=True)["archive_info"]
+
+
+def test_to_dict_generate_legacy_hash_multiple_hashes() -> None:
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes={"sha256": "f" * 40, "md5": "1" * 32}),
+    )
+    assert (
+        direct_url.to_dict(generate_legacy_hash=True)["archive_info"]["hash"]
+        == "sha256=" + "f" * 40
+    )
 
 
 def test_validate_archive_info_hashes() -> None:
@@ -119,6 +155,18 @@ def test_validate_archive_info_hash_different_in_hashes() -> None:
                 },
             }
         )
+
+
+def test_validate_archive_info_hash_same_in_hashes() -> None:
+    DirectUrl.from_dict(
+        {
+            "url": "https://example.com/archive.zip",
+            "archive_info": {
+                "hashes": {"md5": "123456"},
+                "hash": "md5=123456",
+            },
+        }
+    )
 
 
 @pytest.mark.parametrize(
