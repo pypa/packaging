@@ -133,37 +133,34 @@ class VcsInfo:
 @dataclass(frozen=True, init=False)
 class ArchiveInfo:
     hashes: Mapping[str, str] | None = None
-    hash: str | None = None  # Deprecated, use `hashes` instead
 
     def __init__(
         self,
         *,
         hashes: Mapping[str, str] | None = None,
-        hash: str | None = None,
     ) -> None:
         object.__setattr__(self, "hashes", hashes)
-        object.__setattr__(self, "hash", hash)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
-        archive_info = cls(
-            hashes=_get(d, Mapping, "hashes"),  # type: ignore[type-abstract]
-            hash=_get(d, str, "hash"),
-        )
-        hashes = archive_info.hashes or {}
-        if not all(isinstance(h, str) for h in hashes.values()):
+        hashes = _get(d, Mapping, "hashes")  # type: ignore[type-abstract]
+        if hashes is not None and not all(isinstance(h, str) for h in hashes.values()):
             raise DirectUrlValidationError(
                 "Hash values must be strings", context="hashes"
             )
-        if archive_info.hash is not None:
-            if "=" not in archive_info.hash:
+        legacy_hash = _get(d, str, "hash")
+        if legacy_hash is not None:
+            if "=" not in legacy_hash:
                 raise DirectUrlValidationError(
                     "Invalid hash format (expected '<algorithm>=<hash>')",
                     context="hash",
                 )
-            if archive_info.hashes is not None:
+            hash_algorithm, hash_value = legacy_hash.split("=", 1)
+            if hashes is None:
+                # if `hashes` are not present, we can derive it from the legacy `hash`
+                hashes = {hash_algorithm: hash_value}
+            else:
                 # if `hashes` are present, the legacy `hash` must match one of them
-                hash_algorithm, hash_value = archive_info.hash.split("=", 1)
                 if hash_algorithm not in hashes:
                     raise DirectUrlValidationError(
                         f"Algorithm {hash_algorithm!r} used in hash field "
@@ -176,7 +173,7 @@ class ArchiveInfo:
                         f"has different value in hashes field",
                         context="hash",
                     )
-        return archive_info
+        return cls(hashes=hashes)
 
 
 @dataclass(frozen=True, init=False)
@@ -252,8 +249,12 @@ class DirectUrl:
     def from_dict(cls, d: Mapping[str, Any], /) -> Self:
         return cls._from_dict(d)
 
-    def to_dict(self) -> Mapping[str, Any]:
-        return dataclasses.asdict(self, dict_factory=_json_dict_factory)
+    def to_dict(self, *, generate_legacy_hash: bool = False) -> Mapping[str, Any]:
+        res = dataclasses.asdict(self, dict_factory=_json_dict_factory)
+        if generate_legacy_hash and self.archive_info and self.archive_info.hashes:
+            hash_algorithm, hash_value = next(iter(self.archive_info.hashes.items()))
+            res["archive_info"]["hash"] = f"{hash_algorithm}={hash_value}"
+        return res
 
     def validate(self) -> None:
         """Validate the DirectUrl instance against the specification.
