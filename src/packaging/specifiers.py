@@ -1179,8 +1179,11 @@ class SpecifierSet(BaseSpecifier):
                 return (
                     item
                     for item in iterable
-                    if (version := _coerce_version(item)) is None
-                    or not version.is_prerelease
+                    if (
+                        (version := _coerce_version(item if key is None else key(item)))
+                        is None
+                        or not version.is_prerelease
+                    )
                 )
 
         # PEP 440: exclude prereleases unless no final releases matched
