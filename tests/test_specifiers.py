@@ -398,6 +398,9 @@ class TestSpecifier:
                 ("2!1.0", ">2.0"),
                 # Test some normalization rules
                 ("2.0.5", ">2.0dev"),
+                # Test local+dev versions with greater than
+                ("1.0+local", ">1.0.dev1"),
+                ("4.1.0a2.dev1235+local", ">4.1.0a2.dev1234"),
             ]
         ]
         + [
@@ -465,7 +468,7 @@ class TestSpecifier:
                 ("2.0.post1", ">2"),
                 ("2.0.post1.dev1", ">2"),
                 ("2.0+local.version", ">2"),
-                ("1.0+local", ">1.0.dev1"),
+                ("4.1.0a2.dev1234+local", ">4.1.0a2.dev1234"),
                 # Test the less than operation
                 ("2.0.dev1", "<2"),
                 ("2.0a1", "<2"),
