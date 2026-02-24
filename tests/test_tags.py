@@ -1042,6 +1042,44 @@ class TestCPythonTags:
             tags.Tag("cp313", "none", "plat2"),
         ]
 
+        result = list(tags.cpython_tags((3, 15), ["cp315t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp315", "cp315t", "platform"),
+            tags.Tag("cp315", "abi3.abi3t", "platform"),
+            tags.Tag("cp315", "none", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316t", "platform"),
+            tags.Tag("cp316", "abi3.abi3t", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3.abi3t", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316", "platform"),
+            tags.Tag("cp316", "abi3", "platform"),
+            tags.Tag("cp316", "abi3.abi3t", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3", "platform"),
+            tags.Tag("cp314", "abi3", "platform"),
+            tags.Tag("cp313", "abi3", "platform"),
+            tags.Tag("cp312", "abi3", "platform"),
+            tags.Tag("cp311", "abi3", "platform"),
+            tags.Tag("cp310", "abi3", "platform"),
+            tags.Tag("cp39", "abi3", "platform"),
+            tags.Tag("cp38", "abi3", "platform"),
+            tags.Tag("cp37", "abi3", "platform"),
+            tags.Tag("cp36", "abi3", "platform"),
+            tags.Tag("cp35", "abi3", "platform"),
+            tags.Tag("cp34", "abi3", "platform"),
+            tags.Tag("cp33", "abi3", "platform"),
+            tags.Tag("cp32", "abi3", "platform"),
+            tags.Tag("cp315", "abi3.abi3t", "platform"),
+        ]
+
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
         interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
