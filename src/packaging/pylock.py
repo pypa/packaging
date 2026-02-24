@@ -795,16 +795,8 @@ class Pylock:
                 #    on to :ref:`pylock-packages-sdist` or an error MUST be raised about
                 #    a lack of source for the project.
                 for package_wheel in package.wheels:
-                    try:
-                        assert package_wheel.name  # XXX get name from path or url
-                        package_wheel_tags = parse_wheel_filename(package_wheel.name)[
-                            -1
-                        ]
-                    except Exception as e:
-                        raise PylockSelectError(
-                            f"Invalid wheel filename {package_wheel.name!r} for "
-                            f"package {package.name!r} at packages[{package_index}]"
-                        ) from e
+                    assert package_wheel.name  # XXX get name from path or url
+                    package_wheel_tags = parse_wheel_filename(package_wheel.name)[-1]
                     if not package_wheel_tags.isdisjoint(tags):
                         yield package, package_wheel
                         break
