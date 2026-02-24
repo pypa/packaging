@@ -187,6 +187,7 @@ def _abi3t_applies(python_version: PythonVersion) -> bool:
     """
     return len(python_version) > 1 and tuple(python_version) >= (3, 15)
 
+
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
     py_version = tuple(py_version)  # To allow for version comparison.
     abis = []
@@ -269,7 +270,9 @@ def cpython_tags(
     if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
     if use_abi3t:
-        yield from (Tag(interpreter, "abi3.abi3t", platform_) for platform_ in platforms)
+        yield from (
+            Tag(interpreter, "abi3.abi3t", platform_) for platform_ in platforms
+        )
 
     yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
 
