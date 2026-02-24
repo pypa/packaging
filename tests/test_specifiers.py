@@ -398,9 +398,17 @@ class TestSpecifier:
                 ("2!1.0", ">2.0"),
                 # Test some normalization rules
                 ("2.0.5", ">2.0dev"),
-                # Test local+dev versions with greater than
+                # Test local versions with pre/dev/post segments and >
+                # (verifies _public_version keeps pre/dev/post in the guard)
                 ("1.0+local", ">1.0.dev1"),
                 ("4.1.0a2.dev1235+local", ">4.1.0a2.dev1234"),
+                ("1.0a2+local", ">1.0a1"),
+                ("1.0b2+local", ">1.0b1"),
+                ("1.0rc2+local", ">1.0rc1"),
+                ("1.0.post2+local", ">1.0.post1"),
+                ("1.0.dev2+local", ">1.0.dev1"),
+                ("1.0a1.dev2+local", ">1.0a1.dev1"),
+                ("1.0.post1.dev2+local", ">1.0.post1.dev1"),
             ]
         ]
         + [
@@ -469,6 +477,15 @@ class TestSpecifier:
                 ("2.0.post1.dev1", ">2"),
                 ("2.0+local.version", ">2"),
                 ("4.1.0a2.dev1234+local", ">4.1.0a2.dev1234"),
+                # Test local versions with pre/dev/post segments and >
+                # (local variant of the exact spec version must not match)
+                ("1.0a1+local", ">1.0a1"),
+                ("1.0b1+local", ">1.0b1"),
+                ("1.0rc1+local", ">1.0rc1"),
+                ("1.0.post1+local", ">1.0.post1"),
+                ("1.0.dev1+local", ">1.0.dev1"),
+                ("1.0a1.dev1+local", ">1.0a1.dev1"),
+                ("1.0.post1.dev1+local", ">1.0.post1.dev1"),
                 # Test the less than operation
                 ("2.0.dev1", "<2"),
                 ("2.0a1", "<2"),
