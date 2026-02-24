@@ -3,7 +3,7 @@ Direct URLs
 
 .. currentmodule:: packaging.direct_url
 
-Parse and validate `direct_url.json files <https://packaging.python.org/en/latest/specifications/direct-url//>`_.
+Parse and validate `direct_url.json files <https://packaging.python.org/en/latest/specifications/direct-url/>`_.
 
 Usage
 -----

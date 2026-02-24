@@ -4,7 +4,6 @@ import dataclasses
 import re
 import urllib.parse
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -23,6 +22,11 @@ __all__ = [
     "DirectUrlValidationError",
     "VcsInfo",
 ]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
 
 _T = TypeVar("_T")
 
@@ -140,7 +144,7 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
         super().__init__("Missing required value", context=key)
 
 
-@dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False)
 class VcsInfo:
     vcs: str
     commit_id: str
@@ -167,7 +171,7 @@ class VcsInfo:
         )
 
 
-@dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False)
 class ArchiveInfo:
     hashes: Mapping[str, str] | None = None
 
@@ -213,7 +217,7 @@ class ArchiveInfo:
         return cls(hashes=hashes)
 
 
-@dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False)
 class DirInfo:
     editable: bool | None = None
 
@@ -231,7 +235,7 @@ class DirInfo:
         )
 
 
-@dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False)
 class DirectUrl:
     """A class representing a direct URL."""
 
