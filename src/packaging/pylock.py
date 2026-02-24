@@ -274,7 +274,7 @@ class PylockUnsupportedVersionError(PylockValidationError):
 
 
 class PylockSelectError(Exception):
-    """Base exception for errors raised by :method:`Pylock.select()`."""
+    """Base exception for errors raised by :meth:`Pylock.select`."""
 
 
 @dataclass(frozen=True, init=False)
@@ -662,23 +662,23 @@ class Pylock:
         """Select what to install from the lock file.
 
         The *environment* and *tags* parameters represent the environment being
-        selected for. If unspecified, ``packaging.markers.default_environment()``
-        and ``packaging.tags.sys_tags()`` are used.
+        selected for. If unspecified,
+        ``packaging.markers.default_environment()`` and
+        ``packaging.tags.sys_tags()`` are used.
 
         The *extras* parameter represents the extras to install.
 
         The *dependency_groups* parameter represents the groups to install. If
         unspecified, the default groups are used.
+
+        For better error reporting, it is recommended to use this method on
+        valid Pylock instances (i.e. one obtained from :meth:`Pylock.from_dict`
+        or if constructed manually, after calling :meth:`Pylock.validate`).
         """
         if environment is None:
             environment = default_environment()
         if tags is None:
             tags = list(sys_tags())
-
-        # Validating the lock object covers some parts of the spec, such as checking
-        # the lock file version, and conflicting sources for packages.
-        # XXX we could document that we expect a valid lock object here.
-        self.validate()
 
         # #. Gather the extras and dependency groups to install and set ``extras`` and
         #    ``dependency_groups`` for marker evaluation, respectively.
