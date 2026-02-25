@@ -6,6 +6,20 @@ from collections.abc import Mapping, Sequence
 from .errors import _ErrorCollector
 from .requirements import Requirement
 
+__all__ = [
+    "CyclicDependencyGroup",
+    "DependencyGroupInclude",
+    "DependencyGroupResolver",
+    "DuplicateGroupNames",
+    "InvalidDependencyGroupObject",
+    "resolve_dependency_groups",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
+
 # -----------
 # Error Types
 # -----------
@@ -224,7 +238,7 @@ class DependencyGroupResolver:
                         )
                     )
                 else:
-                    include_group = next(iter(item.values()))
+                    include_group = item["include-group"]
                     elements.append(DependencyGroupInclude(include_group=include_group))
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
@@ -257,8 +271,11 @@ def resolve_dependency_groups(
 # ----------------
 
 
+_NORMALIZE_PATTERN = re.compile(r"[-_.]+")
+
+
 def _normalize_name(name: str) -> str:
-    return re.sub(r"[-_.]+", "-", name).lower()
+    return _NORMALIZE_PATTERN.sub("-", name).lower()
 
 
 def _normalize_group_names(
