@@ -17,10 +17,12 @@ with open(os.path.join(_BASE_DIR, "src", "packaging", "__init__.py")) as f:
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions  coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
+    "erbsland.sphinx.ansi",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
+    "sphinxcontrib.programoutput",
 ]
 
 # General information about the project.
@@ -103,3 +105,14 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "pypug": ("https://packaging.python.org/", None),
 }
+
+
+# -- Options for programout ----------------------------------------------------------
+# https://sphinxcontrib-programoutput.readthedocs.io
+
+programoutput_use_ansi = True
+
+# Needed to ensure color output
+# See https://github.com/OpenNTI/sphinxcontrib-programoutput/issues/77
+os.environ["FORCE_COLOR"] = "1"
+os.environ.pop("NO_COLOR", None)
