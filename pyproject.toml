@@ -47,9 +47,11 @@ test = [
 ]
 dev = [{ include-group = "test" }]
 docs = [
+    "erbsland-sphinx-ansi; python_version>='3.10'",
     "furo",
+    "sphinx <9",  # required by sphinx-toolbox
     "sphinx-toolbox",
-    "typing-extensions>=4.1.0; python_version < '3.9'",
+    "sphinxcontrib-programoutput >=0.19",
 ]
 
 
