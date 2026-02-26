@@ -52,3 +52,17 @@ Reference
 .. automodule:: packaging.version
     :members:
     :special-members:
+
+
+CLI
+---
+
+A CLI utility is provided:
+
+.. program-output:: python -m packaging.version --help
+
+You can compare two versions:
+
+.. program-output:: python -m packaging.version compare --help
+
+.. versionadded:: 26.1
