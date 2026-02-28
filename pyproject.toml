@@ -45,11 +45,18 @@ test = [
   "tomli; python_version<'3.11'",
   "tomli_w",
 ]
-dev = [{ include-group = "test" }]
 docs = [
-    "furo",
-    "sphinx-toolbox",
-    "typing-extensions>=4.1.0; python_version < '3.9'",
+  "furo",
+  "sphinx-toolbox",
+  "typing-extensions>=4.1.0; python_version < '3.9'",
+]
+benchmark = [
+  "asv",
+  "pip",
+]
+dev = [
+  { include-group = "test" },
+  { include-group = "benchmark" },
 ]
 
 
