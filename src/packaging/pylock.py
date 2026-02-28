@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, cast
 
-from .markers import Marker, default_environment
+from .markers import Environment, Marker, default_environment
 from .specifiers import SpecifierSet
 from .tags import sys_tags
 from .utils import NormalizedName, is_normalized_name, parse_wheel_filename
@@ -20,7 +20,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from typing_extensions import Self
 
-    from .markers import Environment
     from .tags import Tag
 
 _logger = logging.getLogger(__name__)
@@ -649,7 +648,7 @@ class Pylock:
         tags: Sequence[Tag] | None = None,
         extras: Collection[str] | None = None,
         dependency_groups: Collection[str] | None = None,
-    ) -> Iterator[  # XXX or Iterable?
+    ) -> Iterator[
         tuple[
             Package,
             PackageVcs
@@ -675,8 +674,6 @@ class Pylock:
         valid Pylock instances (i.e. one obtained from :meth:`Pylock.from_dict`
         or if constructed manually, after calling :meth:`Pylock.validate`).
         """
-        if environment is None:
-            environment = default_environment()
         if tags is None:
             tags = list(sys_tags())
 
@@ -686,14 +683,23 @@ class Pylock:
         #    #. ``extras`` SHOULD be set to the empty set by default.
         #    #. ``dependency_groups`` SHOULD be the set created from
         #       :ref:`pylock-default-groups` by default.
-        env: dict[str, str | frozenset[str]] = {
-            **cast("dict[str, str]", environment),
-            "extras": frozenset(extras or []),
-            "dependency_groups": frozenset(
-                dependency_groups or self.default_groups or []
+        env = cast(
+            "dict[str, str | frozenset[str]]",
+            dict(
+                environment or {},  # Marker.evaluate will fill-up
+                extras=frozenset(extras or []),
+                dependency_groups=frozenset(
+                    (self.default_groups or [])
+                    if dependency_groups is None  # to allow selecting no groups
+                    else dependency_groups
+                ),
             ),
-        }
-        env_python_version = environment.get("python_version")
+        )
+        env_python_version = (
+            environment["python_version"]
+            if environment
+            else default_environment()["python_version"]
+        )
 
         # #. Check if the metadata version specified by :ref:`pylock-lock-version` is
         #    supported; an error or warning MUST be raised as appropriate.
@@ -702,25 +708,21 @@ class Pylock:
         # #. If :ref:`pylock-requires-python` is specified, check that the environment
         #    being installed for meets the requirement; an error MUST be raised if it is
         #    not met.
-        if self.requires_python is not None:
-            if not env_python_version:
-                raise PylockSelectError(
-                    f"Provided environment does not specify a Python version, "
-                    f"but the lock file requires Python {self.requires_python!r}"
-                )
-            if not self.requires_python.contains(env_python_version, prereleases=True):
-                # XXX confirm prereleases=True
-                raise PylockSelectError(
-                    f"Provided environment does not satisfy the Python version "
-                    f"requirement {self.requires_python!r}"
-                )
+        if self.requires_python and not self.requires_python.contains(
+            env_python_version,
+            prereleases=True,  # XXX confirm prereleases=True
+        ):
+            raise PylockSelectError(
+                f"Provided environment does not satisfy the Python version "
+                f"requirement {self.requires_python!r}"
+            )
 
         # #. If :ref:`pylock-environments` is specified, check that at least one of the
         #    environment marker expressions is satisfied; an error MUST be raised if no
         #    expression is satisfied.
         if self.environments:
             for env_marker in self.environments:
-                if env_marker.evaluate(env, context="lock_file"):  # XXX check context
+                if env_marker.evaluate(env, context="lock_file"):
                     break
             else:
                 raise PylockSelectError(
@@ -733,29 +735,20 @@ class Pylock:
         for package_index, package in enumerate(self.packages):
             # #. If :ref:`pylock-packages-marker` is specified, check if it is
             #    satisfied;if it isn't, skip to the next package.
-            if package.marker and not package.marker.evaluate(
-                env, context="requirement"
-            ):  # XXX check context
+            if package.marker and not package.marker.evaluate(env, context="lock_file"):
                 continue
 
             # #. If :ref:`pylock-packages-requires-python` is specified, check if it is
             #    satisfied; an error MUST be raised if it isn't.
-            if package.requires_python:
-                if not env_python_version:
-                    raise PylockSelectError(
-                        f"Provided environment does not specify a Python version, "
-                        f"but package {package.name!r} at packages[{package_index}] "
-                        f"requires Python {package.requires_python!r}"
-                    )
-                if not package.requires_python.contains(
-                    env_python_version, prereleases=True
-                ):
-                    # XXX confirm prereleases=True
-                    raise PylockSelectError(
-                        f"Provided environment does not satisfy the Python version "
-                        f"requirement {package.requires_python!r} for package "
-                        f"{package.name!r} at packages[{package_index}]"
-                    )
+            if package.requires_python and not package.requires_python.contains(
+                env_python_version,
+                prereleases=True,  # XXX confirm prereleases=True
+            ):
+                raise PylockSelectError(
+                    f"Provided environment does not satisfy the Python version "
+                    f"requirement {package.requires_python!r} for package "
+                    f"{package.name!r} at packages[{package_index}]"
+                )
 
             # #. Check that no other conflicting instance of the package has been slated
             #    to be installed; an error about the ambiguity MUST be raised otherwise.
@@ -769,7 +762,7 @@ class Pylock:
             # #. Check that the source of the package is specified appropriately (i.e.
             #    there are no conflicting sources in the package entry);
             #    an error MUST be raised if any issues are found.
-            # Covered by lock.validate() above.
+            # Covered by lock.validate() which is a precondition for this method.
 
             # #. Add the package to the set of packages to install.
             selected_packages_by_name[package.name] = (package_index, package)
@@ -817,5 +810,5 @@ class Pylock:
                 yield package, package.sdist
 
             else:
-                # Covered by lock.validate() above.
-                raise NotImplementedError
+                # Covered by lock.validate() which is a precondition for this method.
+                raise NotImplementedError  # pragma: no cover

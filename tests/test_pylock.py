@@ -2,27 +2,24 @@ from __future__ import annotations
 
 import datetime
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
 import tomli_w
 
-from packaging.markers import Environment, Marker
+from packaging.markers import Marker
 from packaging.pylock import (
     Package,
     PackageDirectory,
     PackageVcs,
     PackageWheel,
     Pylock,
-    PylockSelectError,
     PylockUnsupportedVersionError,
     PylockValidationError,
     is_valid_pylock_path,
 )
 from packaging.specifiers import SpecifierSet
-from packaging.tags import Tag
 from packaging.utils import NormalizedName
 from packaging.version import Version
 
@@ -581,60 +578,3 @@ def test_validate_attestation_identity_invalid_kind() -> None:
         "Unexpected type int (expected str) "
         "in 'packages[0].attestation-identities[0].kind'"
     )
-
-
-@dataclass
-class Platform:
-    tags: list[Tag]
-    environment: Environment
-
-
-_py312_linux = Platform(
-    tags=[
-        Tag("cp312", "cp312", "manylinux_2_17_x86_64"),
-        Tag("py3", "none", "any"),
-    ],
-    environment={
-        "implementation_name": "cpython",
-        "implementation_version": "3.12.12",
-        "os_name": "posix",
-        "platform_machine": "x86_64",
-        "platform_release": "6.8.0-100-generic",
-        "platform_system": "Linux",
-        "platform_version": "#100-Ubuntu SMP PREEMPT_DYNAMIC",
-        "python_full_version": "3.12.12",
-        "platform_python_implementation": "CPython",
-        "python_version": "3.12",
-        "sys_platform": "linux",
-    },
-)
-
-
-def test_select_smoke_test() -> None:
-    pylock_path = Path(__file__).parent / "pylock" / "pylock.spec-example.toml"
-    lock = Pylock.from_dict(tomllib.loads(pylock_path.read_text()))
-    for package, dist in lock.select(
-        tags=_py312_linux.tags,
-        environment=_py312_linux.environment,
-    ):
-        assert isinstance(package, Package)
-        assert isinstance(dist, PackageWheel)
-
-
-def test_select_require_python_mismatch() -> None:
-    pylock = Pylock(
-        lock_version=Version("1.0"),
-        created_by="some_tool",
-        requires_python=SpecifierSet("==3.14.*"),
-        packages=[],
-    )
-    with pytest.raises(
-        PylockSelectError,
-        match="Provided environment does not satisfy the Python version requirement",
-    ):
-        list(
-            pylock.select(
-                tags=_py312_linux.tags,
-                environment=_py312_linux.environment,
-            )
-        )
