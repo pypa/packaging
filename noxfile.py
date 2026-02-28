@@ -8,14 +8,17 @@ import contextlib
 import datetime
 import difflib
 import glob
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import textwrap
 import time
+import urllib.request
 from pathlib import Path
 from typing import IO, Generator
 
@@ -74,6 +77,78 @@ def tests(session: nox.Session) -> None:
             "--capture=no",
             *session.posargs,
         )
+
+
+PROJECTS = {
+    "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
+    "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
+    "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
+    "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
+    "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
+}
+
+
+@nox.parametrize("project", list(PROJECTS))
+@nox.session(default=False)
+def downstream(session: nox.Session, project: str) -> None:
+    pkg_dir = Path.cwd() / "src/packaging"
+    env = {"FORCE_COLOR": None}
+    session.install("-e.")
+
+    tmp_dir = Path(session.create_tmp())
+    session.chdir(tmp_dir)
+
+    shutil.rmtree(project, ignore_errors=True)
+    with urllib.request.urlopen(PROJECTS[project]) as resp:
+        data = resp.read()
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+        tf.extractall(project)
+    (inner_dir,) = Path(project).iterdir()
+    session.chdir(inner_dir)
+
+    pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
+
+    if project == "packaging_legacy":
+        session.install("-r", "tests/requirements.txt")
+        session.install("-e.")
+        session.run(*pip_cmd, "list")
+        session.run("pytest", *session.posargs, env=env)
+    elif project in {"build", "pyproject_metadata"}:
+        session.install("-e.", "--group=test")
+        if project != "build":
+            session.run(*pip_cmd, "list")
+        session.run("pytest", *session.posargs, env=env)
+    elif project == "setuptools":
+        session.install("-e.[test,cover]")
+        session.run(*pip_cmd, "list")
+        repl_dir = "setuptools/_vendor/packaging"
+        shutil.rmtree(repl_dir)
+        shutil.copytree(pkg_dir, repl_dir)
+        session.run("pytest", *session.posargs, env=env)
+    elif project == "pip":
+        session.install("-e.", "--group=test")
+        session.run(
+            "pip",
+            "wheel",
+            "-w",
+            "tests/data/common_wheels",
+            "--group",
+            "test-common-wheels",
+        )
+        session.run(*pip_cmd, "list")
+        repl_dir = "src/pip/_vendor/packaging"
+        shutil.rmtree(repl_dir)
+        shutil.copytree(pkg_dir, repl_dir)
+        session.run(
+            "pytest",
+            "tests/unit",
+            "--numprocesses=auto",
+            "-k",
+            "not test_ensure_svn_available",
+            *session.posargs,
+        )
+    else:
+        session.error("Unknown package")
 
 
 @nox.session(python="3.10")
