@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [Ubuntu, Windows, macOS]
         python_version:
-          ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "pypy3.8", "pypy3.9", "pypy3.10", "pypy3.11"]
+          ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.13t", "3.14t", "pypy3.8", "pypy3.9", "pypy3.10", "pypy3.11"]
         include:
           - os: Ubuntu
             python_version: "3.11.0"

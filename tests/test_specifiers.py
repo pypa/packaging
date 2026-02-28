@@ -1461,6 +1461,28 @@ class TestSpecifierSet:
         assert result == expected
 
     @pytest.mark.parametrize(
+        ("prereleases", "expected_indexes"),
+        [
+            (None, [1]),
+            (True, [0, 1]),
+            (False, [1]),
+        ],
+    )
+    def test_empty_specifierset_filter_with_key(
+        self, prereleases: bool | None, expected_indexes: list[int]
+    ) -> None:
+        items = [
+            {"version": "2.0a1"},
+            {"version": "2.1"},
+        ]
+
+        spec = SpecifierSet("", prereleases=prereleases)
+        result = list(spec.filter(items, key=lambda item: item["version"]))
+
+        expected = [items[index] for index in expected_indexes]
+        assert result == expected
+
+    @pytest.mark.parametrize(
         ("specifier", "prereleases", "input", "expected"),
         [
             # !=1.*, !=2.*, !=3.0 leaves gap at 3.0 prereleases
