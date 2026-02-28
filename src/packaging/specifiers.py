@@ -586,11 +586,11 @@ class Specifier(BaseSpecifier):
         ):
             return False
 
-        # Ensure that we do not allow a local version of the version mentioned
-        # in the specifier, which is technically greater than, to match.
-        if prospective.local is not None and _public_version(
-            prospective
-        ) == _public_version(spec):
+        # Per the spec: ">V MUST NOT match a local version of the specified
+        # version". A "local version of V" is any version whose public part
+        # equals V. So >1.0a1 must not match 1.0a1+local, but must still
+        # match 1.0a2+local.
+        if prospective.local is not None and _public_version(prospective) == spec:
             return False
 
         # If we've gotten to here, it means that prospective version is both
