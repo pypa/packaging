@@ -478,8 +478,8 @@ class Specifier(BaseSpecifier):
         # Add the prefix notation to the end of our string
         prefix += ".*"
 
-        return self._get_operator(">=")(prospective, spec) and self._get_operator("==")(
-            prospective, prefix
+        return (self._compare_greater_than_equal(prospective, spec)) and (
+            self._compare_equal(prospective, prefix)
         )
 
     def _compare_equal(self, prospective: Version, spec: str) -> bool:
