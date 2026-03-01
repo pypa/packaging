@@ -735,8 +735,7 @@ class Pylock:
         valid Pylock instances (i.e. one obtained from :meth:`Pylock.from_dict`
         or if constructed manually, after calling :meth:`Pylock.validate`).
         """
-        if tags is None:
-            tags = list(sys_tags())
+        supported_tags = frozenset(tags or sys_tags())
 
         # #. Gather the extras and dependency groups to install and set ``extras`` and
         #    ``dependency_groups`` for marker evaluation, respectively.
@@ -851,7 +850,7 @@ class Pylock:
                 for package_wheel in package.wheels:
                     assert package_wheel.name  # XXX get name from path or url
                     package_wheel_tags = parse_wheel_filename(package_wheel.name)[-1]
-                    if not package_wheel_tags.isdisjoint(tags):
+                    if not package_wheel_tags.isdisjoint(supported_tags):
                         yield package, package_wheel
                         break
                 else:
