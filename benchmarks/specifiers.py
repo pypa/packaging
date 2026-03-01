@@ -28,5 +28,9 @@ class TimeSpecSuite:
             spec.contains("3.12")
 
     @add_attributes(pretty_name="SpecifierSet filter")
-    def time_filter(self) -> None:
+    def time_filter_simple(self) -> None:
         list(SpecifierSet(">5.0").filter(self.sample_versions))
+
+    @add_attributes(pretty_name="SpecifierSet filter")
+    def time_filter_complex(self) -> None:
+        list(SpecifierSet(">=1,~=1.1,!=1.2.1,==1.*,<1.9").filter(self.sample_versions))
