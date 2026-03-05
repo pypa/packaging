@@ -1061,10 +1061,8 @@ class TestCPythonTags:
         assert result == [
             tags.Tag("cp316", "cp316", "platform"),
             tags.Tag("cp316", "abi3", "platform"),
-            tags.Tag("cp316", "abi3t", "platform"),
             tags.Tag("cp316", "none", "platform"),
             tags.Tag("cp315", "abi3", "platform"),
-            tags.Tag("cp315", "abi3t", "platform"),
             tags.Tag("cp314", "abi3", "platform"),
             tags.Tag("cp313", "abi3", "platform"),
             tags.Tag("cp312", "abi3", "platform"),

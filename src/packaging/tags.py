@@ -179,13 +179,13 @@ def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and not threading
 
 
-def _abi3t_applies(python_version: PythonVersion) -> bool:
+def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
     """
     Determine if the Python version supports abi3.abi3t.
 
     PEP 803 was first implemented in Python 3.15.
     """
-    return len(python_version) > 1 and tuple(python_version) >= (3, 15)
+    return len(python_version) > 1 and tuple(python_version) >= (3, 15) and threading
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
@@ -265,7 +265,7 @@ def cpython_tags(
 
     threading = _is_threaded_cpython(abis)
     use_abi3 = _abi3_applies(python_version, threading)
-    use_abi3t = _abi3t_applies(python_version)
+    use_abi3t = _abi3t_applies(python_version, threading)
 
     if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
