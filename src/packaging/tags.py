@@ -270,9 +270,7 @@ def cpython_tags(
     if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
     if use_abi3t:
-        yield from (
-            Tag(interpreter, "abi3.abi3t", platform_) for platform_ in platforms
-        )
+        yield from (Tag(interpreter, "abi3t", platform_) for platform_ in platforms)
 
     yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
 
@@ -288,7 +286,7 @@ def cpython_tags(
             for platform_ in platforms:
                 version = _version_nodot((python_version[0], minor_version))
                 interpreter = f"cp{version}"
-                yield Tag(interpreter, "abi3.abi3t", platform_)
+                yield Tag(interpreter, "abi3t", platform_)
 
 
 def _generic_abi() -> list[str]:

@@ -1045,23 +1045,23 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 15), ["cp315t"], ["platform"]))
         assert result == [
             tags.Tag("cp315", "cp315t", "platform"),
-            tags.Tag("cp315", "abi3.abi3t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
             tags.Tag("cp315", "none", "platform"),
         ]
 
         result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
         assert result == [
             tags.Tag("cp316", "cp316t", "platform"),
-            tags.Tag("cp316", "abi3.abi3t", "platform"),
+            tags.Tag("cp316", "abi3t", "platform"),
             tags.Tag("cp316", "none", "platform"),
-            tags.Tag("cp315", "abi3.abi3t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
         ]
 
         result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
         assert result == [
             tags.Tag("cp316", "cp316", "platform"),
             tags.Tag("cp316", "abi3", "platform"),
-            tags.Tag("cp316", "abi3.abi3t", "platform"),
+            tags.Tag("cp316", "abi3t", "platform"),
             tags.Tag("cp316", "none", "platform"),
             tags.Tag("cp315", "abi3", "platform"),
             tags.Tag("cp314", "abi3", "platform"),
@@ -1077,7 +1077,7 @@ class TestCPythonTags:
             tags.Tag("cp34", "abi3", "platform"),
             tags.Tag("cp33", "abi3", "platform"),
             tags.Tag("cp32", "abi3", "platform"),
-            tags.Tag("cp315", "abi3.abi3t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
         ]
 
     def test_python_version_defaults(self) -> None:
