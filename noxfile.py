@@ -198,6 +198,11 @@ def docs(session: nox.Session) -> None:
             "docs/_build/" + dest,  # output directory
         )
 
+    session.log(
+        "Finished! If you want to view at http://localhost:8000, try:\n"
+        "      python3 -m http.server -d docs/_build/html/"
+    )
+
 
 @nox.session(default=False)
 def release(session: nox.Session) -> None:
