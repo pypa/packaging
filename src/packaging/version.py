@@ -201,7 +201,7 @@ class _BaseVersion:
 # Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
 _VERSION_PATTERN = r"""
     v?+                                                   # optional leading v
-    (?:
+    (?a:
         (?:(?P<epoch>[0-9]+)!)?+                          # epoch
         (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
         (?P<pre>                                          # pre-release
@@ -227,7 +227,7 @@ _VERSION_PATTERN = r"""
             (?P<dev_n>[0-9]+)?
         )?+
     )
-    (?:\+
+    (?a:\+
         (?P<local>                                        # local version
             [a-z0-9]+
             (?:[._-][a-z0-9]+)*+
@@ -265,7 +265,7 @@ flags set.
 
 
 # Validation pattern for local version in replace()
-_LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE)
+_LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE | re.ASCII)
 
 # Fast path: If a version has only digits and dots then we
 # can skip the regex and parse it as a release segment
