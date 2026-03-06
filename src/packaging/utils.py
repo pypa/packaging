@@ -11,7 +11,7 @@ from .tags import Tag, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 if TYPE_CHECKING:
-    from collections.abc import Set as AbstractSet
+    from collections.abc import Iterable
 
 __all__ = [
     "BuildTag",
@@ -160,16 +160,16 @@ def canonicalize_version(
     return str(_TrimmedRelease(version) if strip_trailing_zero else version)
 
 
-def _join_tag_attr(tags: AbstractSet[Tag], field: str) -> str:
+def _join_tag_attr(tags: Iterable[Tag], field: str) -> str:
     return ".".join(sorted({getattr(tag, field) for tag in tags}))
 
 
-def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
+def _compress_tag_set(tags: Iterable[Tag]) -> str:
     return "-".join(_join_tag_attr(tags, x) for x in ("interpreter", "abi", "platform"))
 
 
 def compose_wheel_filename(
-    name: str, version: Version, build: BuildTag | None, tags: AbstractSet[Tag]
+    name: str, version: Version, build: BuildTag | None, tags: Iterable[Tag]
 ) -> str:
     """
     Combines a project name, version, build tag, and tag set
