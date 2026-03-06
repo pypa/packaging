@@ -12,6 +12,7 @@ from packaging.markers import Marker
 from packaging.pylock import (
     Package,
     PackageDirectory,
+    PackageSdist,
     PackageVcs,
     PackageWheel,
     Pylock,
@@ -156,7 +157,7 @@ def test_pylock_packages_with_dist_and_archive() -> None:
                     "hashes": {"sha256": "f" * 40},
                 },
                 "sdist": {
-                    "path": "example.tar.gz",
+                    "path": "example-1.0.tar.gz",
                     "hashes": {"sha256": "f" * 40},
                 },
             }
@@ -278,6 +279,185 @@ def test_pylock_invalid_vcs() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         PackageVcs._from_dict({"type": "git", "commit-id": "f" * 40})
     assert str(exc_info.value) == "path or url must be provided"
+
+
+@pytest.mark.parametrize(
+    ("dist", "expected_filename"),
+    [
+        # sdists
+        (
+            PackageSdist(
+                name="example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            PackageSdist(
+                path="./example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            PackageSdist(
+                path=".\\example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            PackageSdist(
+                url="https://example.com/example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            # name preferred over path
+            PackageSdist(
+                name="example-2.0.tar.gz",
+                path=".\\example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-2.0.tar.gz",
+        ),
+        (
+            # name preferred over url
+            PackageSdist(
+                name="example-2.0.tar.gz",
+                url="https://example.com/example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-2.0.tar.gz",
+        ),
+        (
+            # url preferred over path
+            PackageSdist(
+                url="https://example.com/example-2.0.tar.gz",
+                path="./example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-2.0.tar.gz",
+        ),
+        # wheels
+        (
+            PackageWheel(
+                name="example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            PackageWheel(
+                path="./example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            PackageWheel(
+                path=".\\example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            PackageWheel(
+                url="https://example.com/example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            # name preferred over path
+            PackageWheel(
+                name="example-2.0-py3-none-any.whl",
+                path=".\\example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.0-py3-none-any.whl",
+        ),
+        (
+            # name preferred over url
+            PackageWheel(
+                name="example-2.0-py3-none-any.whl",
+                url="https://example.com/example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.0-py3-none-any.whl",
+        ),
+        (
+            # url preferred over path
+            PackageWheel(
+                url="https://example.com/example-2.0-py3-none-any.whl",
+                path="./example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.0-py3-none-any.whl",
+        ),
+    ],
+)
+def test_dist_filename(
+    dist: PackageSdist | PackageWheel, expected_filename: str
+) -> None:
+    assert dist.filename == expected_filename
+
+
+def test_missing_sdist_filename() -> None:
+    with pytest.raises(PylockValidationError) as exc_info:
+        _ = PackageSdist(hashes={}).filename
+    assert str(exc_info.value) == "Cannot determine sdist filename"
+
+
+def test_missing_wheel_filename() -> None:
+    with pytest.raises(PylockValidationError) as exc_info:
+        _ = PackageWheel(hashes={}).filename
+    assert str(exc_info.value) == "Cannot determine wheel filename"
+
+
+def test_pylock_invalid_wheel_filename() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "wheels": [
+                    {
+                        "url": "http://example.com/example-1.0.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Invalid wheel filename 'example-1.0.whl' in 'packages[0].wheels[0]'"
+    )
+
+
+def test_pylock_invalid_sdist_filename() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "sdist": {
+                    "path": "./example.tar.gz",
+                    "hashes": {"sha256": "f" * 40},
+                },
+            },
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Invalid sdist filename 'example.tar.gz' in 'packages[0].sdist'"
+    )
 
 
 def test_pylock_invalid_wheel() -> None:
