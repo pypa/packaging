@@ -34,6 +34,8 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 @nox.session(
     python=[
         *PYTHON_VERSIONS,
+        "3.13t",
+        "3.14t",
         "pypy3.8",
         "pypy3.9",
         "pypy3.10",
