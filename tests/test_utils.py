@@ -120,8 +120,8 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
         ),
         (
-            "some_PACKAGE-1.0-py3-none-any.whl",
-            "some-package",
+            "some_package-1.0-py3-none-any.whl",
+            "some-PACKAGE",
             Version("1.0"),
             (),
             {Tag("py3", "none", "any")},

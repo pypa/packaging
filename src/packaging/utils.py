@@ -59,7 +59,6 @@ _validate_regex = re.compile(r"[A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9]", re.IGNORE
 _normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]")
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)")
-_distribution_regex = re.compile(r"[^\w\d.]+")
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -120,7 +119,7 @@ def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
 def create_wheel_filename(
     name: str, version: Version, build: BuildTag | None, tags: AbstractSet[Tag]
 ) -> str:
-    norm_name = _distribution_regex.sub("_", name)
+    norm_name = canonicalize_name(name).replace("-", "_")
     compressed_tag = _compress_tag_set(tags)
 
     parts: tuple[str, ...]
@@ -177,7 +176,8 @@ def parse_wheel_filename(
 
 
 def create_sdist_filename(name: str, version: Version) -> str:
-    return f"{_distribution_regex.sub('_', name)}-{version}.tar.gz"
+    norm_name = canonicalize_name(name).replace("-", "_")
+    return f"{norm_name}-{version}.tar.gz"
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
