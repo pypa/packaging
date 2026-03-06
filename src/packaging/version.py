@@ -548,10 +548,13 @@ class Version(_BaseVersion):
             )
         return self._key_cache
 
+    # __hash__ must be defined when __eq__ is overridden,
+    # otherwise Python sets __hash__ to None.
     def __hash__(self) -> int:
         return hash(self._key)
 
     # Override comparison methods to use direct _key_cache access
+    # This is faster than property access, especially before Python 3.12
     def __lt__(self, other: _BaseVersion) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
