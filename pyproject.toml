@@ -47,9 +47,11 @@ test = [
 ]
 dev = [{ include-group = "test" }]
 docs = [
+    "erbsland-sphinx-ansi; python_version>='3.10'",
     "furo",
+    "sphinx <9",  # required by sphinx-toolbox
     "sphinx-toolbox",
-    "typing-extensions>=4.1.0; python_version < '3.9'",
+    "sphinxcontrib-programoutput >=0.19",
 ]
 
 
@@ -75,7 +77,14 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@(abc.)?abstractmethod", "@(abc.)?abstractproperty", "if (typing.)?TYPE_CHECKING:", "@(typing.)?overload", "def __dir__()"]
+exclude_also = [
+  "@(abc.)?abstractmethod",
+  "@(abc.)?abstractproperty",
+  "if (typing.)?TYPE_CHECKING:",
+  "@(typing.)?overload",
+  "def __dir__()",
+  'if __name__ == "__main__":',
+]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
