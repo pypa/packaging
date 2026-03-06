@@ -24,8 +24,8 @@ __all__ = [
     "NormalizedName",
     "canonicalize_name",
     "canonicalize_version",
-    "create_sdist_filename",
-    "create_wheel_filename",
+    "compose_sdist_filename",
+    "compose_wheel_filename",
     "is_normalized_name",
     "parse_sdist_filename",
     "parse_wheel_filename",
@@ -116,7 +116,7 @@ def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
     return "-".join(_join_tag_attr(tags, x) for x in ("interpreter", "abi", "platform"))
 
 
-def create_wheel_filename(
+def compose_wheel_filename(
     name: str, version: Version, build: BuildTag | None, tags: AbstractSet[Tag]
 ) -> str:
     norm_name = canonicalize_name(name).replace("-", "_")
@@ -175,7 +175,7 @@ def parse_wheel_filename(
     return (name, version, build, tags)
 
 
-def create_sdist_filename(name: str, version: Version) -> str:
+def compose_sdist_filename(name: str, version: Version) -> str:
     norm_name = canonicalize_name(name).replace("-", "_")
     return f"{norm_name}-{version}.tar.gz"
 

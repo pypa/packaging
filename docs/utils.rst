@@ -71,7 +71,7 @@ Reference
         >>> canonicalize_version('1.4.0.0.0')
         '1.4'
 
-.. function:: create_wheel_filename(name, version, build, tags)
+.. function:: compose_wheel_filename(name, version, build, tags)
 
     Combines a project name, version, build tag, and tag set
     to make a properly formatted wheel filename.
@@ -90,12 +90,12 @@ Reference
 
     .. doctest::
 
-        >>> from packaging.utils import create_wheel_filename
+        >>> from packaging.utils import compose_wheel_filename
         >>> from packaging.tags import Tag
         >>> from packaging.version import Version
         >>> version = Version("1.0")
         >>> tags = {Tag("py3", "none", "any")}
-        >>> "foo_bar-1.0-py3-none-any.whl" == create_wheel_filename("foo-bar", version, None, tags)
+        >>> "foo_bar-1.0-py3-none-any.whl" == compose_wheel_filename("foo-bar", version, None, tags)
         True
 
 .. function:: parse_wheel_filename(filename)
@@ -133,7 +133,7 @@ Reference
         >>> not build
         True
 
-.. function:: create_sdist_filename(name, version)
+.. function:: compose_sdist_filename(name, version)
 
     Combines the project name and a version to make a valid sdist filename.
 
@@ -142,9 +142,9 @@ Reference
 
     .. doctest::
 
-        >>> from packaging.utils import create_sdist_filename
+        >>> from packaging.utils import compose_sdist_filename
         >>> from packaging.version import Version
-        >>> "foo_bar-1.0.tar.gz" == create_sdist_filename("foo-bar", Version("1.0"))
+        >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
         True
 
 .. function:: parse_sdist_filename(filename)

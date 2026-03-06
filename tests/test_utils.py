@@ -14,8 +14,8 @@ from packaging.utils import (
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
-    create_sdist_filename,
-    create_wheel_filename,
+    compose_sdist_filename,
+    compose_wheel_filename,
     is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
@@ -149,10 +149,10 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
         ),
     ],
 )
-def test_create_wheel_filename(
+def test_compose_wheel_filename(
     filename: str, name: str, version: Version, build: BuildTag | None, tags: set[Tag]
 ) -> None:
-    assert create_wheel_filename(name, version, build, tags) == filename
+    assert compose_wheel_filename(name, version, build, tags) == filename
 
 
 @pytest.mark.parametrize(
@@ -233,8 +233,8 @@ def test_parse_wheel_invalid_filename(filename: str) -> None:
         ("foo_bar-1.0.tar.gz", "foo-bar", Version("1.0")),
     ],
 )
-def test_create_sdist_filename(filename: str, name: str, version: Version) -> None:
-    assert create_sdist_filename(name, version) == filename
+def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
+    assert compose_sdist_filename(name, version) == filename
 
 
 @pytest.mark.parametrize(
