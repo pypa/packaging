@@ -10,9 +10,6 @@ from typing import NewType, Tuple, Union, cast
 from .tags import Tag, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
-BuildTag = Union[Tuple[()], Tuple[int, str]]
-NormalizedName = NewType("NormalizedName", str)
-
 __all__ = [
     "BuildTag",
     "InvalidName",
@@ -29,6 +26,14 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
+
+
+BuildTag = Union[Tuple[()], Tuple[int, str]]
+
+NormalizedName = NewType("NormalizedName", str)
+"""
+A :class:`typing.NewType` of :class:`str`, representing a normalized name.
+"""
 
 
 class InvalidName(ValueError):
@@ -57,6 +62,30 @@ _build_tag_regex = re.compile(r"(\d+)(.*)")
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
+    """
+    This function takes a valid Python package or extra name, and returns the
+    normalized form of it.
+
+    The return type is typed as :class:`NormalizedName`. This allows type
+    checkers to help require that a string has passed through this function
+    before use.
+
+    If **validate** is true, then the function will check if **name** is a valid
+    distribution name before normalizing.
+
+    :param str name: The name to normalize.
+    :param bool validate: Check whether the name is a valid distribution name.
+    :raises InvalidName: If **validate** is true and the name is not an
+        acceptable distribution name.
+
+    >>> from packaging.utils import canonicalize_name
+    >>> canonicalize_name("Django")
+    'django'
+    >>> canonicalize_name("oslo.concurrency")
+    'oslo-concurrency'
+    >>> canonicalize_name("requests")
+    'requests'
+    """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
     # Ensure all ``.`` and ``_`` are ``-``
@@ -70,15 +99,32 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
 
 
 def is_normalized_name(name: str) -> bool:
+    """
+    Check if a name is already normalized (i.e. :func:`canonicalize_name` would
+    roundtrip to the same value).
+
+    :param str name: The name to check.
+
+    >>> from packaging.utils import is_normalized_name
+    >>> is_normalized_name("requests")
+    True
+    >>> is_normalized_name("Django")
+    False
+    """
     return _normalized_regex.fullmatch(name) is not None
 
 
 def canonicalize_version(
     version: Version | str, *, strip_trailing_zero: bool = True
 ) -> str:
-    """
-    Return a canonical form of a version as a string.
+    """Return a canonical form of a version as a string.
 
+    This function takes a string representing a package version (or a
+    :class:`~packaging.version.Version` instance), and returns the
+    normalized form of it. By default, it strips trailing zeros from
+    the release segment.
+
+    >>> from packaging.utils import canonicalize_version
     >>> canonicalize_version('1.0.1')
     '1.0.1'
 
@@ -94,6 +140,9 @@ def canonicalize_version(
 
     >>> canonicalize_version('foo bar baz')
     'foo bar baz'
+
+    >>> canonicalize_version('1.4.0.0.0')
+    '1.4'
     """
     if isinstance(version, str):
         try:
@@ -106,6 +155,38 @@ def canonicalize_version(
 def parse_wheel_filename(
     filename: str,
 ) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
+    """
+    This function takes the filename of a wheel file, and parses it,
+    returning a tuple of name, version, build number, and tags.
+
+    The name part of the tuple is normalized and typed as
+    :class:`NormalizedName`. The version portion is an instance of
+    :class:`~packaging.version.Version`. The build number is ``()`` if
+    there is no build number in the wheel filename, otherwise a
+    two-item tuple of an integer for the leading digits and
+    a string for the rest of the build number. The tags portion is a
+    frozen set of :class:`~packaging.tags.Tag` instances (as the tag
+    string format allows multiple tags to be combined into a single
+    string).
+
+    :param str filename: The name of the wheel file.
+    :raises InvalidWheelFilename: If the filename in question
+        does not follow the :ref:`wheel specification
+        <pypug:binary-distribution-format>`.
+
+    >>> from packaging.utils import parse_wheel_filename
+    >>> from packaging.tags import Tag
+    >>> from packaging.version import Version
+    >>> name, ver, build, tags = parse_wheel_filename("foo-1.0-py3-none-any.whl")
+    >>> name
+    'foo'
+    >>> ver == Version('1.0')
+    True
+    >>> tags == {Tag("py3", "none", "any")}
+    True
+    >>> not build
+    True
+    """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
             f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
@@ -147,6 +228,27 @@ def parse_wheel_filename(
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
+    """
+    This function takes the filename of a sdist file (as specified
+    in the `Source distribution format`_ documentation), and parses
+    it, returning a tuple of the normalized name and version as
+    represented by an instance of :class:`~packaging.version.Version`.
+
+    :param str filename: The name of the sdist file.
+    :raises InvalidSdistFilename: If the filename does not end
+        with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
+        contain a dash separating the name and the version of the distribution.
+
+    >>> from packaging.utils import parse_sdist_filename
+    >>> from packaging.version import Version
+    >>> name, ver = parse_sdist_filename("foo-1.0.tar.gz")
+    >>> name
+    'foo'
+    >>> ver == Version('1.0')
+    True
+
+    .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
+    """
     if filename.endswith(".tar.gz"):
         file_stem = filename[: -len(".tar.gz")]
     elif filename.endswith(".zip"):
