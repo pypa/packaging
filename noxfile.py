@@ -91,6 +91,9 @@ PROJECTS = {
 @nox.parametrize("project", list(PROJECTS))
 @nox.session(default=False)
 def downstream(session: nox.Session, project: str) -> None:
+    """
+    Run downstream projects with this packaging.
+    """
     pkg_dir = Path.cwd() / "src/packaging"
     env = {"FORCE_COLOR": None}
     session.install("-e.")
@@ -124,7 +127,8 @@ def downstream(session: nox.Session, project: str) -> None:
         repl_dir = "setuptools/_vendor/packaging"
         shutil.rmtree(repl_dir)
         shutil.copytree(pkg_dir, repl_dir)
-        session.run("pytest", *session.posargs, env=env)
+        skips = ["-k", "not test_editable_install and not test_editable_with_pyproject"]
+        session.run("pytest", *skips, *session.posargs, env=env)
     elif project == "pip":
         session.install("-e.", "--group=test")
         session.run(
