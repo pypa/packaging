@@ -98,6 +98,8 @@ Reference
         >>> "foo_bar-1.0-py3-none-any.whl" == compose_wheel_filename("foo-bar", version, None, tags)
         True
 
+    .. versionadded:: 26.1
+
 .. function:: parse_wheel_filename(filename)
 
     This function takes the filename of a wheel file, and parses it,
@@ -149,6 +151,8 @@ Reference
         >>> from packaging.version import Version
         >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
         True
+
+    .. versionadded:: 26.1
 
 .. function:: parse_sdist_filename(filename)
 
