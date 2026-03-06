@@ -197,7 +197,7 @@ def create_wheel_filename(
 
     .. versionadded:: 26.1
     """
-    norm_name = _distribution_regex.sub("_", name)
+    norm_name = canonicalize_name(name).replace("-", "_")
     compressed_tag = _compress_tag_set(tags)
 
     parts: tuple[str, ...]
@@ -287,7 +287,10 @@ def parse_wheel_filename(
 
 def create_sdist_filename(name: str, version: Version) -> str:
     """
-    Combines the project name and a version to make a valid sdist filename.
+    Combines the project name and a version to make a valid sdist filename. The
+    project name is normalized as required so that any run of ``-._``
+    characters are replaced with ``_`` and characters are lower cased. The
+    version is an instance of :class:`~packaging.version.Version`.
 
     :param name: The project name
     :param version: The project version
@@ -299,7 +302,8 @@ def create_sdist_filename(name: str, version: Version) -> str:
 
     .. versionadded:: 26.1
     """
-    return f"{_distribution_regex.sub('_', name)}-{version}.tar.gz"
+    norm_name = canonicalize_name(name).replace("-", "_")
+    return f"{norm_name}-{version}.tar.gz"
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
