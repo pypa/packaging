@@ -16,7 +16,7 @@ Usage
     >>> from packaging.markers import Marker, UndefinedEnvironmentName
     >>> marker = Marker("python_version>'2'")
     >>> marker
-    <Marker('python_version > "2"')>
+    Marker('python_version > "2"')
     >>> # We can evaluate the marker to see if it is satisfied
     >>> marker.evaluate()
     True
@@ -27,11 +27,11 @@ Usage
     >>> # Multiple markers can be ANDed
     >>> and_marker = Marker("os_name=='a' and os_name=='b'")
     >>> and_marker
-    <Marker('os_name == "a" and os_name == "b"')>
+    Marker('os_name == "a" and os_name == "b"')
     >>> # Multiple markers can be ORed
     >>> or_marker = Marker("os_name=='a' or os_name=='b'")
     >>> or_marker
-    <Marker('os_name == "a" or os_name == "b"')>
+    Marker('os_name == "a" or os_name == "b"')
     >>> # Markers can be also used with extras, to pull in dependencies if
     >>> # a certain extra is being installed
     >>> extra = Marker('extra == "bar"')

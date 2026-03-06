@@ -133,7 +133,7 @@ class TestTag:
         assert str(example_tag) == "py3-none-any"
 
     def test_repr(self, example_tag: tags.Tag) -> None:
-        assert repr(example_tag) == f"<py3-none-any @ {id(example_tag)}>"
+        assert repr(example_tag) == "Tag('py3', 'none', 'any')"
 
     def test_attribute_access(self, example_tag: tags.Tag) -> None:
         assert example_tag.interpreter == "py3"

@@ -18,9 +18,9 @@ Usage
     >>> v1 = parse("1.0a5")
     >>> v2 = Version("1.0")
     >>> v1
-    <Version('1.0a5')>
+    Version('1.0a5')
     >>> v2
-    <Version('1.0')>
+    Version('1.0')
     >>> v1 < v2
     True
     >>> v1.epoch
