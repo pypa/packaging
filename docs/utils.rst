@@ -76,17 +76,17 @@ Reference
     Combines a project name, version, build tag, and tag set
     to make a properly formatted wheel filename.
 
-    The project name is normalized such that the non-alphanumeric
-    characters are replaced with ``_``. The version is an instance of
-    :class:`~packaging.version.Version`. The build tag can be None,
-    an empty tuple or a two-item tuple of an integer and a string.
-    The tags is set of tags that will be compressed into a wheel
-    tag string.
+    The project name is normalized as required so that any run of ``-._``
+    characters are replaced with ``_`` and characters are lower cased. The
+    version is an instance of :class:`~packaging.version.Version`. The build
+    tag can be None, an empty tuple or a two-item tuple of an integer and a
+    string.  The tags is set of tags that will be compressed into a sorted
+    wheel tag string.
 
     :param str name: The project name
     :param ~packaging.version.Version version: The project version
     :param Optional[(),(int,str)] build: An optional two-item tuple of an integer and string
-    :param set[~packaging.tags.Tag] tags: The set of tags that apply to the wheel
+    :param Iterable[~packaging.tags.Tag] tags: The set of tags that apply to the wheel
 
     .. doctest::
 
@@ -135,7 +135,10 @@ Reference
 
 .. function:: compose_sdist_filename(name, version)
 
-    Combines the project name and a version to make a valid sdist filename.
+    Combines the project name and a version to make a valid sdist filename. The
+    project name is normalized as required so that any run of ``-._``
+    characters are replaced with ``_`` and characters are lower cased. The
+    version is an instance of :class:`~packaging.version.Version`.
 
     :param str name: The project name
     :param ~packaging.version.Version version: The project version
