@@ -226,6 +226,15 @@ def test_parse_wheel_invalid_filename(filename: str) -> None:
         parse_wheel_filename(filename)
 
 
+def test_parse_and_create_filename() -> None:
+    filename = "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    sorted_f = "numpy-1.23.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+
+    name, version, build, tags = parse_wheel_filename(filename)
+    composed = compose_wheel_filename(name, version, build, tags)
+    assert sorted_f == composed
+
+
 @pytest.mark.parametrize(
     ("filename", "name", "version"),
     [
