@@ -21,8 +21,8 @@ __all__ = [
     "NormalizedName",
     "canonicalize_name",
     "canonicalize_version",
-    "create_sdist_filename",
-    "create_wheel_filename",
+    "compose_sdist_filename",
+    "compose_wheel_filename",
     "is_normalized_name",
     "parse_sdist_filename",
     "parse_wheel_filename",
@@ -168,7 +168,7 @@ def _compress_tag_set(tags: AbstractSet[Tag]) -> str:
     return "-".join(_join_tag_attr(tags, x) for x in ("interpreter", "abi", "platform"))
 
 
-def create_wheel_filename(
+def compose_wheel_filename(
     name: str, version: Version, build: BuildTag | None, tags: AbstractSet[Tag]
 ) -> str:
     """
@@ -187,12 +187,12 @@ def create_wheel_filename(
     :param build: An optional two-item tuple of an integer and string
     :param tags: The set of tags that apply to the wheel
 
-    >>> from packaging.utils import create_wheel_filename
+    >>> from packaging.utils import compose_wheel_filename
     >>> from packaging.tags import Tag
     >>> from packaging.version import Version
     >>> version = Version("1.0")
     >>> tags = {Tag("py3", "none", "any")}
-    >>> create_wheel_filename("foo-bar", version, None, tags)
+    >>> compose_wheel_filename("foo-bar", version, None, tags)
     'foo_bar-1.0-py3-none-any.whl'
 
     .. versionadded:: 26.1
@@ -285,7 +285,7 @@ def parse_wheel_filename(
     return (name, version, build, tags)
 
 
-def create_sdist_filename(name: str, version: Version) -> str:
+def compose_sdist_filename(name: str, version: Version) -> str:
     """
     Combines the project name and a version to make a valid sdist filename. The
     project name is normalized as required so that any run of ``-._``
@@ -295,9 +295,9 @@ def create_sdist_filename(name: str, version: Version) -> str:
     :param name: The project name
     :param version: The project version
 
-    >>> from packaging.utils import create_sdist_filename
+    >>> from packaging.utils import compose_sdist_filename
     >>> from packaging.version import Version
-    >>> "foo_bar-1.0.tar.gz" == create_sdist_filename("foo-bar", Version("1.0"))
+    >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
     True
 
     .. versionadded:: 26.1
