@@ -478,8 +478,8 @@ class Specifier(BaseSpecifier):
         # Add the prefix notation to the end of our string
         prefix += ".*"
 
-        return self._get_operator(">=")(prospective, spec) and self._get_operator("==")(
-            prospective, prefix
+        return (self._compare_greater_than_equal(prospective, spec)) and (
+            self._compare_equal(prospective, prefix)
         )
 
     def _compare_equal(self, prospective: Version, spec: str) -> bool:
@@ -586,11 +586,11 @@ class Specifier(BaseSpecifier):
         ):
             return False
 
-        # Ensure that we do not allow a local version of the version mentioned
-        # in the specifier, which is technically greater than, to match.
-        if prospective.local is not None and _base_version(
-            prospective
-        ) == _base_version(spec):
+        # Per the spec: ">V MUST NOT match a local version of the specified
+        # version". A "local version of V" is any version whose public part
+        # equals V. So >1.0a1 must not match 1.0a1+local, but must still
+        # match 1.0a2+local.
+        if prospective.local is not None and _public_version(prospective) == spec:
             return False
 
         # If we've gotten to here, it means that prospective version is both
