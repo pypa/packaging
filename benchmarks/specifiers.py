@@ -37,6 +37,12 @@ class TimeSpecSuite:
         for sp in self._single_warm_spec._specs:
             sp.contains(self.single_version)
 
+    def _make_cold(self, spec: SpecifierSet) -> None:
+        if hasattr(spec, "_sorted"):
+            spec._sorted = False
+        for sp in spec._specs:
+            sp._spec_version = None
+
     @add_attributes(pretty_name="SpecifierSet constructor")
     def time_constructor(self) -> None:
         for s in self.spec_strs:
@@ -45,9 +51,7 @@ class TimeSpecSuite:
     @add_attributes(pretty_name="SpecifierSet contains (cold)")
     def time_contains_cold(self) -> None:
         for spec in self._cold_specs:
-            for sp in spec._specs:
-                sp._spec_version = None
-
+            self._make_cold(spec)
         for spec in self._cold_specs:
             spec.contains(self.single_version)
 
@@ -58,8 +62,7 @@ class TimeSpecSuite:
 
     @add_attributes(pretty_name="SpecifierSet filter (simple, cold)")
     def time_filter_simple_cold(self) -> None:
-        for sp in self._single_cold_spec._specs:
-            sp._spec_version = None
+        self._make_cold(self._single_cold_spec)
         list(self._single_cold_spec.filter(self.sample_versions))
 
     @add_attributes(pretty_name="SpecifierSet filter (simple, warm)")
