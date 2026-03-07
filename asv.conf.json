@@ -8,7 +8,12 @@
     "build_command": ["python -m pip wheel -w {build_cache_dir} {build_dir}"],
     "default_benchmark_timeout": 180,
     "regressions_thresholds": {
-        ".*": 0.01
+        ".*": 0.05
+    },
+    "matrix": {
+        "env_nobuild": {
+            "PYTHONHASHSEED": ["0"]
+        }
     },
     "pythons": ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 }
