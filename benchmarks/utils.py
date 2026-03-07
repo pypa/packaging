@@ -25,6 +25,8 @@ NAMES = [
 
 
 class TimeUtils:
+    rounds = 4
+
     @add_attributes(pretty_name="canonicalize_name")
     def time_canonicalize_name(self) -> None:
         for v in NAMES:

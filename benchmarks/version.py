@@ -17,6 +17,8 @@ def valid_version(v: str) -> Version | None:
 
 
 class TimeVersionSuite:
+    rounds = 4
+
     def setup(self) -> None:
         with (DIR / "version_sample.txt").open() as f:
             self.versions = [v.strip() for v in f.readlines()]

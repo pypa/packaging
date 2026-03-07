@@ -10,6 +10,8 @@ DIR = Path(__file__).parent.resolve()
 
 
 class TimeMarkerSuite:
+    rounds = 4
+
     def setup(self) -> None:
         with (DIR / "dist_sample.txt").open() as f:
             self.marker_strs = [m.split(";")[1].strip() for m in f if ";" in m]

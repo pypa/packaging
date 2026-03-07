@@ -10,6 +10,8 @@ DIR = Path(__file__).parent.resolve()
 
 
 class TimeRequirementSuite:
+    rounds = 4
+
     def setup(self) -> None:
         with (DIR / "dist_sample.txt").open() as f:
             self.req_strs = [r.strip() for r in f]

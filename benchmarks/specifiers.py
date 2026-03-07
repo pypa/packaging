@@ -11,6 +11,8 @@ DIR = Path(__file__).parent.resolve()
 
 
 class TimeSpecSuite:
+    rounds = 4
+
     def setup(self) -> None:
         with (DIR / "specs_sample.txt").open() as f:
             self.spec_strs = [s.strip() for s in f.readlines()]
