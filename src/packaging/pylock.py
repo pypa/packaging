@@ -781,7 +781,9 @@ class Pylock:
         #    expression is satisfied.
         if self.environments:
             for env_marker in self.environments:
-                if env_marker.evaluate(env, context="lock_file"):
+                if env_marker.evaluate(
+                    cast("dict[str, str]", environment or {}), context="requirement"
+                ):
                     break
             else:
                 raise PylockSelectError(
