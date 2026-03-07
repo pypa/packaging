@@ -1985,6 +1985,19 @@ class TestSpecifierSet:
                 right, prereleases=True
             )
 
+    def test_specifiers_duplicate_normalization(self) -> None:
+        # Specifiers that are equal but have different string representations
+        # should be deduplicated for equality, hashing, and string output.
+        a = SpecifierSet(">1.0.0,>1.0")
+        b = SpecifierSet(">1.0")
+        assert a == b
+        assert hash(a) == hash(b)
+        assert str(a) == str(b)
+
+    def test_specifiers_combine_deduplicates(self) -> None:
+        result = SpecifierSet(">=1.0") & SpecifierSet(">=1.0,<5.0")
+        assert str(result) == "<5.0,>=1.0"
+
     def test_specifiers_combine_not_implemented(self) -> None:
         with pytest.raises(TypeError):
             SpecifierSet() & 12  # type: ignore[operator]
