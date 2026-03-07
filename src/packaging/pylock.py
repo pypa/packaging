@@ -750,7 +750,7 @@ class Pylock:
                 extras=frozenset(extras or []),
                 dependency_groups=frozenset(
                     (self.default_groups or [])
-                    if dependency_groups is None  # to allow selecting no groups
+                    if dependency_groups is None  # to allow selecting no group
                     else dependency_groups
                 ),
             ),
@@ -770,7 +770,6 @@ class Pylock:
         #    not met.
         if self.requires_python and not self.requires_python.contains(
             env_python_version,
-            prereleases=True,  # XXX confirm prereleases=True
         ):
             raise PylockSelectError(
                 f"Provided environment does not satisfy the Python version "
@@ -802,7 +801,6 @@ class Pylock:
             #    satisfied; an error MUST be raised if it isn't.
             if package.requires_python and not package.requires_python.contains(
                 env_python_version,
-                prereleases=True,  # XXX confirm prereleases=True
             ):
                 raise PylockSelectError(
                     f"Provided environment does not satisfy the Python version "
