@@ -1038,9 +1038,103 @@ class TestCPythonTags:
         assert result == [
             tags.Tag("cp313", "cp313t", "plat1"),
             tags.Tag("cp313", "cp313t", "plat2"),
+            tags.Tag("cp313", "abi3t", "plat1"),
+            tags.Tag("cp313", "abi3t", "plat2"),
             tags.Tag("cp313", "none", "plat1"),
             tags.Tag("cp313", "none", "plat2"),
+            tags.Tag("cp312", "abi3t", "plat1"),
+            tags.Tag("cp312", "abi3t", "plat2"),
+            tags.Tag("cp311", "abi3t", "plat1"),
+            tags.Tag("cp311", "abi3t", "plat2"),
+            tags.Tag("cp310", "abi3t", "plat1"),
+            tags.Tag("cp310", "abi3t", "plat2"),
+            tags.Tag("cp39", "abi3t", "plat1"),
+            tags.Tag("cp39", "abi3t", "plat2"),
+            tags.Tag("cp38", "abi3t", "plat1"),
+            tags.Tag("cp38", "abi3t", "plat2"),
+            tags.Tag("cp37", "abi3t", "plat1"),
+            tags.Tag("cp37", "abi3t", "plat2"),
+            tags.Tag("cp36", "abi3t", "plat1"),
+            tags.Tag("cp36", "abi3t", "plat2"),
+            tags.Tag("cp35", "abi3t", "plat1"),
+            tags.Tag("cp35", "abi3t", "plat2"),
+            tags.Tag("cp34", "abi3t", "plat1"),
+            tags.Tag("cp34", "abi3t", "plat2"),
+            tags.Tag("cp33", "abi3t", "plat1"),
+            tags.Tag("cp33", "abi3t", "plat2"),
+            tags.Tag("cp32", "abi3t", "plat1"),
+            tags.Tag("cp32", "abi3t", "plat2"),
         ]
+
+        result = list(tags.cpython_tags((3, 15), ["cp315t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp315", "cp315t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp315", "none", "platform"),
+            tags.Tag("cp314", "abi3t", "platform"),
+            tags.Tag("cp313", "abi3t", "platform"),
+            tags.Tag("cp312", "abi3t", "platform"),
+            tags.Tag("cp311", "abi3t", "platform"),
+            tags.Tag("cp310", "abi3t", "platform"),
+            tags.Tag("cp39", "abi3t", "platform"),
+            tags.Tag("cp38", "abi3t", "platform"),
+            tags.Tag("cp37", "abi3t", "platform"),
+            tags.Tag("cp36", "abi3t", "platform"),
+            tags.Tag("cp35", "abi3t", "platform"),
+            tags.Tag("cp34", "abi3t", "platform"),
+            tags.Tag("cp33", "abi3t", "platform"),
+            tags.Tag("cp32", "abi3t", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316t", "platform"),
+            tags.Tag("cp316", "abi3t", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp314", "abi3t", "platform"),
+            tags.Tag("cp313", "abi3t", "platform"),
+            tags.Tag("cp312", "abi3t", "platform"),
+            tags.Tag("cp311", "abi3t", "platform"),
+            tags.Tag("cp310", "abi3t", "platform"),
+            tags.Tag("cp39", "abi3t", "platform"),
+            tags.Tag("cp38", "abi3t", "platform"),
+            tags.Tag("cp37", "abi3t", "platform"),
+            tags.Tag("cp36", "abi3t", "platform"),
+            tags.Tag("cp35", "abi3t", "platform"),
+            tags.Tag("cp34", "abi3t", "platform"),
+            tags.Tag("cp33", "abi3t", "platform"),
+            tags.Tag("cp32", "abi3t", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316", "platform"),
+            tags.Tag("cp316", "abi3", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3", "platform"),
+            tags.Tag("cp314", "abi3", "platform"),
+            tags.Tag("cp313", "abi3", "platform"),
+            tags.Tag("cp312", "abi3", "platform"),
+            tags.Tag("cp311", "abi3", "platform"),
+            tags.Tag("cp310", "abi3", "platform"),
+            tags.Tag("cp39", "abi3", "platform"),
+            tags.Tag("cp38", "abi3", "platform"),
+            tags.Tag("cp37", "abi3", "platform"),
+            tags.Tag("cp36", "abi3", "platform"),
+            tags.Tag("cp35", "abi3", "platform"),
+            tags.Tag("cp34", "abi3", "platform"),
+            tags.Tag("cp33", "abi3", "platform"),
+            tags.Tag("cp32", "abi3", "platform"),
+        ]
+
+    def test_no_abi3t_in_non_threaded_interpreter(self) -> None:
+        result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
+        assert all(t.abi in ("cp316", "none", "abi3") for t in result)
+
+    def test_no_abi3_in_threaded_interpreter(self) -> None:
+        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
+        assert all(t.abi in ("cp316t", "none", "abi3t") for t in result)
 
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
