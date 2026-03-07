@@ -38,8 +38,8 @@ class TimeSpecSuite:
             sp.contains(self.single_version)
 
     def _make_cold(self, spec: SpecifierSet) -> None:
-        if hasattr(spec, "_sorted"):
-            spec._sorted = False
+        if hasattr(spec, "_canonicalized"):
+            spec._canonicalized = False
         for sp in spec._specs:
             sp._spec_version = None
 

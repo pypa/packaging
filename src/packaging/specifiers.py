@@ -851,7 +851,7 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_prereleases", "_sorted", "_specs")
+    __slots__ = ("_canonicalized", "_prereleases", "_specs")
 
     def __init__(
         self,
@@ -880,24 +880,21 @@ class SpecifierSet(BaseSpecifier):
             # strip each item to remove leading/trailing whitespace.
             split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
-            # Deduplicate strings first.
-            self._specs: tuple[Specifier, ...] = tuple(
-                map(Specifier, dict.fromkeys(split_specifiers))
-            )
+            self._specs: tuple[Specifier, ...] = tuple(map(Specifier, split_specifiers))
         else:
-            self._specs = tuple(dict.fromkeys(specifiers))
+            self._specs = tuple(specifiers)
 
-        self._sorted = len(self._specs) <= 1
+        self._canonicalized = len(self._specs) <= 1
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
         self._prereleases = prereleases
 
-    def _sort_specs(self) -> tuple[Specifier, ...]:
-        """Sort and cache the specs tuple for order-sensitive operations."""
-        if not self._sorted:
-            self._specs = tuple(sorted(self._specs, key=str))
-            self._sorted = True
+    def _canonical_specs(self) -> tuple[Specifier, ...]:
+        """Deduplicate, sort, and cache specs for order-sensitive operations."""
+        if not self._canonicalized:
+            self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
+            self._canonicalized = True
         return self._specs
 
     @property
@@ -956,10 +953,10 @@ class SpecifierSet(BaseSpecifier):
         >>> str(SpecifierSet(">=1.0.0,!=1.0.1", prereleases=False))
         '!=1.0.1,>=1.0.0'
         """
-        return ",".join(str(s) for s in self._sort_specs())
+        return ",".join(str(s) for s in self._canonical_specs())
 
     def __hash__(self) -> int:
-        return hash(self._sort_specs())
+        return hash(self._canonical_specs())
 
     def __and__(self, other: SpecifierSet | str) -> SpecifierSet:
         """Return a SpecifierSet which is a combination of the two sets.
@@ -977,8 +974,8 @@ class SpecifierSet(BaseSpecifier):
             return NotImplemented
 
         specifier = SpecifierSet()
-        specifier._specs = tuple(dict.fromkeys(self._specs + other._specs))
-        specifier._sorted = len(specifier._specs) <= 1
+        specifier._specs = self._specs + other._specs
+        specifier._canonicalized = len(specifier._specs) <= 1
 
         # Combine prerelease settings: use common or non-None value
         if self._prereleases is None or self._prereleases == other._prereleases:
@@ -1016,10 +1013,7 @@ class SpecifierSet(BaseSpecifier):
         elif not isinstance(other, SpecifierSet):
             return NotImplemented
 
-        if len(self._specs) != len(other._specs):
-            return False
-
-        return self._sort_specs() == other._sort_specs()
+        return self._canonical_specs() == other._canonical_specs()
 
     def __len__(self) -> int:
         """Returns the number of specifiers in this specifier set."""
