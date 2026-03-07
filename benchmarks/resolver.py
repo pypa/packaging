@@ -7,6 +7,8 @@ from . import add_attributes
 
 
 class TimeResolverSuite:
+    rounds = 4
+
     def setup(self) -> None:
         self.valid_versions = [
             "1.0.0",
