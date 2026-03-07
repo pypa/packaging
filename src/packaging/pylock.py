@@ -12,19 +12,19 @@ from typing import (
     Callable,
     Protocol,
     TypeVar,
+    cast,
 )
 from urllib.parse import urlparse
 
 from .markers import Environment, Marker, default_environment
 from .specifiers import SpecifierSet
+from .tags import sys_tags
 from .utils import (
     NormalizedName,
     is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
 )
-from .tags import sys_tags
-from .utils import NormalizedName, is_normalized_name, parse_wheel_filename
 from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -847,11 +847,10 @@ class Pylock:
                 #    :ref:`pylock-packages-wheels-name`; if one is not found then move
                 #    on to :ref:`pylock-packages-sdist` or an error MUST be raised about
                 #    a lack of source for the project.
-                for package_wheel in package.wheels:
-                    assert package_wheel.name  # XXX get name from path or url
-                    package_wheel_tags = parse_wheel_filename(package_wheel.name)[-1]
-                    if not package_wheel_tags.isdisjoint(supported_tags):
-                        yield package, package_wheel
+                for wheel in package.wheels:
+                    wheel_tags = parse_wheel_filename(wheel.filename)[-1]
+                    if not wheel_tags.isdisjoint(supported_tags):
+                        yield package, wheel
                         break
                 else:
                     if package.sdist is not None:

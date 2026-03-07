@@ -268,7 +268,6 @@ def test_sdist_fallback() -> None:
                 ),
                 wheels=[
                     PackageWheel(
-                        name="foo-1.0-py5-none-any.whl",
                         path="./foo-1.0-py5-none-any.whl",
                         hashes={"sha256": "abc123"},
                     )
