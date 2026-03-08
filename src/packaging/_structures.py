@@ -19,13 +19,13 @@ class InfinityType:
         return False
 
     def __le__(self, other: object) -> bool:
-        return False
+        return other is self
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
+        return other is self
 
     def __gt__(self, other: object) -> bool:
-        return True
+        return other is not self
 
     def __ge__(self, other: object) -> bool:
         return True
@@ -48,19 +48,19 @@ class NegativeInfinityType:
         return hash(repr(self))
 
     def __lt__(self, other: object) -> bool:
-        return True
+        return other is not self
 
     def __le__(self, other: object) -> bool:
         return True
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
+        return other is self
 
     def __gt__(self, other: object) -> bool:
         return False
 
     def __ge__(self, other: object) -> bool:
-        return False
+        return other is self
 
     def __neg__(self: object) -> InfinityType:
         return Infinity

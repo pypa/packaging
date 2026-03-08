@@ -204,17 +204,17 @@ class Specifier(BaseSpecifier):
                 (?:
                     \.\*  # Wild card syntax of .*
                     |
-                    (?:                                  # pre release
+                    (?a:                                  # pre release
                         [-_\.]?
                         (alpha|beta|preview|pre|a|b|c|rc)
                         [-_\.]?
                         [0-9]*
                     )?
-                    (?:                                  # post release
+                    (?a:                                  # post release
                         (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
                     )?
-                    (?:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
-                    (?:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
+                    (?a:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
+                    (?a:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
                 )?
             )
             |
@@ -252,16 +252,16 @@ class Specifier(BaseSpecifier):
                 v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)*   # release
-                (?:                   # pre release
+                (?a:                   # pre release
                     [-_\.]?
                     (alpha|beta|preview|pre|a|b|c|rc)
                     [-_\.]?
                     [0-9]*
                 )?
-                (?:                                   # post release
+                (?a:                                   # post release
                     (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
                 )?
-                (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
+                (?a:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
             )
         )
         """
