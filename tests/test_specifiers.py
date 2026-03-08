@@ -1410,6 +1410,16 @@ class TestSpecifierSet:
             ("===foobar", False, None, ["foobar", "foo"], ["foobar"]),
             ("===foobar", True, True, ["foobar", "foo"], ["foobar"]),
             ("===foobar", False, False, ["foobar", "foo"], ["foobar"]),
+            # Test === with multiple specifiers matching non-parseable versions
+            (
+                "===foobar,===foobar",
+                None,
+                None,
+                ["foobar", "foo", "bar"],
+                ["foobar"],
+            ),
+            # Test ==.* in multi-specifier set
+            ("==1.*,>=1.0", None, None, ["0.9", "1.0", "1.5", "2.0"], ["1.0", "1.5"]),
         ],
     )
     def test_specifier_filter(
