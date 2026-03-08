@@ -844,8 +844,8 @@ def _pad_version(left: list[str], right: list[str]) -> tuple[list[str], list[str
     )
 
 
-def _spec_filter_order(check: tuple[CallableOperator, str, str]) -> int:
-    """Sort key for Cost Based Ordering of specifier checks in _filter_specs.
+def _operator_cost(check: tuple[CallableOperator, str, str]) -> int:
+    """Sort key for Cost Based Ordering of specifier operators in _filter_versions.
 
     Operators run sequentially on a shrinking set, so cheap operators should
     run first to reduce the input for expensive ones, also operators that are
@@ -879,7 +879,7 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_canonicalized", "_filter_checks", "_prereleases", "_specs")
+    __slots__ = ("_canonicalized", "_resolved_ops", "_prereleases", "_specs")
 
     def __init__(
         self,
@@ -913,7 +913,7 @@ class SpecifierSet(BaseSpecifier):
             self._specs = tuple(specifiers)
 
         self._canonicalized = len(self._specs) <= 1
-        self._filter_checks: list[tuple[CallableOperator, str, str]] | None = None
+        self._resolved_ops: list[tuple[CallableOperator, str, str]] | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -924,7 +924,7 @@ class SpecifierSet(BaseSpecifier):
         if not self._canonicalized:
             self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
             self._canonicalized = True
-            self._filter_checks = None
+            self._resolved_ops = None
         return self._specs
 
     @property
@@ -1006,7 +1006,7 @@ class SpecifierSet(BaseSpecifier):
         specifier = SpecifierSet()
         specifier._specs = self._specs + other._specs
         specifier._canonicalized = len(specifier._specs) <= 1
-        specifier._filter_checks = None
+        specifier._resolved_ops = None
 
         # Combine prerelease settings: use common or non-None value
         if self._prereleases is None or self._prereleases == other._prereleases:
@@ -1204,7 +1204,7 @@ class SpecifierSet(BaseSpecifier):
                     key=key,
                 )
             else:
-                filtered = self._filter_specs(
+                filtered = self._filter_versions(
                     iterable,
                     key,
                     prereleases=True if prereleases is None else prereleases,
@@ -1233,7 +1233,7 @@ class SpecifierSet(BaseSpecifier):
         # PEP 440: exclude prereleases unless no final releases matched
         return _pep440_filter_prereleases(iterable, key)
 
-    def _filter_specs(
+    def _filter_versions(
         self,
         iterable: Iterable[Any],
         key: Callable[[Any], UnparsedVersion] | None,
@@ -1241,20 +1241,20 @@ class SpecifierSet(BaseSpecifier):
     ) -> Iterator[Any]:
         """Check all specifiers in a single pass using Cost Based Ordering.
 
-        Specifiers are sorted by _spec_filter_order so that cheap range checks
-        reject versions early, avoiding expensive wildcard or compatible checks
+        Specifiers are sorted by _operator_cost so that cheap range operators
+        reject versions early, avoiding expensive wildcard or compatible operators
         on versions that would have been rejected anyway.
         """
         # Pre-resolve operators and sort (cached after first call).
-        if self._filter_checks is None:
-            self._filter_checks = sorted(
+        if self._resolved_ops is None:
+            self._resolved_ops = sorted(
                 (
                     (spec._get_operator(spec.operator), spec.version, spec.operator)
                     for spec in self._specs
                 ),
-                key=_spec_filter_order,
+                key=_operator_cost,
             )
-        checks = self._filter_checks
+        ops = self._resolved_ops
         exclude_prereleases = prereleases is False
 
         for item in iterable:
@@ -1264,11 +1264,11 @@ class SpecifierSet(BaseSpecifier):
                 # Only === can match non-parseable versions.
                 if all(
                     op == "===" and str(item).lower() == ver.lower()
-                    for _, ver, op in checks
+                    for _, ver, op in ops
                 ):
                     yield item
             elif exclude_prereleases and parsed.is_prerelease:
                 pass
-            elif all(op_fn(parsed, ver) for op_fn, ver, _ in checks):
-                # Short-circuits on the first failing check.
+            elif all(op_fn(parsed, ver) for op_fn, ver, _ in ops):
+                # Short-circuits on the first failing operator.
                 yield item
