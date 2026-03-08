@@ -879,7 +879,7 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_canonicalized", "_prereleases", "_specs")
+    __slots__ = ("_canonicalized", "_filter_checks", "_prereleases", "_specs")
 
     def __init__(
         self,
@@ -913,6 +913,7 @@ class SpecifierSet(BaseSpecifier):
             self._specs = tuple(specifiers)
 
         self._canonicalized = len(self._specs) <= 1
+        self._filter_checks: list[tuple[CallableOperator, str, str]] | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -1004,6 +1005,7 @@ class SpecifierSet(BaseSpecifier):
         specifier = SpecifierSet()
         specifier._specs = self._specs + other._specs
         specifier._canonicalized = len(specifier._specs) <= 1
+        specifier._filter_checks = None
 
         # Combine prerelease settings: use common or non-None value
         if self._prereleases is None or self._prereleases == other._prereleases:
@@ -1242,14 +1244,16 @@ class SpecifierSet(BaseSpecifier):
         reject versions early, avoiding expensive wildcard or compatible checks
         on versions that would have been rejected anyway.
         """
-        # Pre-resolve operators and sort.
-        checks = sorted(
-            (
-                (spec._get_operator(spec.operator), spec.version, spec.operator)
-                for spec in self._specs
-            ),
-            key=_spec_filter_order,
-        )
+        # Pre-resolve operators and sort (cached after first call).
+        if self._filter_checks is None:
+            self._filter_checks = sorted(
+                (
+                    (spec._get_operator(spec.operator), spec.version, spec.operator)
+                    for spec in self._specs
+                ),
+                key=_spec_filter_order,
+            )
+        checks = self._filter_checks
         exclude_prereleases = prereleases is False
 
         for item in iterable:
