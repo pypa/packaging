@@ -33,6 +33,15 @@ def __dir__() -> list[str]:
 
 Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
+"""A ``typing.Literal`` enumerating valid marker evaluation contexts.
+
+Valid values for the ``context`` passed to :meth:`Marker.evaluate` are:
+
+* ``"metadata"`` (for core metadata; default)
+* ``"lock_file"`` (for lock files)
+* ``"requirement"`` (i.e. all other situations)
+"""
+
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 MARKERS_REQUIRING_VERSION = {
     "implementation_version",
@@ -43,25 +52,32 @@ MARKERS_REQUIRING_VERSION = {
 
 
 class InvalidMarker(ValueError):
-    """
-    An invalid marker was found, users should refer to PEP 508.
+    """Raised when attempting to create a :class:`Marker` from invalid input.
+
+    This error indicates that the given marker string does not conform to the
+    :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`.
     """
 
 
 class UndefinedComparison(ValueError):
-    """
-    An invalid operation was attempted on a value that doesn't support it.
+    """Raised when evaluating an unsupported marker comparison.
+
+    This can happen when marker values are compared as versions but do not
+    conform to the :ref:`specification of version specifiers
+    <pypug:version-specifiers>`.
     """
 
 
 class UndefinedEnvironmentName(ValueError):
-    """
-    A name was attempted to be used that does not exist inside of the
-    environment.
-    """
+    """Raised when evaluating a marker that references a missing environment key."""
 
 
 class Environment(TypedDict):
+    """
+    A dictionary that represents a Python environment as captured by
+    :func:`default_environment`.
+    """
+
     implementation_name: str
     """The implementation's identifier, e.g. ``'cpython'``."""
 
@@ -277,6 +293,10 @@ def format_full_version(info: sys._version_info) -> str:
 
 
 def default_environment() -> Environment:
+    """Return the default marker environment for the current Python process.
+
+    This is the base environment used by :meth:`Marker.evaluate`.
+    """
     iver = format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
@@ -295,6 +315,15 @@ def default_environment() -> Environment:
 
 
 class Marker:
+    """Represents a parsed dependency marker expression.
+
+    Marker expressions are parsed according to the
+    :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`.
+
+    :param marker: The string representation of a marker expression.
+    :raises InvalidMarker: If ``marker`` cannot be parsed.
+    """
+
     def __init__(self, marker: str) -> None:
         # Note: We create a Marker object without calling this constructor in
         #       packaging.requirements.Requirement. If any additional logic is
@@ -347,14 +376,23 @@ class Marker:
     ) -> bool:
         """Evaluate a marker.
 
-        Return the boolean from evaluating the given marker against the
-        environment. environment is an optional argument to override all or
-        part of the determined environment. The *context* parameter specifies what
-        context the markers are being evaluated for, which influences what markers
-        are considered valid. Acceptable values are "metadata" (for core metadata;
-        default), "lock_file", and "requirement" (i.e. all other situations).
+        Return the boolean from evaluating this marker against the environment.
+        The environment is determined from the current Python process unless
+        passed in explicitly.
 
-        The environment is determined from the current Python process.
+        :param environment: Mapping containing keys and values to override the
+           detected environment.
+        :param EvaluateContext context: The context in which the marker is
+            evaluated, which influences what marker names are considered valid.
+            Accepted values are ``"metadata"`` (for core metadata; default),
+            ``"lock_file"``, and ``"requirement"`` (i.e. all other situations).
+        :raises UndefinedComparison: If the marker uses a comparison on values
+            that are not valid versions per the :ref:`specification of version
+            specifiers <pypug:version-specifiers>`.
+        :raises UndefinedEnvironmentName: If the marker references a value that
+            is missing from the evaluation environment.
+        :returns: ``True`` if the marker matches, otherwise ``False``.
+
         """
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()
