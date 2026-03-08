@@ -844,6 +844,34 @@ def _pad_version(left: list[str], right: list[str]) -> tuple[list[str], list[str
     )
 
 
+def _spec_filter_order(check: tuple[CallableOperator, str, str]) -> int:
+    """Sort key for Cost Based Ordering of specifier checks in _filter_specs.
+
+    Operators run sequentially on a shrinking set, so cheap operators should
+    run first to reduce the input for expensive ones, also operators that are
+    unlikely to reject should run later.
+
+    Tier 0: Cheap range/exact checks: ==, >=, <=, >, <
+    Tier 1: Arbitrary equality (===), moderate cost
+    Tier 2: Expensive wildcard/compatible: ==.*, ~=
+    Tier 3: Exact != (cheap but unlikely to reject)
+    Tier 4: Wildcard !=.* (expensive and unlikely to reject)
+    """
+    _, ver, op = check
+    if op == "==":
+        return 0 if not ver.endswith(".*") else 2
+    if op in (">=", "<=", ">", "<"):
+        return 0
+    if op == "===":
+        return 1
+    if op == "~=":
+        return 2
+    if op == "!=":
+        return 3 if not ver.endswith(".*") else 4
+
+    raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
+
+
 class SpecifierSet(BaseSpecifier):
     """This class abstracts handling of a set of version specifiers.
 
@@ -1159,39 +1187,74 @@ class SpecifierSet(BaseSpecifier):
         if prereleases is None and self.prereleases is not None:
             prereleases = self.prereleases
 
-        # If we have any specifiers, then we want to wrap our iterable in the
-        # filter method for each one, this will act as a logical AND amongst
-        # each specifier.
+        # Filter versions that match all specifiers using Cost Based Ordering.
         if self._specs:
             # When prereleases is None, we need to let all versions through
             # the individual filters, then decide about prereleases at the end
             # based on whether any non-prereleases matched ALL specs.
-            for spec in self._specs:
-                iterable = spec.filter(
-                    iterable,
-                    prereleases=True if prereleases is None else prereleases,
-                    key=key,
-                )
+            filtered = self._filter_specs(
+                iterable,
+                key,
+                prereleases=True if prereleases is None else prereleases,
+            )
 
             if prereleases is not None:
-                # If we have a forced prereleases value,
-                # we can immediately return the iterator.
-                return iter(iterable)
-        else:
-            # Handle empty SpecifierSet cases where prereleases is not None.
-            if prereleases is True:
-                return iter(iterable)
+                return filtered
 
-            if prereleases is False:
-                return (
-                    item
-                    for item in iterable
-                    if (
-                        (version := _coerce_version(item if key is None else key(item)))
-                        is None
-                        or not version.is_prerelease
-                    )
+            return _pep440_filter_prereleases(filtered, key)
+
+        # Handle Empty SpecifierSet.
+        if prereleases is True:
+            return iter(iterable)
+
+        if prereleases is False:
+            return (
+                item
+                for item in iterable
+                if (
+                    (version := _coerce_version(item if key is None else key(item)))
+                    is None
+                    or not version.is_prerelease
                 )
+            )
 
         # PEP 440: exclude prereleases unless no final releases matched
         return _pep440_filter_prereleases(iterable, key)
+
+    def _filter_specs(
+        self,
+        iterable: Iterable[Any],
+        key: Callable[[Any], UnparsedVersion] | None,
+        prereleases: bool | None = None,
+    ) -> Iterator[Any]:
+        """Check all specifiers in a single pass using Cost Based Ordering.
+
+        Specifiers are sorted by _spec_filter_order so that cheap range checks
+        reject versions early, avoiding expensive wildcard or compatible checks
+        on versions that would have been rejected anyway.
+        """
+        # Pre-resolve operators and sort.
+        checks = sorted(
+            (
+                (spec._get_operator(spec.operator), spec.version, spec.operator)
+                for spec in self._specs
+            ),
+            key=_spec_filter_order,
+        )
+        exclude_prereleases = prereleases is False
+
+        for item in iterable:
+            parsed = _coerce_version(item if key is None else key(item))
+
+            if parsed is None:
+                # Only === can match non-parseable versions.
+                if all(
+                    op == "===" and str(item).lower() == ver.lower()
+                    for _, ver, op in checks
+                ):
+                    yield item
+            elif exclude_prereleases and parsed.is_prerelease:
+                pass
+            elif all(op_fn(parsed, ver) for op_fn, ver, _ in checks):
+                # Short-circuits on the first failing check.
+                yield item
