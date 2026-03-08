@@ -230,6 +230,21 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
     return oper(lhs, rhs)
 
 
+def _swap_op(op: Op) -> Op:
+    swapped = {
+        "<": ">",
+        "<=": ">=",
+        ">": "<",
+        ">=": "<=",
+        "==": "==",
+        "!=": "!=",
+        "~=": "~=",
+    }.get(op.serialize())
+    if swapped is None:
+        return op
+    return Op(swapped)
+
+
 def _normalize(
     lhs: str, rhs: str | AbstractSet[str], key: str
 ) -> tuple[str, str | AbstractSet[str]]:
@@ -270,6 +285,13 @@ def _evaluate_markers(
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = environment[environment_key]
+
+                if (
+                    environment_key in MARKERS_REQUIRING_VERSION
+                    and op.serialize() in {"<", "<=", "==", "!=", ">=", ">", "~="}
+                ):
+                    lhs_value, rhs_value = rhs_value, lhs_value
+                    op = _swap_op(op)
 
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)

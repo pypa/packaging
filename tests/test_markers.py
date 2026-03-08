@@ -86,6 +86,12 @@ class TestOperatorEvaluation:
             dict(python_full_version="2.7.8")
         )
 
+    def test_rhs_version_variable_uses_equivalent_pep440_comparison(self) -> None:
+        env = {"python_full_version": "3.13.7"}
+
+        assert Marker('python_full_version == "3.13.*"').evaluate(env)
+        assert Marker('"3.13.*" == python_full_version').evaluate(env)
+
     def test_new_string_rules(self) -> None:
         assert not Marker('"b" < python_full_version').evaluate(
             dict(python_full_version="c")
