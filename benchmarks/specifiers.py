@@ -40,6 +40,8 @@ class TimeSpecSuite:
     def _make_cold(self, spec: SpecifierSet) -> None:
         if hasattr(spec, "_canonicalized"):
             spec._canonicalized = False
+        if hasattr(spec, "_filter_checks"):
+            spec._filter_checks = None
         for sp in spec._specs:
             sp._spec_version = None
 
