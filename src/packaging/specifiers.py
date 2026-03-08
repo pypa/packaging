@@ -1192,11 +1192,20 @@ class SpecifierSet(BaseSpecifier):
             # When prereleases is None, we need to let all versions through
             # the individual filters, then decide about prereleases at the end
             # based on whether any non-prereleases matched ALL specs.
-            filtered = self._filter_specs(
-                iterable,
-                key,
-                prereleases=True if prereleases is None else prereleases,
-            )
+
+            # Fast path: single specifier, delegate directly.
+            if len(self._specs) == 1:
+                filtered = self._specs[0].filter(
+                    iterable,
+                    prereleases=True if prereleases is None else prereleases,
+                    key=key,
+                )
+            else:
+                filtered = self._filter_specs(
+                    iterable,
+                    key,
+                    prereleases=True if prereleases is None else prereleases,
+                )
 
             if prereleases is not None:
                 return filtered
