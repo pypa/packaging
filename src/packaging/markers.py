@@ -286,10 +286,15 @@ def _evaluate_markers(
                 environment_key = rhs.value
                 rhs_value = environment[environment_key]
 
-                if (
-                    environment_key in MARKERS_REQUIRING_VERSION
-                    and op.serialize() in {"<", "<=", "==", "!=", ">=", ">", "~="}
-                ):
+                if environment_key in MARKERS_REQUIRING_VERSION and op.serialize() in {
+                    "<",
+                    "<=",
+                    "==",
+                    "!=",
+                    ">=",
+                    ">",
+                    "~=",
+                }:
                     lhs_value, rhs_value = rhs_value, lhs_value
                     op = _swap_op(op)
 
