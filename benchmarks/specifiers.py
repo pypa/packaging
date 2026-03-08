@@ -14,9 +14,7 @@ class TimeSpecSuite:
     rounds = 4
 
     SIMPLE_SPEC = ">0.5"
-    COMPLEX_SPEC = (
-        ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14,!=3.11.0,!=3.12.0"
-    )
+    COMPLEX_SPEC = ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14,!=3.11.0,!=3.12.0"
 
     def setup(self) -> None:
         with (DIR / "specs_sample.txt").open() as f:
@@ -28,7 +26,7 @@ class TimeSpecSuite:
         self.complex_versions = [
             Version(f"3.{minor}.{patch}")
             for minor in range(8, 15)
-            for patch in range(0, 15)
+            for patch in range(15)
         ]
         self.single_version._key  # noqa: B018
         for v in self.simple_versions:

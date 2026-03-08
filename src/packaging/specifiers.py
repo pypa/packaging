@@ -879,7 +879,7 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_canonicalized", "_resolved_ops", "_prereleases", "_specs")
+    __slots__ = ("_canonicalized", "_prereleases", "_resolved_ops", "_specs")
 
     def __init__(
         self,
