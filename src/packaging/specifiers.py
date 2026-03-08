@@ -844,7 +844,7 @@ def _pad_version(left: list[str], right: list[str]) -> tuple[list[str], list[str
     )
 
 
-def _operator_cost(check: tuple[CallableOperator, str, str]) -> int:
+def _operator_cost(op_entry: tuple[CallableOperator, str, str]) -> int:
     """Sort key for Cost Based Ordering of specifier operators in _filter_versions.
 
     Operators run sequentially on a shrinking set, so cheap operators should
@@ -857,7 +857,7 @@ def _operator_cost(check: tuple[CallableOperator, str, str]) -> int:
     Tier 3: Exact != (cheap but unlikely to reject)
     Tier 4: Wildcard !=.* (expensive and unlikely to reject)
     """
-    _, ver, op = check
+    _, ver, op = op_entry
     if op == "==":
         return 0 if not ver.endswith(".*") else 2
     if op in (">=", "<=", ">", "<"):
@@ -1239,11 +1239,12 @@ class SpecifierSet(BaseSpecifier):
         key: Callable[[Any], UnparsedVersion] | None,
         prereleases: bool | None = None,
     ) -> Iterator[Any]:
-        """Check all specifiers in a single pass using Cost Based Ordering.
+        """Filter versions against all specifiers in a single pass.
 
-        Specifiers are sorted by _operator_cost so that cheap range operators
-        reject versions early, avoiding expensive wildcard or compatible operators
-        on versions that would have been rejected anyway.
+        Uses Cost Based Ordering: specifiers are sorted by _operator_cost so
+        that cheap range operators reject versions early, avoiding expensive
+        wildcard or compatible operators on versions that would have been
+        rejected anyway.
         """
         # Pre-resolve operators and sort (cached after first call).
         if self._resolved_ops is None:
