@@ -13,11 +13,10 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node
+from packaging._parser import Node, Op
 from packaging.markers import (
     InvalidMarker,
     Marker,
-    Op,
     UndefinedComparison,
     _swap_op,
     default_environment,
