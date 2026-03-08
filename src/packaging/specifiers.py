@@ -167,7 +167,7 @@ class Specifier(BaseSpecifier):
         comma-separated version specifiers (which is what package metadata contains).
     """
 
-    __slots__ = ("_prereleases", "_spec", "_spec_version")
+    __slots__ = ("_prereleases", "_spec", "_spec_version", "_wildcard_split")
 
     _operator_regex_str = r"""
         (?P<operator>(~=|==|!=|<=|>=|<|>|===))
@@ -309,6 +309,9 @@ class Specifier(BaseSpecifier):
 
         # Specifier version cache
         self._spec_version: tuple[str, Version] | None = None
+
+        # Populated on first wildcard (==X.*) comparison
+        self._wildcard_split: tuple[list[str], int] | None = None
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -482,19 +485,31 @@ class Specifier(BaseSpecifier):
             self._compare_equal(prospective, prefix)
         )
 
+    def _get_wildcard_split(self, spec: str) -> tuple[list[str], int]:
+        """Cached split of a wildcard spec into components and numeric length.
+
+        >>> Specifier("==1.*")._get_wildcard_split("1.*")
+        (['0', '1'], 2)
+        >>> Specifier("==3.10.*")._get_wildcard_split("3.10.*")
+        (['0', '3', '10'], 3)
+        """
+        wildcard_split = self._wildcard_split
+        if wildcard_split is None:
+            normalized = canonicalize_version(spec[:-2], strip_trailing_zero=False)
+            split_spec = _version_split(normalized)
+            wildcard_split = (split_spec, _numeric_prefix_len(split_spec))
+            self._wildcard_split = wildcard_split
+        return wildcard_split
+
     def _compare_equal(self, prospective: Version, spec: str) -> bool:
         # We need special logic to handle prefix matching
         if spec.endswith(".*"):
+            split_spec, spec_numeric_len = self._get_wildcard_split(spec)
+
             # In the case of prefix matching we want to ignore local segment.
             normalized_prospective = canonicalize_version(
                 _public_version(prospective), strip_trailing_zero=False
             )
-            # Get the normalized version string ignoring the trailing .*
-            normalized_spec = canonicalize_version(spec[:-2], strip_trailing_zero=False)
-            # Split the spec out by bangs and dots, and pretend that there is
-            # an implicit dot in between a release segment and a pre-release segment.
-            split_spec = _version_split(normalized_spec)
-
             # Split the prospective version out by bangs and dots, and pretend
             # that there is an implicit dot in between a release segment and
             # a pre-release segment.
@@ -502,7 +517,7 @@ class Specifier(BaseSpecifier):
 
             # 0-pad the prospective version before shortening it to get the correct
             # shortened version.
-            padded_prospective, _ = _pad_version(split_prospective, split_spec)
+            padded_prospective = _left_pad(split_prospective, spec_numeric_len)
 
             # Shorten the prospective version to be the same length as the spec
             # so that we can determine if the specifier is a prefix of the
@@ -823,25 +838,32 @@ def _is_not_suffix(segment: str) -> bool:
     )
 
 
-def _pad_version(left: list[str], right: list[str]) -> tuple[list[str], list[str]]:
-    left_split, right_split = [], []
+def _numeric_prefix_len(split: list[str]) -> int:
+    """Count leading numeric components in a :func:`_version_split` result.
 
-    # Get the release segment of our versions
-    left_split.append(list(itertools.takewhile(lambda x: x.isdigit(), left)))
-    right_split.append(list(itertools.takewhile(lambda x: x.isdigit(), right)))
+    >>> _numeric_prefix_len(["0", "1", "2", "a1"])
+    3
+    """
+    count = 0
+    for segment in split:
+        if not segment.isdigit():
+            break
+        count += 1
+    return count
 
-    # Get the rest of our versions
-    left_split.append(left[len(left_split[0]) :])
-    right_split.append(right[len(right_split[0]) :])
 
-    # Insert our padding
-    left_split.insert(1, ["0"] * max(0, len(right_split[0]) - len(left_split[0])))
-    right_split.insert(1, ["0"] * max(0, len(left_split[0]) - len(right_split[0])))
+def _left_pad(split: list[str], target_numeric_len: int) -> list[str]:
+    """Pad a :func:`_version_split` result with ``"0"`` segments to reach
+    ``target_numeric_len`` numeric components.  Suffix segments are preserved.
 
-    return (
-        list(itertools.chain.from_iterable(left_split)),
-        list(itertools.chain.from_iterable(right_split)),
-    )
+    >>> _left_pad(["0", "1", "a1"], 4)
+    ['0', '1', '0', '0', 'a1']
+    """
+    numeric_len = _numeric_prefix_len(split)
+    pad_needed = target_numeric_len - numeric_len
+    if pad_needed <= 0:
+        return split
+    return split[:numeric_len] + ["0"] * pad_needed + split[numeric_len:]
 
 
 def _operator_cost(op_entry: tuple[CallableOperator, str, str]) -> int:
