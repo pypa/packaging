@@ -17,7 +17,9 @@ from packaging._parser import Node
 from packaging.markers import (
     InvalidMarker,
     Marker,
+    Op,
     UndefinedComparison,
+    _swap_op,
     default_environment,
     format_full_version,
 )
@@ -113,6 +115,11 @@ class TestOperatorEvaluation:
         assert Marker('python_full_version > "3.6.2"').evaluate(
             {"python_full_version": "3.11.0a5"}
         )
+
+
+def test_swap_op_unknown_operator_passthrough() -> None:
+    op = Op("===")
+    assert _swap_op(op) is op
 
 
 class FakeVersionInfo(NamedTuple):
