@@ -16,7 +16,6 @@ from .utils import (
 from .version import InvalidVersion, Version
 
 __all__ = [
-    "Filename",
     "InvalidFilename",
     "InvalidSdistFilename",
     "InvalidWheelFilename",
@@ -29,24 +28,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
-class Filename:
-    def __init__(self, *a: object, **kw: object) -> None:
-        raise NotImplementedError("Use a WheelFilename or SourceFilename instead")
-
-    @classmethod
-    def from_filename(cls, filename: str) -> Filename:
-        if filename.endswith(".whl"):
-            return WheelFilename.from_filename(filename)
-        elif filename.endswith(".tar.gz"):
-            return SourceFilename.from_filename(filename)
-        else:
-            raise InvalidFilename(
-                "Invalid filename (extension must be '.whl' or '.tar.gz'): "
-                f"{filename!r}"
-            )
-
-
-class WheelFilename(Filename):
+class WheelFilename:
     def __init__(
         self,
         name: str,
@@ -184,7 +166,7 @@ class WheelFilename(Filename):
         return cls(name, version, build_tag, python_tag, abi_tag, platform_tag)
 
 
-class SourceFilename(Filename):
+class SourceFilename:
     def __init__(self, name: str, version: str, strict: bool = True) -> None:
         # Store the values that were originally passed for use externally
         self.original_name = name
