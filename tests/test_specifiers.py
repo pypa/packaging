@@ -327,10 +327,12 @@ class TestSpecifier:
                 ("2rc1", "==2.0.*"),
                 ("2", "==2.*"),
                 ("2", "==2.0.*"),
+                ("2", "==2.0.0.*"),
                 ("2", "==0!2.*"),
                 ("0!2", "==2.*"),
                 ("2.0", "==2.*"),
                 ("2.0.0", "==2.*"),
+                ("2.0.0.0", "==2.0.*"),
                 ("2.1+local.version", "==2.1.*"),
                 # Test the in-equality operation
                 ("2.1", "!=2"),
@@ -342,6 +344,8 @@ class TestSpecifier:
                 # Test the in-equality operation with a prefix
                 ("2.0", "!=3.*"),
                 ("2.1", "!=2.0.*"),
+                ("3", "!=2.0.0.*"),
+                ("2.1.0.0", "!=2.0.*"),
                 # Test the greater than equal operation
                 ("2.0", ">=2"),
                 ("2.0", ">=2.0"),
@@ -422,6 +426,8 @@ class TestSpecifier:
                 # Test the equality operation with a prefix
                 ("2.0", "==3.*"),
                 ("2.1", "==2.0.*"),
+                ("3", "==2.0.0.*"),
+                ("2.1.0.0", "==2.0.*"),
                 # Test the in-equality operation
                 ("2.0", "!=2"),
                 ("2.0", "!=2.0"),
@@ -446,8 +452,10 @@ class TestSpecifier:
                 ("2rc1", "!=2.0.*"),
                 ("2", "!=2.*"),
                 ("2", "!=2.0.*"),
+                ("2", "!=2.0.0.*"),
                 ("2.0", "!=2.*"),
                 ("2.0.0", "!=2.*"),
+                ("2.0.0.0", "!=2.0.*"),
                 # Test the greater than equal operation
                 ("2.0.dev1", ">=2"),
                 ("2.0a1", ">=2"),
