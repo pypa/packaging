@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import typing
+
 import pytest
 
 from packaging.filenames import (
@@ -10,8 +14,11 @@ from packaging.filenames import (
 from packaging.tags import Tag
 from packaging.version import Version
 
+if typing.TYPE_CHECKING:
+    from packaging.utils import BuildTag
 
-def test_generic_from_filename_bad_extension():
+
+def test_generic_from_filename_bad_extension() -> None:
     with pytest.raises(InvalidFilename) as e:
         Filename.from_filename("something.wrong")
 
@@ -23,13 +30,13 @@ def test_generic_from_filename_bad_extension():
 @pytest.mark.parametrize(
     "filename", ["sample_project-4.0.0.tar.gz", "sample_project-4.0.0-py3-none-any.whl"]
 )
-def test_generic_from_filename_passes(filename):
+def test_generic_from_filename_passes(filename: str) -> None:
     fn = Filename.from_filename(filename)
-    assert fn.name == fn.original_name == "sample_project"
-    assert str(fn.version) == str(fn.original_version) == "4.0.0"
+    assert fn.name == fn.original_name == "sample_project"  # type: ignore[attr-defined]
+    assert str(fn.version) == str(fn.original_version) == "4.0.0"  # type: ignore[attr-defined]
 
 
-def test_initialize_generic_filename_unimplemented():
+def test_initialize_generic_filename_unimplemented() -> None:
     with pytest.raises(NotImplementedError):
         Filename()
 
@@ -59,7 +66,9 @@ def test_initialize_generic_filename_unimplemented():
         ),
     ],
 )
-def test_sdist_not_strict_passes(name, version, expected_filename):
+def test_sdist_not_strict_passes(
+    name: str, version: str, expected_filename: str
+) -> None:
     fn = SourceFilename(name, version, strict=False)
     assert str(fn) == expected_filename
     assert fn.original_name == name
@@ -107,7 +116,7 @@ def test_sdist_not_strict_passes(name, version, expected_filename):
         ),
     ],
 )
-def test_sdist_from_filename_invalid(filename, error_message):
+def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidFilename) as e:
         SourceFilename.from_filename(filename)
 
@@ -148,7 +157,9 @@ def test_sdist_from_filename_invalid(filename, error_message):
         ),
     ],
 )
-def test_wheel_from_filename(filename, name, version, build_tag, tags):
+def test_wheel_from_filename(
+    filename: str, name: str, version: Version, build_tag: BuildTag, tags: set[Tag]
+) -> None:
     fn = WheelFilename.from_filename(filename)
     assert fn.name == name
     assert fn.version == version
@@ -195,7 +206,7 @@ def test_wheel_from_filename(filename, name, version, build_tag, tags):
         ),
     ],
 )
-def test_wheel_from_filename_invalid(filename, error_message):
+def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidWheelFilename) as e:
         WheelFilename.from_filename(filename)
 
@@ -227,7 +238,9 @@ def test_wheel_from_filename_invalid(filename, error_message):
         ),
     ],
 )
-def test_wheel_not_strict_passes(name, version, expected_filename):
+def test_wheel_not_strict_passes(
+    name: str, version: str, expected_filename: str
+) -> None:
     fn = WheelFilename(name, version, None, "py3", "none", "any", strict=False)
     assert str(fn) == expected_filename
     assert fn.original_name == name

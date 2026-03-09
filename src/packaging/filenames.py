@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import cast
 
 from .tags import parse_tag
 from .utils import (
@@ -15,9 +15,22 @@ from .utils import (
 )
 from .version import InvalidVersion, Version
 
+__all__ = [
+    "Filename",
+    "InvalidFilename",
+    "InvalidSdistFilename",
+    "InvalidWheelFilename",
+    "SourceFilename",
+    "WheelFilename",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__
+
 
 class Filename:
-    def __init__(self, *a: Any, **kw: Any) -> None:
+    def __init__(self, *a: object, **kw: object) -> None:
         raise NotImplementedError("Use a WheelFilename or SourceFilename instead")
 
     @classmethod
@@ -52,11 +65,9 @@ class WheelFilename(Filename):
         )
 
         # See PEP 427 for the rules on escaping the project name.
-        if (
-            strict
-            and "__" in name
-            or re.match(r"^[\w\d._]*$", name, re.UNICODE) is None
-        ):
+        if (strict and "__" in name) or re.match(
+            r"^[\w\d._]*$", name, re.UNICODE
+        ) is None:
             raise InvalidWheelFilename(
                 f"Invalid filename (invalid project name {name!r}): {filename!r}"
             )
@@ -90,7 +101,7 @@ class WheelFilename(Filename):
                     f"{filename!r}"
                 )
             self.build_tag = cast(
-                BuildTag, (int(build_match.group(1)), build_match.group(2))
+                "BuildTag", (int(build_match.group(1)), build_match.group(2))
             )
         else:
             self.build_tag = ()
@@ -98,7 +109,7 @@ class WheelFilename(Filename):
         self.python_tag = python_tag
         self.abi_tag = abi_tag
         self.platform_tag = platform_tag
-        self.tags = parse_tag("-".join((python_tag, abi_tag, platform_tag)))
+        self.tags = parse_tag(f"{python_tag}-{abi_tag}-{platform_tag}")
 
     def _to_filename(
         self,
@@ -207,7 +218,7 @@ class SourceFilename(Filename):
             )
 
     def _to_filename(self, name: str, version: str | Version) -> str:
-        return f"{ name }-{ version }.tar.gz"
+        return f"{name}-{version}.tar.gz"
 
     def __str__(self) -> str:
         return self._to_filename(self.name, self.version)
