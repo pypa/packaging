@@ -72,7 +72,6 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
-_distribution_regex = re.compile(r"[^\w\d.]+", re.ASCII)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
