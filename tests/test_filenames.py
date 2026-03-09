@@ -5,7 +5,6 @@ import typing
 import pytest
 
 from packaging.filenames import (
-    Filename,
     InvalidFilename,
     InvalidWheelFilename,
     SourceFilename,
@@ -16,29 +15,6 @@ from packaging.version import Version
 
 if typing.TYPE_CHECKING:
     from packaging.utils import BuildTag
-
-
-def test_generic_from_filename_bad_extension() -> None:
-    with pytest.raises(InvalidFilename) as e:
-        Filename.from_filename("something.wrong")
-
-    assert str(e.value) == (
-        "Invalid filename (extension must be '.whl' or '.tar.gz'): 'something.wrong'"
-    )
-
-
-@pytest.mark.parametrize(
-    "filename", ["sample_project-4.0.0.tar.gz", "sample_project-4.0.0-py3-none-any.whl"]
-)
-def test_generic_from_filename_passes(filename: str) -> None:
-    fn = Filename.from_filename(filename)
-    assert fn.name == fn.original_name == "sample_project"  # type: ignore[attr-defined]
-    assert str(fn.version) == str(fn.original_version) == "4.0.0"  # type: ignore[attr-defined]
-
-
-def test_initialize_generic_filename_unimplemented() -> None:
-    with pytest.raises(NotImplementedError):
-        Filename()
 
 
 @pytest.mark.parametrize(
