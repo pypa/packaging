@@ -46,7 +46,7 @@ class InvalidName(ValueError):
 
 class InvalidFilename(ValueError):
     """
-    .
+    An invalid filename was found, users should refer to the packaging user guide.
     """
 
 
@@ -69,6 +69,7 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+_project_name_regex = re.compile(r"^[\w\d._]*$", re.UNICODE)
 
 
 def canonicalize_name(
@@ -182,6 +183,14 @@ def _compress_tag_set(tags: Iterable[Tag]) -> str:
 
 
 class WheelFilename:
+    """Represents a wheel filename and its parsed components.
+
+    Instances preserve the original name and version strings for round-tripping,
+    while exposing normalized and validated views through properties.
+
+    .. versionadded:: 26.1
+    """
+
     __slots__ = ("build_tag", "original_name", "original_version", "tags")
 
     def __init__(
@@ -191,6 +200,13 @@ class WheelFilename:
         build_tag: BuildTag = (),
         tags: Iterable[Tag] = (),
     ) -> None:
+        """Create a wheel filename from its component parts.
+
+        :param name: The project name (in original, filename-style form).
+        :param version: The version string (in original form).
+        :param build_tag: Optional wheel build tag.
+        :param tags: The wheel tag set.
+        """
         self.original_name = name
         self.original_version = version
         self.build_tag = build_tag
@@ -198,10 +214,15 @@ class WheelFilename:
 
     @property
     def name(self) -> NormalizedName:
+        """The normalized project name."""
         return canonicalize_name(self.original_name)
 
     @property
     def version(self) -> Version:
+        """The parsed project version.
+
+        :raises InvalidWheelFilename: If the stored version is not valid.
+        """
         try:
             return Version(self.original_version)
         except InvalidVersion as e:
@@ -210,10 +231,32 @@ class WheelFilename:
 
     @property
     def compressed_tags(self) -> str:
+        """The compressed and sorted wheel tag string (interpreter-abi-platform).
+
+        >>> from packaging.filenames import WheelFilename
+        >>> from packaging.tags import Tag
+        >>> wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+        >>> wf.compressed_tags
+        'py3-none-any'
+        >>> tags = {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")}
+        >>> wf = WheelFilename("foo", "1.0", tags=tags)
+        >>> wf.compressed_tags
+        'cp314.py3-cp314.none-any.win_amd64'
+        """
         return _compress_tag_set(self.tags)
 
     @property
     def build_str(self) -> str:
+        """The build tag as a string, or an empty string when absent.
+
+        >>> from packaging.filenames import WheelFilename
+        >>> wf = WheelFilename("foo", "1.0")
+        >>> wf.build_str
+        ''
+        >>> wf = WheelFilename("foo", "1.0", build_tag=(1, "abc"))
+        >>> wf.build_str
+        '1abc'
+        """
         return "".join(map(str, self.build_tag))
 
     def __repr__(self) -> str:
@@ -239,12 +282,10 @@ class WheelFilename:
         The tags is set of tags that will be compressed into a wheel
         tag string.
 
-        >>> from packaging.utils import compose_wheel_filename
+        >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
-        >>> from packaging.version import Version
-        >>> version = Version("1.0")
         >>> tags = {Tag("py3", "none", "any")}
-        >>> compose_wheel_filename("foo-bar", version, None, tags)
+        >>> WheelFilename("foo-bar", "1.0", None, tags).to_filename()
         'foo_bar-1.0-py3-none-any.whl'
 
         .. versionadded:: 26.1
@@ -307,7 +348,7 @@ class WheelFilename:
         tags = parse_tag(parts[-1])
 
         # See PEP 427 for the rules on escaping the project name.
-        if "__" in name or re.match(r"^[\w\d._]*$", name, re.UNICODE) is None:
+        if "__" in name or _project_name_regex.match(name) is None:
             inner = f"invalid project name: {name!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg)
@@ -351,19 +392,37 @@ class WheelFilename:
 
 
 class SourceFilename:
+    """Represents a source distribution filename and its parsed components.
+
+    Instances preserve the original name and version strings for round-tripping,
+    while exposing normalized and validated views through properties.
+
+    .. versionadded:: 26.1
+    """
+
     __slots__ = ("original_name", "original_version")
 
     def __init__(self, name: str, version: str) -> None:
+        """Create a source distribution filename from name and version.
+
+        :param str name: The project name (in original, filename-style form).
+        :param str version: The version string (in original form).
+        """
         # Store the values that were originally passed for use externally
         self.original_name = name
         self.original_version = version
 
     @property
     def name(self) -> NormalizedName:
+        """The normalized project name."""
         return canonicalize_name(self.original_name)
 
     @property
     def version(self) -> Version:
+        """The parsed project version.
+
+        :raises InvalidSdistFilename: If the stored version is not valid.
+        """
         try:
             return Version(self.original_version)
         except InvalidVersion as e:
@@ -378,10 +437,9 @@ class SourceFilename:
         characters are replaced with ``_`` and characters are lower cased. The
         version is an instance of :class:`~packaging.version.Version`.
 
-        >>> from packaging.utils import compose_sdist_filename
-        >>> from packaging.version import Version
-        >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
-        True
+        >>> from packaging.filenames import SourceFilename
+        >>> SourceFilename("foo-bar", "1.0").to_filename()
+        'foo_bar-1.0.tar.gz'
 
         .. versionadded:: 26.1
         """
@@ -412,13 +470,12 @@ class SourceFilename:
             with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
             contain a dash separating the name and the version of the distribution.
 
-        >>> from packaging.utils import parse_sdist_filename
-        >>> from packaging.version import Version
-        >>> name, ver = parse_sdist_filename("foo-1.0.tar.gz")
-        >>> name
+        >>> from packaging.filenames import SourceFilename
+        >>> fn = SourceFilename.from_filename("foo-1.0.tar.gz", strict=True)
+        >>> fn.name
         'foo'
-        >>> ver == Version('1.0')
-        True
+        >>> fn.version
+        <Version('1.0')>
 
         .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
         """
