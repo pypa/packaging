@@ -45,7 +45,7 @@ if typing.TYPE_CHECKING:
 def test_sdist_not_strict_passes(
     name: str, version: str, expected_filename: str
 ) -> None:
-    fn = SourceFilename(name, version, strict=False)
+    fn = SourceFilename(name, version)
     assert str(fn) == expected_filename
     assert fn.original_name == name
     assert fn.original_version == version
@@ -56,45 +56,45 @@ def test_sdist_not_strict_passes(
     [
         (
             "bad.extension",  # Bad extension
-            "Invalid filename (extension must be '.tar.gz')",
+            "Invalid SDist filename (extension must be '.tar.gz')",
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
-            "Invalid filename (name and version parts can not contain hyphens)",
+            "Invalid SDist filename (name and version parts can not contain hyphens)",
         ),
         (
             "no_hyphen.tar.gz",  # No hyphen
-            "Invalid filename (hyphen must separate name and version parts)",
+            "Invalid SDist filename (hyphen must separate name and version parts)",
         ),
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
-            "Invalid filename (invalid project name '.invalid.name')",
+            "Invalid SDist filename (invalid project name '.invalid.name')",
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            "Invalid filename (non-normalized project name 'invalid.name')",
+            "Invalid SDist filename (non-normalized project name 'invalid.name')",
         ),
         (
             "invalid__name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            "Invalid filename (non-normalized project name 'invalid__name')",
+            "Invalid SDist filename (non-normalized project name 'invalid__name')",
         ),
         (
             "INVALID_NAME-1.0.tar.gz",  # Name is not canonical (casing)
-            "Invalid filename (non-normalized project name 'INVALID_NAME')",
+            "Invalid SDist filename (non-normalized project name 'INVALID_NAME')",
         ),
         (
             "valid_name-badversion.tar.gz",  # Version is not valid
-            "Invalid filename (invalid version 'badversion')",
+            "Invalid SDist filename (invalid version 'badversion')",
         ),
         (
             "valid_name-01.0.tar.gz",  # Version is not canonical
-            "Invalid filename (non-normalized version '01.0')",
+            "Invalid SDist filename (non-normalized version '01.0')",
         ),
     ],
 )
 def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidFilename) as e:
-        SourceFilename.from_filename(filename)
+        SourceFilename.from_filename(filename, strict=True)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
 
@@ -112,7 +112,7 @@ def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
         ),
         (
             "some_package-1.0-py3-none-any.whl",
-            "some_package",
+            "some-package",
             Version("1.0"),
             (),
             {Tag("py3", "none", "any")},
@@ -146,45 +146,48 @@ def test_wheel_from_filename(
 @pytest.mark.parametrize(
     ("filename", "error_message"),
     [
-        ("foo-1.0.whl", "Invalid filename (wrong number of parts)"),  # Missing tags
+        (
+            "foo-1.0.whl",  # Missing tags
+            "Invalid wheel filename (wrong number of parts)",
+        ),
         (
             "foo-1.0-py3-none-any.wheel",  # Incorrect file extension (`.wheel`)
-            "Invalid filename (extension must be '.whl')",
+            "Invalid wheel filename (extension must be '.whl')",
         ),
         (
             "foo__bar-1.0-py3-none-any.whl",  # Invalid name (`__`)
-            "Invalid filename (invalid project name 'foo__bar')",
+            "Invalid wheel filename (invalid project name: 'foo__bar')",
         ),
         (
             "foo#bar-1.0-py3-none-any.whl",  # Invalid name (`#`)
-            "Invalid filename (invalid project name 'foo#bar')",
+            "Invalid wheel filename (invalid project name: 'foo#bar')",
         ),
         (
             "foobar-1.x-py3-none-any.whl",  # Invalid version (`1.x`)
-            "Invalid filename (invalid version '1.x')",
+            "Invalid wheel filename (invalid version: '1.x')",
         ),
         (
             # Build number doesn't start with a digit (`abc`)
             "foo-1.0-abc-py3-none-any.whl",
-            "Invalid filename (invalid build number 'abc')",
+            "Invalid wheel filename (invalid build number: 'abc')",
         ),
         (
             "foo-1.0-200-py3-none-any-junk.whl",  # Too many dashes (`-junk`)
-            "Invalid filename (wrong number of parts)",
+            "Invalid wheel filename (wrong number of parts)",
         ),
         (
             "fOo-1.0-py3-none-any.whl",  # Non-normalized project name
-            "Invalid filename (non-normalized project name 'fOo')",
+            "Invalid wheel filename (non-normalized project name 'fOo')",
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
-            "Invalid filename (non-normalized version '01.0')",
+            "Invalid wheel filename (non-normalized version '01.0')",
         ),
     ],
 )
 def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidWheelFilename) as e:
-        WheelFilename.from_filename(filename)
+        WheelFilename.from_filename(filename, strict=True)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
 
@@ -197,11 +200,12 @@ def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
             "1.0",
             "valid_name-1.0-py3-none-any.whl",
         ),
-        (
-            "valid__name",  # Name is not canonical (punctuation)
-            "1.0",
-            "valid_name-1.0-py3-none-any.whl",
-        ),
+        # Historically, this is not allowed
+        # (
+        #    "valid__name",  # Name is not canonical (punctuation)
+        #    "1.0",
+        #    "valid_name-1.0-py3-none-any.whl",
+        # ),
         (
             "VALID_NAME",  # Name is not canonical (casing)
             "1.0",
@@ -217,7 +221,7 @@ def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
 def test_wheel_not_strict_passes(
     name: str, version: str, expected_filename: str
 ) -> None:
-    fn = WheelFilename(name, version, None, "py3", "none", "any", strict=False)
+    fn = WheelFilename(name, version, (), {Tag("py3", "none", "any")})
     assert str(fn) == expected_filename
     assert fn.original_name == name
     assert fn.original_version == version
