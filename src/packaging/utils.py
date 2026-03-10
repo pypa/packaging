@@ -20,10 +20,11 @@ from .filenames import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from .tags import Tag
     from .version import Version
+
+# For historical reasons, we export the filename parsing functions from this
+# module, even though they are implemented in the filenames module now.
 
 __all__ = [
     "BuildTag",
@@ -33,8 +34,6 @@ __all__ = [
     "NormalizedName",
     "canonicalize_name",
     "canonicalize_version",
-    "compose_sdist_filename",
-    "compose_wheel_filename",
     "is_normalized_name",
     "parse_sdist_filename",
     "parse_wheel_filename",
@@ -43,44 +42,6 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
-
-
-def compose_wheel_filename(
-    name: str, version: Version, build: BuildTag | None, tags: Iterable[Tag]
-) -> str:
-    """
-    Combines a project name, version, build tag, and tag set
-    to make a properly formatted wheel filename.
-
-    The project name is normalized such that the non-alphanumeric
-    characters are replaced with ``_``. The version is an instance of
-    :class:`~packaging.version.Version`. The build tag can be None,
-    an empty tuple or a two-item tuple of an integer and a string.
-    The tags is set of tags that will be compressed into a wheel
-    tag string.
-
-    :param name: The project name
-    :param version: The project version
-    :param build: An optional two-item tuple of an integer and string
-    :param tags: The set of tags that apply to the wheel
-
-    >>> from packaging.utils import compose_wheel_filename
-    >>> from packaging.tags import Tag
-    >>> from packaging.version import Version
-    >>> version = Version("1.0")
-    >>> tags = {Tag("py3", "none", "any")}
-    >>> compose_wheel_filename("foo-bar", version, None, tags)
-    'foo_bar-1.0-py3-none-any.whl'
-
-    .. versionadded:: 26.1
-    """
-    filename = WheelFilename(
-        name=name,
-        version=str(version),
-        build_tag=build or (),
-        tags=tags,
-    )
-    return str(filename)
 
 
 def parse_wheel_filename(
@@ -118,32 +79,8 @@ def parse_wheel_filename(
     >>> not build
     True
     """
-    fname = WheelFilename.from_filename(filename)
+    fname = WheelFilename.from_filename(filename, strict=False)
     return (fname.name, fname.version, fname.build_tag, fname.tags)
-
-
-def compose_sdist_filename(name: str, version: Version) -> str:
-    """
-    Combines the project name and a version to make a valid sdist filename. The
-    project name is normalized as required so that any run of ``-._``
-    characters are replaced with ``_`` and characters are lower cased. The
-    version is an instance of :class:`~packaging.version.Version`.
-
-    :param name: The project name
-    :param version: The project version
-
-    >>> from packaging.utils import compose_sdist_filename
-    >>> from packaging.version import Version
-    >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
-    True
-
-    .. versionadded:: 26.1
-    """
-    filename = SourceFilename(
-        name=name,
-        version=str(version),
-    )
-    return str(filename)
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
@@ -168,5 +105,5 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    fname = SourceFilename.from_filename(filename)
+    fname = SourceFilename.from_filename(filename, strict=False)
     return (fname.name, fname.version)

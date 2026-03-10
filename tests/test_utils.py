@@ -8,14 +8,11 @@ import pytest
 
 from packaging.tags import Tag
 from packaging.utils import (
-    BuildTag,
     InvalidName,
     InvalidSdistFilename,
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
-    compose_sdist_filename,
-    compose_wheel_filename,
     is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
@@ -120,52 +117,6 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
         ),
         (
-            "some_package-1.0-py3-none-any.whl",
-            "some-PACKAGE",
-            Version("1.0"),
-            (),
-            {Tag("py3", "none", "any")},
-        ),
-        (
-            "foo-1.0-1000-py3-none-any.whl",
-            "foo",
-            Version("1.0"),
-            (1000, ""),
-            {Tag("py3", "none", "any")},
-        ),
-        (
-            "foo-1.0-1000abc-py3-none-any.whl",
-            "foo",
-            Version("1.0"),
-            (1000, "abc"),
-            {Tag("py3", "none", "any")},
-        ),
-        (
-            "foo_bar-1.0-42-py2.py3-none-any.whl",
-            "foo-bar",
-            Version("1.0"),
-            (42, ""),
-            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
-        ),
-    ],
-)
-def test_compose_wheel_filename(
-    filename: str, name: str, version: Version, build: BuildTag | None, tags: set[Tag]
-) -> None:
-    assert compose_wheel_filename(name, version, build, tags) == filename
-
-
-@pytest.mark.parametrize(
-    ("filename", "name", "version", "build", "tags"),
-    [
-        (
-            "foo-1.0-py3-none-any.whl",
-            "foo",
-            Version("1.0"),
-            (),
-            {Tag("py3", "none", "any")},
-        ),
-        (
             "some_PACKAGE-1.0-py3-none-any.whl",
             "some-package",
             Version("1.0"),
@@ -224,26 +175,6 @@ def test_parse_wheel_filename(
 def test_parse_wheel_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
-
-
-def test_parse_and_create_filename() -> None:
-    filename = "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
-    sorted_f = "numpy-1.23.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
-
-    name, version, build, tags = parse_wheel_filename(filename)
-    composed = compose_wheel_filename(name, version, build, tags)
-    assert sorted_f == composed
-
-
-@pytest.mark.parametrize(
-    ("filename", "name", "version"),
-    [
-        ("foo-1.0.tar.gz", "foo", Version("1.0")),
-        ("foo_bar-1.0.tar.gz", "foo-bar", Version("1.0")),
-    ],
-)
-def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
-    assert compose_sdist_filename(name, version) == filename
 
 
 @pytest.mark.parametrize(
