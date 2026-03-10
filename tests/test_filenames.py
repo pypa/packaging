@@ -136,7 +136,7 @@ def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
 def test_wheel_from_filename(
     filename: str, name: str, version: Version, build_tag: BuildTag, tags: set[Tag]
 ) -> None:
-    fn = WheelFilename.from_filename(filename)
+    fn = WheelFilename.from_filename(filename, strict=True)
     assert fn.name == name
     assert fn.version == version
     assert fn.build_tag == build_tag
@@ -225,3 +225,71 @@ def test_wheel_not_strict_passes(
     assert str(fn) == expected_filename
     assert fn.original_name == name
     assert fn.original_version == version
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version", "build", "tags"),
+    [
+        (
+            "foo-1.0-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "some_package-1.0-py3-none-any.whl",
+            "some-PACKAGE",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000abc-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, "abc"),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo_bar-1.0-42-py2.py3-none-any.whl",
+            "foo-bar",
+            Version("1.0"),
+            (42, ""),
+            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+        ),
+    ],
+)
+def test_compose_wheel_filename(
+    filename: str, name: str, version: Version, build: BuildTag | None, tags: set[Tag]
+) -> None:
+    assert (
+        WheelFilename(name, str(version), build or (), tags).to_filename() == filename
+    )
+
+
+def test_parse_and_create_filename() -> None:
+    filename = "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    sorted_f = "numpy-1.23.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+
+    wf = WheelFilename.from_filename(filename, strict=False)
+    composed = wf.to_filename()
+    assert sorted_f == composed
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version"),
+    [
+        ("foo-1.0.tar.gz", "foo", Version("1.0")),
+        ("foo_bar-1.0.tar.gz", "foo-bar", Version("1.0")),
+    ],
+)
+def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
+    assert SourceFilename(name, str(version)).to_filename() == filename
