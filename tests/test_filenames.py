@@ -293,3 +293,35 @@ def test_parse_and_create_filename() -> None:
 )
 def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
     assert SourceFilename(name, str(version)).to_filename() == filename
+
+
+def test_sdist_from_filename_strict_valid() -> None:
+    fn = SourceFilename.from_filename("foo_bar-1.0.tar.gz", strict=True)
+    assert fn.name == "foo-bar"
+    assert fn.version == Version("1.0")
+
+
+def test_wheel_version_property_invalid() -> None:
+    wf = WheelFilename("foo", "not-a-version", (), {Tag("py3", "none", "any")})
+    with pytest.raises(InvalidWheelFilename, match="invalid version"):
+        _ = wf.version
+
+
+def test_wheel_repr() -> None:
+    wf = WheelFilename("foo", "1.0", (1, "abc"), {Tag("py3", "none", "any")})
+    assert "WheelFilename" in repr(wf)
+    assert "name='foo'" in repr(wf)
+    assert "version='1.0'" in repr(wf)
+    assert "build_tag=(1, 'abc')" in repr(wf)
+    assert "tags=" in repr(wf)
+
+
+def test_sdist_version_property_invalid() -> None:
+    fn = SourceFilename("foo", "not-a-version")
+    with pytest.raises(InvalidFilename, match="invalid version"):
+        _ = fn.version
+
+
+def test_sdist_repr() -> None:
+    fn = SourceFilename("foo", "1.0")
+    assert repr(fn) == "SourceFilename(name='foo', version='1.0')"
