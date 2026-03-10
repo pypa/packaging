@@ -33,6 +33,7 @@ The ``packaging`` library uses calendar-based versioning (``YY.N``).
     pylock
     direct_url
     dependency_groups
+    filenames
     utils
 
 .. toctree::
