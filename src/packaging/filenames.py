@@ -239,11 +239,6 @@ class WheelFilename:
         The tags is set of tags that will be compressed into a wheel
         tag string.
 
-        :param name: The project name
-        :param version: The project version
-        :param build: An optional two-item tuple of an integer and string
-        :param tags: The set of tags that apply to the wheel
-
         >>> from packaging.utils import compose_wheel_filename
         >>> from packaging.tags import Tag
         >>> from packaging.version import Version
@@ -263,7 +258,7 @@ class WheelFilename:
             return f"{name}-{self.version}-{ctags}.whl"
 
     @classmethod
-    def from_filename(cls, filename: str, /, *, strict: bool = False) -> WheelFilename:
+    def from_filename(cls, filename: str, /, *, strict: bool) -> WheelFilename:
         """
         This function takes the filename of a wheel file, and parses it,
         returning a tuple of name, version, build number, and tags.
@@ -341,7 +336,9 @@ class WheelFilename:
 
         # Reconstruct the filename and check that it matches the original
         if strict:
-            if self.original_name != self.name:
+            if self.original_name != canonicalize_name(
+                self.original_name, underscore=True
+            ):
                 inner = f"non-normalized project name {self.original_name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
@@ -375,6 +372,19 @@ class SourceFilename:
             ) from e
 
     def to_filename(self) -> str:
+        """
+        Combines the project name and a version to make a valid sdist filename. The
+        project name is normalized as required so that any run of ``-._``
+        characters are replaced with ``_`` and characters are lower cased. The
+        version is an instance of :class:`~packaging.version.Version`.
+
+        >>> from packaging.utils import compose_sdist_filename
+        >>> from packaging.version import Version
+        >>> "foo_bar-1.0.tar.gz" == compose_sdist_filename("foo-bar", Version("1.0"))
+        True
+
+        .. versionadded:: 26.1
+        """
         name = canonicalize_name(self.original_name, underscore=True)
         version = str(self.version)
 
@@ -390,7 +400,28 @@ class SourceFilename:
         return self.to_filename()
 
     @classmethod
-    def from_filename(cls, filename: str, strict: bool = False) -> SourceFilename:
+    def from_filename(cls, filename: str, /, *, strict: bool) -> SourceFilename:
+        """
+        This function takes the filename of a sdist file (as specified
+        in the `Source distribution format`_ documentation), and parses
+        it, returning a tuple of the normalized name and version as
+        represented by an instance of :class:`~packaging.version.Version`.
+
+        :param str filename: The name of the sdist file.
+        :raises InvalidSdistFilename: If the filename does not end
+            with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
+            contain a dash separating the name and the version of the distribution.
+
+        >>> from packaging.utils import parse_sdist_filename
+        >>> from packaging.version import Version
+        >>> name, ver = parse_sdist_filename("foo-1.0.tar.gz")
+        >>> name
+        'foo'
+        >>> ver == Version('1.0')
+        True
+
+        .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
+        """
         # PEP 625: Source distributions must end with .tar.gz
         # Non-scrict mode will allow .zip for backward compatibility
         if filename.endswith(".tar.gz"):
