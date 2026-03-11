@@ -41,6 +41,11 @@ class TimeVersionSuite:
         for v in self.valid_versions:
             hash(Version(v))
 
+    @add_attributes(pretty_name="Version hash (warm cache)")
+    def time_hash_warm(self) -> None:
+        for v in self.version_objects_warm:
+            hash(v)
+
     @add_attributes(pretty_name="Version __str__")
     def time_str(self) -> None:
         for version in self.valid_versions:
