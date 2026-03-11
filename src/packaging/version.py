@@ -4,7 +4,7 @@
 """
 .. testsetup::
 
-    from packaging.version import parse, normalize_pre, Version
+    from packaging.version import parse, normalize_pre, Version, _cmpkey
 """
 
 from __future__ import annotations
@@ -22,8 +22,6 @@ from typing import (
     TypedDict,
     Union,
 )
-
-from ._structures import Infinity, InfinityType, NegativeInfinity, NegativeInfinityType
 
 if typing.TYPE_CHECKING:
     from typing_extensions import Self, Unpack
@@ -71,18 +69,11 @@ def __dir__() -> list[str]:
 
 LocalType = Tuple[Union[int, str], ...]
 
-CmpPrePostDevType = Union[InfinityType, NegativeInfinityType, Tuple[str, int]]
-CmpLocalType = Union[
-    NegativeInfinityType,
-    Tuple[Union[Tuple[int, str], Tuple[NegativeInfinityType, Union[int, str]]], ...],
-]
-CmpKey = Tuple[
-    int,
-    Tuple[int, ...],
-    CmpPrePostDevType,
-    CmpPrePostDevType,
-    CmpPrePostDevType,
-    CmpLocalType,
+CmpLocalType = Tuple[Tuple[int, str], ...]
+CmpSuffix = Tuple[int, int, int, int, int, int]
+CmpKey = Union[
+    Tuple[int, Tuple[int, ...], CmpSuffix],
+    Tuple[int, Tuple[int, ...], CmpSuffix, CmpLocalType],
 ]
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
@@ -1039,6 +1030,19 @@ def _parse_local_version(local: str | None) -> LocalType | None:
     return None
 
 
+# Sort ranks for pre-release: dev-only < a < b < rc < stable (no pre-release).
+_PRE_RANK = {"a": 0, "b": 1, "rc": 2}
+_PRE_RANK_DEV_ONLY = -1  # sorts before a(0)
+_PRE_RANK_STABLE = 3  # sorts after rc(2)
+
+# In local version segments, strings sort before ints per PEP 440.
+_LOCAL_STR_RANK = -1  # sorts before all non-negative ints
+
+# Pre-computed suffix for stable releases (no pre, post, or dev segments).
+# See _cmpkey() for the suffix layout.
+_STABLE_SUFFIX = (_PRE_RANK_STABLE, 0, 0, 0, 1, 0)
+
+
 def _cmpkey(
     epoch: int,
     release: tuple[int, ...],
@@ -1047,54 +1051,70 @@ def _cmpkey(
     dev: tuple[str, int] | None,
     local: LocalType | None,
 ) -> CmpKey:
-    # When we compare a release version, we want to compare it with all of the
-    # trailing zeros removed. We will use this for our sorting key.
+    """Build a comparison key for PEP 440 ordering.
+
+    Returns ``(epoch, release, suffix)`` or
+    ``(epoch, release, suffix, local)`` so that plain tuple
+    comparison gives the correct order.
+
+    Trailing zeros are stripped from the release so that ``1.0.0 == 1``.
+
+    The suffix is a flat 6-int tuple that encodes pre/post/dev:
+    ``(pre_rank, pre_n, post_rank, post_n, dev_rank, dev_n)``
+
+    pre_rank: dev-only=-1, a=0, b=1, rc=2, no-pre=3
+        Dev-only releases (no pre or post) get -1 so they sort before
+        any alpha/beta/rc.  Releases without a pre-release tag get 3
+        so they sort after rc.
+    post_rank: no-post=0, post=1
+        Releases without a post segment sort before those with one.
+    dev_rank: dev=0, no-dev=1
+        Releases without a dev segment sort after those with one.
+
+    Local segments use ``(n, "")`` for ints and ``(-1, s)`` for strings,
+    following PEP 440: strings sort before ints, strings compare
+    lexicographically, ints compare numerically, and shorter segments
+    sort before longer when prefixes match.  Versions without a local
+    segment sort before those with one (3-tuple < 4-tuple).
+
+    >>> _cmpkey(0, (1, 0, 0), None, None, None, None)
+    (0, (1,), (3, 0, 0, 0, 1, 0))
+    >>> _cmpkey(0, (1,), ("a", 1), None, None, None)
+    (0, (1,), (0, 1, 0, 0, 1, 0))
+    >>> _cmpkey(0, (1,), None, None, None, ("ubuntu", 1))
+    (0, (1,), (3, 0, 0, 0, 1, 0), ((-1, 'ubuntu'), (1, '')))
+    """
+    # Strip trailing zeros: 1.0.0 compares equal to 1.
     len_release = len(release)
     i = len_release
     while i and release[i - 1] == 0:
         i -= 1
-    _release = release if i == len_release else release[:i]
+    trimmed = release if i == len_release else release[:i]
 
-    # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
-    # We'll do this by abusing the pre segment, but we _only_ want to do this
-    # if there is not a pre or a post segment. If we have one of those then
-    # the normal sorting rules will handle this case correctly.
+    # Fast path: stable release with no local segment.
+    if pre is None and post is None and dev is None and local is None:
+        return epoch, trimmed, _STABLE_SUFFIX
+
     if pre is None and post is None and dev is not None:
-        _pre: CmpPrePostDevType = NegativeInfinity
-    # Versions without a pre-release (except as noted above) should sort after
-    # those with one.
+        # dev-only (e.g. 1.0.dev1) sorts before all pre-releases.
+        pre_rank, pre_n = _PRE_RANK_DEV_ONLY, 0
     elif pre is None:
-        _pre = Infinity
+        pre_rank, pre_n = _PRE_RANK_STABLE, 0
     else:
-        _pre = pre
+        pre_rank, pre_n = _PRE_RANK[pre[0]], pre[1]
 
-    # Versions without a post segment should sort before those with one.
-    if post is None:
-        _post: CmpPrePostDevType = NegativeInfinity
+    post_rank = 0 if post is None else 1
+    post_n = 0 if post is None else post[1]
 
-    else:
-        _post = post
+    dev_rank = 1 if dev is None else 0
+    dev_n = 0 if dev is None else dev[1]
 
-    # Versions without a development segment should sort after those with one.
-    if dev is None:
-        _dev: CmpPrePostDevType = Infinity
-
-    else:
-        _dev = dev
+    suffix = (pre_rank, pre_n, post_rank, post_n, dev_rank, dev_n)
 
     if local is None:
-        # Versions without a local segment should sort before those with one.
-        _local: CmpLocalType = NegativeInfinity
-    else:
-        # Versions with a local segment need that segment parsed to implement
-        # the sorting rules in PEP440.
-        # - Alpha numeric segments sort before numeric segments
-        # - Alpha numeric segments sort lexicographically
-        # - Numeric segments sort numerically
-        # - Shorter versions sort before longer versions when the prefixes
-        #   match exactly
-        _local = tuple(
-            (i, "") if isinstance(i, int) else (NegativeInfinity, i) for i in local
-        )
+        return epoch, trimmed, suffix
 
-    return epoch, _release, _pre, _post, _dev, _local
+    cmp_local: CmpLocalType = tuple(
+        (seg, "") if isinstance(seg, int) else (_LOCAL_STR_RANK, seg) for seg in local
+    )
+    return epoch, trimmed, suffix, cmp_local
