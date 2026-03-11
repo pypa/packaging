@@ -308,6 +308,13 @@ def test_pylock_invalid_vcs() -> None:
         ),
         (
             PackageSdist(
+                path="example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            PackageSdist(
                 url="https://example.com/example-1.0.tar.gz",
                 hashes={},
             ),
@@ -358,6 +365,13 @@ def test_pylock_invalid_vcs() -> None:
         (
             PackageWheel(
                 path=".\\example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            PackageWheel(
+                path="example-1.0-py3-none-any.whl",
                 hashes={},
             ),
             "example-1.0-py3-none-any.whl",
