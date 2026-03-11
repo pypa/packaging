@@ -551,7 +551,16 @@ class Version(_BaseVersion):
     # __hash__ must be defined when __eq__ is overridden,
     # otherwise Python sets __hash__ to None.
     def __hash__(self) -> int:
-        return hash(self._key)
+        if self._key_cache is None:
+            self._key_cache = _cmpkey(
+                self._epoch,
+                self._release,
+                self._pre,
+                self._post,
+                self._dev,
+                self._local,
+            )
+        return hash(self._key_cache)
 
     # Override comparison methods to use direct _key_cache access
     # This is faster than property access, especially before Python 3.12
