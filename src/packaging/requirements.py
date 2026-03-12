@@ -77,7 +77,7 @@ class Requirement:
         return "".join(self._iter_parts(self.name))
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({str(self)!r})>"
+        return f"{self.__class__.__name__}({str(self)!r})"
 
     def __hash__(self) -> int:
         return hash(tuple(self._iter_parts(canonicalize_name(self.name))))

@@ -16,7 +16,7 @@ Usage
     >>> from packaging.requirements import Requirement
     >>> simple_req = Requirement("name")
     >>> simple_req
-    <Requirement('name')>
+    Requirement('name')
     >>> simple_req.name
     'name'
     >>> simple_req.url is None
@@ -24,7 +24,7 @@ Usage
     >>> simple_req.extras
     set()
     >>> simple_req.specifier
-    <SpecifierSet('')>
+    SpecifierSet('')
     >>> simple_req.marker is None
     True
     >>> # Requirements can be specified with extras, specifiers and markers
@@ -34,9 +34,9 @@ Usage
     >>> req.extras
     {'foo'}
     >>> req.specifier
-    <SpecifierSet('<3,>=2')>
+    SpecifierSet('<3,>=2')
     >>> req.marker
-    <Marker('python_version > "2.0"')>
+    Marker('python_version > "2.0"')
     >>> # Requirements can also be specified with a URL, but may not specify
     >>> # a version.
     >>> url_req = Requirement('name @ https://github.com/pypa ;os_name=="a"')
@@ -47,7 +47,7 @@ Usage
     >>> url_req.extras
     set()
     >>> url_req.marker
-    <Marker('os_name == "a"')>
+    Marker('os_name == "a"')
     >>> # You can do simple comparisons between requirement objects:
     >>> Requirement("packaging") == Requirement("packaging")
     True
