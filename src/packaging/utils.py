@@ -12,7 +12,7 @@ from .filenames import (
     InvalidSdistFilename,
     InvalidWheelFilename,
     NormalizedName,
-    SourceFilename,
+    SourceDistributionFilename,
     WheelFilename,
     canonicalize_name,
     canonicalize_version,
@@ -105,5 +105,5 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    fname = SourceFilename.from_filename(filename, strict=False)
+    fname = SourceDistributionFilename.from_filename(filename, strict=False)
     return (fname.name, fname.version)
