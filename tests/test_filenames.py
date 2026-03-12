@@ -131,6 +131,23 @@ def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
             (1000, "abc"),
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo-1.0-py2.py3-none-any.whl",  # Sorted multiple interpreter tags
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+        ),
+        (  # Sorted multiple platform tags
+            "numpy-1.23.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+            "numpy",
+            Version("1.23.3"),
+            (),
+            {
+                Tag("cp310", "cp310", "manylinux2014_x86_64"),
+                Tag("cp310", "cp310", "manylinux_2_17_x86_64"),
+            },
+        ),
     ],
 )
 def test_wheel_from_filename(
@@ -182,6 +199,16 @@ def test_wheel_from_filename(
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
             "Invalid wheel filename (non-normalized version '01.0')",
+        ),
+        (  # Unsorted interpreter tags (py3 before py2)
+            "foo-1.0-py3.py2-none-any.whl",
+            "Invalid wheel filename (non-normalized tags 'py3.py2-none-any')",
+        ),
+        (
+            # Unsorted platform tags (manylinux_ before manylinux2014)
+            "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "Invalid wheel filename (non-normalized tags "
+            "'cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64')",
         ),
     ],
 )
