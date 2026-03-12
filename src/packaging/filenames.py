@@ -18,7 +18,7 @@ __all__ = [
     "InvalidWheelFilename",
     "InvalidWheelFilename",
     "NormalizedName",
-    "SourceFilename",
+    "SourceDistributionFilename",
     "WheelFilename",
     "canonicalize_name",
     "canonicalize_version",
@@ -397,7 +397,7 @@ class WheelFilename:
         return self
 
 
-class SourceFilename:
+class SourceDistributionFilename:
     """Represents a source distribution filename and its parsed components.
 
     Instances preserve the original name and version strings for round-tripping,
@@ -443,8 +443,8 @@ class SourceFilename:
         characters are replaced with ``_`` and characters are lower cased. The
         version is an instance of :class:`~packaging.version.Version`.
 
-        >>> from packaging.filenames import SourceFilename
-        >>> SourceFilename("foo-bar", "1.0").to_filename()
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> SourceDistributionFilename("foo-bar", "1.0").to_filename()
         'foo_bar-1.0.tar.gz'
 
         .. versionadded:: 26.1
@@ -464,7 +464,9 @@ class SourceFilename:
         return self.to_filename()
 
     @classmethod
-    def from_filename(cls, filename: str, /, *, strict: bool) -> SourceFilename:
+    def from_filename(
+        cls, filename: str, /, *, strict: bool
+    ) -> SourceDistributionFilename:
         """
         This function takes the filename of a sdist file (as specified
         in the `Source distribution format`_ documentation), and parses
@@ -476,8 +478,8 @@ class SourceFilename:
             with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
             contain a dash separating the name and the version of the distribution.
 
-        >>> from packaging.filenames import SourceFilename
-        >>> fn = SourceFilename.from_filename("foo-1.0.tar.gz", strict=True)
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> fn = SourceDistributionFilename.from_filename("foo-1.0.tar.gz", strict=True)
         >>> fn.name
         'foo'
         >>> fn.version
