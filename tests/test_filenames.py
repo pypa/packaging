@@ -7,7 +7,7 @@ import pytest
 from packaging.filenames import (
     InvalidFilename,
     InvalidWheelFilename,
-    SourceFilename,
+    SourceDistributionFilename,
     WheelFilename,
 )
 from packaging.tags import Tag
@@ -45,7 +45,7 @@ if typing.TYPE_CHECKING:
 def test_sdist_not_strict_passes(
     name: str, version: str, expected_filename: str
 ) -> None:
-    fn = SourceFilename(name, version)
+    fn = SourceDistributionFilename(name, version)
     assert str(fn) == expected_filename
     assert fn.original_name == name
     assert fn.original_version == version
@@ -94,7 +94,7 @@ def test_sdist_not_strict_passes(
 )
 def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidFilename) as e:
-        SourceFilename.from_filename(filename, strict=True)
+        SourceDistributionFilename.from_filename(filename, strict=True)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
 
@@ -319,11 +319,11 @@ def test_parse_and_create_filename() -> None:
     ],
 )
 def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
-    assert SourceFilename(name, str(version)).to_filename() == filename
+    assert SourceDistributionFilename(name, str(version)).to_filename() == filename
 
 
 def test_sdist_from_filename_strict_valid() -> None:
-    fn = SourceFilename.from_filename("foo_bar-1.0.tar.gz", strict=True)
+    fn = SourceDistributionFilename.from_filename("foo_bar-1.0.tar.gz", strict=True)
     assert fn.name == "foo-bar"
     assert fn.version == Version("1.0")
 
@@ -344,11 +344,11 @@ def test_wheel_repr() -> None:
 
 
 def test_sdist_version_property_invalid() -> None:
-    fn = SourceFilename("foo", "not-a-version")
+    fn = SourceDistributionFilename("foo", "not-a-version")
     with pytest.raises(InvalidFilename, match="invalid version"):
         _ = fn.version
 
 
 def test_sdist_repr() -> None:
-    fn = SourceFilename("foo", "1.0")
-    assert repr(fn) == "SourceFilename(name='foo', version='1.0')"
+    fn = SourceDistributionFilename("foo", "1.0")
+    assert repr(fn) == "SourceDistributionFilename(name='foo', version='1.0')"
