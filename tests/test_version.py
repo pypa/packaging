@@ -395,6 +395,12 @@ class TestVersion:
     def test_version_hash(self, version: str) -> None:
         assert hash(Version(version)) == hash(Version(version))
 
+    def test_version_hash_with_warm_key_cache(self) -> None:
+        v = Version("1.0")
+        # Populate _key_cache via comparison before hashing
+        assert v > Version("0.9")
+        assert hash(v) == hash(Version("1.0"))
+
     @pytest.mark.parametrize(
         ("version", "public"),
         [
