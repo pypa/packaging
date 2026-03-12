@@ -383,8 +383,14 @@ class WheelFilename:
                 inner = f"non-normalized project name {self.original_name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
+
             if self.original_version != str(self.version):
                 inner = f"non-normalized version {self.original_version!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                raise InvalidWheelFilename(msg)
+
+            if self.compressed_tags != parts[-1]:
+                inner = f"non-normalized tags {parts[-1]!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
 
