@@ -13,11 +13,12 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node
+from packaging._parser import Node, Op
 from packaging.markers import (
     InvalidMarker,
     Marker,
     UndefinedComparison,
+    _swap_op,
     default_environment,
     format_full_version,
 )
@@ -86,6 +87,12 @@ class TestOperatorEvaluation:
             dict(python_full_version="2.7.8")
         )
 
+    def test_rhs_version_variable_uses_equivalent_pep440_comparison(self) -> None:
+        env = {"python_full_version": "3.13.7"}
+
+        assert Marker('python_full_version == "3.13.*"').evaluate(env)
+        assert Marker('"3.13.*" == python_full_version').evaluate(env)
+
     def test_new_string_rules(self) -> None:
         assert not Marker('"b" < python_full_version').evaluate(
             dict(python_full_version="c")
@@ -107,6 +114,11 @@ class TestOperatorEvaluation:
         assert Marker('python_full_version > "3.6.2"').evaluate(
             {"python_full_version": "3.11.0a5"}
         )
+
+
+def test_swap_op_unknown_operator_passthrough() -> None:
+    op = Op("===")
+    assert _swap_op(op) is op
 
 
 class FakeVersionInfo(NamedTuple):
