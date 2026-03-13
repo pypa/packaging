@@ -173,10 +173,19 @@ def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:
     """
     Determine if the Python version supports abi3.
 
-    PEP 384 was first implemented in Python 3.2. The threaded (`--disable-gil`)
+    PEP 384 was first implemented in Python 3.2. The free-threaded
     builds do not support abi3.
     """
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and not threading
+
+
+def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
+    """
+    Determine if the Python version supports abi3t.
+
+    PEP 803 was first implemented in Python 3.15.
+    """
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2) and threading
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
@@ -256,16 +265,27 @@ def cpython_tags(
 
     threading = _is_threaded_cpython(abis)
     use_abi3 = _abi3_applies(python_version, threading)
-    if use_abi3:
-        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
-    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+    use_abi3t = _abi3t_applies(python_version, threading)
 
     if use_abi3:
+        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
+    if use_abi3t:
+        yield from (Tag(interpreter, "abi3t", platform_) for platform_ in platforms)
+
+    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+
+    if use_abi3 or use_abi3t:
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 version = _version_nodot((python_version[0], minor_version))
                 interpreter = f"cp{version}"
-                yield Tag(interpreter, "abi3", platform_)
+                if use_abi3:
+                    yield Tag(interpreter, "abi3", platform_)
+                if use_abi3t:
+                    # Support for abi3t was introduced in Python 3.15, but in
+                    # principle abi3t wheels are possible for older limited API
+                    # versions, so allow things like ("cp37", "abi3t", "platform")
+                    yield Tag(interpreter, "abi3t", platform_)
 
 
 def _generic_abi() -> list[str]:
