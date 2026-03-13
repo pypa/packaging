@@ -56,6 +56,8 @@ class TimeVersionSuite:
         """Sorting when _key needs to be calculated during comparison."""
         for v in self.version_objects_cold:
             v._key_cache = None
+            if hasattr(v, "_hash_cache"):
+                v._hash_cache = None
         sorted(self.version_objects_cold)
 
     @add_attributes(pretty_name="Version sorting (warm cache)")

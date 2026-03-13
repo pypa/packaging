@@ -360,7 +360,16 @@ class Version(_BaseVersion):
     part of a version.
     """
 
-    __slots__ = ("_dev", "_epoch", "_key_cache", "_local", "_post", "_pre", "_release")
+    __slots__ = (
+        "_dev",
+        "_epoch",
+        "_hash_cache",
+        "_key_cache",
+        "_local",
+        "_post",
+        "_pre",
+        "_release",
+    )
     __match_args__ = ("_str",)
     """
     Pattern matching is supported on Python 3.10+.
@@ -379,6 +388,7 @@ class Version(_BaseVersion):
     _post: tuple[Literal["post"], int] | None
     _local: LocalType | None
 
+    _hash_cache: int | None
     _key_cache: CmpKey | None
 
     def __init__(self, version: str) -> None:
@@ -403,6 +413,7 @@ class Version(_BaseVersion):
             self._dev = None
             self._local = None
             self._key_cache = None
+            self._hash_cache = None
             return
 
         # Validate the version and parse it into pieces
@@ -422,6 +433,7 @@ class Version(_BaseVersion):
 
         # Key which will be used for sorting
         self._key_cache = None
+        self._hash_cache = None
 
     @classmethod
     def from_parts(
@@ -460,6 +472,7 @@ class Version(_BaseVersion):
 
         new_version = cls.__new__(cls)
         new_version._key_cache = None
+        new_version._hash_cache = None
         new_version._epoch = _epoch
         new_version._release = _release
         new_version._pre = _pre
@@ -517,6 +530,7 @@ class Version(_BaseVersion):
 
         new_version = self.__class__.__new__(self.__class__)
         new_version._key_cache = None
+        new_version._hash_cache = None
         new_version._epoch = epoch
         new_version._release = release
         new_version._pre = pre
@@ -542,8 +556,11 @@ class Version(_BaseVersion):
     # __hash__ must be defined when __eq__ is overridden,
     # otherwise Python sets __hash__ to None.
     def __hash__(self) -> int:
-        if self._key_cache is None:
-            self._key_cache = _cmpkey(
+        if (cached_hash := self._hash_cache) is not None:
+            return cached_hash
+
+        if (key := self._key_cache) is None:
+            self._key_cache = key = _cmpkey(
                 self._epoch,
                 self._release,
                 self._pre,
@@ -551,7 +568,8 @@ class Version(_BaseVersion):
                 self._dev,
                 self._local,
             )
-        return hash(self._key_cache)
+        self._hash_cache = cached_hash = hash(key)
+        return cached_hash
 
     # Override comparison methods to use direct _key_cache access
     # This is faster than property access, especially before Python 3.12
@@ -734,6 +752,7 @@ class Version(_BaseVersion):
         self._post = value.post
         self._local = value.local
         self._key_cache = None
+        self._hash_cache = None
 
     def __repr__(self) -> str:
         """A representation of the Version that shows all internal state.
