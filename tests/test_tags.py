@@ -1694,3 +1694,28 @@ def test_pickle() -> None:
     # Make sure equality works between a pickle/unpickle round trip.
     tag = tags.Tag("py3", "none", "any")
     assert pickle.loads(pickle.dumps(tag)) == tag
+
+
+@pytest.mark.parametrize(
+    ("supported", "things", "expected"),
+    [
+        (["t1", "t2"], ["t1", "t2"], ["t1", "t2"]),
+        (["t1", "t2"], ["t3", "t4"], []),
+        (["t1", "t2"], ["t2", "t1"], ["t1", "t2"]),
+        (["t1", "t2", "t1"], ["t2", "t1"], ["t1", "t2"]),
+        (["t1", "t3"], ["t2", "t1"], ["t1"]),
+        (["t1", "t3"], ["t2.t3", "t1"], ["t1", "t2.t3"]),
+        (["t1"], ["t2", "t1"], ["t1"]),
+    ],
+)
+def test_create_compatible_tags_selector(
+    supported: list[str], things: list[str], expected: list[str]
+) -> None:
+    def t_to_tag(t: str) -> tags.Tag:
+        return tags.Tag("py3", "none", t)
+
+    def t_to_tags(t: str) -> frozenset[tags.Tag]:
+        return tags.parse_tag(f"py3-none-{t}")
+
+    selector = tags.create_compatible_tags_selector([t_to_tag(t) for t in supported])
+    assert list(selector([(t, t_to_tags(t)) for t in things])) == expected
