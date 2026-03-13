@@ -233,6 +233,25 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
+def _validate_path_url_names(
+    name: str | None, path: str | None, url: str | None
+) -> None:
+    if name:
+        # When name is set, it is authoritative,
+        # and the path and url names can be anything.
+        return
+    if not path or not url:
+        # We only need to validate if both path and url are set.
+        return
+    path_name = _path_name(path)
+    url_name = _url_name(url)
+    if path_name != url_name:
+        raise PylockValidationError(
+            f"'path' name {path_name!r} and 'url' name {url_name!r} must be identical "
+            f"when 'name' is not set"
+        )
+
+
 def _path_name(path: str | None) -> str | None:
     if not path:
         return None
@@ -447,6 +466,9 @@ class PackageSdist:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_sdist.path, package_sdist.url)
+        _validate_path_url_names(
+            package_sdist.name, package_sdist.path, package_sdist.url
+        )
         try:
             parse_sdist_filename(package_sdist.filename)
         except Exception as e:
@@ -458,8 +480,11 @@ class PackageSdist:
     @property
     def filename(self) -> str:
         """Get the filename of the sdist."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        # name is authoritative if set, else url and path names are guaranteed
+        # to be identical by validation.
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
+            # This error will be caught by validation too.
             raise PylockValidationError("Cannot determine sdist filename")
         return filename
 
@@ -502,6 +527,9 @@ class PackageWheel:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_wheel.path, package_wheel.url)
+        _validate_path_url_names(
+            package_wheel.name, package_wheel.path, package_wheel.url
+        )
         try:
             parse_wheel_filename(package_wheel.filename)
         except Exception as e:
@@ -513,8 +541,11 @@ class PackageWheel:
     @property
     def filename(self) -> str:
         """Get the filename of the wheel."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        # name is authoritative if set, else url and path names are guaranteed
+        # to be identical by validation.
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
+            # This error will be caught by validation too.
             raise PylockValidationError("Cannot determine wheel filename")
         return filename
 
