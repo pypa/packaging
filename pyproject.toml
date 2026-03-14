@@ -46,8 +46,11 @@ test = [
   "tomli_w",
 ]
 docs = [
+  "erbsland-sphinx-ansi; python_version>='3.10'",
   "furo",
+  "sphinx <9",  # required by sphinx-toolbox
   "sphinx-toolbox",
+  "sphinxcontrib-programoutput >=0.19",
   "typing-extensions>=4.1.0; python_version < '3.9'",
 ]
 benchmark = [
@@ -82,7 +85,14 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@(abc.)?abstractmethod", "@(abc.)?abstractproperty", "if (typing.)?TYPE_CHECKING:", "@(typing.)?overload", "def __dir__()"]
+exclude_also = [
+  "@(abc.)?abstractmethod",
+  "@(abc.)?abstractproperty",
+  "if (typing.)?TYPE_CHECKING:",
+  "@(typing.)?overload",
+  "def __dir__()",
+  'if __name__ == "__main__":',
+]
 
 [tool.pytest.ini_options]
 minversion = "6.2"
