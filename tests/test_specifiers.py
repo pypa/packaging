@@ -692,6 +692,38 @@ class TestSpecifier:
         assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
+        ("version", "spec_str", "expected"),
+        [
+            # === must not normalize the specifier version.
+            # "1.01" and "1.1" are different strings even though they
+            # parse to the same Version.
+            ("1.01", "===1.1", False),
+            ("1.1", "===1.01", False),
+            ("1.01", "===1.01", True),
+            ("1.0.0", "===1.0", False),
+            ("1.0", "===1.0.0", False),
+            # === must not normalize pre-release separators.
+            # "1.a1" and "1a1" are different strings.
+            ("1.a1", "===1.a1", True),
+            ("1a1", "===1.a1", False),
+            ("1.a1", "===1a1", False),
+            # Same for post-release separators
+            ("1.post1", "===1.post1", True),
+            ("1.post1", "===1post1", False),
+            # Version objects: str(Version(...)) may differ from input,
+            # so === compares the str() form.
+            (Version("1.01"), "===1.1", True),
+            (Version("1.01"), "===1.01", False),
+        ],
+    )
+    def test_arbitrary_equality_no_normalization(
+        self, version: str | Version, spec_str: str, expected: bool
+    ) -> None:
+        """=== uses raw string comparison with no normalization."""
+        spec = Specifier(spec_str)
+        assert spec.contains(version) == expected
+
+    @pytest.mark.parametrize(
         ("specifier", "expected"),
         [
             ("==1.0", False),
@@ -974,32 +1006,6 @@ class TestSpecifierInternal:
 
         _ = spec == Specifier(specifier)
         assert spec._spec_version is initial_cache
-
-    @pytest.mark.parametrize(
-        ("specifier", "test_versions"),
-        [
-            (
-                "==1.0.*",
-                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
-            ),
-            (
-                "!=1.0.*",
-                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
-            ),
-        ],
-    )
-    def test_spec_version_cache_with_wildcards(
-        self, specifier: str, test_versions: list[str]
-    ) -> None:
-        """Wildcard specifiers use prefix matching, cache stays None."""
-        spec = Specifier(specifier, prereleases=True)
-
-        for v in test_versions:
-            _ = v in spec
-        _ = spec.prereleases
-        _ = hash(spec)
-
-        assert spec._spec_version is None
 
     @pytest.mark.parametrize(
         "specifier",
@@ -2132,16 +2138,24 @@ class TestSpecifierSet:
 
 
 class TestIsUnsatisfiable:
-    """Tests for SpecifierSet.is_unsatisfiable().
+    """Tests for SpecifierSet.is_unsatisfiable() and interval-based filtering.
 
     Testing approach:
-    - UNSATISFIABLE: detected as unsatisfiable, filter returns nothing.
-    - SATISFIABLE: not falsely reported as unsatisfiable.
+    - UNSATISFIABLE_SPECS: detected as unsatisfiable, filter returns nothing.
+    - SATISFIABLE_SPECS: not falsely reported as unsatisfiable.
+    - Cross-validation: for each satisfiable spec, interval-based filter()
+      must produce identical results to per-spec contains() across a large
+      sample of versions (version_family x SAMPLE_BASES).
     """
 
     @staticmethod
     def _version_family(base: str) -> list[str]:
-        """All PEP 440 suffixes and combinations around a base version."""
+        """All PEP 440 suffixes and combinations around a base version.
+
+        Covers dev, alpha/beta/rc (with dev-of-pre and post-of-pre),
+        final, post (with dev-of-post), local variants (string, integer,
+        multi-segment, distinct labels), and a patch sub-release family.
+        """
         return [
             f"{base}.dev0",
             f"{base}.dev1",
@@ -2177,6 +2191,8 @@ class TestIsUnsatisfiable:
             f"{base}.1.post1",
         ]
 
+    # Base versions: zero, MAJOR.MINOR, MAJOR.MINOR.PATCH, real-world,
+    # large numbers, and epoch versions.
     SAMPLE_BASES: typing.ClassVar[list[str]] = [
         "0",
         "0.0",
@@ -2224,6 +2240,7 @@ class TestIsUnsatisfiable:
         SAMPLE_BASES, _version_family
     )
 
+    # Specifier sets that must be detected as unsatisfiable.
     UNSATISFIABLE: typing.ClassVar[list[str]] = [
         # Crossed bounds
         ">=2.0,<1.0",
@@ -2275,6 +2292,8 @@ class TestIsUnsatisfiable:
         "==1.0+local,!=1.0+local",
     ]
 
+    # Specifier sets that must NOT be detected as unsatisfiable.
+    # Also used for cross-validation of interval filtering.
     SATISFIABLE: typing.ClassVar[list[str]] = [
         "",
         ">=1.0",
@@ -2318,9 +2337,12 @@ class TestIsUnsatisfiable:
         "<2.0,<3.0",
         ">1.0.post0",
         ">1.0.post1,<2.0",
-        # Local versions
+        # Local versions in multi-spec
         "==1.0+local1,>=1.0",
         "!=1.0+local1,>=1.0",
+        "==1.0,>=0.5",
+        "==1.0,!=0.5",
+        "==1.0,<=2.0",
         "==1.0+local1,!=1.0+local2",
         # Various multi-spec
         ">1.0,!=0.5",
@@ -2355,6 +2377,23 @@ class TestIsUnsatisfiable:
         """Satisfiable specs must not be falsely reported as unsatisfiable."""
         ss = SpecifierSet(spec_str)
         assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE)
+    def test_filter_matches_per_spec_filter(self, spec_str: str) -> None:
+        """Interval-based filter() must match per-spec contains() check."""
+        if not spec_str:
+            return
+        ss = SpecifierSet(spec_str)
+        interval_result = set(ss.filter(self.SAMPLE_VERSIONS, prereleases=True))
+        manual_result = set()
+        for v in self.SAMPLE_VERSIONS:
+            if all(spec.contains(v, prereleases=True) for spec in ss._specs):
+                manual_result.add(v)
+        assert interval_result == manual_result, (
+            f"Filter mismatch for {spec_str!r}: "
+            f"extra={sorted(str(v) for v in interval_result - manual_result)}, "
+            f"missing={sorted(str(v) for v in manual_result - interval_result)}"
+        )
 
     def test_result_is_cached(self) -> None:
         ss = SpecifierSet(">=2.0,<1.0")
