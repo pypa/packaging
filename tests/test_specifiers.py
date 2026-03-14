@@ -2129,3 +2129,249 @@ class TestSpecifierSet:
         combined_versions = set(SpecifierSet(f"{spec1},{spec2}").filter(input_versions))
 
         assert versions1 & versions2 == combined_versions
+
+
+class TestIsUnsatisfiable:
+    """Tests for SpecifierSet.is_unsatisfiable().
+
+    Testing approach:
+    - UNSATISFIABLE: detected as unsatisfiable, filter returns nothing.
+    - SATISFIABLE: not falsely reported as unsatisfiable.
+    """
+
+    @staticmethod
+    def _version_family(base: str) -> list[str]:
+        """All PEP 440 suffixes and combinations around a base version."""
+        return [
+            f"{base}.dev0",
+            f"{base}.dev1",
+            f"{base}.dev0+local",
+            f"{base}a0",
+            f"{base}a0.post0.dev0",
+            f"{base}a0.post0",
+            f"{base}a1.dev1",
+            f"{base}a1.dev1+local",
+            f"{base}a1",
+            f"{base}a1+local",
+            f"{base}b1",
+            f"{base}b2.post1.dev1",
+            f"{base}b2.post1",
+            f"{base}rc1.dev1",
+            f"{base}rc1",
+            f"{base}rc2",
+            base,
+            f"{base}.0",
+            f"{base}.post0.dev0",
+            f"{base}.post0",
+            f"{base}.post1",
+            f"{base}.post1+local",
+            f"{base}+local",
+            f"{base}+local1",
+            f"{base}+local2",
+            f"{base}+1",
+            f"{base}+1.local",
+            f"{base}.1.dev1",
+            f"{base}.1a1",
+            f"{base}.1",
+            f"{base}.1+local",
+            f"{base}.1.post1",
+        ]
+
+    SAMPLE_BASES: typing.ClassVar[list[str]] = [
+        "0",
+        "0.0",
+        "1.0",
+        "1.1",
+        "1.2",
+        "2.0",
+        "2.1",
+        "3.0",
+        "1.0.1",
+        "1.4.2",
+        "2.0.0",
+        "3.10.2",
+        "3.8",
+        "3.9",
+        "3.10",
+        "3.11",
+        "3.12",
+        "3.13",
+        "3.14",
+        "10.0",
+        "100.0",
+        "1!0.0",
+        "1!1.0",
+        "1!2.0",
+    ]
+
+    @staticmethod
+    def _build_sample_versions(
+        bases: list[str], family_fn: Callable[[str], list[str]]
+    ) -> list[Version]:
+        """version_family x bases, deduplicated."""
+        version_strs: list[str] = []
+        for base in bases:
+            version_strs.extend(family_fn(base))
+        seen: set[str] = set()
+        unique: list[str] = []
+        for v in version_strs:
+            if v not in seen:
+                seen.add(v)
+                unique.append(v)
+        return [Version(v) for v in unique]
+
+    SAMPLE_VERSIONS: typing.ClassVar[list[Version]] = _build_sample_versions(
+        SAMPLE_BASES, _version_family
+    )
+
+    UNSATISFIABLE: typing.ClassVar[list[str]] = [
+        # Crossed bounds
+        ">=2.0,<1.0",
+        ">=2.0,<2.0",
+        ">2.0,<=2.0",
+        ">2.0,<2.0",
+        # Equality conflicts
+        "==1.0,!=1.0",
+        "==1.0,>1.0",
+        "==1.0,<1.0",
+        "==1.0,>=2.0",
+        "==3.0,<2.0",
+        # Wildcard conflicts
+        "==1.*,>=2.0",
+        "==2.*,<2.0.dev0",
+        "==3.*,<3.0.dev0",
+        "==1.0.*,!=1.0.*",
+        "==1.0,!=1.*",
+        # Compatible release conflicts
+        "~=2.0,<2.0",
+        "~=2.0,>=3.0",
+        "~=2.5,<2.5",
+        "~=1.0,>=2.0",
+        "~=1.4.2,<1.4.2",
+        # Point range excluded
+        ">=1.0,<=1.0,!=1.0",
+        # Epoch conflicts
+        "==1!1.0,==1.0",
+        ">=1!1.0,<1.0",
+        ">=1!0.0,<1.0",
+        # Zero/dev edge cases
+        "<0",
+        "<0.0",
+        "<0.0.dev0",
+        ">=1.0,<0.0.dev0",
+        # <V excludes prereleases of V when V is not a prerelease
+        ">=1.0a1,<1.0",
+        ">=1.0.dev0,<1.0",
+        # Wildcard exhausts range
+        ">=1.0,<2.0,!=1.*",
+        "~=1.4.2,!=1.4.*",
+        # === with unparsable version + standard spec
+        "===foobar,==1.0",
+        "===foobar,>=1.0",
+        "===a,!=1.0",
+        "===not-a-version,~=1.0",
+        "===foobar,>=2.0,<3.0",
+        # Local version conflicts
+        "==1.0+local,!=1.0+local",
+    ]
+
+    SATISFIABLE: typing.ClassVar[list[str]] = [
+        "",
+        ">=1.0",
+        "<2.0",
+        ">1.0",
+        ">=1.0,<2.0",
+        ">=1.0,<=1.0",
+        ">=1.0,<100.0",
+        # Compatible release
+        "~=1.0",
+        "~=1.0,<1.5",
+        "~=1.4.2",
+        # Wildcards
+        "==1.0.*",
+        "!=1.0.*",
+        "==1.*,!=1.5",
+        "==1.0.*,==1.*",
+        "!=1.*,>=2.0",
+        # Exclusions that don't exhaust range
+        ">=1.0,<2.0,!=1.5,!=1.6",
+        ">=1.0,<2.0,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4",
+        # Single operators
+        "==1.0",
+        "!=1.0",
+        # Prerelease ranges
+        ">=1.0.dev0,<1.0.dev1",
+        ">=1.0a1,<1.0a2",
+        # Epoch
+        ">=1!1.0,<1!2.0",
+        ">1!1.0,<1!3.0",
+        # Wildcards that don't exhaust range
+        ">=1.0,<3.0,!=2.*",
+        # Real-world
+        ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14",
+        # Boundary checks
+        "<1.0.dev1",
+        ">1!1.0",
+        "<1!2.0",
+        ">1.0,<3.0",
+        ">1.0,>2.0",
+        "<2.0,<3.0",
+        ">1.0.post0",
+        ">1.0.post1,<2.0",
+        # Local versions
+        "==1.0+local1,>=1.0",
+        "!=1.0+local1,>=1.0",
+        "==1.0+local1,!=1.0+local2",
+        # Various multi-spec
+        ">1.0,!=0.5",
+        ">=1.0,<2.0rc1",
+        ">=0.5,!=1.0.*",
+        "~=1.0,!=1.3",
+        ">=1!0.0,<1!1.0",
+        # === (conservatively satisfiable)
+        "===foobar",
+        "===1.0",
+        "===a,===b",
+        "===1.0,==1.0",
+        "===1.0,>=1.0",
+        "===1.0,>=0.5",
+        "===1.0,!=2.0",
+        "===1.0.0,>=1.0",
+    ]
+
+    @pytest.mark.parametrize("spec_str", UNSATISFIABLE)
+    def test_unsatisfiable(self, spec_str: str) -> None:
+        """Unsatisfiable specs must be detected, and filter must return empty."""
+        ss = SpecifierSet(spec_str)
+        assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
+        result = list(ss.filter(self.SAMPLE_VERSIONS, prereleases=True))
+        assert result == [], (
+            f"is_unsatisfiable() but filter matched: "
+            f"{[str(v) for v in result]} for {spec_str!r}"
+        )
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE)
+    def test_satisfiable(self, spec_str: str) -> None:
+        """Satisfiable specs must not be falsely reported as unsatisfiable."""
+        ss = SpecifierSet(spec_str)
+        assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+
+    def test_result_is_cached(self) -> None:
+        ss = SpecifierSet(">=2.0,<1.0")
+        assert ss.is_unsatisfiable()
+        assert ss._is_unsatisfiable is True
+        assert ss.is_unsatisfiable()  # second call uses cache
+
+    def test_cache_reset_on_prereleases_change(self) -> None:
+        ss = SpecifierSet(">=1.0,<2.0")
+        assert not ss.is_unsatisfiable()
+        ss.prereleases = True
+        assert ss._is_unsatisfiable is None
+
+    def test_and_preserves_unsatisfiable(self) -> None:
+        combined = SpecifierSet(">=2.0") & SpecifierSet("<1.0")
+        assert combined.is_unsatisfiable()
+
+    def test_and_satisfiable(self) -> None:
+        combined = SpecifierSet(">=1.0") & SpecifierSet("<2.0")
+        assert not combined.is_unsatisfiable()

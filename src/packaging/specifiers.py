@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import abc
+import functools
 import itertools
 import re
 import typing
@@ -35,6 +36,168 @@ T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 CallableOperator = Callable[[Version, str], bool]
+
+# The smallest possible PEP 440 version. No valid version is less than this.
+_MIN_VERSION: Final[Version] = Version("0.dev0")
+
+
+def _trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
+    """Strip trailing zeros from a release tuple for normalized comparison."""
+    end = len(release)
+    while end > 1 and release[end - 1] == 0:
+        end -= 1
+    return release if end == len(release) else release[:end]
+
+
+@functools.total_ordering
+class _PostExcludeBound:
+    """A bound version that sorts after all post-releases of a base version.
+
+    Used for ``>V`` (where V is not a post-release) to model PEP 440's rule
+    that ``>V`` must not match post-releases of V.
+
+    Ordering::
+
+        1.0 < 1.0.post0 < 1.0.post1 < _PostExcludeBound(1.0) < 1.0.1.dev0
+
+    This type is only used in interval bounds. Most bounds use plain Version
+    objects for direct C-level comparison performance.
+    """
+
+    __slots__ = ("_trimmed_release", "version")
+
+    def __init__(self, version: Version) -> None:
+        self.version = version
+        self._trimmed_release = _trim_release(version.release)
+
+    def __repr__(self) -> str:
+        return f"_PostExcludeBound({self.version!r})"
+
+    def _is_post_family(self, other: Version) -> bool:
+        """Is ``other`` the same version as self.version, or a post-release of it?
+
+        A "post-release of V" shares V's epoch, release, and pre segment
+        but adds a post (and possibly dev-of-post) segment.
+        """
+        v = self.version
+        return (
+            other.epoch == v.epoch
+            and _trim_release(other.release) == self._trimmed_release
+            and other.pre == v.pre
+            and (other.dev == v.dev or other.post is not None)
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, _PostExcludeBound):
+            return self.version == other.version
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, _PostExcludeBound):
+            return self.version < other.version
+        if isinstance(other, Version):
+            # self < other iff other is NOT in the post-family and other > V
+            return not self._is_post_family(other) and self.version < other
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self.version)
+
+
+if typing.TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+    # Bound version: plain Version for most operators, _PostExcludeBound
+    # for >V (sorts after V.postN), or None for unbounded.
+    _BoundVersion: TypeAlias = Union[Version, _PostExcludeBound, None]
+
+    # A specifier bound: (bound_version, inclusive).
+    _SpecifierBound: TypeAlias = tuple[_BoundVersion, bool]
+
+    # A specifier interval: (lower_bound, upper_bound).
+    _SpecifierInterval: TypeAlias = tuple[_SpecifierBound, _SpecifierBound]
+
+
+_FULL_RANGE: list[_SpecifierInterval] = [((None, False), (None, False))]
+
+
+def _spec_bound_lt(
+    left: _SpecifierBound, right: _SpecifierBound, *, is_lower: bool
+) -> bool:
+    """Is bound ``left`` strictly less than bound ``right``?
+
+    None represents -inf for lower bounds or +inf for upper bounds.
+    When versions are equal, a tighter bound is "less": [v is tighter
+    than (v for lower bounds, and (v is tighter than [v for upper bounds.
+    """
+    left_version, left_inclusive = left
+    right_version, right_inclusive = right
+    if left_version is None and right_version is None:
+        return False
+    if left_version is None:
+        return is_lower  # -inf < anything for lower; +inf > anything for upper
+    if right_version is None:
+        return not is_lower  # anything < +inf for lower; anything > -inf for upper
+    if left_version != right_version:
+        return left_version < right_version
+    # Same version: inclusive is tighter for lower, looser for upper.
+    if is_lower:
+        return left_inclusive and not right_inclusive
+    return not left_inclusive and right_inclusive
+
+
+def _intersect_intervals(
+    left_intervals: list[_SpecifierInterval],
+    right_intervals: list[_SpecifierInterval],
+) -> list[_SpecifierInterval]:
+    """Intersect two sorted, non-overlapping interval lists (two-pointer merge)."""
+    result: list[_SpecifierInterval] = []
+    left_index = right_index = 0
+    while left_index < len(left_intervals) and right_index < len(right_intervals):
+        left_lower, left_upper = left_intervals[left_index]
+        right_lower, right_upper = right_intervals[right_index]
+
+        # Take the tighter (higher) lower and tighter (lower) upper.
+        lower = (
+            right_lower
+            if _spec_bound_lt(left_lower, right_lower, is_lower=True)
+            else left_lower
+        )
+        upper = (
+            left_upper
+            if _spec_bound_lt(left_upper, right_upper, is_lower=False)
+            else right_upper
+        )
+
+        # Only keep if the resulting interval is non-empty.
+        lower_version, lower_inclusive = lower
+        upper_version, upper_inclusive = upper
+        if (
+            lower_version is None
+            or upper_version is None
+            or lower_version < upper_version
+            or (lower_version == upper_version and lower_inclusive and upper_inclusive)
+        ):
+            result.append((lower, upper))
+
+        # Advance whichever side has the smaller upper bound.
+        if _spec_bound_lt(left_upper, right_upper, is_lower=False):
+            left_index += 1
+        else:
+            right_index += 1
+
+    return result
+
+
+def _next_prefix_dev0(version: Version) -> Version:
+    """Smallest version in the next prefix: 1.2 -> 1.3.dev0."""
+    release = (*version.release[:-1], version.release[-1] + 1)
+    return Version.from_parts(epoch=version.epoch, release=release, dev=0)
+
+
+def _base_dev0(version: Version) -> Version:
+    """The .dev0 of a version's base release: 1.2 -> 1.2.dev0."""
+    return Version.from_parts(epoch=version.epoch, release=version.release, dev=0)
 
 
 def _coerce_version(version: UnparsedVersion) -> Version | None:
@@ -167,7 +330,13 @@ class Specifier(BaseSpecifier):
         comma-separated version specifiers (which is what package metadata contains).
     """
 
-    __slots__ = ("_prereleases", "_spec", "_spec_version", "_wildcard_split")
+    __slots__ = (
+        "_intervals",
+        "_prereleases",
+        "_spec",
+        "_spec_version",
+        "_wildcard_split",
+    )
 
     _specifier_regex_str = r"""
         (?:
@@ -311,6 +480,9 @@ class Specifier(BaseSpecifier):
         # Populated on first wildcard (==X.*) comparison
         self._wildcard_split: tuple[list[str], int] | None = None
 
+        # Interval representation cache
+        self._intervals: list[_SpecifierInterval] | None = None
+
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
         if self._spec_version is not None and self._spec_version[0] == version:
@@ -332,6 +504,69 @@ class Specifier(BaseSpecifier):
         spec_version = self._get_spec_version(version)
         assert spec_version is not None
         return spec_version
+
+    def _to_intervals(self) -> list[_SpecifierInterval]:
+        """Convert this specifier to sorted, non-overlapping intervals.
+
+        Each standard operator maps to one or two intervals. The ``===``
+        operator is modeled as full range since it uses arbitrary string
+        matching; the actual check is done separately.
+        Result is cached.
+        """
+        if self._intervals is not None:
+            return self._intervals
+
+        op = self.operator
+        ver_str = self.version
+
+        if op == "===":
+            self._intervals = _FULL_RANGE
+            return _FULL_RANGE
+
+        result: list[_SpecifierInterval]
+
+        if ver_str.endswith(".*"):
+            # Wildcard bounds: ==1.2.* matches [1.2.dev0, 1.3.dev0).
+            base = self._require_spec_version(ver_str[:-2])
+            lower = _base_dev0(base)
+            upper = _next_prefix_dev0(base)
+            if op == "==":
+                result = [((lower, True), (upper, False))]
+            else:  # !=
+                result = [
+                    ((None, False), (lower, False)),
+                    ((upper, True), (None, False)),
+                ]
+        else:
+            v = self._require_spec_version(ver_str)
+            if op == ">=":
+                result = [((v, True), (None, False))]
+            elif op == "<=":
+                result = [((None, False), (v, True))]
+            elif op == ">":
+                if v.is_postrelease:
+                    result = [((v, False), (None, False))]
+                else:
+                    result = [((_PostExcludeBound(v), False), (None, False))]
+            elif op == "<":
+                bound = v if v.is_prerelease else _base_dev0(v)
+                if bound <= _MIN_VERSION:
+                    result = []
+                else:
+                    result = [((None, False), (bound, False))]
+            elif op == "==":
+                result = [((v, True), (v, True))]
+            elif op == "!=":
+                result = [((None, False), (v, False)), ((v, False), (None, False))]
+            elif op == "~=":
+                prefix = v.__replace__(release=v.release[:-1])
+                upper = _next_prefix_dev0(prefix)
+                result = [((v, True), (upper, False))]
+            else:
+                raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
+
+        self._intervals = result
+        return result
 
     @property
     def prereleases(self) -> bool | None:
@@ -898,7 +1133,14 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_canonicalized", "_prereleases", "_resolved_ops", "_specs")
+    __slots__ = (
+        "_canonicalized",
+        "_intervals",
+        "_is_unsatisfiable",
+        "_prereleases",
+        "_resolved_ops",
+        "_specs",
+    )
 
     def __init__(
         self,
@@ -938,12 +1180,17 @@ class SpecifierSet(BaseSpecifier):
         # we accept prereleases or not.
         self._prereleases = prereleases
 
+        self._is_unsatisfiable: bool | None = None
+        self._intervals: list[_SpecifierInterval] | None = None
+
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
         if not self._canonicalized:
             self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
             self._canonicalized = True
             self._resolved_ops = None
+            self._is_unsatisfiable = None
+            self._intervals = None
         return self._specs
 
     @property
@@ -969,6 +1216,8 @@ class SpecifierSet(BaseSpecifier):
     @prereleases.setter
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
+        self._is_unsatisfiable = None
+        self._intervals = None
 
     def __repr__(self) -> str:
         """A representation of the specifier set that shows all internal state.
@@ -1078,6 +1327,74 @@ class SpecifierSet(BaseSpecifier):
         [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
         """
         return iter(self._specs)
+
+    def _get_intervals(self) -> list[_SpecifierInterval]:
+        """Compute and cache the intersected interval representation.
+
+        Returns an empty list if unsatisfiable, or the intersected interval
+        list otherwise. ``===`` specs are modeled as full range (no
+        constraint).
+        """
+        if self._intervals is not None:
+            return self._intervals
+        if self._is_unsatisfiable is True:
+            return []
+
+        specs = self._specs
+        if not specs:
+            self._intervals = _FULL_RANGE
+            return _FULL_RANGE
+
+        # Intersect specs' intervals, with early exit on empty intersection.
+        result: list[_SpecifierInterval] | None = None
+        for s in specs:
+            if result is None:
+                result = s._to_intervals()
+            else:
+                result = _intersect_intervals(result, s._to_intervals())
+                if not result:
+                    break
+
+        assert result is not None  # specs is non-empty
+        self._intervals = result
+        return result
+
+    def is_unsatisfiable(self) -> bool:
+        """Check whether this specifier set can never be satisfied.
+
+        Returns True if no version can satisfy all specifiers simultaneously.
+        Returns False if the set might be satisfiable (conservative: may
+        return False for some unsatisfiable sets involving === specifiers).
+
+        >>> SpecifierSet(">=2.0,<1.0").is_unsatisfiable()
+        True
+        >>> SpecifierSet(">=1.0,<2.0").is_unsatisfiable()
+        False
+        >>> SpecifierSet("").is_unsatisfiable()
+        False
+        >>> SpecifierSet("==1.0,!=1.0").is_unsatisfiable()
+        True
+        """
+        cached = self._is_unsatisfiable
+        if cached is not None:
+            return cached
+
+        if not self._specs:
+            self._is_unsatisfiable = False
+            return False
+
+        result = not self._get_intervals()
+
+        # Extra: === with an unparsable version can only match raw
+        # strings, but standard specs reject raw strings.
+        if not result and any(
+            s.operator == "===" and _coerce_version(s.version) is None
+            for s in self._specs
+        ):
+            result = any(s.operator != "===" for s in self._specs)
+
+        self._is_unsatisfiable = result
+        return result
 
     def __contains__(self, item: UnparsedVersion) -> bool:
         """Return whether or not the item is contained in this specifier.
