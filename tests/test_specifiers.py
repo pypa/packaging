@@ -2131,6 +2131,91 @@ class TestSpecifierSet:
         assert versions1 & versions2 == combined_versions
 
 
+def _version_family(base: str) -> list[str]:
+    """All PEP 440 suffixes and combinations around a base version."""
+    return [
+        f"{base}.dev0",
+        f"{base}.dev1",
+        f"{base}.dev0+local",
+        f"{base}a0",
+        f"{base}a0.post0.dev0",
+        f"{base}a0.post0",
+        f"{base}a1.dev1",
+        f"{base}a1.dev1+local",
+        f"{base}a1",
+        f"{base}a1+local",
+        f"{base}b1",
+        f"{base}b2.post1.dev1",
+        f"{base}b2.post1",
+        f"{base}rc1.dev1",
+        f"{base}rc1",
+        f"{base}rc2",
+        base,
+        f"{base}.0",
+        f"{base}.post0.dev0",
+        f"{base}.post0",
+        f"{base}.post1",
+        f"{base}.post1+local",
+        f"{base}+local",
+        f"{base}+local1",
+        f"{base}+local2",
+        f"{base}+1",
+        f"{base}+1.local",
+        f"{base}.1.dev1",
+        f"{base}.1a1",
+        f"{base}.1",
+        f"{base}.1+local",
+        f"{base}.1.post1",
+    ]
+
+
+_SAMPLE_BASES: list[str] = [
+    "0",
+    "0.0",
+    "1.0",
+    "1.1",
+    "1.2",
+    "2.0",
+    "2.1",
+    "3.0",
+    "1.0.1",
+    "1.4.2",
+    "2.0.0",
+    "3.10.2",
+    "3.8",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "10.0",
+    "100.0",
+    "1!0.0",
+    "1!1.0",
+    "1!2.0",
+]
+
+
+def _build_sample_versions(
+    bases: list[str], family_fn: Callable[[str], list[str]]
+) -> list[Version]:
+    """version_family x bases, deduplicated."""
+    version_strs: list[str] = []
+    for base in bases:
+        version_strs.extend(family_fn(base))
+    seen: set[str] = set()
+    unique: list[str] = []
+    for v in version_strs:
+        if v not in seen:
+            seen.add(v)
+            unique.append(v)
+    return [Version(v) for v in unique]
+
+
+_SAMPLE_VERSIONS: list[Version] = _build_sample_versions(_SAMPLE_BASES, _version_family)
+
+
 class TestIsUnsatisfiable:
     """Tests for SpecifierSet.is_unsatisfiable().
 
@@ -2138,91 +2223,6 @@ class TestIsUnsatisfiable:
     - UNSATISFIABLE: detected as unsatisfiable, filter returns nothing.
     - SATISFIABLE: not falsely reported as unsatisfiable.
     """
-
-    @staticmethod
-    def _version_family(base: str) -> list[str]:
-        """All PEP 440 suffixes and combinations around a base version."""
-        return [
-            f"{base}.dev0",
-            f"{base}.dev1",
-            f"{base}.dev0+local",
-            f"{base}a0",
-            f"{base}a0.post0.dev0",
-            f"{base}a0.post0",
-            f"{base}a1.dev1",
-            f"{base}a1.dev1+local",
-            f"{base}a1",
-            f"{base}a1+local",
-            f"{base}b1",
-            f"{base}b2.post1.dev1",
-            f"{base}b2.post1",
-            f"{base}rc1.dev1",
-            f"{base}rc1",
-            f"{base}rc2",
-            base,
-            f"{base}.0",
-            f"{base}.post0.dev0",
-            f"{base}.post0",
-            f"{base}.post1",
-            f"{base}.post1+local",
-            f"{base}+local",
-            f"{base}+local1",
-            f"{base}+local2",
-            f"{base}+1",
-            f"{base}+1.local",
-            f"{base}.1.dev1",
-            f"{base}.1a1",
-            f"{base}.1",
-            f"{base}.1+local",
-            f"{base}.1.post1",
-        ]
-
-    SAMPLE_BASES: typing.ClassVar[list[str]] = [
-        "0",
-        "0.0",
-        "1.0",
-        "1.1",
-        "1.2",
-        "2.0",
-        "2.1",
-        "3.0",
-        "1.0.1",
-        "1.4.2",
-        "2.0.0",
-        "3.10.2",
-        "3.8",
-        "3.9",
-        "3.10",
-        "3.11",
-        "3.12",
-        "3.13",
-        "3.14",
-        "10.0",
-        "100.0",
-        "1!0.0",
-        "1!1.0",
-        "1!2.0",
-    ]
-
-    @staticmethod
-    def _build_sample_versions(
-        bases: list[str], family_fn: Callable[[str], list[str]]
-    ) -> list[Version]:
-        """version_family x bases, deduplicated."""
-        version_strs: list[str] = []
-        for base in bases:
-            version_strs.extend(family_fn(base))
-        seen: set[str] = set()
-        unique: list[str] = []
-        for v in version_strs:
-            if v not in seen:
-                seen.add(v)
-                unique.append(v)
-        return [Version(v) for v in unique]
-
-    SAMPLE_VERSIONS: typing.ClassVar[list[Version]] = _build_sample_versions(
-        SAMPLE_BASES, _version_family
-    )
 
     UNSATISFIABLE: typing.ClassVar[list[str]] = [
         # Crossed bounds
@@ -2344,7 +2344,7 @@ class TestIsUnsatisfiable:
         """Unsatisfiable specs must be detected, and filter must return empty."""
         ss = SpecifierSet(spec_str)
         assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
-        result = list(ss.filter(self.SAMPLE_VERSIONS, prereleases=True))
+        result = list(ss.filter(_SAMPLE_VERSIONS, prereleases=True))
         assert result == [], (
             f"is_unsatisfiable() but filter matched: "
             f"{[str(v) for v in result]} for {spec_str!r}"
@@ -2375,3 +2375,23 @@ class TestIsUnsatisfiable:
     def test_and_satisfiable(self) -> None:
         combined = SpecifierSet(">=1.0") & SpecifierSet("<2.0")
         assert not combined.is_unsatisfiable()
+
+    def test_and_reuses_interval_cache(self) -> None:
+        """Specifier interval cache is reused when specs are shared via &."""
+        s1 = SpecifierSet(">=1.0")
+        s2 = SpecifierSet("<2.0")
+        # Compute intervals on the original sets first.
+        assert not s1.is_unsatisfiable()
+        assert not s2.is_unsatisfiable()
+        # __and__ reuses the same Specifier objects, so _to_intervals()
+        # hits the cache on those Specifier instances.
+        combined = s1 & s2
+        assert not combined.is_unsatisfiable()
+
+    def test_interval_bounds_are_hashable(self) -> None:
+        """Interval bounds (including _PostExcludeBound sentinels) are hashable."""
+        spec = Specifier(">1.0")
+        intervals = spec._to_intervals()
+        for lower, upper in intervals:
+            hash(lower)
+            hash(upper)

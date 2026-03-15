@@ -70,9 +70,6 @@ class _PostExcludeBound:
         self.version = version
         self._trimmed_release = _trim_release(version.release)
 
-    def __repr__(self) -> str:
-        return f"_PostExcludeBound({self.version!r})"
-
     def _is_post_family(self, other: Version) -> bool:
         """Is ``other`` the same version as self.version, or a post-release of it?
 
@@ -95,10 +92,9 @@ class _PostExcludeBound:
     def __lt__(self, other: object) -> bool:
         if isinstance(other, _PostExcludeBound):
             return self.version < other.version
-        if isinstance(other, Version):
-            # self < other iff other is NOT in the post-family and other > V
-            return not self._is_post_family(other) and self.version < other
-        return NotImplemented
+        assert isinstance(other, Version)
+        # self < other iff other is NOT in the post-family and other > V
+        return not self._is_post_family(other) and self.version < other
 
     def __hash__(self) -> int:
         return hash(self.version)
@@ -1335,15 +1331,7 @@ class SpecifierSet(BaseSpecifier):
         list otherwise. ``===`` specs are modeled as full range (no
         constraint).
         """
-        if self._intervals is not None:
-            return self._intervals
-        if self._is_unsatisfiable is True:
-            return []
-
         specs = self._specs
-        if not specs:
-            self._intervals = _FULL_RANGE
-            return _FULL_RANGE
 
         # Intersect specs' intervals, with early exit on empty intersection.
         result: list[_SpecifierInterval] | None = None
