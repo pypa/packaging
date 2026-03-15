@@ -81,10 +81,6 @@ class _ExclusionBound:
         self._kind = kind
         self._trimmed_release = _trim_release(version.release)
 
-    def __repr__(self) -> str:
-        label = "AFTER_LOCALS" if self._kind == _AFTER_LOCALS else "AFTER_POSTS"
-        return f"_ExclusionBound({self.version!r}, {label})"
-
     def _is_family(self, other: Version) -> bool:
         """Is ``other`` a version that this sentinel sorts above?"""
         v = self.version
@@ -110,10 +106,9 @@ class _ExclusionBound:
             if self.version != other.version:
                 return self.version < other.version
             return self._kind < other._kind
-        if isinstance(other, Version):
-            # self < other iff other is NOT in the family and other > V
-            return not self._is_family(other) and self.version < other
-        return NotImplemented
+        assert isinstance(other, Version)
+        # self < other iff other is NOT in the family and other > V
+        return not self._is_family(other) and self.version < other
 
     def __hash__(self) -> int:
         return hash((self.version, self._kind))
@@ -1120,13 +1115,8 @@ class SpecifierSet(BaseSpecifier):
         """
         if self._intervals is not None:
             return self._intervals
-        if self._is_unsatisfiable is True:
-            return []
 
         specs = self._specs
-        if not specs:
-            self._intervals = _FULL_RANGE
-            return _FULL_RANGE
 
         # Intersect specs' intervals, bailing out if we encounter ===
         # (string matching, not version comparison) or if the intersection
