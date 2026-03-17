@@ -169,18 +169,15 @@ class Specifier(BaseSpecifier):
 
     __slots__ = ("_prereleases", "_spec", "_spec_version", "_wildcard_split")
 
-    _operator_regex_str = r"""
-        (?P<operator>(~=|==|!=|<=|>=|<|>|===))
-        """
-    _version_regex_str = r"""
-        (?P<version>
+    _specifier_regex_str = r"""
+        (?:
             (?:
                 # The identity operators allow for an escape hatch that will
                 # do an exact string match of the version you wish to install.
                 # This will not be parsed by PEP 440 and we cannot determine
                 # any semantic meaning from it. This operator is discouraged
                 # but included entirely as an escape hatch.
-                (?<====)  # Only match for the identity operator
+                ===  # Only match for the identity operator
                 \s*
                 [^\s;)]*  # The arbitrary version can be just about anything,
                           # we match everything except for whitespace, a
@@ -192,7 +189,7 @@ class Specifier(BaseSpecifier):
                 # The (non)equality operators allow for wild card and local
                 # versions to be specified so we have to define these two
                 # operators separately to enable that.
-                (?<===|!=)            # Only match for equals and not equals
+                (?:==|!=)            # Only match for equals and not equals
 
                 \s*
                 v?
@@ -221,7 +218,7 @@ class Specifier(BaseSpecifier):
             (?:
                 # The compatible operator requires at least two digits in the
                 # release segment.
-                (?<=~=)               # Only match for the compatible operator
+                (?:~=)               # Only match for the compatible operator
 
                 \s*
                 v?
@@ -244,9 +241,7 @@ class Specifier(BaseSpecifier):
                 # (non)equality operators do. Specifically they do not allow
                 # local versions to be specified nor do they allow the prefix
                 # matching wild cards.
-                (?<!==|!=|~=)         # We have special cases for these
-                                      # operators so we want to make sure they
-                                      # don't match here.
+                (?:<=|>=|<|>)
 
                 \s*
                 v?
@@ -267,8 +262,7 @@ class Specifier(BaseSpecifier):
         """
 
     _regex = re.compile(
-        r"\s*" + _operator_regex_str + _version_regex_str + r"\s*",
-        re.VERBOSE | re.IGNORECASE,
+        r"\s*" + _specifier_regex_str + r"\s*", re.VERBOSE | re.IGNORECASE
     )
 
     _operators: Final = {
@@ -295,14 +289,18 @@ class Specifier(BaseSpecifier):
         :raises InvalidSpecifier:
             If the given specifier is invalid (i.e. bad syntax).
         """
-        match = self._regex.fullmatch(spec)
-        if not match:
+        if not self._regex.fullmatch(spec):
             raise InvalidSpecifier(f"Invalid specifier: {spec!r}")
 
-        self._spec: tuple[str, str] = (
-            match.group("operator").strip(),
-            match.group("version").strip(),
-        )
+        spec = spec.strip()
+        if spec.startswith("==="):
+            operator, version = spec[:3], spec[3:].strip()
+        elif spec.startswith(("~=", "==", "!=", "<=", ">=")):
+            operator, version = spec[:2], spec[2:].strip()
+        else:
+            operator, version = spec[:1], spec[1:].strip()
+
+        self._spec: tuple[str, str] = (operator, version)
 
         # Store whether or not this Specifier should accept prereleases
         self._prereleases = prereleases
