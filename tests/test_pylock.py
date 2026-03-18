@@ -331,6 +331,15 @@ def test_pylock_invalid_vcs() -> None:
             ),
             "example-2.0.tar.gz",
         ),
+        (
+            # url preferred over path
+            PackageSdist(
+                url="https://example.com/example-2.0.tar.gz",
+                path="./example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-2.0.tar.gz",
+        ),
         # wheels
         (
             PackageWheel(
@@ -374,6 +383,15 @@ def test_pylock_invalid_vcs() -> None:
             PackageWheel(
                 name="example-2.0-py3-none-any.whl",
                 url="https://example.com/example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.0-py3-none-any.whl",
+        ),
+        (
+            # url preferred over path
+            PackageWheel(
+                url="https://example.com/example-2.0-py3-none-any.whl",
+                path="./example-1.0-py3-none-any.whl",
                 hashes={},
             ),
             "example-2.0-py3-none-any.whl",
@@ -440,138 +458,6 @@ def test_pylock_invalid_sdist_filename() -> None:
     assert str(exc_info.value) == (
         "Invalid sdist filename 'example.tar.gz' in 'packages[0].sdist'"
     )
-
-
-def test_pylock_sdist_path_url_mismatch() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "sdist": {
-                    "path": "./that-1.0.tar.gz",
-                    "url": "https://example.com/this-1.0.tar.gz",
-                    "hashes": {"sha256": "f" * 40},
-                },
-            },
-        ],
-    }
-    with pytest.raises(PylockValidationError) as exc_info:
-        Pylock.from_dict(data)
-    assert str(exc_info.value) == (
-        "'path' name 'that-1.0.tar.gz' and 'url' name 'this-1.0.tar.gz' "
-        "must be identical when 'name' is not set in 'packages[0].sdist'"
-    )
-
-
-def test_pylock_sdist_path_url_match() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "sdist": {
-                    "path": "./that-1.0.tar.gz",
-                    "url": "https://example.com/that-1.0.tar.gz",
-                    "hashes": {"sha256": "f" * 40},
-                },
-            },
-        ],
-    }
-    Pylock.from_dict(data)
-
-
-def test_pylock_wheel_path_url_mismatch() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "wheels": [
-                    {
-                        "path": "./that-1.0-py3-none-any.whl",
-                        "url": "http://example.com/this-1.0-py3-none-any.whl",
-                        "hashes": {"sha256": "f" * 40},
-                    }
-                ],
-            },
-        ],
-    }
-    with pytest.raises(PylockValidationError) as exc_info:
-        Pylock.from_dict(data)
-    assert str(exc_info.value) == (
-        "'path' name 'that-1.0-py3-none-any.whl' and "
-        "'url' name 'this-1.0-py3-none-any.whl' "
-        "must be identical when 'name' is not set in 'packages[0].wheels[0]'"
-    )
-
-
-def test_pylock_wheel_path_url_match() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "wheels": [
-                    {
-                        "path": "./that-1.0-py3-none-any.whl",
-                        "url": "http://example.com/that-1.0-py3-none-any.whl",
-                        "hashes": {"sha256": "f" * 40},
-                    }
-                ],
-            },
-        ],
-    }
-    Pylock.from_dict(data)
-
-
-def test_pylock_sdist_path_url_mismatch_use_name() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "sdist": {
-                    "name": "./example-1.0.tar.gz",
-                    "path": "./that-1.0.tar.gz",
-                    "url": "https://example.com/this-1.0.tar.gz",
-                    "hashes": {"sha256": "f" * 40},
-                },
-            },
-        ],
-    }
-    Pylock.from_dict(data)
-    pylock = Pylock.from_dict(data)
-    assert pylock.packages[0].sdist
-    assert pylock.packages[0].sdist.filename == pylock.packages[0].sdist.name
-
-
-def test_pylock_wheel_path_url_mismatch_use_name() -> None:
-    data = {
-        "lock-version": "1.0",
-        "created-by": "pip",
-        "packages": [
-            {
-                "name": "example",
-                "wheels": [
-                    {
-                        "name": "example-1.0-py3-none-any.whl",
-                        "path": "./that-1.0-py3-none-any.whl",
-                        "url": "http://example.com/this-1.0-py3-none-any.whl",
-                        "hashes": {"sha256": "f" * 40},
-                    }
-                ],
-            },
-        ],
-    }
-    pylock = Pylock.from_dict(data)
-    assert pylock.packages[0].wheels
-    assert pylock.packages[0].wheels[0].filename == pylock.packages[0].wheels[0].name
 
 
 def test_pylock_invalid_wheel() -> None:
