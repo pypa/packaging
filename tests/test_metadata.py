@@ -539,6 +539,15 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.description_content_type  # noqa: B018
 
+    def test_invalid_charset_error_message(self) -> None:
+        meta = metadata.Metadata.from_raw(
+            {"description_content_type": "text/plain; charset=iso-8859-1"},
+            validate=False,
+        )
+
+        with pytest.raises(metadata.InvalidMetadata, match="iso-8859-1"):
+            meta.description_content_type  # noqa: B018
+
     def test_keywords(self) -> None:
         keywords = ["hello", "world"]
         meta = metadata.Metadata.from_raw({"keywords": keywords}, validate=False)
