@@ -632,7 +632,7 @@ class _Validator(Generic[T]):
         charset = parameters.get("charset", "UTF-8")
         if charset != "UTF-8":
             raise self._invalid_metadata(
-                f"{{field}} can only specify the UTF-8 charset, not {list(charset)}"
+                f"{{field}} can only specify the UTF-8 charset, not {charset!r}"
             )
 
         markdown_variants = {"GFM", "CommonMark"}
