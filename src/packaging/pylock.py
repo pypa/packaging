@@ -755,10 +755,10 @@ class Pylock:
                 ),
             ),
         )
-        env_python_version = (
-            environment["python_version"]
+        env_python_full_version = (
+            environment["python_full_version"]
             if environment
-            else default_environment()["python_version"]
+            else default_environment()["python_full_version"]
         )
 
         # #. Check if the metadata version specified by :ref:`pylock-lock-version` is
@@ -769,11 +769,12 @@ class Pylock:
         #    being installed for meets the requirement; an error MUST be raised if it is
         #    not met.
         if self.requires_python and not self.requires_python.contains(
-            env_python_version,
+            env_python_full_version,
         ):
             raise PylockSelectError(
-                f"Provided environment does not satisfy the Python version "
-                f"requirement {self.requires_python!r}"
+                f"python_full_version {env_python_full_version!r} "
+                f"in provided environment does not satisfy the Python version "
+                f"requirement {str(self.requires_python)!r}"
             )
 
         # #. If :ref:`pylock-environments` is specified, check that at least one of the
@@ -802,11 +803,12 @@ class Pylock:
             # #. If :ref:`pylock-packages-requires-python` is specified, check if it is
             #    satisfied; an error MUST be raised if it isn't.
             if package.requires_python and not package.requires_python.contains(
-                env_python_version,
+                env_python_full_version,
             ):
                 raise PylockSelectError(
-                    f"Provided environment does not satisfy the Python version "
-                    f"requirement {package.requires_python!r} for package "
+                    f"python_full_version {env_python_full_version!r} "
+                    f"in provided environment does not satisfy the Python version "
+                    f"requirement {str(package.requires_python)!r} for package "
                     f"{package.name!r} at packages[{package_index}]"
                 )
 

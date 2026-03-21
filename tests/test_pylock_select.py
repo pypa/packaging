@@ -103,7 +103,7 @@ def test_lock_require_python_mismatch() -> None:
     pylock.validate()
     with pytest.raises(
         PylockSelectError,
-        match="Provided environment does not satisfy the Python version requirement",
+        match="provided environment does not satisfy the Python version requirement",
     ):
         list(
             pylock.select(
@@ -130,7 +130,7 @@ def test_package_require_python_mismatch() -> None:
     with pytest.raises(
         PylockSelectError,
         match=(
-            r"Provided environment does not satisfy the Python version requirement "
+            r"provided environment does not satisfy the Python version requirement "
             r".* for package 'foo'"
         ),
     ):
