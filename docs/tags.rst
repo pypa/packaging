@@ -157,6 +157,8 @@ to the implementation to provide.
 
     Yields the :attr:`~Tag.platform` tags for iOS.
 
+    .. versionadded:: 24.1
+
     :param tuple version: A two-item tuple representing the version of iOS.
                           Defaults to the current system's version.
     :param str multiarch: The CPU architecture+ABI to be used. This should be in
@@ -173,6 +175,8 @@ to the implementation to provide.
 
     Yields the :attr:`~Tag.platform` tags for Android. If this function is invoked on
     non-Android platforms, the ``api_level`` and ``abi`` arguments are required.
+
+    .. versionadded:: 24.2
 
     :param int api_level: The maximum `API level
         <https://developer.android.com/tools/releases/platforms>`__ to return. Defaults

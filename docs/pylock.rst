@@ -5,6 +5,8 @@ Lock Files
 
 Parse and validate `pylock.toml files <https://packaging.python.org/en/latest/specifications/pylock-toml/>`_.
 
+.. versionadded:: 25.0
+
 Usage
 -----
 

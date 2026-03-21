@@ -42,13 +42,19 @@ High Level Interface
 .. autoclass:: packaging.metadata.Metadata
     :members:
 
+    .. versionadded:: 23.2
+
 Low Level Interface
 '''''''''''''''''''
 
 .. autoclass:: packaging.metadata.RawMetadata
     :members:
 
+    .. versionadded:: 23.1
+
 .. autofunction:: packaging.metadata.parse_email
+
+    .. versionadded:: 23.1
 
 
 Exceptions
@@ -57,8 +63,12 @@ Exceptions
 .. autoclass:: packaging.metadata.InvalidMetadata
     :members:
 
+    .. versionadded:: 23.2
+
 .. autoclass:: packaging.metadata.ExceptionGroup
     :members:
+
+    .. versionadded:: 23.2
 
 
 .. _source distributions: https://packaging.python.org/en/latest/specifications/source-distribution-format/
