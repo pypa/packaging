@@ -692,6 +692,61 @@ class TestSpecifier:
         assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
+        ("spec_str", "version", "expected"),
+        [
+            # Zero padding: unnormalized spec vs string/Version
+            # Strings preserve their original form, so "1.01" != "1.1"
+            ("===1.1", "1.01", False),
+            ("===1.01", "1.1", False),
+            ("===1.01", "1.01", True),
+            ("===1.1", "1.1", True),
+            # Version objects are normalized, so Version("1.01") -> "1.1"
+            ("===1.1", Version("1.01"), True),
+            ("===1.1", Version("1.1"), True),
+            ("===1.01", Version("1.01"), False),
+            ("===1.01", Version("1.1"), False),
+            # Prerelease separator normalization (issue #766)
+            # "1.a1" is valid PEP 440, normalizes to "1a1"
+            ("===1.a1", "1.a1", True),
+            ("===1a1", "1.a1", False),
+            ("===1.a1", "1a1", False),
+            ("===1a1", "1a1", True),
+            ("===1.a1", Version("1.a1"), False),
+            ("===1a1", Version("1.a1"), True),
+            # Epoch normalization: "0!1.0" normalizes to "1.0"
+            ("===0!1.0", "0!1.0", True),
+            ("===0!1.0", "1.0", False),
+            ("===1.0", "0!1.0", False),
+            ("===0!1.0", Version("1.0"), False),
+            ("===1.0", Version("0!1.0"), True),
+            # Leading zeros in release segments
+            ("===01.0", "01.0", True),
+            ("===01.0", "1.0", False),
+            ("===1.0", "01.0", False),
+            ("===01.0", Version("1.0"), False),
+            ("===1.0", Version("01.0"), True),
+            # Post-release normalization: "post" vs "-" separator
+            ("===1.0.post1", "1.0.post1", True),
+            ("===1.0-1", "1.0-1", True),
+            ("===1.0-1", "1.0.post1", False),
+            ("===1.0.post1", "1.0-1", False),
+            ("===1.0-1", Version("1.0.post1"), False),
+            ("===1.0.post1", Version("1.0-1"), True),
+            # Dev normalization
+            ("===1.0.dev01", "1.0.dev01", True),
+            ("===1.0.dev01", "1.0.dev1", False),
+            ("===1.0.dev1", "1.0.dev01", False),
+            ("===1.0.dev01", Version("1.0.dev1"), False),
+            ("===1.0.dev1", Version("1.0.dev01"), True),
+        ],
+    )
+    def test_arbitrary_equality_normalization(
+        self, spec_str: str, version: str | Version, expected: bool
+    ) -> None:
+        spec = Specifier(spec_str, prereleases=True)
+        assert spec.contains(version) == expected
+
+    @pytest.mark.parametrize(
         ("specifier", "expected"),
         [
             ("==1.0", False),
@@ -829,6 +884,33 @@ class TestSpecifier:
             result = list(spec.filter(input, prereleases=prereleases))
 
         assert result == expected
+
+    @pytest.mark.parametrize(
+        ("specifier", "input", "expected"),
+        [
+            # Strings preserve original form
+            ("===1.01", ["1.01", "1.1", "1.0.1"], ["1.01"]),
+            ("===1.1", ["1.01", "1.1"], ["1.1"]),
+            # Version objects use normalized form
+            (
+                "===1.1",
+                [Version("1.01"), Version("1.1")],
+                [Version("1.01"), Version("1.1")],
+            ),
+            ("===1.01", [Version("1.01"), Version("1.1")], []),
+            # Mixed strings and Version objects
+            ("===1.1", ["1.01", "1.1", Version("1.01")], ["1.1", Version("1.01")]),
+            ("===1.01", ["1.01", "1.1", Version("1.01")], ["1.01"]),
+            # Prerelease separator
+            ("===1.a1", ["1.a1", "1a1"], ["1.a1"]),
+            ("===1a1", ["1.a1", "1a1", Version("1.a1")], ["1a1", Version("1.a1")]),
+        ],
+    )
+    def test_specifier_filter_arbitrary_equality_normalization(
+        self, specifier: str, input: list[str | Version], expected: list[str | Version]
+    ) -> None:
+        spec = Specifier(specifier, prereleases=True)
+        assert list(spec.filter(input)) == expected
 
     @pytest.mark.parametrize(
         ("prereleases", "expected_indexes"),
@@ -1915,6 +1997,37 @@ class TestSpecifierSet:
         self, version: str, specifier: str, expected: bool
     ) -> None:
         spec = SpecifierSet(specifier)
+        assert spec.contains(version) == expected
+
+    @pytest.mark.parametrize(
+        ("spec_str", "version", "expected"),
+        [
+            # Zero padding: string preserves original, Version normalizes
+            ("===1.1", "1.01", False),
+            ("===1.01", "1.1", False),
+            ("===1.01", "1.01", True),
+            ("===1.1", "1.1", True),
+            ("===1.1", Version("1.01"), True),
+            ("===1.01", Version("1.01"), False),
+            # Prerelease separator normalization
+            ("===1.a1", "1.a1", True),
+            ("===1a1", "1.a1", False),
+            ("===1.a1", "1a1", False),
+            ("===1a1", "1a1", True),
+            ("===1.a1", Version("1.a1"), False),
+            ("===1a1", Version("1.a1"), True),
+            # Combined with other operators
+            (">=1.0,===1.01", "1.01", True),
+            (">=1.0,===1.1", "1.1", True),
+            (">=1.0,===1.1", "1.01", False),
+            (">=1.0,===1.1", Version("1.01"), True),
+            (">=1.0,===1.01", Version("1.01"), False),
+        ],
+    )
+    def test_contains_arbitrary_equality_normalization(
+        self, spec_str: str, version: str | Version, expected: bool
+    ) -> None:
+        spec = SpecifierSet(spec_str, prereleases=True)
         assert spec.contains(version) == expected
 
     @pytest.mark.parametrize(
