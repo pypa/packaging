@@ -19,7 +19,7 @@ from packaging.markers import (
     Marker,
     UndefinedComparison,
     default_environment,
-    format_full_version,
+    _format_full_version,
 )
 
 VARIABLES = [
@@ -160,11 +160,11 @@ class TestDefaultEnvironment:
 
     def tests_when_releaselevel_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "final", 0)
-        assert format_full_version(v) == "3.4.2"  # type: ignore[arg-type]
+        assert _format_full_version(v) == "3.4.2"  # type: ignore[arg-type]
 
     def tests_when_releaselevel_not_final(self) -> None:
         v = FakeVersionInfo(3, 4, 2, "beta", 4)
-        assert format_full_version(v) == "3.4.2b4"  # type: ignore[arg-type]
+        assert _format_full_version(v) == "3.4.2b4"  # type: ignore[arg-type]
 
 
 class TestMarker:
