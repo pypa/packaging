@@ -486,6 +486,63 @@ class TestMarker:
         marker = Marker(marker_string)
         assert marker.evaluate(environment) is expected
 
+    @pytest.mark.parametrize(
+        ("marker_string", "environment", "expected"),
+        [
+            # Issue #934: marker variable on RHS should work like LHS
+            (
+                "'3.13.*' == python_full_version",
+                {"python_full_version": "3.13.7"},
+                True,
+            ),
+            (
+                "'3.13.*' == python_full_version",
+                {"python_full_version": "3.14.0"},
+                False,
+            ),
+            (
+                "'3.9' <= python_version",
+                {"python_version": "3.13"},
+                True,
+            ),
+            (
+                "'3.14' > python_version",
+                {"python_version": "3.13"},
+                True,
+            ),
+            (
+                "'3.14' > python_version",
+                {"python_version": "3.15"},
+                False,
+            ),
+            # Non-version markers with variable on RHS
+            (
+                "'posix' == os_name",
+                {"os_name": "posix"},
+                True,
+            ),
+            (
+                "'nt' != os_name",
+                {"os_name": "posix"},
+                True,
+            ),
+        ],
+    )
+    def test_marker_variable_on_rhs(
+        self, marker_string: str, environment: dict[str, str], expected: bool
+    ) -> None:
+        """
+        Test for issue #934: Marker version comparison fails when the marker
+        variable is on the RHS of a term.
+
+        The spec allows marker variables on either side, e.g.::
+
+            python_version >= '3.9'
+            '3.9' <= python_version
+        """
+        marker = Marker(marker_string)
+        assert marker.evaluate(environment) is expected
+
 
 def test_and_operator_evaluates_true() -> None:
     env = {"python_version": "3.8", "os_name": "posix"}

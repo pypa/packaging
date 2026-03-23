@@ -201,7 +201,7 @@ def _format_marker(
         return marker
 
 
-_operators: dict[str, Operator] = {
+_OPERATORS: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
     "<": lambda _lhs, _rhs: False,
@@ -212,8 +212,38 @@ _operators: dict[str, Operator] = {
     ">": lambda _lhs, _rhs: False,
 }
 
+# Operator inversion map: lhs op rhs  ⟺  rhs (inv op) lhs
+_OP_INVERSION: dict[str, str] = {
+    "<": ">",
+    ">": "<",
+    "<=": ">=",
+    ">=": "<=",
+    "==": "==",
+    "!=": "!=",
+    "in": "in",
+    "not in": "not in",
+}
 
-def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
+
+def _eval_op(
+    lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str, invert: bool = False
+) -> bool:
+    """Evaluate a marker comparison.
+
+    When *invert* is ``True``, the caller passed operands in reversed order
+    (because the marker variable was on the RHS).  For version markers we
+    swap them back and flip the operator so ``_eval_op`` always sees the
+    canonical ``env-value op spec-pattern`` order.  For set-based markers
+    (extras / dependency_groups with ``in`` / ``not in``) the original
+    ``literal-in-set`` order is already correct, so no swap is needed.
+    """
+    # Only swap for directional comparison operators.  Membership operators
+    # (in / not in) perform a substring or set-membership check where the
+    # original order (literal lhs, env rhs) is already correct.
+    if invert and op.value not in ("in", "not in") and key in MARKERS_REQUIRING_VERSION:
+        lhs, rhs = cast("str", rhs), cast("str | AbstractSet[str]", lhs)
+        op = Op(_OP_INVERSION[op.value])
+
     op_str = op.serialize()
     if key in MARKERS_REQUIRING_VERSION:
         try:
@@ -223,7 +253,7 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
         else:
             return spec.contains(lhs, prereleases=True)
 
-    oper: Operator | None = _operators.get(op_str)
+    oper: Operator | None = _OPERATORS.get(op_str)
     if oper is None:
         raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
 
@@ -273,7 +303,15 @@ def _evaluate_markers(
 
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
+
+            # When the marker variable is on the RHS, tell _eval_op so it can
+            # swap operands back for version comparison markers.  For set-based
+            # markers (in / not in with extras / dependency_groups) the
+            # original order already works, so _eval_op skips the swap.
+            var_on_rhs = isinstance(rhs, Variable)
+            groups[-1].append(
+                _eval_op(lhs_value, op, rhs_value, key=environment_key, invert=var_on_rhs)
+            )
         elif marker == "or":
             groups.append([])
         elif marker == "and":
