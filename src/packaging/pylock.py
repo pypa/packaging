@@ -146,7 +146,12 @@ def _get_as(
     if (value := _get(d, expected_type, key)) is None:
         return None
     try:
-        return target_type(value)
+        if isinstance(target_type, type) and issubclass(target_type, Version):
+            return target_type.cached(value)  # type: ignore[arg-type,return-value]
+        else:
+            # mypy incorrectly narrows to `object` here, rather than retaining
+            # target_type's original type
+            return target_type(value)  # type: ignore[call-arg,return-value]
     except Exception as e:
         raise PylockValidationError(e, context=key) from e
 
@@ -664,7 +669,7 @@ class Pylock:
             packages=_get_required_sequence_of_objects(d, Package, "packages"),
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        if not Version("1") <= pylock.lock_version < Version("2"):
+        if not Version.cached("1") <= pylock.lock_version < Version.cached("2"):
             raise PylockUnsupportedVersionError(
                 f"pylock version {pylock.lock_version} is not supported"
             )

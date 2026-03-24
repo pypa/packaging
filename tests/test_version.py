@@ -1235,3 +1235,22 @@ def test_hatchling_usage__version() -> None:
 def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
     v = Version.from_parts(**args)
     assert v == Version(string)
+
+
+def test_version_construction_with_dict_cache_produces_identical_results(
+    request: pytest.FixtureRequest,
+) -> None:
+    # at the end of the test, no matter what, ensure the cache is cleared
+    request.addfinalizer(lambda: Version.set_cache(None))
+
+    # enable caching
+    Version.set_cache({})
+    x = Version.cached("1.0")
+    y = Version.cached("1.0")
+    assert x is y  # caching worked!
+
+    # disable caching
+    Version.set_cache(None)
+    x2 = Version.cached("1.0")
+    y2 = Version.cached("1.0")
+    assert x2 is not y2  # caching was not inappropriately used
