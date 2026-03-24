@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "collections",
+    "collections.abc",
+    "datetime",
+    f"{__spec__.parent}.markers",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.utils",
+    f"{__spec__.parent}.version",
+    "urllib",
+    "urllib.parse",
+]
+
 import dataclasses
 import logging
 import re

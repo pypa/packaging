@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [f"{__spec__.parent}.tags", f"{__spec__.parent}.version"]
+
 import re
 from typing import NewType, Tuple, Union, cast
 
