@@ -74,6 +74,14 @@ class Tag:
     __slots__ = ["_abi", "_hash", "_interpreter", "_platform"]
 
     def __init__(self, interpreter: str, abi: str, platform: str) -> None:
+        """
+        :param str interpreter: The interpreter name, e.g. ``"py"``
+                                (see :attr:`INTERPRETER_SHORT_NAMES` for mapping
+                                well-known interpreter names to their short names).
+        :param str abi: The ABI that a wheel supports, e.g. ``"cp37m"``.
+        :param str platform: The OS/platform the wheel supports,
+                            e.g. ``"win_amd64"``.
+        """
         self._interpreter = interpreter.lower()
         self._abi = abi.lower()
         self._platform = platform.lower()
@@ -86,14 +94,25 @@ class Tag:
 
     @property
     def interpreter(self) -> str:
+        """
+        The interpreter name, e.g. ``"py"`` (see
+        :attr:`INTERPRETER_SHORT_NAMES` for mapping well-known interpreter
+        names to their short names).
+        """
         return self._interpreter
 
     @property
     def abi(self) -> str:
+        """
+        The supported ABI.
+        """
         return self._abi
 
     @property
     def platform(self) -> str:
+        """
+        The OS/platform.
+        """
         return self._platform
 
     def __eq__(self, other: object) -> bool:
@@ -126,10 +145,14 @@ class Tag:
 
 def parse_tag(tag: str) -> frozenset[Tag]:
     """
-    Parses the provided tag (e.g. `py3-none-any`) into a frozenset of Tag instances.
+    Parses the provided tag (e.g. `py3-none-any`) into a frozenset of
+    :class:`Tag` instances.
 
     Returning a set is required due to the possibility that the tag is a
-    compressed tag set.
+    `compressed tag set`_, e.g. ``"py2.py3-none-any"`` which supports both
+    Python 2 and Python 3.
+
+    :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
     """
     tags = set()
     interpreters, abis, platforms = tag.split("-")
@@ -220,19 +243,27 @@ def cpython_tags(
     warn: bool = False,
 ) -> Iterator[Tag]:
     """
-    Yields the tags for a CPython interpreter.
+    Yields the tags for the CPython interpreter.
 
-    The tags consist of:
-    - cp<python_version>-<abi>-<platform>
-    - cp<python_version>-abi3-<platform>
-    - cp<python_version>-none-<platform>
-    - cp<less than python_version>-abi3-<platform>  # Older Python versions down to 3.2.
+    The specific tags generated are:
 
-    If python_version only specifies a major version then user-provided ABIs and
-    the 'none' ABItag will be used.
+    - ``cp<python_version>-<abi>-<platform>``
+    - ``cp<python_version>-abi3-<platform>``
+    - ``cp<python_version>-none-<platform>``
+    - ``cp<older version>-abi3-<platform>`` where "older version" is all older
+      minor versions down to Python 3.2 (when ``abi3`` was introduced)
 
-    If 'abi3' or 'none' are specified in 'abis' then they will be yielded at
-    their normal position and not at the beginning.
+    If ``python_version`` only provides a major-only version then only
+    user-provided ABIs via ``abis`` and the ``none`` ABI will be used.
+
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 targeted Python version. Defaults to
+                                 ``sys.version_info[:2]``.
+    :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
+                          compatible with the current system.
+    :param Iterable platforms: Iterable of compatible platforms. Defaults to the
+                               platforms compatible with the current system.
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
     """
     if not python_version:
         python_version = sys.version_info[:2]
@@ -317,12 +348,25 @@ def generic_tags(
     warn: bool = False,
 ) -> Iterator[Tag]:
     """
-    Yields the tags for a generic interpreter.
+    Yields the tags for an interpreter which requires no specialization.
 
-    The tags consist of:
-    - <interpreter>-<abi>-<platform>
+    This function should be used if one of the other interpreter-specific
+    functions provided by this module is not appropriate (i.e. not calculating
+    tags for a CPython interpreter).
 
-    The "none" ABI will be added if it was not explicitly provided.
+    The specific tags generated are:
+
+    - ``<interpreter>-<abi>-<platform>``
+
+    The ``"none"`` ABI will be added if it was not explicitly provided.
+
+    :param str interpreter: The name of the interpreter. Defaults to being
+                            calculated.
+    :param Iterable abis: Iterable of compatible ABIs. Defaults to the ABIs
+                          compatible with the current system.
+    :param Iterable platforms: Iterable of compatible platforms. Defaults to the
+                               platforms compatible with the current system.
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
     """
     if not interpreter:
         interp_name = interpreter_name()
@@ -358,12 +402,22 @@ def compatible_tags(
     platforms: Iterable[str] | None = None,
 ) -> Iterator[Tag]:
     """
-    Yields the sequence of tags that are compatible with a specific version of Python.
+    Yields the tags for an interpreter compatible with the Python version
+    specified by ``python_version``.
 
-    The tags consist of:
-    - py*-none-<platform>
-    - <interpreter>-none-any  # ... if `interpreter` is provided.
-    - py*-none-any
+    The specific tags generated are:
+
+    - ``py*-none-<platform>``
+    - ``<interpreter>-none-any`` if ``interpreter`` is provided
+    - ``py*-none-any``
+
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 compatible version of Python. Defaults to
+                                 ``sys.version_info[:2]``.
+    :param str interpreter: The name of the interpreter (if known), e.g.
+                            ``"cp38"``. Defaults to the current interpreter.
+    :param Iterable platforms: Iterable of compatible platforms. Defaults to the
+                               platforms compatible with the current system.
     """
     if not python_version:
         python_version = sys.version_info[:2]
@@ -423,12 +477,25 @@ def mac_platforms(
     version: AppleVersion | None = None, arch: str | None = None
 ) -> Iterator[str]:
     """
-    Yields the platform tags for a macOS system.
+    Yields the :attr:`~Tag.platform` tags for macOS.
 
     The `version` parameter is a two-item tuple specifying the macOS version to
     generate platform tags for. The `arch` parameter is the CPU architecture to
     generate platform tags for. Both parameters default to the appropriate value
     for the current system.
+
+    :param tuple version: A two-item tuple representing the version of macOS.
+                          Defaults to the current system's version.
+    :param str arch: The CPU architecture. Defaults to the architecture of the
+                     current system, e.g. ``"x86_64"``.
+
+    .. note::
+        Equivalent support for the other major platforms is purposefully not
+        provided:
+
+        - On Windows, platform compatibility is statically specified
+        - On Linux, code must be run on the system itself to determine
+          compatibility
     """
     version_str, _, cpu_arch = platform.mac_ver()
     if version is None:
@@ -499,14 +566,19 @@ def ios_platforms(
     version: AppleVersion | None = None, multiarch: str | None = None
 ) -> Iterator[str]:
     """
-    Yields the platform tags for an iOS system.
 
-    :param version: A two-item tuple specifying the iOS version to generate
-        platform tags for. Defaults to the current iOS version.
-    :param multiarch: The CPU architecture+ABI to generate platform tags for -
-        (the value used by `sys.implementation._multiarch` e.g.,
-        `arm64_iphoneos` or `x84_64_iphonesimulator`). Defaults to the current
-        multiarch value.
+    Yields the :attr:`~Tag.platform` tags for iOS.
+
+    :param tuple version: A two-item tuple representing the version of iOS.
+                          Defaults to the current system's version.
+    :param str multiarch: The CPU architecture+ABI to be used. This should be in
+                          the format by ``sys.implementation._multiarch`` (e.g.,
+                          ``arm64_iphoneos`` or ``x86_64_iphonesimulator``).
+                          Defaults to the current system's multiarch value.
+
+    .. note::
+        Behavior of this method is undefined if invoked on non-iOS platforms
+        without providing explicit version and multiarch arguments.
     """
     if version is None:
         # if iOS is the current platform, ios_ver *must* be defined. However,
@@ -614,7 +686,7 @@ def _generic_platforms() -> Iterator[str]:
 
 def platform_tags() -> Iterator[str]:
     """
-    Provides the platform tags for this installation.
+    Yields the :attr:`~Tag.platform` tags for the running interpreter.
     """
     if platform.system() == "Darwin":
         return mac_platforms()
@@ -634,6 +706,8 @@ def interpreter_name() -> str:
 
     Some implementations have a reserved, two-letter abbreviation which will
     be returned when appropriate.
+
+    This typically acts as the prefix to the :attr:`~Tag.interpreter` tag.
     """
     name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
@@ -641,7 +715,11 @@ def interpreter_name() -> str:
 
 def interpreter_version(*, warn: bool = False) -> str:
     """
-    Returns the version of the running interpreter.
+    Returns the running interpreter's version.
+
+    This typically acts as the suffix to the :attr:`~Tag.interpreter` tag.
+
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
     """
     version = _get_config_var("py_version_nodot", warn=warn)
     return str(version) if version else _version_nodot(sys.version_info[:2])
@@ -653,10 +731,29 @@ def _version_nodot(version: PythonVersion) -> str:
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     """
-    Returns the sequence of tag triples for the running interpreter.
+    Yields the sequence of tag triples that the running interpreter supports.
 
-    The order of the sequence corresponds to priority order for the
-    interpreter, from most to least important.
+    The iterable is ordered so that the best-matching tag is first in the
+    sequence. The exact preferential order to tags is interpreter-specific, but
+    in general the tag importance is in the order of:
+
+    1. Interpreter
+    2. Platform
+    3. ABI
+
+    This order is due to the fact that an ABI is inherently tied to the
+    platform, but platform-specific code is not necessarily tied to the ABI. The
+    interpreter is the most important tag as it dictates basic support for any
+    wheel.
+
+    The function returns an iterable in order to allow for the possible
+    short-circuiting of tag generation if the entire sequence is not necessary
+    and tag calculation happens to be expensive.
+
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionchanged:: 21.3
+        Added the `pp3-none-any` tag (:issue:`311`).
     """
 
     interp_name = interpreter_name()
