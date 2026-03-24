@@ -395,18 +395,21 @@ class Version(_BaseVersion):
     _constructor_cache: MutableMapping[str, Self] | None = None
 
     def __new__(cls, *args: object) -> Self:
-        if (
-            (constructor_cache := cls._constructor_cache) is not None
-            and len(args) == 1
-            and isinstance(version_str := args[0], str)
-        ):
+        constructor_cache = cls._constructor_cache
+        # there is no cache or no args were given (as in __replace__ or from_parts)
+        # then a new object is always constructed
+        if constructor_cache is None or not args:
+            return super().__new__(cls)
+        else:
+            # the version str is taken as the first arg, and it should be the only arg
+            # supplying an invalid value here -- e.g., an unhashable type -- will result
+            # in errors
+            version_str: str = args[0]  # type: ignore[assignment]
             version_obj = constructor_cache.get(version_str, None)
             if version_obj is None:
                 version_obj = super().__new__(cls)
                 constructor_cache[version_str] = version_obj
             return version_obj
-
-        return super().__new__(cls)
 
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
