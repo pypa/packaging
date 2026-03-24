@@ -36,6 +36,29 @@ class TimeVersionSuite:
             except InvalidVersion:  # noqa: PERF203
                 pass
 
+    def time_constructor_with_cache_enabled_if_available(self) -> None:
+        """
+        A duplicate of the time_constructor test, but with a dict cache enabled if the
+        set_constructor_cache method is available.
+
+        If not, fall-back to just being a duplicate of the constructor test.
+        """
+        try:
+            Version.set_constructor_cache({})
+        except AttributeError:
+            pass
+
+        for v in self.versions:
+            try:
+                Version(v)
+            except InvalidVersion:  # noqa: PERF203
+                pass
+
+        try:
+            Version.set_constructor_cache(None)
+        except AttributeError:
+            pass
+
     @add_attributes(pretty_name="Version hash")
     def time_hash(self) -> None:
         for v in self.valid_versions:

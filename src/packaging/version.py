@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import contextvars
 import re
 import sys
 import typing
@@ -393,13 +392,11 @@ class Version(_BaseVersion):
     _hash_cache: int | None
     _key_cache: CmpKey | None
 
-    _constructor_cache: contextvars.ContextVar[MutableMapping[str, Self] | None] = (
-        contextvars.ContextVar("constructor_cache")
-    )
+    _constructor_cache: MutableMapping[str, Self] | None = None
 
     def __new__(cls, *args: object) -> Self:
         if (
-            (constructor_cache := cls._constructor_cache.get(None)) is not None
+            (constructor_cache := cls._constructor_cache) is not None
             and len(args) == 1
             and isinstance(version_str := args[0], str)
         ):
@@ -463,12 +460,17 @@ class Version(_BaseVersion):
     @classmethod
     def set_constructor_cache(cls, cache: MutableMapping[str, Self] | None) -> None:
         """
-        Set the cache to use for ``Version`` construction, as a contextvar.
+        Set the cache to use for ``Version`` construction.
 
         The cache is used to return cached objects (and therefore skip re-parsing) when
         ``Version`` objects are instantiated from strings.
 
         Set the cache to ``None`` to disable caching if it was previously enabled.
+
+        Note that no locking is performed around cache accesses, as lock contention may
+        be more costly for multithreaded applications than occasionally duplicated work.
+        Callers may use locks around ``Version`` construction or use sophisticated types
+        for ``cache``, depending on their needs.
 
         >>> from packaging.version import Version
         >>> Version.set_constructor_cache({})
@@ -480,7 +482,7 @@ class Version(_BaseVersion):
         :param cache: A mutable mapping (e.g., a ``dict`` instance) to use as a cache,
             or ``None`` to disable caching.
         """
-        cls._constructor_cache.set(cache)
+        cls._constructor_cache = cache
 
     @classmethod
     def from_parts(
