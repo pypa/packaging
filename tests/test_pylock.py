@@ -339,13 +339,13 @@ def test_pylock_invalid_vcs() -> None:
             "example-2.0.tar.gz",
         ),
         (
-            # url preferred over path
+            # path preferred over url
             PackageSdist(
                 url="https://example.com/example-2.0.tar.gz",
                 path="./example-1.0.tar.gz",
                 hashes={},
             ),
-            "example-2.0.tar.gz",
+            "example-1.0.tar.gz",
         ),
         # wheels
         (
@@ -402,13 +402,13 @@ def test_pylock_invalid_vcs() -> None:
             "example-2.0-py3-none-any.whl",
         ),
         (
-            # url preferred over path
+            # path preferred over url
             PackageWheel(
                 url="https://example.com/example-2.0-py3-none-any.whl",
                 path="./example-1.0-py3-none-any.whl",
                 hashes={},
             ),
-            "example-2.0-py3-none-any.whl",
+            "example-1.0-py3-none-any.whl",
         ),
     ],
 )
