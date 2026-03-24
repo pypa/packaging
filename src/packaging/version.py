@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import re
 import sys
 import typing
@@ -16,6 +17,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    MutableMapping,
     NamedTuple,
     SupportsInt,
     Tuple,
@@ -391,6 +393,24 @@ class Version(_BaseVersion):
     _hash_cache: int | None
     _key_cache: CmpKey | None
 
+    _constructor_cache: contextvars.ContextVar[MutableMapping[str, Self] | None] = (
+        contextvars.ContextVar("constructor_cache")
+    )
+
+    def __new__(cls, *args: object) -> Self:
+        if (
+            (constructor_cache := cls._constructor_cache.get(None)) is not None
+            and len(args) == 1
+            and isinstance(version_str := args[0], str)
+        ):
+            version_obj = constructor_cache.get(version_str, None)
+            if version_obj is None:
+                version_obj = super().__new__(cls)
+                constructor_cache[version_str] = version_obj
+            return version_obj
+
+        return super().__new__(cls)
+
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
 
@@ -401,6 +421,11 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
+        # short-circuit initialization if the version is already parsed, as may be the
+        # case if a cached version is returned by '__new__'
+        if getattr(self, "_release", None) is not None:
+            return
+
         if _SIMPLE_VERSION_INDICATORS.issuperset(version):
             try:
                 self._release = tuple(map(int, version.split(".")))
@@ -434,6 +459,28 @@ class Version(_BaseVersion):
         # Key which will be used for sorting
         self._key_cache = None
         self._hash_cache = None
+
+    @classmethod
+    def set_constructor_cache(cls, cache: MutableMapping[str, Self] | None) -> None:
+        """
+        Set the cache to use for ``Version`` construction, as a contextvar.
+
+        The cache is used to return cached objects (and therefore skip re-parsing) when
+        ``Version`` objects are instantiated from strings.
+
+        Set the cache to ``None`` to disable caching if it was previously enabled.
+
+        >>> from packaging.version import Version
+        >>> Version.set_constructor_cache({})
+        >>> ver1 = Version("1.0.1")
+        >>> ver2 = Version("1.0.1")
+        >>> ver1 is ver2
+        True
+
+        :param cache: A mutable mapping (e.g., a ``dict`` instance) to use as a cache,
+            or ``None`` to disable caching.
+        """
+        cls._constructor_cache.set(cache)
 
     @classmethod
     def from_parts(
