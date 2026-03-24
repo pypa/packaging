@@ -458,7 +458,7 @@ class PackageSdist:
     @property
     def filename(self) -> str:
         """Get the filename of the sdist."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
             raise PylockValidationError("Cannot determine sdist filename")
         return filename
@@ -513,7 +513,7 @@ class PackageWheel:
     @property
     def filename(self) -> str:
         """Get the filename of the wheel."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
             raise PylockValidationError("Cannot determine wheel filename")
         return filename
