@@ -41,9 +41,17 @@ repos:
     hooks:
       - id: zizmor
         files: "^\\.github"
-        exclude: "\\.github/release.yml"
 
   - repo: https://github.com/rhysd/actionlint
     rev: 393031adb9afb225ee52ae2ccd7a5af5525e03e8  # frozen: v1.7.11
     hooks:
       - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: check-frozen-revs
+        name: Check frozen pre-commit revs match tags
+        entry: tasks/check_frozen_revs.py
+        language: python
+        files: ^\.pre-commit-config\.yaml$
+        additional_dependencies: ["ruamel.yaml"]
