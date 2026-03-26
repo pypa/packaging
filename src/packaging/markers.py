@@ -75,7 +75,7 @@ class UndefinedEnvironmentName(ValueError):
 class Environment(TypedDict):
     """
     A dictionary that represents a Python environment as captured by
-    :func:`default_environment`.
+    :func:`default_environment`. All keys are required.
     """
 
     implementation_name: str
