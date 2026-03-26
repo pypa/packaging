@@ -215,7 +215,7 @@ def main() -> int:
     parser.add_argument(
         "file",
         type=Path,
-        help="File to validate (default: .pre-commit-config.yaml)",
+        help="File to validate (path to .pre-commit-config.yaml)",
     )
     args = parser.parse_args()
     path = args.file
