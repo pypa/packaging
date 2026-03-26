@@ -26,9 +26,21 @@ repos:
     rev: a66e98df7b4aeeb3724184b332785976d062b92e  # frozen: v1.19.1
     hooks:
       - id: mypy
-        exclude: '^(docs)'
+        exclude: '^(docs|tasks)'
         args: []
-        additional_dependencies: [nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
+        additional_dependencies: &mypy-dependencies
+          - nox
+          - orjson
+          - pytest<9
+          - tomli
+          - tomli_w
+          - types-invoke
+          - httpx
+      - id: mypy
+        name: mypy 3.10 on tasks
+        files: '^tasks/.*\.py$'
+        args: ["--python-version=3.10"]
+        additional_dependencies: *mypy-dependencies
 
   - repo: https://github.com/crate-ci/typos
     rev: 631208b7aac2daa8b707f55e7331f9112b0e062d  # frozen: v1.44.0

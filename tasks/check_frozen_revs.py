@@ -2,6 +2,7 @@
 
 # /// script
 # dependencies = ["ruamel.yaml", "aiohttp"]
+# requires-python = ">=3.10"
 # ///
 
 from __future__ import annotations
