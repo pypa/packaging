@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import operator
 import platform
 import re
 import struct
@@ -13,15 +14,22 @@ import sys
 import sysconfig
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
+    TYPE_CHECKING,
     Any,
     Iterable,
     Iterator,
     Sequence,
     Tuple,
+    TypeVar,
     cast,
 )
 
 from . import _manylinux, _musllinux
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Collection, Iterable
+    from typing import AbstractSet
+
 
 __all__ = [
     "INTERPRETER_SHORT_NAMES",
@@ -31,6 +39,7 @@ __all__ = [
     "android_platforms",
     "compatible_tags",
     "cpython_tags",
+    "create_compatible_tags_selector",
     "generic_tags",
     "interpreter_name",
     "interpreter_version",
@@ -50,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
 AppleVersion = Tuple[int, int]
+_T = TypeVar("_T")
 
 INTERPRETER_SHORT_NAMES: dict[str, str] = {
     "python": "py",  # Generic.
@@ -769,3 +779,49 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     else:
         interp = None
     yield from compatible_tags(interpreter=interp)
+
+
+def create_compatible_tags_selector(
+    tags: Iterable[Tag],
+) -> Callable[[Collection[tuple[_T, AbstractSet[Tag]]]], Iterator[_T]]:
+    """Create a callable to select things compatible with supported tags.
+
+    This function accepts an ordered sequence of tags, with the preferred
+    tags first.
+
+    The returned callable accepts a collection of tuples (thing, set[Tag]),
+    and returns an iterator of things, with the things with the best
+    matching tags first.
+
+    Example to select compatible wheel filenames:
+
+    >>> from packaging import tags
+    >>> from packaging.utils import parse_wheel_filename
+    >>> selector = tags.create_compatible_tags_selector(tags.sys_tags())
+    >>> filenames = ["foo-1.0-py3-none-any.whl", "foo-1.0-py2-none-any.whl"]
+    >>> list(selector([
+    ...     (filename, parse_wheel_filename(filename)[-1]) for filename in filenames
+    ... ]))
+    ['foo-1.0-py3-none-any.whl']
+
+    .. versionadded:: 26.1
+    """
+    tag_ranks: dict[Tag, int] = {}
+    for rank, tag in enumerate(tags):
+        tag_ranks.setdefault(tag, rank)  # ignore duplicate tags, keep first
+    supported_tags = tag_ranks.keys()
+
+    def selector(
+        tagged_things: Collection[tuple[_T, AbstractSet[Tag]]],
+    ) -> Iterator[_T]:
+        ranked_things: list[tuple[_T, int]] = []
+        for thing, thing_tags in tagged_things:
+            supported_thing_tags = thing_tags & supported_tags
+            if supported_thing_tags:
+                thing_rank = min(tag_ranks[t] for t in supported_thing_tags)
+                ranked_things.append((thing, thing_rank))
+        return iter(
+            thing for thing, _ in sorted(ranked_things, key=operator.itemgetter(1))
+        )
+
+    return selector
