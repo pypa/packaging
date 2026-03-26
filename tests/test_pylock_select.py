@@ -236,14 +236,17 @@ def test_yield_all_types() -> None:
             ),
             Package(
                 name=cast("NormalizedName", "foo-sdist"),
-                sdist=PackageSdist(path="foo-1.0.tar.gz", hashes={"sha256": "abc123"}),
+                sdist=PackageSdist(
+                    path="foo_sdist-1.0.tar.gz",
+                    hashes={"sha256": "abc123"},
+                ),
             ),
             Package(
                 name=cast("NormalizedName", "foo-wheel"),
                 wheels=[
                     PackageWheel(
-                        name="foo-1.0-py3-none-any.whl",
-                        path="./foo-1.0-py3-none-any.whl",
+                        name="foo_wheel-1.0-py3-none-any.whl",
+                        path="./foo_wheel-1.0-py3-none-any.whl",
                         hashes={"sha256": "abc123"},
                     )
                 ],
