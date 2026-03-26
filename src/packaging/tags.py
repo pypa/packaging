@@ -27,7 +27,7 @@ from typing import (
 from . import _manylinux, _musllinux
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Iterable
+    from collections.abc import Callable, Iterable
     from typing import AbstractSet
 
 
@@ -783,13 +783,13 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
 
 def create_compatible_tags_selector(
     tags: Iterable[Tag],
-) -> Callable[[Collection[tuple[_T, AbstractSet[Tag]]]], Iterator[_T]]:
+) -> Callable[[Iterable[tuple[_T, AbstractSet[Tag]]]], Iterator[_T]]:
     """Create a callable to select things compatible with supported tags.
 
     This function accepts an ordered sequence of tags, with the preferred
     tags first.
 
-    The returned callable accepts a collection of tuples (thing, set[Tag]),
+    The returned callable accepts an iterable of tuples (thing, set[Tag]),
     and returns an iterator of things, with the things with the best
     matching tags first.
 
@@ -812,7 +812,7 @@ def create_compatible_tags_selector(
     supported_tags = tag_ranks.keys()
 
     def selector(
-        tagged_things: Collection[tuple[_T, AbstractSet[Tag]]],
+        tagged_things: Iterable[tuple[_T, AbstractSet[Tag]]],
     ) -> Iterator[_T]:
         ranked_things: list[tuple[_T, int]] = []
         for thing, thing_tags in tagged_things:
