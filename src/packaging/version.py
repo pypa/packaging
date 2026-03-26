@@ -461,7 +461,7 @@ class Version(_BaseVersion):
         :param epoch:
         :param release: This version tuple is required
 
-        .. versionadded:: 26.0
+        .. versionadded:: 26.1
         """
         _epoch = _validate_epoch(epoch)
         _release = _validate_release(release)
