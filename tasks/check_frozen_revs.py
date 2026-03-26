@@ -110,21 +110,22 @@ async def resolve_tag_via_gh_api(
 
     try:
         async with session.get(url, headers=headers) as resp:
-            if resp.status == 404:
-                print(f"[debug] Tag {tag!r} not found at {url}")
-                return None
-            # Friendly message on rate limiting
-            if resp.status == 403 and resp.headers.get("X-RateLimit-Remaining") == "0":
-                reset = resp.headers.get("X-RateLimit-Reset")
-                print(
-                    "[debug] GitHub API rate limit exceeded;"
-                    " set GITHUB_TOKEN to increase limits."
-                    + (f" Resets at epoch {reset}." if reset else "")
-                )
-                return None
-
-            resp.raise_for_status()
-            data = await resp.json()
+            match resp.status:
+                case 404:
+                    print(f"[debug] Tag {tag!r} not found at {url}")
+                    return None
+                # Friendly message on rate limiting
+                case 403 if resp.headers.get("X-RateLimit-Remaining") == "0":
+                    reset = resp.headers.get("X-RateLimit-Reset")
+                    print(
+                        "[debug] GitHub API rate limit exceeded;"
+                        " set GITHUB_TOKEN to increase limits."
+                        + (f" Resets at epoch {reset}." if reset else "")
+                    )
+                    return None
+                case _:
+                    resp.raise_for_status()
+                    data = await resp.json()
 
         obj = data.get("object")
         if not obj:
