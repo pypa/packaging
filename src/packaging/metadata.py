@@ -67,8 +67,8 @@ class RawMetadata(TypedDict, total=False):
 
     Core metadata fields that can be specified multiple times are stored as a
     list or dict depending on which is appropriate for the field. Any fields
-    which hold multiple values in a single field are stored as a list.
-
+    which hold multiple values in a single field are stored as a list. All fields
+    are considered optional.
     """
 
     # Metadata 1.0 - PEP 241
