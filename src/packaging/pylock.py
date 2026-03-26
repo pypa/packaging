@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 from .markers import Environment, Marker, default_environment
 from .specifiers import SpecifierSet
-from .tags import sys_tags
+from .tags import create_compatible_tags_selector, sys_tags
 from .utils import (
     NormalizedName,
     is_normalized_name,
@@ -750,8 +750,7 @@ class Pylock:
         """Select what to install from the lock file.
 
         The *environment* and *tags* parameters represent the environment being
-        selected for. If unspecified,
-        ``packaging.markers.default_environment()`` and
+        selected for. If unspecified, ``packaging.markers.default_environment()`` and
         ``packaging.tags.sys_tags()`` are used.
 
         The *extras* parameter represents the extras to install.
@@ -759,11 +758,11 @@ class Pylock:
         The *dependency_groups* parameter represents the groups to install. If
         unspecified, the default groups are used.
 
-        For better error reporting, it is recommended to use this method on
-        valid Pylock instances (i.e. one obtained from :meth:`Pylock.from_dict`
-        or if constructed manually, after calling :meth:`Pylock.validate`).
+        This method must be used on valid Pylock instances (i.e. one obtained
+        from :meth:`Pylock.from_dict` or if constructed manually, after calling
+        :meth:`Pylock.validate`).
         """
-        supported_tags = frozenset(tags or sys_tags())
+        compatible_tags_selector = create_compatible_tags_selector(tags or sys_tags())
 
         # #. Gather the extras and dependency groups to install and set ``extras`` and
         #    ``dependency_groups`` for marker evaluation, respectively.
@@ -877,21 +876,24 @@ class Pylock:
                 #    :ref:`pylock-packages-wheels-name`; if one is not found then move
                 #    on to :ref:`pylock-packages-sdist` or an error MUST be raised about
                 #    a lack of source for the project.
-                for wheel in package.wheels:
-                    wheel_tags = parse_wheel_filename(wheel.filename)[-1]
-                    if not wheel_tags.isdisjoint(supported_tags):
-                        yield package, wheel
-                        break
+                best_wheel = next(
+                    compatible_tags_selector(
+                        (wheel, parse_wheel_filename(wheel.filename)[-1])
+                        for wheel in package.wheels
+                    ),
+                    None,
+                )
+                if best_wheel:
+                    yield package, best_wheel
+                elif package.sdist is not None:
+                    yield package, package.sdist
                 else:
-                    if package.sdist is not None:
-                        yield package, package.sdist
-                    else:
-                        raise PylockSelectError(
-                            f"No wheel found matching the provided tags "
-                            f"for package {package.name!r} "
-                            f"at packages[{package_index}], "
-                            f"and no sdist available as a fallback"
-                        )
+                    raise PylockSelectError(
+                        f"No wheel found matching the provided tags "
+                        f"for package {package.name!r} "
+                        f"at packages[{package_index}], "
+                        f"and no sdist available as a fallback"
+                    )
 
             # - Else if no :ref:`pylock-packages-wheels` file is found or
             #   :ref:`pylock-packages-sdist` is solely set:
