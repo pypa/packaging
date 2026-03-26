@@ -308,6 +308,13 @@ def test_pylock_invalid_vcs() -> None:
         ),
         (
             PackageSdist(
+                path="example-1.0.tar.gz",
+                hashes={},
+            ),
+            "example-1.0.tar.gz",
+        ),
+        (
+            PackageSdist(
                 url="https://example.com/example-1.0.tar.gz",
                 hashes={},
             ),
@@ -332,13 +339,13 @@ def test_pylock_invalid_vcs() -> None:
             "example-2.0.tar.gz",
         ),
         (
-            # url preferred over path
+            # path preferred over url
             PackageSdist(
                 url="https://example.com/example-2.0.tar.gz",
                 path="./example-1.0.tar.gz",
                 hashes={},
             ),
-            "example-2.0.tar.gz",
+            "example-1.0.tar.gz",
         ),
         # wheels
         (
@@ -364,6 +371,13 @@ def test_pylock_invalid_vcs() -> None:
         ),
         (
             PackageWheel(
+                path="example-1.0-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-1.0-py3-none-any.whl",
+        ),
+        (
+            PackageWheel(
                 url="https://example.com/example-1.0-py3-none-any.whl",
                 hashes={},
             ),
@@ -388,13 +402,13 @@ def test_pylock_invalid_vcs() -> None:
             "example-2.0-py3-none-any.whl",
         ),
         (
-            # url preferred over path
+            # path preferred over url
             PackageWheel(
                 url="https://example.com/example-2.0-py3-none-any.whl",
                 path="./example-1.0-py3-none-any.whl",
                 hashes={},
             ),
-            "example-2.0-py3-none-any.whl",
+            "example-1.0-py3-none-any.whl",
         ),
     ],
 )
@@ -439,6 +453,55 @@ def test_pylock_invalid_wheel_filename() -> None:
     )
 
 
+def test_pylock_inconsistent_wheel_name() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "foo",
+                "wheels": [
+                    {
+                        "url": "http://example.com/bar-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Name in 'bar-1.0-py3-none-any.whl' is not consistent "
+        "with package name 'foo' in 'packages[0].wheels[0]'"
+    )
+
+
+def test_pylock_inconsistent_wheel_version() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "bar",
+                "version": "2.0",
+                "wheels": [
+                    {
+                        "url": "http://example.com/bar-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Version in 'bar-1.0-py3-none-any.whl' is not consistent "
+        "with package version '2.0' in 'packages[0].wheels[0]'"
+    )
+
+
 def test_pylock_invalid_sdist_filename() -> None:
     data = {
         "lock-version": "1.0",
@@ -457,6 +520,51 @@ def test_pylock_invalid_sdist_filename() -> None:
         Pylock.from_dict(data)
     assert str(exc_info.value) == (
         "Invalid sdist filename 'example.tar.gz' in 'packages[0].sdist'"
+    )
+
+
+def test_pylock_inconsistent_sdist_name() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "foo",
+                "sdist": {
+                    "path": "./bar-1.0.tar.gz",
+                    "hashes": {"sha256": "f" * 40},
+                },
+            },
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Name in 'bar-1.0.tar.gz' is not consistent "
+        "with package name 'foo' in 'packages[0].sdist'"
+    )
+
+
+def test_pylock_inconsistent_sdist_version() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "bar",
+                "version": "2.0",
+                "sdist": {
+                    "path": "./bar-1.0.tar.gz",
+                    "hashes": {"sha256": "f" * 40},
+                },
+            },
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Version in 'bar-1.0.tar.gz' is not consistent "
+        "with package version '2.0' in 'packages[0].sdist'"
     )
 
 

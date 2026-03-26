@@ -456,18 +456,12 @@ class PackageSdist:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_sdist.path, package_sdist.url)
-        try:
-            parse_sdist_filename(package_sdist.filename)
-        except Exception as e:
-            raise PylockValidationError(
-                f"Invalid sdist filename {package_sdist.filename!r}"
-            ) from e
         return package_sdist
 
     @property
     def filename(self) -> str:
         """Get the filename of the sdist."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
             raise PylockValidationError("Cannot determine sdist filename")
         return filename
@@ -511,18 +505,12 @@ class PackageWheel:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_wheel.path, package_wheel.url)
-        try:
-            parse_wheel_filename(package_wheel.filename)
-        except Exception as e:
-            raise PylockValidationError(
-                f"Invalid wheel filename {package_wheel.filename!r}"
-            ) from e
         return package_wheel
 
     @property
     def filename(self) -> str:
         """Get the filename of the wheel."""
-        filename = self.name or _url_name(self.url) or _path_name(self.path)
+        filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
             raise PylockValidationError("Cannot determine wheel filename")
         return filename
@@ -606,6 +594,46 @@ class Package:
                 "Exactly one of vcs, directory, archive must be set "
                 "if sdist and wheels are not set"
             )
+        for i, wheel in enumerate(package.wheels or []):
+            try:
+                (name, version, _, _) = parse_wheel_filename(wheel.filename)
+            except Exception as e:
+                raise PylockValidationError(
+                    f"Invalid wheel filename {wheel.filename!r}",
+                    context=f"wheels[{i}]",
+                ) from e
+            if name != package.name:
+                raise PylockValidationError(
+                    f"Name in {wheel.filename!r} is not consistent with "
+                    f"package name {package.name!r}",
+                    context=f"wheels[{i}]",
+                )
+            if package.version and version != package.version:
+                raise PylockValidationError(
+                    f"Version in {wheel.filename!r} is not consistent with "
+                    f"package version {str(package.version)!r}",
+                    context=f"wheels[{i}]",
+                )
+        if package.sdist:
+            try:
+                name, version = parse_sdist_filename(package.sdist.filename)
+            except Exception as e:
+                raise PylockValidationError(
+                    f"Invalid sdist filename {package.sdist.filename!r}",
+                    context="sdist",
+                ) from e
+            if name != package.name:
+                raise PylockValidationError(
+                    f"Name in {package.sdist.filename!r} is not consistent with "
+                    f"package name {package.name!r}",
+                    context="sdist",
+                )
+            if package.version and version != package.version:
+                raise PylockValidationError(
+                    f"Version in {package.sdist.filename!r} is not consistent with "
+                    f"package version {str(package.version)!r}",
+                    context="sdist",
+                )
         try:
             for i, attestation_identity in enumerate(  # noqa: B007
                 package.attestation_identities or []
