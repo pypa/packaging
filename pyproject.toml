@@ -122,9 +122,6 @@ extend-exclude = [
 ]
 show-fixes = true
 
-[tool.ruff.per-file-target-version]
-"tasks/*.py" = "py310"
-
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
