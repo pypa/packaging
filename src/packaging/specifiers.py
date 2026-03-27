@@ -1233,7 +1233,6 @@ class SpecifierSet(BaseSpecifier):
     __slots__ = (
         "_canonicalized",
         "_has_arbitrary",
-        "_intervals",
         "_is_unsatisfiable",
         "_prereleases",
         "_resolved_ops",
@@ -1284,7 +1283,6 @@ class SpecifierSet(BaseSpecifier):
         self._prereleases = prereleases
 
         self._is_unsatisfiable: bool | None = None
-        self._intervals: list[_SpecifierInterval] | None = None
 
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
@@ -1293,7 +1291,6 @@ class SpecifierSet(BaseSpecifier):
             self._canonicalized = True
             self._resolved_ops = None
             self._is_unsatisfiable = None
-            self._intervals = None
         return self._specs
 
     @property
@@ -1320,7 +1317,6 @@ class SpecifierSet(BaseSpecifier):
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
         self._is_unsatisfiable = None
-        self._intervals = None
 
     def __repr__(self) -> str:
         """A representation of the specifier set that shows all internal state.
@@ -1433,14 +1429,13 @@ class SpecifierSet(BaseSpecifier):
         return iter(self._specs)
 
     def _get_intervals(self) -> list[_SpecifierInterval]:
-        """Compute and cache the intersected interval representation.
+        """Compute the intersected interval representation.
 
         Returns an empty list if unsatisfiable, or the intersected interval
         list otherwise. ``===`` specs are modeled as full range (no
         constraint).
 
-        No cache check here: the sole caller (is_unsatisfiable) caches
-        its own result, so this method is only ever called once.
+        Called once by is_unsatisfiable(), which caches its own result.
         """
         specs = self._specs
 
@@ -1456,7 +1451,6 @@ class SpecifierSet(BaseSpecifier):
 
         if result is None:  # pragma: no cover
             raise RuntimeError("_get_intervals called with no specs")
-        self._intervals = result
         return result
 
     def is_unsatisfiable(self) -> bool:
