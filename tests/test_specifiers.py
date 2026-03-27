@@ -2263,12 +2263,15 @@ def _version_family(base: str) -> list[str]:
         f"{base}rc1.dev1",
         f"{base}rc1",
         f"{base}rc2",
+        f"{base}a2.dev0",
         base,
         f"{base}.0",
         f"{base}.post0.dev0",
         f"{base}.post0",
+        f"{base}.post1.dev0",
         f"{base}.post1",
         f"{base}.post1+local",
+        f"{base}.post2",
         f"{base}+local",
         f"{base}+local1",
         f"{base}+local2",
@@ -2312,8 +2315,9 @@ _SAMPLE_BASES: list[str] = [
 
 def _build_sample_versions(
     bases: list[str], family_fn: Callable[[str], list[str]]
-) -> list[Version]:
-    """version_family x bases, deduplicated."""
+) -> list[str]:
+    """version_family x bases, deduplicated.  Returns strings (not Version
+    objects) so === can also match unnormalized and non-PEP-440 samples."""
     version_strs: list[str] = []
     for base in bases:
         version_strs.extend(family_fn(base))
@@ -2323,10 +2327,21 @@ def _build_sample_versions(
         if v not in seen:
             seen.add(v)
             unique.append(v)
-    return [Version(v) for v in unique]
+    return unique
 
 
-_SAMPLE_VERSIONS: list[Version] = _build_sample_versions(_SAMPLE_BASES, _version_family)
+_SAMPLE_VERSIONS: list[str] = _build_sample_versions(_SAMPLE_BASES, _version_family)
+
+# Extra strings for === (arbitrary equality): unnormalized forms and
+# non-PEP-440 strings that no Version object can represent.
+_SAMPLE_VERSIONS += [
+    "foobar",
+    "a",
+    "b",
+    "not-a-version",
+    "1.01",
+    "1.0-1",
+]
 
 
 class TestIsUnsatisfiable:
@@ -2375,17 +2390,45 @@ class TestIsUnsatisfiable:
         # <V excludes prereleases of V when V is not a prerelease
         ">=1.0a1,<1.0",
         ">=1.0.dev0,<1.0",
+        ">=1.0rc1,<1.0",
+        # <V.postN excludes dev releases of V.postN
+        ">=1.0.post1,<1.0.post1",
+        ">=1.0.post1.dev0,<1.0.post1",
+        # >V excludes posts of V; <V.postN bound leaves no room
+        ">1.0,<1.0.post0",
+        ">1.0,<1.0.post1",
+        # >V.postN + <V.postN+1: no version exists in the gap
+        ">1.0.post0,<1.0.post1",
+        # dev crossing
+        ">=1.0.dev5,<1.0.dev3",
+        # == with dev/pre/post + > same version
+        "==1.0.dev0,>1.0.dev0",
+        "==1.0a1,>1.0a1",
+        "==1.0.post1,>1.0.post1",
+        # >V.preN excludes posts of V.preN; nothing between
+        ">1.0a1,<1.0a1.post1",
+        # ~= with dev/pre + conflicting range
+        "~=1.0.dev0,>=2.0",
+        "~=1.0a1,>=2.0",
         # Wildcard exhausts range
         ">=1.0,<2.0,!=1.*",
         "~=1.4.2,!=1.4.*",
-        # === with unparsable version + standard spec
+        # Local version conflicts
+        "==1.0+local,!=1.0+local",
+        # === conflicts: multiple === with different strings
+        "===a,===b",
+        "===1.0,===2.0",
+        # === with unparsable + standard spec
         "===foobar,==1.0",
         "===foobar,>=1.0",
         "===a,!=1.0",
         "===not-a-version,~=1.0",
         "===foobar,>=2.0,<3.0",
-        # Local version conflicts
-        "==1.0+local,!=1.0+local",
+        # === with parsable version that fails standard specs
+        "===1.0,>=2.0",
+        "===1.0,!=1.0",
+        "===1.0,>1.0",
+        "===1.01,==1.0",
     ]
 
     SATISFIABLE: typing.ClassVar[list[str]] = [
@@ -2415,6 +2458,15 @@ class TestIsUnsatisfiable:
         # Prerelease ranges
         ">=1.0.dev0,<1.0.dev1",
         ">=1.0a1,<1.0a2",
+        # Pre-release ranges with room between
+        ">1.0a1,<1.0a2",
+        ">=1.0a1,<1.0b1",
+        ">=1.0b1,<1.0rc1",
+        # Post-release ranges
+        ">1.0.post0,<1.0.post2",
+        ">1.0.post0,<1.0.post3",
+        # Dev range within a release
+        ">=1.0a1.dev0,<1.0a1",
         # Epoch
         ">=1!1.0,<1!2.0",
         ">1!1.0,<1!3.0",
@@ -2431,25 +2483,35 @@ class TestIsUnsatisfiable:
         "<2.0,<3.0",
         ">1.0.post0",
         ">1.0.post1,<2.0",
-        # Local versions
+        # Local versions (spec with local + spec without local that strips local)
         "==1.0+local1,>=1.0",
         "!=1.0+local1,>=1.0",
         "==1.0+local1,!=1.0+local2",
+        "==1.0+local1,==1.0",
+        "==1.0+local1,<=1.0",
+        "==1.0+local,>=1.0,<=1.0",
+        "==1.0.post1+local,<=1.0.post1",
         # Various multi-spec
         ">1.0,!=0.5",
         ">=1.0,<2.0rc1",
         ">=0.5,!=1.0.*",
         "~=1.0,!=1.3",
         ">=1!0.0,<1!1.0",
-        # === (conservatively satisfiable)
+        # === (arbitrary string equality)
         "===foobar",
         "===1.0",
-        "===a,===b",
+        "===1.0a1",
+        # === with unnormalized version string (PR #1124)
+        "===1.01",
+        # === mixed with standard operators
         "===1.0,==1.0",
         "===1.0,>=1.0",
         "===1.0,>=0.5",
         "===1.0,!=2.0",
         "===1.0.0,>=1.0",
+        "===1.01,>=1.0",
+        # === with unnormalized version that parses to a matching version
+        "===1.01,==1.1",
     ]
 
     @pytest.mark.parametrize("spec_str", UNSATISFIABLE)
@@ -2465,9 +2527,11 @@ class TestIsUnsatisfiable:
 
     @pytest.mark.parametrize("spec_str", SATISFIABLE)
     def test_satisfiable(self, spec_str: str) -> None:
-        """Satisfiable specs must not be falsely reported as unsatisfiable."""
+        """Satisfiable specs must not be falsely reported, and filter must match."""
         ss = SpecifierSet(spec_str)
         assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+        result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS, prereleases=True)), None))
+        assert result, f"Expected filter to match at least one version for {spec_str!r}"
 
     def test_result_is_cached(self) -> None:
         ss = SpecifierSet(">=2.0,<1.0")
@@ -2501,10 +2565,12 @@ class TestIsUnsatisfiable:
         combined = s1 & s2
         assert not combined.is_unsatisfiable()
 
-    def test_interval_bounds_are_hashable(self) -> None:
-        """Interval bounds (including _PostExcludeBound sentinels) are hashable."""
-        spec = Specifier(">1.0")
-        intervals = spec._to_intervals()
-        for lower, upper in intervals:
-            hash(lower)
-            hash(upper)
+    def test_interval_bounds_hashable_and_equal(self) -> None:
+        """Interval bounds are hashable and support equality."""
+        a = Specifier(">1.0")._to_intervals()
+        b = Specifier(">1.0")._to_intervals()
+        for (al, au), (bl, bu) in zip(a, b):
+            hash(al)
+            hash(au)
+            assert al == bl
+            assert au == bu

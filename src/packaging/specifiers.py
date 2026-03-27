@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import abc
+import enum
 import functools
 import itertools
 import re
@@ -49,97 +50,170 @@ def _trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
     return release if end == len(release) else release[:end]
 
 
+class _BoundaryKind(enum.IntEnum):
+    """Where a boundary marker sits in the version ordering."""
+
+    AFTER_LOCALS = 0  # after V+local, before V.post0
+    AFTER_POSTS = 1  # after V.postN, before next release
+
+
 @functools.total_ordering
-class _PostExcludeBound:
-    """A bound version that sorts after all post-releases of a base version.
+class _BoundaryVersion:
+    """A synthetic version that marks a boundary between version families.
 
-    Used for ``>V`` (where V is not a post-release) to model PEP 440's rule
-    that ``>V`` must not match post-releases of V.
+    PEP 440 has rules where ``>V`` excludes post-releases and ``<=V``
+    includes local versions.  These cannot be expressed with plain
+    Version bounds, so this class creates boundary markers that sort
+    between version families.
 
-    Ordering::
+    ``AFTER_LOCALS``: sorts after V and all V+local, before V.post0.
+    Used for ``<=V``, ``==V``, and ``!=V`` to correctly handle local
+    versions.
 
-        1.0 < 1.0.post0 < 1.0.post1 < _PostExcludeBound(1.0) < 1.0.1.dev0
+    ``AFTER_POSTS``: sorts after all V.postN (and V+local), before the
+    next release segment.  Used for ``>V`` (non-post) to exclude
+    post-releases per PEP 440.
 
-    This type is only used in interval bounds. Most bounds use plain Version
-    objects for direct C-level comparison performance.
+    Ordering for base version V::
+
+        V < V+local < AFTER_LOCALS(V) < V.post0 < ... < AFTER_POSTS(V) < V.0.1
     """
 
-    __slots__ = ("_trimmed_release", "version")
+    __slots__ = ("_kind", "_trimmed_release", "version")
 
-    def __init__(self, version: Version) -> None:
+    def __init__(self, version: Version, kind: _BoundaryKind) -> None:
         self.version = version
+        self._kind = kind
         self._trimmed_release = _trim_release(version.release)
 
-    def _is_post_family(self, other: Version) -> bool:
-        """Is ``other`` the same version as self.version, or a post-release of it?
-
-        A "post-release of V" shares V's epoch, release, and pre segment
-        but adds a post (and possibly dev-of-post) segment.
-        """
+    def _is_family(self, other: Version) -> bool:
+        """Is ``other`` a version that this boundary sorts above?"""
         v = self.version
-        return (
+        if not (
             other.epoch == v.epoch
             and _trim_release(other.release) == self._trimmed_release
             and other.pre == v.pre
-            and (other.dev == v.dev or other.post is not None)
-        )
+        ):
+            return False
+        if self._kind == _BoundaryKind.AFTER_LOCALS:
+            # Local family: exact same public version (any local label).
+            return other.post == v.post and other.dev == v.dev
+        # Post family: same base + any post-release (or identical).
+        return other.dev == v.dev or other.post is not None
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, _PostExcludeBound):
-            return self.version == other.version
+        if isinstance(other, _BoundaryVersion):
+            return self.version == other.version and self._kind == other._kind
         return NotImplemented
 
     def __lt__(self, other: object) -> bool:
-        if isinstance(other, _PostExcludeBound):
-            return self.version < other.version
-        assert isinstance(other, Version)
-        # self < other iff other is NOT in the post-family and other > V
-        return not self._is_post_family(other) and self.version < other
+        if isinstance(other, _BoundaryVersion):
+            if self.version != other.version:
+                return self.version < other.version
+            return self._kind < other._kind
+        return not self._is_family(other) and self.version < other  # type: ignore[arg-type, operator]
 
     def __hash__(self) -> int:
-        return hash(self.version)
+        return hash((self.version, self._kind))
+
+    def __repr__(self) -> str:
+        return f"_BoundaryVersion({self.version!r}, {self._kind.name})"
+
+
+@functools.total_ordering
+class _LowerBound:
+    """Lower bound of a version interval.
+
+    None means -inf.  At equal versions, [v < (v because inclusive
+    starts earlier.
+    """
+
+    __slots__ = ("inclusive", "version")
+
+    def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
+        self.version = version
+        self.inclusive = inclusive
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _LowerBound):
+            return NotImplemented  # pragma: no cover
+        return self.version == other.version and self.inclusive == other.inclusive
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, _LowerBound):  # pragma: no cover
+            return NotImplemented
+        # -inf < anything (except -inf).
+        if self.version is None:
+            return other.version is not None
+        if other.version is None:
+            return False
+        if self.version != other.version:
+            return self.version < other.version
+        # [v < (v: inclusive starts earlier.
+        return self.inclusive and not other.inclusive
+
+    def __hash__(self) -> int:
+        return hash((self.version, self.inclusive))
+
+    def __repr__(self) -> str:
+        return f"{'[' if self.inclusive else '('}{self.version!r}"
+
+
+@functools.total_ordering
+class _UpperBound:
+    """Upper bound of a version interval.
+
+    None means +inf.  At equal versions, v) < v] because exclusive
+    ends earlier.
+    """
+
+    __slots__ = ("inclusive", "version")
+
+    def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
+        self.version = version
+        self.inclusive = inclusive
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _UpperBound):
+            return NotImplemented  # pragma: no cover
+        return self.version == other.version and self.inclusive == other.inclusive
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, _UpperBound):  # pragma: no cover
+            return NotImplemented
+        # Nothing < +inf (except +inf itself).
+        if self.version is None:
+            return False
+        if other.version is None:
+            return True
+        if self.version != other.version:
+            return self.version < other.version
+        # v) < v]: exclusive ends earlier.
+        return not self.inclusive and other.inclusive
+
+    def __hash__(self) -> int:
+        return hash((self.version, self.inclusive))
+
+    def __repr__(self) -> str:
+        return f"{self.version!r}{']' if self.inclusive else ')'}"
 
 
 if typing.TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
+    _SpecifierInterval = tuple[_LowerBound, _UpperBound]
 
-    # Bound version: plain Version for most operators, _PostExcludeBound
-    # for >V (sorts after V.postN), or None for unbounded.
-    _BoundVersion: TypeAlias = Union[Version, _PostExcludeBound, None]
-
-    # A specifier bound: (bound_version, inclusive).
-    _SpecifierBound: TypeAlias = tuple[_BoundVersion, bool]
-
-    # A specifier interval: (lower_bound, upper_bound).
-    _SpecifierInterval: TypeAlias = tuple[_SpecifierBound, _SpecifierBound]
+_NEG_INF = _LowerBound(None, False)
+_POS_INF = _UpperBound(None, False)
+_FULL_RANGE: list[_SpecifierInterval] = [(_NEG_INF, _POS_INF)]
 
 
-_FULL_RANGE: list[_SpecifierInterval] = [((None, False), (None, False))]
-
-
-def _spec_bound_lt(
-    left: _SpecifierBound, right: _SpecifierBound, *, is_lower: bool
-) -> bool:
-    """Is bound ``left`` strictly less than bound ``right``?
-
-    None represents -inf for lower bounds or +inf for upper bounds.
-    When versions are equal, a tighter bound is "less": [v is tighter
-    than (v for lower bounds, and (v is tighter than [v for upper bounds.
-    """
-    left_version, left_inclusive = left
-    right_version, right_inclusive = right
-    if left_version is None and right_version is None:
+def _interval_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
+    """Is the interval [lower, upper] empty?"""
+    if lower.version is None or upper.version is None:
         return False
-    if left_version is None:
-        return is_lower  # -inf < anything for lower; +inf > anything for upper
-    if right_version is None:
-        return not is_lower  # anything < +inf for lower; anything > -inf for upper
-    if left_version != right_version:
-        return left_version < right_version
-    # Same version: inclusive is tighter for lower, looser for upper.
-    if is_lower:
-        return left_inclusive and not right_inclusive
-    return not left_inclusive and right_inclusive
+    if lower.version == upper.version:
+        return not (lower.inclusive and upper.inclusive)
+    return lower.version > upper.version
 
 
 def _intersect_intervals(
@@ -153,31 +227,14 @@ def _intersect_intervals(
         left_lower, left_upper = left_intervals[left_index]
         right_lower, right_upper = right_intervals[right_index]
 
-        # Take the tighter (higher) lower and tighter (lower) upper.
-        lower = (
-            right_lower
-            if _spec_bound_lt(left_lower, right_lower, is_lower=True)
-            else left_lower
-        )
-        upper = (
-            left_upper
-            if _spec_bound_lt(left_upper, right_upper, is_lower=False)
-            else right_upper
-        )
+        lower = max(left_lower, right_lower)
+        upper = min(left_upper, right_upper)
 
-        # Only keep if the resulting interval is non-empty.
-        lower_version, lower_inclusive = lower
-        upper_version, upper_inclusive = upper
-        if (
-            lower_version is None
-            or upper_version is None
-            or lower_version < upper_version
-            or (lower_version == upper_version and lower_inclusive and upper_inclusive)
-        ):
+        if not _interval_is_empty(lower, upper):
             result.append((lower, upper))
 
         # Advance whichever side has the smaller upper bound.
-        if _spec_bound_lt(left_upper, right_upper, is_lower=False):
+        if left_upper < right_upper:
             left_index += 1
         else:
             right_index += 1
@@ -504,10 +561,8 @@ class Specifier(BaseSpecifier):
     def _to_intervals(self) -> list[_SpecifierInterval]:
         """Convert this specifier to sorted, non-overlapping intervals.
 
-        Each standard operator maps to one or two intervals. The ``===``
-        operator is modeled as full range since it uses arbitrary string
-        matching; the actual check is done separately.
-        Result is cached.
+        Each standard operator maps to one or two intervals.  ``===`` is
+        modeled as full range (actual check done separately).  Cached.
         """
         if self._intervals is not None:
             return self._intervals
@@ -519,50 +574,88 @@ class Specifier(BaseSpecifier):
             self._intervals = _FULL_RANGE
             return _FULL_RANGE
 
-        result: list[_SpecifierInterval]
-
         if ver_str.endswith(".*"):
-            # Wildcard bounds: ==1.2.* matches [1.2.dev0, 1.3.dev0).
-            base = self._require_spec_version(ver_str[:-2])
-            lower = _base_dev0(base)
-            upper = _next_prefix_dev0(base)
-            if op == "==":
-                result = [((lower, True), (upper, False))]
-            else:  # !=
-                result = [
-                    ((None, False), (lower, False)),
-                    ((upper, True), (None, False)),
-                ]
+            result = self._wildcard_intervals(op, ver_str)
         else:
-            v = self._require_spec_version(ver_str)
-            if op == ">=":
-                result = [((v, True), (None, False))]
-            elif op == "<=":
-                result = [((None, False), (v, True))]
-            elif op == ">":
-                if v.is_postrelease:
-                    result = [((v, False), (None, False))]
-                else:
-                    result = [((_PostExcludeBound(v), False), (None, False))]
-            elif op == "<":
-                bound = v if v.is_prerelease else _base_dev0(v)
-                if bound <= _MIN_VERSION:
-                    result = []
-                else:
-                    result = [((None, False), (bound, False))]
-            elif op == "==":
-                result = [((v, True), (v, True))]
-            elif op == "!=":
-                result = [((None, False), (v, False)), ((v, False), (None, False))]
-            elif op == "~=":
-                prefix = v.__replace__(release=v.release[:-1])
-                upper = _next_prefix_dev0(prefix)
-                result = [((v, True), (upper, False))]
-            else:
-                raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
+            result = self._standard_intervals(op, ver_str)
 
         self._intervals = result
         return result
+
+    def _wildcard_intervals(self, op: str, ver_str: str) -> list[_SpecifierInterval]:
+        # ==1.2.* -> [1.2.dev0, 1.3.dev0);  !=1.2.* -> complement.
+        base = self._require_spec_version(ver_str[:-2])
+        lower = _base_dev0(base)
+        upper = _next_prefix_dev0(base)
+        if op == "==":
+            return [(_LowerBound(lower, True), _UpperBound(upper, False))]
+        # !=
+        return [
+            (_NEG_INF, _UpperBound(lower, False)),
+            (_LowerBound(upper, True), _POS_INF),
+        ]
+
+    def _standard_intervals(self, op: str, ver_str: str) -> list[_SpecifierInterval]:
+        v = self._require_spec_version(ver_str)
+
+        if op == ">=":
+            return [(_LowerBound(v, True), _POS_INF)]
+
+        if op == "<=":
+            return [
+                (
+                    _NEG_INF,
+                    _UpperBound(_BoundaryVersion(v, _BoundaryKind.AFTER_LOCALS), True),
+                )
+            ]
+
+        if op == ">":
+            if v.dev is not None:
+                # >V.devN: dev versions have no post-releases, so the
+                # next real version is V.dev(N+1).
+                lower_ver = v.__replace__(dev=v.dev + 1, local=None)
+                return [(_LowerBound(lower_ver, True), _POS_INF)]
+            if v.post is not None:
+                # >V.postN: next real version is V.post(N+1).dev0.
+                lower_ver = v.__replace__(post=v.post + 1, dev=0, local=None)
+                return [(_LowerBound(lower_ver, True), _POS_INF)]
+            # >V (final or pre-release): skip V+local and all V.postN.
+            return [
+                (
+                    _LowerBound(_BoundaryVersion(v, _BoundaryKind.AFTER_POSTS), False),
+                    _POS_INF,
+                )
+            ]
+
+        if op == "<":
+            # <V excludes prereleases of V when V is not a prerelease.
+            # V.dev0 is the earliest prerelease of V (final, post, etc.).
+            bound = v if v.is_prerelease else v.__replace__(dev=0, local=None)
+            if bound <= _MIN_VERSION:
+                return []
+            return [(_NEG_INF, _UpperBound(bound, False))]
+
+        # ==, !=: local versions of V match when spec has no local segment.
+        has_local = "+" in ver_str
+        after_locals = _BoundaryVersion(v, _BoundaryKind.AFTER_LOCALS)
+        upper = v if has_local else after_locals
+
+        if op == "==":
+            return [(_LowerBound(v, True), _UpperBound(upper, True))]
+
+        if op == "!=":
+            return [
+                (_NEG_INF, _UpperBound(v, False)),
+                (_LowerBound(upper, False), _POS_INF),
+            ]
+
+        if op == "~=":
+            prefix = v.__replace__(release=v.release[:-1])
+            return [
+                (_LowerBound(v, True), _UpperBound(_next_prefix_dev0(prefix), False))
+            ]
+
+        raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
 
     @property
     def prereleases(self) -> bool | None:
@@ -1346,6 +1439,9 @@ class SpecifierSet(BaseSpecifier):
         list otherwise. ``===`` specs are modeled as full range (no
         constraint).
         """
+        if self._intervals is not None:
+            return self._intervals
+
         specs = self._specs
 
         # Intersect specs' intervals, with early exit on empty intersection.
@@ -1358,7 +1454,8 @@ class SpecifierSet(BaseSpecifier):
                 if not result:
                     break
 
-        assert result is not None  # specs is non-empty
+        if result is None:
+            result = _FULL_RANGE  # pragma: no cover
         self._intervals = result
         return result
 
@@ -1366,8 +1463,6 @@ class SpecifierSet(BaseSpecifier):
         """Check whether this specifier set can never be satisfied.
 
         Returns True if no version can satisfy all specifiers simultaneously.
-        Returns False if the set might be satisfiable (conservative: may
-        return False for some unsatisfiable sets involving === specifiers).
 
         >>> SpecifierSet(">=2.0,<1.0").is_unsatisfiable()
         True
@@ -1388,16 +1483,40 @@ class SpecifierSet(BaseSpecifier):
 
         result = not self._get_intervals()
 
-        # Extra: === with an unparsable version can only match raw
-        # strings, but standard specs reject raw strings.
-        if not result and any(
-            s.operator == "===" and _coerce_version(s.version) is None
-            for s in self._specs
-        ):
-            result = any(s.operator != "===" for s in self._specs)
+        if not result:
+            result = self._check_arbitrary_unsatisfiable()
 
         self._is_unsatisfiable = result
         return result
+
+    def _check_arbitrary_unsatisfiable(self) -> bool:
+        """Check === (arbitrary equality) specs for unsatisfiability.
+
+        === uses case-insensitive string comparison, so the only candidate
+        that can match ``===V`` is the literal string V.  This method
+        checks whether that candidate is excluded by other specifiers.
+        """
+        arbitrary = [s for s in self._specs if s.operator == "==="]
+        if not arbitrary:
+            return False
+
+        # Multiple === must agree on the same string (case-insensitive).
+        first = arbitrary[0].version.lower()
+        if any(s.version.lower() != first for s in arbitrary[1:]):
+            return True
+
+        # The sole candidate is the === version string.  Check whether
+        # it can satisfy every standard spec.
+        standard = [s for s in self._specs if s.operator != "==="]
+        if not standard:
+            return False
+
+        candidate = _coerce_version(arbitrary[0].version)
+        if candidate is None:
+            # Unparsable string cannot satisfy any standard spec.
+            return True
+
+        return not all(s.contains(candidate) for s in standard)
 
     def __contains__(self, item: UnparsedVersion) -> bool:
         """Return whether or not the item is contained in this specifier.
