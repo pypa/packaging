@@ -47,7 +47,6 @@ test = [
 ]
 docs = [
   "furo",
-  "sphinx-toolbox",
   "typing-extensions>=4.1.0; python_version < '3.9'",
 ]
 benchmark = [
@@ -62,7 +61,14 @@ dev = [
 
 [tool.flit.sdist]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
-exclude = ["docs/_build", "tests/manylinux/build-hello-world.sh", "tests/musllinux/build.sh", "tests/hello-world.c", "tests/__pycache__", "build/__pycache__"]
+exclude = [
+  "docs/_build",
+  "tests/manylinux/build-hello-world.sh",
+  "tests/musllinux/build.sh",
+  "tests/hello-world.c",
+  "tests/__pycache__",
+  "build/__pycache__",
+]
 
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
@@ -82,7 +88,13 @@ source_pkgs = ["packaging"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
-exclude_also = ["@(abc.)?abstractmethod", "@(abc.)?abstractproperty", "if (typing.)?TYPE_CHECKING:", "@(typing.)?overload", "def __dir__()"]
+exclude_also = [
+    "@(abc.)?abstractmethod",
+    "@(abc.)?abstractproperty",
+    "if (typing.)?TYPE_CHECKING:",
+    "@(typing.)?overload",
+    "def __dir__()",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.2"

@@ -47,6 +47,7 @@ Low Level Interface
 
 .. autoclass:: packaging.metadata.RawMetadata
     :members:
+    :undoc-members:
 
 .. autofunction:: packaging.metadata.parse_email
 
