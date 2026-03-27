@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: check-toml
       - id: check-yaml
@@ -9,21 +9,21 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
+    rev: e05c5c0818279e5ac248ac9e954431ba58865e61  # frozen: v0.15.7
     hooks:
       - id: ruff-check
         args: [ --fix ]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: "v1.10.0"
+    rev: 3a6eb0fadf60b3cccfd80bad9dbb6fae7e47b316  # frozen: v1.10.0
     hooks:
     - id: rst-backticks
     - id: rst-directive-colons
     - id: rst-inline-touching-normal
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+    rev: a66e98df7b4aeeb3724184b332785976d062b92e  # frozen: v1.19.1
     hooks:
       - id: mypy
         exclude: '^(docs)'
@@ -31,19 +31,27 @@ repos:
         additional_dependencies: [nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.43.1
+    rev: 631208b7aac2daa8b707f55e7331f9112b0e062d  # frozen: v1.44.0
     hooks:
       - id: typos
         args: []
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.22.0
+    rev: ea2eb407b4cbce87cf0d502f36578950494f5ac9  # frozen: v1.23.1
     hooks:
       - id: zizmor
         files: "^\\.github"
-        exclude: "\\.github/release.yml"
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.10
+    rev: 393031adb9afb225ee52ae2ccd7a5af5525e03e8  # frozen: v1.7.11
     hooks:
       - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: check-frozen-revs
+        name: Check frozen pre-commit revs match tags
+        entry: python tasks/check_frozen_revs.py
+        language: python
+        files: ^\.pre-commit-config\.yaml$
+        additional_dependencies: ['ruamel.yaml']
