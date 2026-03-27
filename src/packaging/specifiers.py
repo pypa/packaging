@@ -1438,6 +1438,9 @@ class SpecifierSet(BaseSpecifier):
         Returns an empty list if unsatisfiable, or the intersected interval
         list otherwise. ``===`` specs are modeled as full range (no
         constraint).
+
+        No cache check here: the sole caller (is_unsatisfiable) caches
+        its own result, so this method is only ever called once.
         """
         specs = self._specs
 
