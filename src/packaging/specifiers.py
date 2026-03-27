@@ -1189,8 +1189,8 @@ class SpecifierSet(BaseSpecifier):
                 if not result:
                     break  # empty intersection, already unsatisfiable
 
-        if result is None:
-            result = _FULL_RANGE  # pragma: no cover
+        if result is None:  # pragma: no cover
+            raise RuntimeError("_get_intervals called with no specs")
         self._intervals = result
         return result
 
