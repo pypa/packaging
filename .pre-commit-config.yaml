@@ -31,7 +31,7 @@ repos:
         additional_dependencies: [nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
 
   - repo: https://github.com/crate-ci/typos
-    rev: 631208b7aac2daa8b707f55e7331f9112b0e062d  # frozen: v1.44.0
+    rev: a13fcfadad9812ae7819ebbf23176288cebed2d4  # frozen: varcon-core-v5.0.6
     hooks:
       - id: typos
         args: []
