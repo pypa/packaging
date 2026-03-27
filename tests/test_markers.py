@@ -18,8 +18,8 @@ from packaging.markers import (
     InvalidMarker,
     Marker,
     UndefinedComparison,
-    default_environment,
     _format_full_version,
+    default_environment,
 )
 
 VARIABLES = [
