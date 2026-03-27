@@ -69,9 +69,9 @@ class _BoundaryVersion:
     Used for ``<=V``, ``==V``, and ``!=V`` to correctly handle local
     versions.
 
-    ``AFTER_POSTS``: sorts after all V.postN (and V+local), before the
-    next release segment.  Used for ``>V`` (non-post) to exclude
-    post-releases per PEP 440.
+    ``AFTER_POSTS``: sorts after all V.postN, before the next release
+    segment.  Used for ``>V`` where V is a final or pre-release (not
+    dev, not post) to exclude post-releases per PEP 440.
 
     Ordering for base version V::
 
