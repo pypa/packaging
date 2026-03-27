@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import abc
+import enum
 import functools
 import re
 import typing
@@ -48,9 +49,11 @@ def _trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
     return release if end == len(release) else release[:end]
 
 
-# Boundary kinds for _BoundaryVersion.
-_AFTER_LOCALS: Final[int] = 0  # sorts after V+local, before V.post0
-_AFTER_POSTS: Final[int] = 1  # sorts after V.postN, before next release
+class _BoundaryKind(enum.IntEnum):
+    """Where a boundary marker sits in the version ordering."""
+
+    AFTER_LOCALS = 0  # after V+local, before V.post0
+    AFTER_POSTS = 1  # after V.postN, before next release
 
 
 @functools.total_ordering
@@ -62,11 +65,11 @@ class _BoundaryVersion:
     Version bounds, so this class creates boundary markers that sort
     between version families.
 
-    ``_AFTER_LOCALS``: sorts after V and all V+local, before V.post0.
+    ``AFTER_LOCALS``: sorts after V and all V+local, before V.post0.
     Used for ``<=V``, ``==V``, and ``!=V`` to correctly handle local
     versions.
 
-    ``_AFTER_POSTS``: sorts after all V.postN (and V+local), before the
+    ``AFTER_POSTS``: sorts after all V.postN (and V+local), before the
     next release segment.  Used for ``>V`` (non-post) to exclude
     post-releases per PEP 440.
 
@@ -77,7 +80,7 @@ class _BoundaryVersion:
 
     __slots__ = ("_kind", "_trimmed_release", "version")
 
-    def __init__(self, version: Version, kind: int) -> None:
+    def __init__(self, version: Version, kind: _BoundaryKind) -> None:
         self.version = version
         self._kind = kind
         self._trimmed_release = _trim_release(version.release)
@@ -91,7 +94,7 @@ class _BoundaryVersion:
             and other.pre == v.pre
         ):
             return False
-        if self._kind == _AFTER_LOCALS:
+        if self._kind == _BoundaryKind.AFTER_LOCALS:
             # Local family: exact same public version (any local label).
             return other.post == v.post and other.dev == v.dev
         # Post family: same base + any post-release (or identical).
@@ -107,12 +110,13 @@ class _BoundaryVersion:
             if self.version != other.version:
                 return self.version < other.version
             return self._kind < other._kind
-        assert isinstance(other, Version)
-        # self < other iff other is NOT in the family and other > V
-        return not self._is_family(other) and self.version < other
+        return not self._is_family(other) and self.version < other  # type: ignore[arg-type, operator]
 
     def __hash__(self) -> int:
         return hash((self.version, self._kind))
+
+    def __repr__(self) -> str:
+        return f"_BoundaryVersion({self.version!r}, {self._kind.name})"
 
 
 @functools.total_ordering
@@ -125,7 +129,7 @@ class _LowerBound:
 
     __slots__ = ("inclusive", "version")
 
-    def __init__(self, version: _BoundVersion, inclusive: bool) -> None:
+    def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         self.version = version
         self.inclusive = inclusive
 
@@ -137,19 +141,21 @@ class _LowerBound:
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, _LowerBound):  # pragma: no cover
             return NotImplemented
-        # -inf is below everything except another -inf.
+        # -inf < anything (except -inf).
         if self.version is None:
             return other.version is not None
-        # Nothing finite is below -inf.
         if other.version is None:
             return False
         if self.version != other.version:
             return self.version < other.version
-        # Same version: [v starts earlier than (v.
+        # [v < (v: inclusive starts earlier.
         return self.inclusive and not other.inclusive
 
     def __hash__(self) -> int:
         return hash((self.version, self.inclusive))
+
+    def __repr__(self) -> str:
+        return f"{'[' if self.inclusive else '('}{self.version!r}"
 
 
 @functools.total_ordering
@@ -162,7 +168,7 @@ class _UpperBound:
 
     __slots__ = ("inclusive", "version")
 
-    def __init__(self, version: _BoundVersion, inclusive: bool) -> None:
+    def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         self.version = version
         self.inclusive = inclusive
 
@@ -174,27 +180,26 @@ class _UpperBound:
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, _UpperBound):  # pragma: no cover
             return NotImplemented
-        # +inf is above everything.
+        # Nothing < +inf (except +inf itself).
         if self.version is None:
             return False
-        # Everything finite is below +inf.
         if other.version is None:
-            return self.version is not None
+            return True
         if self.version != other.version:
             return self.version < other.version
-        # Same version: v) ends earlier than v].
+        # v) < v]: exclusive ends earlier.
         return not self.inclusive and other.inclusive
 
     def __hash__(self) -> int:
         return hash((self.version, self.inclusive))
 
+    def __repr__(self) -> str:
+        return f"{self.version!r}{']' if self.inclusive else ')'}"
+
 
 if typing.TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
-    # A version, a boundary marker between version families, or None (unbounded).
-    _BoundVersion: TypeAlias = Union[Version, _BoundaryVersion, None]
-    _SpecifierInterval: TypeAlias = tuple[_LowerBound, _UpperBound]
+    _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
+    _SpecifierInterval = tuple[_LowerBound, _UpperBound]
 
 _NEG_INF = _LowerBound(None, False)
 _POS_INF = _UpperBound(None, False)
@@ -205,11 +210,9 @@ def _interval_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
     """Is the interval [lower, upper] empty?"""
     if lower.version is None or upper.version is None:
         return False
-    if lower.version < upper.version:
-        return False
-    if lower.version == upper.version and lower.inclusive and upper.inclusive:
-        return False
-    return True
+    if lower.version == upper.version:
+        return not (lower.inclusive and upper.inclusive)
+    return lower.version > upper.version
 
 
 def _intersect_intervals(
@@ -640,7 +643,7 @@ class Specifier(BaseSpecifier):
     def _standard_intervals(self, op: str, ver_str: str) -> list[_SpecifierInterval]:
         v = self._require_spec_version(ver_str)
         has_local = "+" in ver_str
-        after_locals = _BoundaryVersion(v, _AFTER_LOCALS)
+        after_locals = _BoundaryVersion(v, _BoundaryKind.AFTER_LOCALS)
 
         if op == ">=":
             return [(_LowerBound(v, True), _POS_INF)]
@@ -660,7 +663,12 @@ class Specifier(BaseSpecifier):
                 lower_ver = v.__replace__(post=v.post + 1, dev=0, local=None)
                 return [(_LowerBound(lower_ver, True), _POS_INF)]
             # >V (final or pre-release): skip V+local and all V.postN.
-            return [(_LowerBound(_BoundaryVersion(v, _AFTER_POSTS), False), _POS_INF)]
+            return [
+                (
+                    _LowerBound(_BoundaryVersion(v, _BoundaryKind.AFTER_POSTS), False),
+                    _POS_INF,
+                )
+            ]
 
         if op == "<":
             # <V excludes prereleases of V when V is not a prerelease.
@@ -1181,7 +1189,8 @@ class SpecifierSet(BaseSpecifier):
                 if not result:
                     break  # empty intersection, already unsatisfiable
 
-        assert result is not None  # specs is non-empty
+        if result is None:
+            result = _FULL_RANGE  # pragma: no cover
         self._intervals = result
         return result
 
