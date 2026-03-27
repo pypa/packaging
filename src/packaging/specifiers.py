@@ -1439,9 +1439,6 @@ class SpecifierSet(BaseSpecifier):
         list otherwise. ``===`` specs are modeled as full range (no
         constraint).
         """
-        if self._intervals is not None:
-            return self._intervals
-
         specs = self._specs
 
         # Intersect specs' intervals, with early exit on empty intersection.
@@ -1454,8 +1451,8 @@ class SpecifierSet(BaseSpecifier):
                 if not result:
                     break
 
-        if result is None:
-            result = _FULL_RANGE  # pragma: no cover
+        if result is None:  # pragma: no cover
+            raise RuntimeError("_get_intervals called with no specs")
         self._intervals = result
         return result
 
