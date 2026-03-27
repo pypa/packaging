@@ -727,13 +727,21 @@ class Specifier(BaseSpecifier):
         # Filter versions
         for version in iterable:
             parsed_version = _coerce_version(version if key is None else key(version))
+            match = False
             if parsed_version is None:
                 # === operator can match arbitrary (non-version) strings
                 if self.operator == "===" and self._compare_arbitrary(
                     version, self.version
                 ):
                     yield version
-            elif operator_callable(parsed_version, self.version):
+            elif self.operator == "===":
+                match = self._compare_arbitrary(
+                    version if key is None else key(version), self.version
+                )
+            else:
+                match = operator_callable(parsed_version, self.version)
+
+            if match and parsed_version is not None:
                 # If it's not a prerelease or prereleases are allowed, yield it directly
                 if not parsed_version.is_prerelease or include_prereleases:
                     found_non_prereleases = True
@@ -898,7 +906,13 @@ class SpecifierSet(BaseSpecifier):
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
     """
 
-    __slots__ = ("_canonicalized", "_prereleases", "_resolved_ops", "_specs")
+    __slots__ = (
+        "_canonicalized",
+        "_has_arbitrary",
+        "_prereleases",
+        "_resolved_ops",
+        "_specs",
+    )
 
     def __init__(
         self,
@@ -928,8 +942,13 @@ class SpecifierSet(BaseSpecifier):
             split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
 
             self._specs: tuple[Specifier, ...] = tuple(map(Specifier, split_specifiers))
+            # Fast substring check; avoids iterating parsed specs.
+            self._has_arbitrary = "===" in specifiers
         else:
             self._specs = tuple(specifiers)
+            # Substring check works for both Specifier objects and plain
+            # strings (setuptools passes lists of strings).
+            self._has_arbitrary = any("===" in str(s) for s in self._specs)
 
         self._canonicalized = len(self._specs) <= 1
         self._resolved_ops: list[tuple[CallableOperator, str, str]] | None = None
@@ -1025,6 +1044,7 @@ class SpecifierSet(BaseSpecifier):
         specifier = SpecifierSet()
         specifier._specs = self._specs + other._specs
         specifier._canonicalized = len(specifier._specs) <= 1
+        specifier._has_arbitrary = self._has_arbitrary or other._has_arbitrary
         specifier._resolved_ops = None
 
         # Combine prerelease settings: use common or non-None value
@@ -1137,7 +1157,12 @@ class SpecifierSet(BaseSpecifier):
         if version is not None and installed and version.is_prerelease:
             prereleases = True
 
-        check_item = item if version is None else version
+        # When item is a string and === is involved, keep it as-is
+        # so the comparison isn't done against the normalized form.
+        if version is None or (self._has_arbitrary and not isinstance(item, Version)):
+            check_item = item
+        else:
+            check_item = version
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
     @typing.overload
@@ -1289,6 +1314,11 @@ class SpecifierSet(BaseSpecifier):
                     yield item
             elif exclude_prereleases and parsed.is_prerelease:
                 pass
-            elif all(op_fn(parsed, ver) for op_fn, ver, _ in ops):
+            elif all(
+                str(item if key is None else key(item)).lower() == ver.lower()
+                if op == "==="
+                else op_fn(parsed, ver)
+                for op_fn, ver, op in ops
+            ):
                 # Short-circuits on the first failing operator.
                 yield item
