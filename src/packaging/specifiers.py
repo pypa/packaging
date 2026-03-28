@@ -343,6 +343,27 @@ def _base_dev0(version: Version) -> Version:
     return Version.from_parts(epoch=version.epoch, release=version.release, dev=0)
 
 
+def _nearest_non_prerelease(
+    v: _VersionOrBoundary,
+) -> Version | None:
+    """Smallest non-pre-release version at or above *v*, or None."""
+    if v is None:
+        return None
+    if isinstance(v, _BoundaryVersion):
+        inner = v.version
+        if inner.is_prerelease:
+            # AFTER_LOCALS(1.0a1) -> nearest non-pre is 1.0
+            return inner.__replace__(pre=None, dev=None, local=None)
+        # AFTER_LOCALS(1.0) -> nearest non-pre is 1.0.post0
+        # AFTER_LOCALS(1.0.post0) -> nearest non-pre is 1.0.post1
+        k = (inner.post + 1) if inner.post is not None else 0
+        return inner.__replace__(post=k, local=None)
+    if not v.is_prerelease:
+        return v
+    # Strip pre/dev to get the final or post-release form.
+    return v.__replace__(pre=None, dev=None, local=None)
+
+
 class InvalidSpecifier(ValueError):
     """
     Raised when attempting to create a :class:`Specifier` with a specifier
@@ -1235,8 +1256,30 @@ class SpecifierSet(BaseSpecifier):
         if not result:
             result = self._check_arbitrary_unsatisfiable()
 
+        if not result and self.prereleases is False:
+            result = self._check_prerelease_only_intervals()
+
         self._is_unsatisfiable = result
         return result
+
+    def _check_prerelease_only_intervals(self) -> bool:
+        """With prereleases=False, check if all intervals contain only
+        pre-release versions (which would be excluded from matching)."""
+        intervals = self._get_intervals()
+        if intervals is None:
+            intervals = functools.reduce(
+                _intersect_intervals,
+                (s._to_intervals() for s in self._specs),
+            )
+        for lower, upper in intervals:
+            nearest = _nearest_non_prerelease(lower.version)
+            if nearest is None:
+                return False
+            if upper.version is None or nearest < upper.version:
+                return False
+            if nearest == upper.version and upper.inclusive:
+                return False
+        return True
 
     def _check_arbitrary_unsatisfiable(self) -> bool:
         """Check === (arbitrary equality) specs for unsatisfiability.

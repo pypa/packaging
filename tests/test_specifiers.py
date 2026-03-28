@@ -2613,6 +2613,69 @@ class TestIsUnsatisfiable:
         ss.prereleases = True
         assert ss._is_unsatisfiable is None
 
+    UNSATISFIABLE_NO_PRE: typing.ClassVar[list[str]] = [
+        # Only pre-releases in range
+        ">=1.0.dev0,<1.0",
+        ">=1.0a1,<1.0",
+        ">=1.0rc1,<1.0",
+        # Single pre-release pin
+        "==1.0.dev0",
+        "==1.0a1",
+        "==1.0a1.post0",
+        "==1.0.post0.dev0",
+        "==0.dev0",
+        # Ranges within one pre-release family
+        ">=1.0a1,<1.0a2",
+        ">=1.0b1,<1.0rc1",
+        ">=1.0.dev0,<1.0.dev5",
+        # != removes all non-pre-releases from range
+        ">=1.0rc1,<=1.0,!=1.0",
+        ">=1.0.dev0,<=1.0,!=1.0",
+        ">=1.0.dev0,<=1.0.post0,!=1.0,!=1.0.post0",
+        # Epoch pre-release
+        "==1!1.0.dev0",
+        ">=1!1.0a1,<1!1.0",
+        # Already unsatisfiable regardless of prereleases
+        ">=2.0,<1.0",
+    ]
+
+    SATISFIABLE_NO_PRE: typing.ClassVar[list[str]] = [
+        "",
+        ">=1.0,<2.0",
+        ">=1.0.dev0,<2.0",
+        "==1.0",
+        "==1.0.post0",
+        ">=1.0.dev0,<1.0.post1",
+        # Compatible release from pre-release includes final release
+        "~=1.0a1",
+        "~=1.0.dev0",
+        # != removes some but not all
+        ">=1.0rc1,<=1.0.post0,!=1.0",
+        # Inclusive upper at non-pre-release boundary
+        ">=1.0rc1,<=1.0",
+        ">=1.0.dev0,<=1.0",
+    ]
+
+    @pytest.mark.parametrize("spec_str", UNSATISFIABLE_NO_PRE)
+    def test_unsatisfiable_prereleases_false(self, spec_str: str) -> None:
+        """With prereleases=False, detected as unsatisfiable and
+        filter returns nothing."""
+        ss = SpecifierSet(spec_str, prereleases=False)
+        assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
+        result = list(ss.filter(_SAMPLE_VERSIONS))
+        assert result == [], (
+            f"is_unsatisfiable() but filter matched: "
+            f"{[str(v) for v in result]} for {spec_str!r}"
+        )
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE_NO_PRE)
+    def test_satisfiable_prereleases_false(self, spec_str: str) -> None:
+        """With prereleases=False, not falsely reported and filter matches."""
+        ss = SpecifierSet(spec_str, prereleases=False)
+        assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+        result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS)), None))
+        assert result, f"Expected filter to match at least one version for {spec_str!r}"
+
     def test_and_preserves_unsatisfiable(self) -> None:
         combined = SpecifierSet(">=2.0") & SpecifierSet("<1.0")
         assert combined.is_unsatisfiable()
