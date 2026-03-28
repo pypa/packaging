@@ -2583,9 +2583,12 @@ class TestIsUnsatisfiable:
 
     def test_interval_bounds_repr(self) -> None:
         [(lower, upper)] = Specifier(">=1.0")._to_intervals()
-        assert repr(lower) == "[<Version('1.0')>"
-        assert repr(upper) == "None)"
+        assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
+        assert repr(upper) == "<_UpperBound None)>"
 
         [(lower2, upper2)] = Specifier(">1.0")._to_intervals()
-        assert repr(lower2) == "(_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)"
-        assert repr(upper2) == "None)"
+        assert (
+            repr(lower2)
+            == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
+        )
+        assert repr(upper2) == "<_UpperBound None)>"
