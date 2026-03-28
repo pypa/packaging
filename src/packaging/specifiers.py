@@ -50,11 +50,11 @@ def _trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
     return release if end == len(release) else release[:end]
 
 
-class _BoundaryKind(enum.IntEnum):
+class _BoundaryKind(enum.Enum):
     """Where a boundary marker sits in the version ordering."""
 
-    AFTER_LOCALS = 0  # after V+local, before V.post0
-    AFTER_POSTS = 1  # after V.postN, before next release
+    AFTER_LOCALS = enum.auto()  # after V+local, before V.post0
+    AFTER_POSTS = enum.auto()  # after V.postN, before next release
 
 
 @functools.total_ordering
@@ -110,14 +110,14 @@ class _BoundaryVersion:
         if isinstance(other, _BoundaryVersion):
             if self.version != other.version:
                 return self.version < other.version
-            return self._kind < other._kind
+            return self._kind.value < other._kind.value
         return not self._is_family(other) and self.version < other  # type: ignore[arg-type, operator]
 
     def __hash__(self) -> int:
         return hash((self.version, self._kind))
 
     def __repr__(self) -> str:
-        return f"_BoundaryVersion({self.version!r}, {self._kind.name})"
+        return f"{self.__class__.__name__}({self.version!r}, {self._kind.name})"
 
 
 @functools.total_ordering
@@ -156,7 +156,8 @@ class _LowerBound:
         return hash((self.version, self.inclusive))
 
     def __repr__(self) -> str:
-        return f"{'[' if self.inclusive else '('}{self.version!r}"
+        bracket = "[" if self.inclusive else "("
+        return f"<{self.__class__.__name__} {bracket}{self.version!r}>"
 
 
 @functools.total_ordering
@@ -195,7 +196,8 @@ class _UpperBound:
         return hash((self.version, self.inclusive))
 
     def __repr__(self) -> str:
-        return f"{self.version!r}{']' if self.inclusive else ')'}"
+        bracket = "]" if self.inclusive else ")"
+        return f"<{self.__class__.__name__} {self.version!r}{bracket}>"
 
 
 if typing.TYPE_CHECKING:
