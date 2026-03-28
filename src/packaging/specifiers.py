@@ -674,8 +674,7 @@ class Specifier(BaseSpecifier):
 
         if op == "<":
             # <V excludes prereleases of V when V is not a prerelease.
-            # V.dev0 is the earliest prerelease of V regardless of
-            # whether V is a final, post, or pre-of-pre release.
+            # V.dev0 is the earliest prerelease of V (final, post, etc.).
             bound = v if v.is_prerelease else v.__replace__(dev=0, local=None)
             if bound <= _MIN_VERSION:
                 return []
