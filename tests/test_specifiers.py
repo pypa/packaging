@@ -2341,6 +2341,7 @@ _SAMPLE_VERSIONS += [
     "not-a-version",
     "1.01",
     "1.0-1",
+    "v1.0",
 ]
 
 
@@ -2429,6 +2430,31 @@ class TestIsUnsatisfiable:
         "===1.0,!=1.0",
         "===1.0,>1.0",
         "===1.01,==1.0",
+        # Non-overlapping wildcards (adjacent boundaries, upper exclusive)
+        "==1.0.*,==1.1.*",
+        "==1.*,==2.*",
+        # Conflicting compatible releases
+        "~=1.0,~=2.0",
+        "~=1.4.2,~=1.5.0",
+        # Local excluded by non-local != (locals ignored per spec)
+        "==1.0+local1,!=1.0",
+        # Wildcard exhaustion (single and multiple)
+        ">=1.0,<1.1,!=1.0.*",
+        "!=1.*,!=2.*,>=1.0,<3.0",
+        "~=1.0,!=1.*",
+        # >V excludes posts of pre-release V
+        ">1.0a1,<1.0a1.post2",
+        # Adjacent dev of zero: no version between devN and dev(N+1)
+        ">0.dev0,<0.dev1",
+        # Compatible release with pre/dev suffix vs <base
+        "~=1.0a1,<1.0",
+        "~=1.0.dev5,<1.0",
+        # Between post dev and post: >V.postK.devN leaves no room
+        ">1.0.post0.dev0,<1.0.post0",
+        # Deep release crossing compatible release boundary
+        "~=1.2.3.4.5,>=1.2.3.5",
+        # Different base but release is above the <V.postN bound
+        "==1.1.dev0,<1.0.post1",
     ]
 
     SATISFIABLE: typing.ClassVar[list[str]] = [
@@ -2512,6 +2538,40 @@ class TestIsUnsatisfiable:
         "===1.01,>=1.0",
         # === with unnormalized version that parses to a matching version
         "===1.01,==1.1",
+        # === case-insensitive identity
+        "===FOOBAR,===foobar",
+        "===FooBar,===FOOBAR",
+        # Final version sits below its own post-releases
+        ">=1.0,<1.0.post0",
+        ">=1.0,<1.0.post1",
+        # <V.postN only excludes pre-releases of V.postN itself,
+        # not pre-releases of the base release (#1140)
+        "==1.0.dev0,<1.0.post1",
+        "==1.0a1,<1.0.post0",
+        "==1.0rc1,<1.0.post0",
+        "==1.0.post0.dev0,<1.0.post1",
+        ">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0",
+        # === with normalization variants
+        "===v1.0,>=1.0",
+        "===1.0-1,>=1.0",
+        # Zero-padding equivalence
+        "==1.0,==1.0.0",
+        # Compatible release with post suffix
+        "~=1.0.post1,>=1.0",
+        # Range below post dev
+        ">=1.0,<1.0.post0.dev1",
+        # Post of alpha satisfies (1.0a1.post0 exists)
+        ">=1.0a1,<1.0a2,!=1.0a1",
+        # Alpha-to-beta range has room (1.0a2.dev0, etc.)
+        ">1.0a1,<1.0b1",
+        # Overlapping compatible releases
+        "~=1.0,~=1.1",
+        "~=1.0,~=1.0.1",
+        # Partial wildcard exclusion doesn't exhaust range
+        ">=1.0,<2.0,!=1.0.*,!=1.1.*",
+        # ~= with pre/dev lower bound still accepts the final release
+        "~=1.0.dev0,<1.0.post0",
+        "~=1.0a1,<1.0.post0",
     ]
 
     @pytest.mark.parametrize("spec_str", UNSATISFIABLE)

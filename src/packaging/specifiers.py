@@ -281,6 +281,14 @@ def _base_version(version: Version) -> Version:
     return version.__replace__(pre=None, post=None, dev=None, local=None)
 
 
+def _earliest_prerelease(version: Version) -> Version:
+    """Earliest pre-release of *version*.
+
+    1.2 -> 1.2.dev0, 1.2.post1 -> 1.2.post1.dev0.
+    """
+    return version.__replace__(dev=0, local=None)
+
+
 class InvalidSpecifier(ValueError):
     """
     Raised when attempting to create a :class:`Specifier` with a specifier
@@ -887,14 +895,12 @@ class Specifier(BaseSpecifier):
         if not prospective < spec:
             return False
 
-        # This special case is here so that, unless the specifier itself
-        # includes is a pre-release version, that we do not accept pre-release
-        # versions for the version mentioned in the specifier (e.g. <3.1 should
-        # not match 3.1.dev0, but should match 3.0.dev0).
+        # The spec says: "<V MUST NOT allow a pre-release of the specified
+        # version unless the specified version is itself a pre-release."
         if (
             not spec.is_prerelease
             and prospective.is_prerelease
-            and _base_version(prospective) == _base_version(spec)
+            and prospective >= _earliest_prerelease(spec)
         ):
             return False
 
