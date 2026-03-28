@@ -780,6 +780,35 @@ class TestSpecifier:
             ("<=2.0.dev1", "1.0a1", None, None, True),
             ("<2.0", "2.0a1", None, None, False),
             ("<2.0a2", "2.0a1", None, None, True),
+            # <V.postN: pre-releases of V.postN itself are excluded
+            ("<1.0.post1", "1.0.post1.dev0", None, None, False),
+            ("<1.0.post0", "1.0.post0.dev0", None, None, False),
+            # <V.postN: pre-releases of the base release are NOT
+            # pre-releases of V.postN, so they are accepted
+            ("<1.0.post1", "1.0.dev0", None, None, True),
+            ("<1.0.post1", "1.0a1", None, None, True),
+            ("<1.0.post1", "1.0rc1", None, None, True),
+            ("<1.0.post0", "1.0.dev0", None, None, True),
+            ("<1.0.post0", "1.0a1", None, None, True),
+            ("<1.0.post0", "1.0b1", None, None, True),
+            ("<1.0.post0", "1.0rc2", None, None, True),
+            # <V.postN: dev of a different post is not a pre-release
+            # of V.postN either
+            ("<1.0.post1", "1.0.post0.dev0", None, None, True),
+            ("<1.0.post2", "1.0.post1.dev0", None, None, True),
+            # <V.postN: non-pre-release versions below V.postN
+            ("<1.0.post1", "1.0", None, None, True),
+            ("<1.0.post1", "1.0.post0", None, None, True),
+            ("<1.0.post1", "0.9", None, None, True),
+            ("<1.0.post0", "1.0", None, None, True),
+            # <V.postN: higher post numbers
+            ("<1.0.post10", "1.0.dev0", None, None, True),
+            ("<1.0.post10", "1.0.post9.dev0", None, None, True),
+            ("<1.0.post10", "1.0.post9", None, None, True),
+            # <V.postN: locals and different bases
+            ("<1.0.post1", "1.0+local", None, None, True),
+            ("<1.0.post1", "1.0.post0+local", None, None, True),
+            ("<1.0.post1", "0.9.dev0", None, None, True),
             ("<=2.0", "1.0.dev1", False, None, False),
             ("<=2.0a1", "1.0.dev1", False, None, False),
             ("<=2.0", "1.0.dev1", None, False, False),
@@ -1933,6 +1962,26 @@ class TestSpecifierSet:
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", True, "0!5.0", False),
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "1!0.5", True),
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "0!5.0", False),
+            # <V.postN combined with other specifiers: pre-releases of
+            # the base release are accepted (they are not pre-releases
+            # of V.postN).
+            ("==1.0.dev0,<1.0.post1", None, "1.0.dev0", True),
+            ("==1.0a1,<1.0.post0", None, "1.0a1", True),
+            ("==1.0.post0.dev0,<1.0.post1", None, "1.0.post0.dev0", True),
+            (">=1.0,<1.0.post1", None, "1.0", True),
+            (">=1.0,<1.0.post1", None, "1.0.post0", True),
+            # 1.0.dev0 < 1.0, so it fails >=1.0 regardless of <
+            (">=1.0,<1.0.post1", True, "1.0.dev0", False),
+            # With a lower bound that includes pre-releases
+            (">=1.0.dev0,<1.0.post1", True, "1.0.dev0", True),
+            (">=1.0.dev0,<1.0.post1", True, "1.0.a1", True),
+            (">=1.0.dev0,<1.0.post1", True, "1.0.post0.dev0", True),
+            # != can remove non-pre-releases but pre-releases still match
+            (">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0", True, "1.0.dev0", True),
+            (">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0", True, "1.0.post0.dev0", True),
+            # Post-release survivors still match
+            (">=1.0.dev0,<1.0.post2,!=1.0,!=1.0.post0", True, "1.0.post1", True),
+            (">=1.0.dev0,<1.0.post2,!=1.0", True, "1.0.post0", True),
         ],
     )
     def test_contains_exclusionary_bridges(
