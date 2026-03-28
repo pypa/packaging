@@ -780,6 +780,22 @@ class TestSpecifier:
             ("<=2.0.dev1", "1.0a1", None, None, True),
             ("<2.0", "2.0a1", None, None, False),
             ("<2.0a2", "2.0a1", None, None, True),
+            # <V.postN excludes pre-releases of V (same base release)
+            ("<1.0.post1", "1.0.dev0", None, None, False),
+            ("<1.0.post1", "1.0a1", None, None, False),
+            ("<1.0.post1", "1.0rc1", None, None, False),
+            ("<1.0.post0", "1.0.dev0", None, None, False),
+            ("<1.0.post0", "1.0a1", None, None, False),
+            # <V.postN also excludes dev releases of other posts (same base)
+            ("<1.0.post1", "1.0.post0.dev0", None, None, False),
+            # <V.postN still excludes V.postN.devM
+            ("<1.0.post1", "1.0.post1.dev0", None, None, False),
+            ("<1.0.post0", "1.0.post0.dev0", None, None, False),
+            # <V.postN accepts non-pre-release versions below V.postN
+            ("<1.0.post1", "1.0", None, None, True),
+            ("<1.0.post1", "1.0.post0", None, None, True),
+            ("<1.0.post1", "0.9", None, None, True),
+            ("<1.0.post0", "1.0", None, None, True),
             ("<=2.0", "1.0.dev1", False, None, False),
             ("<=2.0a1", "1.0.dev1", False, None, False),
             ("<=2.0", "1.0.dev1", None, False, False),
