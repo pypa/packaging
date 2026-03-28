@@ -1949,6 +1949,22 @@ class TestSpecifierSet:
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", True, "0!5.0", False),
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "1!0.5", True),
             (">=1!0,!=1!1.*,!=1!2.*,<1!3", False, "0!5.0", False),
+            # <V.postN excludes pre-releases of base but accepts the
+            # final release and prior post-releases.
+            ("==1.0.dev0,<1.0.post1", None, "1.0.dev0", False),
+            ("==1.0a1,<1.0.post0", None, "1.0a1", False),
+            ("==1.0.post0.dev0,<1.0.post1", None, "1.0.post0.dev0", False),
+            (">=1.0,<1.0.post1", None, "1.0", True),
+            (">=1.0,<1.0.post1", None, "1.0.post0", True),
+            (">=1.0,<1.0.post1", None, "1.0.dev0", False),
+            (">=1.0,<1.0.post1", True, "1.0.dev0", False),
+            # != removes survivors, leaving only excluded pre-releases
+            (">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0", True, "1.0", False),
+            (">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0", True, "1.0.dev0", False),
+            (">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0", True, "1.0.post0.dev0", False),
+            # But if one survivor remains, it matches
+            (">=1.0.dev0,<1.0.post2,!=1.0,!=1.0.post0", True, "1.0.post1", True),
+            (">=1.0.dev0,<1.0.post2,!=1.0", True, "1.0.post0", True),
         ],
     )
     def test_contains_exclusionary_bridges(
