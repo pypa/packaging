@@ -7,8 +7,6 @@
     from packaging.version import parse, normalize_pre, Version, _cmpkey
 """
 
-from __future__ import annotations
-
 import re
 import sys
 import typing
