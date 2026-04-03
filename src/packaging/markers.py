@@ -371,6 +371,24 @@ class Marker:
 
         return str(self) == str(other)
 
+    def __and__(self, other: Marker) -> Marker:
+        """Return a new Marker representing the logical AND of two Markers.
+
+        Only Marker operands are accepted. Returns NotImplemented for other types.
+        """
+        if not isinstance(other, Marker):
+            return NotImplemented
+        return Marker(f"({self!s}) and ({other!s})")
+
+    def __or__(self, other: Marker) -> Marker:
+        """Return a new Marker representing the logical OR of two Markers.
+
+        Only Marker operands are accepted. Returns NotImplemented for other types.
+        """
+        if not isinstance(other, Marker):
+            return NotImplemented
+        return Marker(f"({self!s}) or ({other!s})")
+
     def evaluate(
         self,
         environment: Mapping[str, str | AbstractSet[str]] | None = None,
