@@ -63,8 +63,45 @@ combining markers without manually constructing marker strings:
 This is equivalent to writing the combined marker string directly but is useful
 when building markers dynamically from separate conditions.
 
-.. versionadded:: 26.1
+Structured marker tree
+^^^^^^^^^^^^^^^^^^^^^^
 
+:meth:`Marker.as_ast` returns an immutable tree of :class:`MarkerCompare`,
+:class:`MarkerAnd`, and :class:`MarkerOr` nodes (see :class:`MarkerNode`). The
+string form preserves PEP 508 ``and`` / ``or`` precedence.
+
+.. doctest::
+
+    >>> from packaging.markers import Marker, MarkerCompare, MarkerAnd, MarkerOr
+    >>> py_at_least_310 = Marker('python_version >= "3.10"')
+    >>> posix = Marker('os_name == "posix"')
+    >>> py_at_least_310 & posix
+    <Marker('python_version >= "3.10" and os_name == "posix"')>
+    >>> windows = Marker('sys_platform == "win32"')
+    >>> macos = Marker('sys_platform == "darwin"')
+    >>> windows | macos
+    <Marker('sys_platform == "win32" or sys_platform == "darwin"')>
+    >>> expr = Marker(
+    ...     "python_version > '3.12' or (python_version == '3.12' and os_name == 'unix')"
+    ... )
+    >>> node = expr.as_ast()
+    >>> isinstance(node, MarkerOr)
+    True
+    >>> len(node.operands)
+    2
+    >>> isinstance(node.operands[0], MarkerCompare)
+    True
+    >>> (node.operands[0].left, node.operands[0].op, node.operands[0].right)
+    ('python_version', '>', '3.12')
+    >>> isinstance(node.operands[1], MarkerAnd)
+    True
+    >>> [type(p).__name__ for p in node.operands[1].operands]
+    ['MarkerCompare', 'MarkerCompare']
+
+.. versionadded:: 26.1
+    :class:`Marker` supports ``&`` and ``|`` for composition. :meth:`~Marker.as_ast`
+    and the :class:`MarkerCompare`, :class:`MarkerAnd`, :class:`MarkerOr`, and
+    :class:`MarkerNode` types expose the parsed marker as a tree.
 
 Reference
 ---------
@@ -73,3 +110,6 @@ Reference
     :members:
     :special-members: __and__, __or__
     :exclude-members: __init__
+
+.. autodata:: MarkerCompareOp
+    :no-value:
