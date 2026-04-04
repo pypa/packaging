@@ -357,12 +357,12 @@ class Marker:
             raise InvalidMarker(str(e)) from e
 
     @classmethod
-    def _from_markers(cls, markers: MarkerList) -> "Marker":
+    def _from_markers(cls, markers: MarkerList) -> Marker:
         """Create a Marker instance from a pre-parsed marker tree.
 
         This avoids re-parsing serialised marker strings when combining markers.
         """
-        new = object.__new__(cls)
+        new = cls.__new__(cls)
         new._markers = markers
         return new
 
@@ -382,24 +382,11 @@ class Marker:
         return str(self) == str(other)
 
     def __and__(self, other: Marker) -> Marker:
-        """Return a new Marker representing the logical AND of two Markers.
-
-        Only Marker operands are accepted. Returns NotImplemented for other types.
-        """
         if not isinstance(other, Marker):
             return NotImplemented
-        # Build the logical tree directly instead of formatting strings and
-        # reparsing. This preserves the parsed structure and avoids
-        # unnecessary serialization/deserialization.
-        new = object.__new__(Marker)
-        new._markers = [self._markers, "and", other._markers]
-        return new
+        return self._from_markers([self._markers, "and", other._markers])
 
     def __or__(self, other: Marker) -> Marker:
-        """Return a new Marker representing the logical OR of two Markers.
-
-        Only Marker operands are accepted. Returns NotImplemented for other types.
-        """
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "or", other._markers])
