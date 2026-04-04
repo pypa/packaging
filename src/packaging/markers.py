@@ -324,6 +324,8 @@ class Marker:
     :raises InvalidMarker: If ``marker`` cannot be parsed.
     """
 
+    __slots__ = ("_markers",)
+
     def __init__(self, marker: str) -> None:
         # Note: We create a Marker object without calling this constructor in
         #       packaging.requirements.Requirement. If any additional logic is
