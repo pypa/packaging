@@ -56,6 +56,10 @@ def tests(session: nox.Session) -> None:
     session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
+    # Property tests run in their own session to avoid slowing down
+    # the coverage-tracked test suite.
+    ignore = ["--ignore=tests/property"] if not session.posargs else []
+
     assert session.python is not None
     assert not isinstance(session.python, bool)
     if "pypy" not in session.python:
@@ -64,6 +68,7 @@ def tests(session: nox.Session) -> None:
             "run",
             "-m",
             "pytest",
+            *ignore,
             *session.posargs,
             env=env,
         )
@@ -75,8 +80,25 @@ def tests(session: nox.Session) -> None:
             "-m",
             "pytest",
             "--capture=no",
+            *ignore,
             *session.posargs,
         )
+
+
+@nox.session(default=False)
+def property_tests(session: nox.Session) -> None:
+    """
+    Run property-based tests (no coverage).
+    """
+    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
+    session.install("-e.")
+    session.run(
+        "python",
+        "-m",
+        "pytest",
+        "tests/property",
+        *session.posargs,
+    )
 
 
 PROJECTS = {
