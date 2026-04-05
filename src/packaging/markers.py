@@ -324,6 +324,8 @@ class Marker:
     :raises InvalidMarker: If ``marker`` cannot be parsed.
     """
 
+    __slots__ = ("_markers",)
+
     def __init__(self, marker: str) -> None:
         # Note: We create a Marker object without calling this constructor in
         #       packaging.requirements.Requirement. If any additional logic is
@@ -354,6 +356,16 @@ class Marker:
         except ParserSyntaxError as e:
             raise InvalidMarker(str(e)) from e
 
+    @classmethod
+    def _from_markers(cls, markers: MarkerList) -> Marker:
+        """Create a Marker instance from a pre-parsed marker tree.
+
+        This avoids re-parsing serialised marker strings when combining markers.
+        """
+        new = cls.__new__(cls)
+        new._markers = markers
+        return new
+
     def __str__(self) -> str:
         return _format_marker(self._markers)
 
@@ -368,6 +380,16 @@ class Marker:
             return NotImplemented
 
         return str(self) == str(other)
+
+    def __and__(self, other: Marker) -> Marker:
+        if not isinstance(other, Marker):
+            return NotImplemented
+        return self._from_markers([self._markers, "and", other._markers])
+
+    def __or__(self, other: Marker) -> Marker:
+        if not isinstance(other, Marker):
+            return NotImplemented
+        return self._from_markers([self._markers, "or", other._markers])
 
     def evaluate(
         self,
