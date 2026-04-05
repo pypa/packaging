@@ -492,73 +492,66 @@ class TestMarker:
         assert marker.evaluate(environment) is expected
 
 
-def test_and_operator_evaluates_true() -> None:
-    env = {"python_version": "3.8", "os_name": "posix"}
+class TestMarkerOperators:
+    def test_and_operator_evaluates_true(self) -> None:
+        env = {"python_version": "3.8", "os_name": "posix"}
 
-    m = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-    assert m.evaluate(env) is True
+        m = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        assert m.evaluate(env) is True
 
+    def test_and_operator_str_equality(self) -> None:
+        a = Marker('python_version >= "3.6" and os_name == "posix"')
+        b = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        assert a == b
+        assert str(a) == str(b)
 
-def test_and_operator_str_equality() -> None:
-    a = Marker('python_version >= "3.6" and os_name == "posix"')
-    b = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-    assert a == b
-    assert str(a) == str(b)
+    def test_or_operator_evaluates_true(self) -> None:
+        env = {"python_version": "3.7", "os_name": "windows"}
 
+        m = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+        assert m.evaluate(env) is True
 
-def test_or_operator_evaluates_true() -> None:
-    env = {"python_version": "3.7", "os_name": "windows"}
+    def test_or_operator_str_equality(self) -> None:
+        a = Marker('python_version < "3.6" or os_name == "windows"')
+        b = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+        assert a == b
+        assert str(a) == str(b)
 
-    m = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
-    assert m.evaluate(env) is True
+    def test_operator_rejects_non_marker(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        # dunder returns NotImplemented for non-Marker
+        assert m.__and__(cast("Any", "not-a-marker")) is NotImplemented
+        assert m.__or__(cast("Any", 123)) is NotImplemented
 
+    def test_inplace_operators_fallback(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        m &= Marker('os_name == "posix"')
+        assert isinstance(m, Marker)
+        assert m == Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
 
-def test_or_operator_str_equality() -> None:
-    a = Marker('python_version < "3.6" or os_name == "windows"')
-    b = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
-    assert a == b
-    assert str(a) == str(b)
+    def test_right_hand_ops_and_typeerror(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        assert m.__and__(cast("Any", "x")) is NotImplemented
+        with pytest.raises(TypeError):
+            cast("Any", "not-a-marker") & Marker('python_version >= "3.6"')
 
+    def test_chaining_associativity_and_str(self) -> None:
+        a = Marker(
+            '(python_version >= "3.6" and os_name == "posix") '
+            'and platform_system == "Linux"'
+        )
+        b = (
+            Marker('python_version >= "3.6"')
+            & Marker('os_name == "posix"')
+            & Marker('platform_system == "Linux"')
+        )
+        assert a == b
+        assert str(a) == str(b)
 
-def test_operator_rejects_non_marker() -> None:
-    m = Marker('python_version >= "3.6"')
-    # dunder returns NotImplemented for non-Marker
-    assert m.__and__(cast("Any", "not-a-marker")) is NotImplemented
-    assert m.__or__(cast("Any", 123)) is NotImplemented
-
-
-def test_inplace_operators_fallback() -> None:
-    m = Marker('python_version >= "3.6"')
-    m &= Marker('os_name == "posix"')
-    assert isinstance(m, Marker)
-    assert m == Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-
-
-def test_right_hand_ops_and_typeerror() -> None:
-    m = Marker('python_version >= "3.6"')
-    assert m.__and__(cast("Any", "x")) is NotImplemented
-    with pytest.raises(TypeError):
-        cast("Any", "not-a-marker") & Marker('python_version >= "3.6"')
-
-
-def test_chaining_associativity_and_str() -> None:
-    a = Marker(
-        '(python_version >= "3.6" and os_name == "posix") '
-        'and platform_system == "Linux"'
-    )
-    b = (
-        Marker('python_version >= "3.6"')
-        & Marker('os_name == "posix"')
-        & Marker('platform_system == "Linux"')
-    )
-    assert a == b
-    assert str(a) == str(b)
-
-
-def test_hash_eq_for_combined_markers() -> None:
-    assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
-        Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-    )
+    def test_hash_eq_for_combined_markers(self) -> None:
+        assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
+            Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        )
 
 
 class TestMarkerAsAST:
