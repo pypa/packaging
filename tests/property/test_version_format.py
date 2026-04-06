@@ -541,12 +541,12 @@ class TestLocalVersionStartEnd:
 
 class TestLocalVersionComparison:
     """Comparison and ordering of local versions considers each segment of the local
-    version (divided by a ``.'') separately. If a segment consists entirely of
+    version (divided by a ``.``) separately. If a segment consists entirely of
     ASCII digits then that section should be considered an integer for comparison
     purposes and if a segment contains any ASCII letters then that segment is
     compared lexicographically with case insensitivity. When comparing a numeric
     and lexicographic segment, the numeric section always compares as greater than
-    the lexicographic segment. Additionally a local version with a great number of
+    the lexicographic segment. Additionally a local version with a greater number of
     segments will always compare as greater than a local version with fewer
     segments, as long as the shorter local version's segments match the beginning
     of the longer local version's segments exactly."""
@@ -691,12 +691,12 @@ class TestSourceDistributionMetadata:
 
 class TestLocalVersionDoesNotAffectPublicOrdering:
     """Comparison and ordering of local versions considers each segment of the local
-    version (divided by a ``.'') separately. If a segment consists entirely of
+    version (divided by a ``.``) separately. If a segment consists entirely of
     ASCII digits then that section should be considered an integer for comparison
     purposes and if a segment contains any ASCII letters then that segment is
     compared lexicographically with case insensitivity. When comparing a numeric
     and lexicographic segment, the numeric section always compares as greater than
-    the lexicographic segment. Additionally a local version with a great number of
+    the lexicographic segment. Additionally a local version with a greater number of
     segments will always compare as greater than a local version with fewer
     segments, as long as the shorter local version's segments match the beginning
     of the longer local version's segments exactly."""

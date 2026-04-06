@@ -295,7 +295,7 @@ class TestXYEqualsXY0:
     """.. note::
 
     ``X.Y`` and ``X.Y.0`` are not considered distinct release numbers, as
-    the release segment comparison rules implicit expand the two component
+    the release segment comparison rules implicitly expand the two component
     form to ``X.Y.0`` when comparing it to any release segment that includes
     three components."""
 
