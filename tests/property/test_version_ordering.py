@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import itertools
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from packaging.version import Version
 from tests.property.strategies import SETTINGS, pre_tags, release_segment, small_ints
+
+pytestmark = pytest.mark.property
 
 _epoch_ints = st.integers(min_value=0, max_value=5)
 

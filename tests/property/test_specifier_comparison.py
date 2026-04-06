@@ -20,6 +20,8 @@ from tests.property.strategies import (
     versions_with_local,
 )
 
+pytestmark = pytest.mark.property
+
 
 class TestInclusiveOrderedComparison:
     """An inclusive ordered comparison clause includes a comparison operator and a

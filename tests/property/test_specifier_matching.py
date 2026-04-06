@@ -21,6 +21,8 @@ from tests.property.strategies import (
     versions_with_local,
 )
 
+pytestmark = pytest.mark.property
+
 
 class TestSpecifierCommaIsAnd:
     """The comma (",") is equivalent to a logical **and** operator: a candidate

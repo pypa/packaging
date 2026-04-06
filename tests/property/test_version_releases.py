@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
@@ -16,6 +17,8 @@ from tests.property.strategies import (
     release_segment,
     small_ints,
 )
+
+pytestmark = pytest.mark.property
 
 
 @st.composite

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
@@ -20,6 +21,8 @@ from tests.property.strategies import (
     small_ints,
     specifier_sets,
 )
+
+pytestmark = pytest.mark.property
 
 
 class TestFilterContainmentConsistency:

@@ -99,11 +99,12 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-m", "not property"]
 xfail_strict = true
 filterwarnings = ["error"]
 log_level = "INFO"
 testpaths = ["tests"]
+markers = ["property: property-based tests (opt-in)"]
 
 
 [tool.mypy]

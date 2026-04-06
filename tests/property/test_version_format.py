@@ -13,6 +13,8 @@ from hypothesis import strategies as st
 from packaging.version import InvalidVersion, Version
 from tests.property.strategies import SETTINGS, VERSION_POOL, pre_tags
 
+pytestmark = pytest.mark.property
+
 versions = st.sampled_from(VERSION_POOL)
 
 

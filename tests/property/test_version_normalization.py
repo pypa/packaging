@@ -16,6 +16,8 @@ from tests.property.strategies import (
     small_ints,
 )
 
+pytestmark = pytest.mark.property
+
 # Values of varying digit lengths for leading-zero stripping ("007" -> "7").
 _ints_for_padding = st.sampled_from([0, 5, 12, 123, 1234, 99999])
 
