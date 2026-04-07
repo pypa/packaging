@@ -225,7 +225,18 @@ def parse_wheel_filename(
         build = cast("BuildTag", (int(build_match.group(1)), build_match.group(2)))
     else:
         build = ()
-    tags = parse_tag(parts[-1])
+    tag_str = parts[-1]
+    # PEP 425: each component of a compressed tag set must be in sorted order.
+    # e.g., "manylinux2014_x86_64.manylinux_2_17_x86_64" is valid (sorted),
+    # but "manylinux_2_17_x86_64.manylinux2014_x86_64" is not.
+    for component in tag_str.split("-"):
+        component_parts = component.split(".")
+        if component_parts != sorted(component_parts):
+            raise InvalidWheelFilename(
+                f"Invalid wheel filename (compressed tag set components must be in "
+                f"sorted order per PEP 425): {filename!r}"
+            )
+    tags = parse_tag(tag_str)
     return (name, version, build, tags)
 
 
