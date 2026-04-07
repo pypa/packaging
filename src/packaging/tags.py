@@ -169,9 +169,17 @@ def parse_tag(tag: str) -> frozenset[Tag]:
     Python 2 and Python 3.
 
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
+    :raises ValueError: If any compressed tag set component is not in sorted
+        order as required by PEP 425.
     """
     tags = set()
     interpreters, abis, platforms = tag.split("-")
+    for component in (interpreters, abis, platforms):
+        parts = component.split(".")
+        if parts != sorted(parts):
+            raise ValueError(
+                f"Tag component {component!r} is not in sorted order per PEP 425"
+            )
     for interpreter in interpreters.split("."):
         for abi in abis.split("."):
             for platform_ in platforms.split("."):
