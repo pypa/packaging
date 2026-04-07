@@ -192,6 +192,7 @@ class WheelFilename:
     """
 
     __slots__ = ("build_tag", "original_name", "original_version", "tags")
+    __match_args__ = ("name", "version", "build_tag", "tags")
 
     def __init__(
         self,
@@ -407,6 +408,7 @@ class SourceDistributionFilename:
     """
 
     __slots__ = ("original_name", "original_version")
+    __match_args__ = ("name", "version")
 
     def __init__(self, name: str, version: str) -> None:
         """Create a source distribution filename from name and version.
