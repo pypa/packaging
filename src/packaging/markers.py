@@ -310,7 +310,11 @@ def _evaluate_markers(
             # original order already works, so _eval_op skips the swap.
             var_on_rhs = isinstance(rhs, Variable)
             groups[-1].append(
-                _eval_op(lhs_value, op, rhs_value, key=environment_key, invert=var_on_rhs)
+                _eval_op(
+                    lhs_value, op, rhs_value,
+                    key=environment_key,
+                    invert=var_on_rhs,
+                )
             )
         elif marker == "or":
             groups.append([])
