@@ -206,10 +206,23 @@ def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:
     """
     Determine if the Python version supports abi3.
 
-    PEP 384 was first implemented in Python 3.2. The threaded (`--disable-gil`)
+    PEP 384 was first implemented in Python 3.2. The free-threaded
     builds do not support abi3.
     """
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and not threading
+
+
+def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
+    """
+    Determine if the Python version supports abi3t.
+
+    PEP 803 was first implemented in Python 3.15 but, per PEP 803, this
+    returns tags going back to Python 3.2 to mirror the abi3
+    implementation and leave open the possibility of abi3t wheels
+    supporting older Python versions.
+
+    """
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2) and threading
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
@@ -258,13 +271,17 @@ def cpython_tags(
     The specific tags generated are:
 
     - ``cp<python_version>-<abi>-<platform>``
-    - ``cp<python_version>-abi3-<platform>``
+    - ``cp<python_version>-<stable_abi>-<platform>``
     - ``cp<python_version>-none-<platform>``
-    - ``cp<older version>-abi3-<platform>`` where "older version" is all older
+    - ``cp<older version>-<stable_abi>-<platform>`` where "older version" is all older
       minor versions down to Python 3.2 (when ``abi3`` was introduced)
 
     If ``python_version`` only provides a major-only version then only
     user-provided ABIs via ``abis`` and the ``none`` ABI will be used.
+
+    The ``stable_abi`` will be either ``abi3`` or ``abi3t`` if `abi` is a
+    GIL-enabled ABI like `"cp315"` or a free-threaded ABI like `"cp315t"`,
+    respectively.
 
     :param Sequence python_version: A one- or two-item sequence representing the
                                  targeted Python version. Defaults to
@@ -297,16 +314,27 @@ def cpython_tags(
 
     threading = _is_threaded_cpython(abis)
     use_abi3 = _abi3_applies(python_version, threading)
-    if use_abi3:
-        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
-    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+    use_abi3t = _abi3t_applies(python_version, threading)
 
     if use_abi3:
+        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
+    if use_abi3t:
+        yield from (Tag(interpreter, "abi3t", platform_) for platform_ in platforms)
+
+    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+
+    if use_abi3 or use_abi3t:
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 version = _version_nodot((python_version[0], minor_version))
                 interpreter = f"cp{version}"
-                yield Tag(interpreter, "abi3", platform_)
+                if use_abi3:
+                    yield Tag(interpreter, "abi3", platform_)
+                if use_abi3t:
+                    # Support for abi3t was introduced in Python 3.15, but in
+                    # principle abi3t wheels are possible for older limited API
+                    # versions, so allow things like ("cp37", "abi3t", "platform")
+                    yield Tag(interpreter, "abi3t", platform_)
 
 
 def _generic_abi() -> list[str]:
@@ -764,6 +792,8 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
 
     .. versionchanged:: 21.3
         Added the `pp3-none-any` tag (:issue:`311`).
+    .. versionchanged:: 27.0
+        Added the `abi3t` tag (:issue:`1099`).
     """
 
     interp_name = interpreter_name()
