@@ -11,7 +11,6 @@ try:
     import ctypes
 except ImportError:
     ctypes = None  # type: ignore[assignment]
-import importlib
 import os
 import pathlib
 import pickle
@@ -1806,9 +1805,6 @@ class TestSysTags:
 
 
 class TestBitness:
-    def teardown_method(self) -> None:
-        importlib.reload(tags)
-
     @pytest.mark.parametrize(
         ("maxsize", "sizeof_voidp", "expected"),
         [
@@ -1833,8 +1829,7 @@ class TestBitness:
 
         monkeypatch.setattr(sys, "maxsize", maxsize)
         monkeypatch.setattr(struct, "calcsize", _calcsize)
-        importlib.reload(tags)
-        assert expected == tags._32_BIT_INTERPRETER
+        assert expected == tags._compute_32_bit_interpreter()
 
 
 def test_pickle() -> None:
