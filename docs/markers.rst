@@ -63,13 +63,12 @@ combining markers without manually constructing marker strings:
 This is equivalent to writing the combined marker string directly but is useful
 when building markers dynamically from separate conditions.
 
-.. versionadded:: 26.1
+Structured marker tree
+^^^^^^^^^^^^^^^^^^^^^^
 
-You can combine existing :class:`Marker` instances with ``&`` and ``|`` instead of
-parsing one long marker string. The string form preserves PEP 508 ``and`` / ``or``
-precedence. :meth:`Marker.as_ast` returns an immutable tree of
-:class:`MarkerCompare`, :class:`MarkerAnd`, and :class:`MarkerOr` nodes (see
-:class:`MarkerNode`).
+:meth:`Marker.as_ast` returns an immutable tree of :class:`MarkerCompare`,
+:class:`MarkerAnd`, and :class:`MarkerOr` nodes (see :class:`MarkerNode`). The
+string form preserves PEP 508 ``and`` / ``or`` precedence.
 
 .. doctest::
 
@@ -100,6 +99,9 @@ precedence. :meth:`Marker.as_ast` returns an immutable tree of
     ['MarkerCompare', 'MarkerCompare']
 
 .. versionadded:: 26.1
+    :class:`Marker` supports ``&`` and ``|`` for composition. :meth:`~Marker.as_ast`
+    and the :class:`MarkerCompare`, :class:`MarkerAnd`, :class:`MarkerOr`, and
+    :class:`MarkerNode` types expose the parsed marker as a tree.
 
 Reference
 ---------
