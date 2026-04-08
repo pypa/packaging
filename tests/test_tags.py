@@ -1768,12 +1768,12 @@ class TestSysTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.get)
         monkeypatch.setattr(platform, "system", lambda: "Emscripten")
         monkeypatch.setattr(
-            sysconfig, "get_platform", lambda: "emscripten-3.1.58-wasm32"
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
         )
-        assert list(tags.platform_tags()) == ["emscripten_3_1_58_wasm32"]
+        assert list(tags.platform_tags()) == ["emscripten_5_0_3_wasm32"]
         result = list(tags.sys_tags())
         assert result[0] == tags.Tag(
-            expected_interpreter, expected_interpreter, "emscripten_3_1_58_wasm32"
+            expected_interpreter, expected_interpreter, "emscripten_5_0_3_wasm32"
         )
 
     def test_pyemscripten(
@@ -1783,7 +1783,7 @@ class TestSysTags:
     ) -> None:
         expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
         config = {
-            "PYEMSCRIPTEN_ABI_VERSION": "2024_0",
+            "PYEMSCRIPTEN_ABI_VERSION": "2026_0",
         }
 
         monkeypatch.setattr(sysconfig, "get_config_var", config.get)
@@ -1793,15 +1793,15 @@ class TestSysTags:
             )
         monkeypatch.setattr(platform, "system", lambda: "Emscripten")
         monkeypatch.setattr(
-            sysconfig, "get_platform", lambda: "emscripten-3.1.58-wasm32"
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
         )
         assert list(tags.platform_tags()) == [
-            "pyemscripten_2024_0_wasm32",
-            "emscripten_3_1_58_wasm32",
+            "pyemscripten_2026_0_wasm32",
+            "emscripten_5_0_3_wasm32",
         ]
         result = list(tags.sys_tags())
         assert result[0] == tags.Tag(
-            expected_interpreter, expected_interpreter, "pyemscripten_2024_0_wasm32"
+            expected_interpreter, expected_interpreter, "pyemscripten_2026_0_wasm32"
         )
 
 
