@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import NewType, Tuple, Union, cast
 
-from .tags import Tag, parse_tag
+from .tags import Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 __all__ = [
@@ -238,7 +238,7 @@ def parse_wheel_filename(
     tag_str = parts[-1]
     try:
         tags = parse_tag(tag_str, validate_order=validate_order)
-    except ValueError:
+    except UnsortedTagsError:
         raise InvalidWheelFilename(
             f"Invalid wheel filename (compressed tag set components must be in "
             f"sorted order per PEP 425): {filename!r}"
