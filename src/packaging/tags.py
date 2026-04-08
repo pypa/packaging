@@ -187,8 +187,7 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
             parts = component.split(".")
             if parts != sorted(parts):
                 raise ValueError(
-                    f"Tag component {component!r} is not in sorted order"
-                    " per PEP 425"
+                    f"Tag component {component!r} is not in sorted order per PEP 425"
                 )
     for interpreter in interpreters.split("."):
         for abi in abis.split("."):
