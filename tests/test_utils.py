@@ -142,7 +142,10 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             "pyvirtualcam",
             Version("0.13.0"),
             (),
-            {Tag("cp310", "cp310", "manylinux2014_x86_64"), Tag("cp310", "cp310", "manylinux_2_17_x86_64")},
+            {
+                Tag("cp310", "cp310", "manylinux2014_x86_64"),
+                Tag("cp310", "cp310", "manylinux_2_17_x86_64"),
+            },
         ),
         (
             "foo_bár-1.0-py3-none-any.whl",
