@@ -511,8 +511,8 @@ class Marker:
         """Return a structured tree for this marker.
 
         The tree uses :class:`MarkerCompare`, :class:`MarkerAnd`, and
-        :class:`MarkerOr`, preserving PEP 508 ``and`` / ``or`` precedence;
-        parenthesized sub-expressions are nested nodes.
+        :class:`MarkerOr`. It preserves PEP 508 ``and`` / ``or`` precedence.
+        Parenthesized sub-expressions are nested nodes.
 
         :returns: The root node, or ``None`` if the internal marker list is empty
             (a vacuous marker, which :meth:`evaluate` treats as true).
