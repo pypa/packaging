@@ -42,10 +42,34 @@ Usage
     >>> markers1 == markers2
     True
 
+Combining markers programmatically
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:class:`Marker` objects support the ``&`` (and) and ``|`` (or) operators for
+combining markers without manually constructing marker strings:
+
+.. doctest::
+
+    >>> from packaging.markers import Marker
+    >>> py3 = Marker("python_version >= '3'")
+    >>> linux = Marker("sys_platform == 'linux'")
+    >>> combined = py3 & linux
+    >>> str(combined)
+    'python_version >= "3" and sys_platform == "linux"'
+    >>> either = py3 | linux
+    >>> str(either)
+    'python_version >= "3" or sys_platform == "linux"'
+
+This is equivalent to writing the combined marker string directly but is useful
+when building markers dynamically from separate conditions.
+
+.. versionadded:: 26.1
+
 
 Reference
 ---------
 
 .. automodule:: packaging.markers
     :members:
+    :special-members: __and__, __or__
     :exclude-members: __init__
