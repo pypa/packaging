@@ -63,6 +63,8 @@ combining markers without manually constructing marker strings:
 This is equivalent to writing the combined marker string directly but is useful
 when building markers dynamically from separate conditions.
 
+.. versionadded:: 26.1
+
 
 Reference
 ---------
