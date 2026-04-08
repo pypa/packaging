@@ -1751,6 +1751,59 @@ class TestSysTags:
         interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
 
+    def test_emscripten(
+        self,
+        mock_interpreter_name: Callable[[str], bool],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        config = {
+            "Py_GIL_DISABLED": 0,
+        }
+
+        monkeypatch.setattr(sysconfig, "get_config_var", config.get)
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
+        )
+        assert list(tags.platform_tags()) == ["emscripten_5_0_3_wasm32"]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "emscripten_5_0_3_wasm32"
+        )
+
+    def test_pyemscripten(
+        self,
+        mock_interpreter_name: Callable[[str], bool],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        config = {
+            "PYEMSCRIPTEN_ABI_VERSION": "2026_0",
+        }
+
+        monkeypatch.setattr(sysconfig, "get_config_var", config.get)
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
+        )
+        assert list(tags.platform_tags()) == [
+            "pyemscripten_2026_0_wasm32",
+            "emscripten_5_0_3_wasm32",
+        ]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "pyemscripten_2026_0_wasm32"
+        )
+
 
 class TestBitness:
     def teardown_method(self) -> None:
