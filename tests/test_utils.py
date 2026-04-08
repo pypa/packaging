@@ -177,14 +177,35 @@ def test_parse_wheel_filename(
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
-        # Unsorted compressed tag sets (PEP 425 requires sorted order within each component)
-        ("pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"),
-        ("foo-1.0-py3.py2-none-any.whl"),  # interpreters out of sort order
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_valid_by_default(filename: str) -> None:
+    # Unsorted compressed tags should parse fine without validate_order
+    parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_invalid_with_validate(filename: str) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, validate_order=True)
 
 
 @pytest.mark.parametrize(
