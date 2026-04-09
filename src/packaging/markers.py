@@ -311,7 +311,9 @@ def _evaluate_markers(
             var_on_rhs = isinstance(rhs, Variable)
             groups[-1].append(
                 _eval_op(
-                    lhs_value, op, rhs_value,
+                    lhs_value,
+                    op,
+                    rhs_value,
                     key=environment_key,
                     invert=var_on_rhs,
                 )
