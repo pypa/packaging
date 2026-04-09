@@ -284,7 +284,7 @@ def _evaluate_markers(
     return any(all(item) for item in groups)
 
 
-def format_full_version(info: sys._version_info) -> str:
+def _format_full_version(info: sys._version_info) -> str:
     version = f"{info.major}.{info.minor}.{info.micro}"
     kind = info.releaselevel
     if kind != "final":
@@ -297,7 +297,7 @@ def default_environment() -> Environment:
 
     This is the base environment used by :meth:`Marker.evaluate`.
     """
-    iver = format_full_version(sys.implementation.version)
+    iver = _format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
     return {
         "implementation_name": implementation_name,
