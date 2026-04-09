@@ -148,7 +148,7 @@ def canonicalize_version(
     """
     if isinstance(version, str):
         try:
-            version = Version(version)
+            version = Version.cached(version)
         except InvalidVersion:
             return str(version)
     return str(_TrimmedRelease(version) if strip_trailing_zero else version)
@@ -270,7 +270,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     name = canonicalize_name(name_part)
 
     try:
-        version = Version(version_part)
+        version = Version.cached(version_part)
     except InvalidVersion as e:
         raise InvalidSdistFilename(
             f"Invalid sdist filename (invalid version): {filename!r}"

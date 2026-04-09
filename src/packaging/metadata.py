@@ -600,7 +600,7 @@ class _Validator(Generic[T]):
         if not value:
             raise self._invalid_metadata("{field} is a required field")
         try:
-            return version_module.parse(value)
+            return version_module.Version.cached(value)
         except version_module.InvalidVersion as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc

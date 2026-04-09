@@ -40,7 +40,7 @@ CallableOperator = Callable[[Version, str], bool]
 def _coerce_version(version: UnparsedVersion) -> Version | None:
     if not isinstance(version, Version):
         try:
-            version = Version(version)
+            version = Version.cached(version)
         except InvalidVersion:
             return None
     return version

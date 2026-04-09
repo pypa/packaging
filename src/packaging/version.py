@@ -16,6 +16,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    MutableMapping,
     NamedTuple,
     SupportsInt,
     Tuple,
@@ -111,7 +112,7 @@ def normalize_pre(letter: str, /) -> str:
 def parse(version: str) -> Version:
     """Parse the given version string.
 
-    This is identical to the :class:`Version` constructor.
+    This is identical to the :meth:`Version.cached` constructor.
 
     >>> parse('1.0.dev1')
     <Version('1.0.dev1')>
@@ -119,7 +120,7 @@ def parse(version: str) -> Version:
     :param version: The version string to parse.
     :raises InvalidVersion: When the version string is not a valid version.
     """
-    return Version(version)
+    return Version.cached(version)
 
 
 class InvalidVersion(ValueError):
@@ -391,6 +392,8 @@ class Version(_BaseVersion):
     _hash_cache: int | None
     _key_cache: CmpKey | None
 
+    _construction_cache: MutableMapping[str, Self] | None = None
+
     def __init__(self, version: str) -> None:
         """Initialize a Version object.
 
@@ -434,6 +437,52 @@ class Version(_BaseVersion):
         # Key which will be used for sorting
         self._key_cache = None
         self._hash_cache = None
+
+    @classmethod
+    def set_cache(cls, cache: MutableMapping[str, Self] | None) -> None:
+        """
+        Set the cache to use for ``Version.cached``.
+
+        Set the cache to ``None`` to disable caching if it was previously enabled.
+
+        Note that no locking is performed around cache accesses, as lock contention may
+        be more costly for multithreaded applications than occasionally duplicated work.
+        Callers may use locks around ``Version.cached`` construction or use
+        sophisticated types for ``cache``, depending on their needs.
+
+        >>> from packaging.version import Version
+        >>> Version.set_cache({})
+        >>> ver1 = Version.cached("1.0.1")
+        >>> ver2 = Version.cached("1.0.1")
+        >>> ver1 is ver2
+        True
+
+        :param cache: A mutable mapping (e.g., a ``dict`` instance) to use as a cache,
+            or ``None`` to disable caching.
+        """
+        cls._construction_cache = cache
+
+    @classmethod
+    def cached(cls, version: str) -> Self:
+        """
+        A new or cached version, as parsed from the version string.
+        If the cache is not enabled, a new version is constructed and returned.
+
+        The cache can be used to return cached objects (and therefore skip re-parsing)
+        when ``Version`` objects are instantiated from strings.
+
+        Internally, ``packaging`` uses ``Version.cached()`` for all version parsing.
+        """
+        construction_cache = cls._construction_cache
+        if construction_cache is None:
+            return cls(version)
+
+        version_obj = construction_cache.get(version, None)
+        if version_obj is None:
+            version_obj = cls(version)
+            construction_cache[version] = version_obj
+
+        return version_obj
 
     @classmethod
     def from_parts(

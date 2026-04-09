@@ -21,6 +21,12 @@ class TimeSpecSuite:
         with (DIR / "specs_sample.txt").open() as f:
             self.spec_strs = [s.strip() for s in f.readlines()]
 
+        # enable version caching if the feature is available
+        try:
+            Version.set_cache({})
+        except AttributeError:
+            pass
+
         # Build and warm versions
         self.single_version = Version("3.12")
         self.simple_versions = [Version(str(i / 10)) for i in range(1, 11)]
@@ -54,6 +60,13 @@ class TimeSpecSuite:
             sp.contains(self.complex_versions[0])
         for sp in self._warm_compatible._specs:
             sp.contains(self.complex_versions[0])
+
+    def teardown(self) -> None:
+        # disable version caching if the feature is available (therefore was enabled)
+        try:
+            Version.set_cache(None)
+        except AttributeError:
+            pass
 
     def _make_cold(self, spec: SpecifierSet) -> None:
         if hasattr(spec, "_canonicalized"):

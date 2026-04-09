@@ -23,6 +23,7 @@ class TimeVersionSuite:
         with (DIR / "version_sample.txt").open() as f:
             self.versions = [v.strip() for v in f.readlines()]
         self.valid_versions = [v for v in self.versions if valid_version(v)]
+        self.unique_versions = list(set(self.versions))
         self.version_objects_cold = [Version(v) for v in self.valid_versions]
         self.version_objects_warm = [Version(v) for v in self.valid_versions]
         for v in self.version_objects_warm:
@@ -35,6 +36,56 @@ class TimeVersionSuite:
                 Version(v)
             except InvalidVersion:  # noqa: PERF203
                 pass
+
+    @add_attributes(pretty_name="cached Version constructor")
+    def time_cached(self) -> None:
+        """
+        A duplicate of the time_constructor test, but with a dict cache enabled if the
+        set_cache method is available.
+
+        If not, fall-back to just being a duplicate of the constructor test.
+        """
+        # try to do the cached version
+        try:
+            Version.set_cache({})
+
+            for v in self.versions:
+                try:
+                    Version.cached(v)
+                except InvalidVersion:  # noqa: PERF203
+                    pass
+
+            Version.set_cache(None)
+
+        # when caching is not available as a feature, compare against plain init
+        except AttributeError:
+            for v in self.versions:
+                try:
+                    Version(v)
+                except InvalidVersion:  # noqa: PERF203
+                    pass
+
+    @add_attributes(pretty_name="cached Version constructor (unique versions)")
+    def time_cached_unique(self) -> None:
+        # try to do the cached version
+        try:
+            Version.set_cache({})
+
+            for v in self.unique_versions:
+                try:
+                    Version.cached(v)
+                except InvalidVersion:  # noqa: PERF203
+                    pass
+
+            Version.set_cache(None)
+
+        # when caching is not available as a feature, compare against plain init
+        except AttributeError:
+            for v in self.unique_versions:
+                try:
+                    Version(v)
+                except InvalidVersion:  # noqa: PERF203
+                    pass
 
     @add_attributes(pretty_name="Version hash")
     def time_hash(self) -> None:
