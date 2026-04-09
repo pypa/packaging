@@ -70,7 +70,13 @@ INTERPRETER_SHORT_NAMES: dict[str, str] = {
 }
 
 
-_32_BIT_INTERPRETER = struct.calcsize("P") == 4
+# This function can be unit tested without reloading the module
+# (Unlike _32_BIT_INTERPRETER)
+def _compute_32_bit_interpreter() -> bool:
+    return struct.calcsize("P") == 4
+
+
+_32_BIT_INTERPRETER = _compute_32_bit_interpreter()
 
 
 class Tag:
