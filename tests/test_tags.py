@@ -167,6 +167,35 @@ class TestParseTag:
         )
         assert given == expected
 
+    def test_unsorted_interpreter_parses_by_default(self) -> None:
+        # Unsorted tags should parse fine without validate_order
+        result = tags.parse_tag("py3.py2-none-any")
+        assert tags.Tag("py3", "none", "any") in result
+        assert tags.Tag("py2", "none", "any") in result
+
+    def test_unsorted_interpreter_raises_with_validate(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag("py3.py2-none-any", validate_order=True)
+
+    def test_unsorted_platform_parses_by_default(self) -> None:
+        result = tags.parse_tag(
+            "cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64"
+        )
+        assert len(result) == 2
+
+    def test_unsorted_platform_raises_with_validate(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag(
+                "cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64",
+                validate_order=True,
+            )
+
+    def test_sorted_multi_interpreter_valid(self) -> None:
+        # py2 < py3 alphabetically — should not raise even with validation
+        result = tags.parse_tag("py2.py3-none-any", validate_order=True)
+        assert tags.Tag("py2", "none", "any") in result
+        assert tags.Tag("py3", "none", "any") in result
+
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch: pytest.MonkeyPatch) -> None:

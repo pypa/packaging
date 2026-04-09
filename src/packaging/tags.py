@@ -36,6 +36,7 @@ __all__ = [
     "AppleVersion",
     "PythonVersion",
     "Tag",
+    "UnsortedTagsError",
     "android_platforms",
     "compatible_tags",
     "cpython_tags",
@@ -77,6 +78,12 @@ def _compute_32_bit_interpreter() -> bool:
 
 
 _32_BIT_INTERPRETER = _compute_32_bit_interpreter()
+
+
+class UnsortedTagsError(ValueError):
+    """
+    Raised when a tag component is not in sorted order per PEP 425.
+    """
 
 
 class Tag:
@@ -159,7 +166,7 @@ class Tag:
         self._hash = hash((self._interpreter, self._abi, self._platform))
 
 
-def parse_tag(tag: str) -> frozenset[Tag]:
+def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
     """
     Parses the provided tag (e.g. `py3-none-any`) into a frozenset of
     :class:`Tag` instances.
@@ -168,10 +175,27 @@ def parse_tag(tag: str) -> frozenset[Tag]:
     `compressed tag set`_, e.g. ``"py2.py3-none-any"`` which supports both
     Python 2 and Python 3.
 
+    If **validate_order** is true, compressed tag set components are checked
+    to be in sorted order as required by PEP 425.
+
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
+    :param bool validate_order: Check whether compressed tag set components
+        are in sorted order.
+    :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
+        set component is not in sorted order.
+
+    .. versionadded:: 26.1
+       The *validate_order* parameter.
     """
     tags = set()
     interpreters, abis, platforms = tag.split("-")
+    if validate_order:
+        for component in (interpreters, abis, platforms):
+            parts = component.split(".")
+            if parts != sorted(parts):
+                raise UnsortedTagsError(
+                    f"Tag component {component!r} is not in sorted order per PEP 425"
+                )
     for interpreter in interpreters.split("."):
         for abi in abis.split("."):
             for platform_ in platforms.split("."):
