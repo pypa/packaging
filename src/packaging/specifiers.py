@@ -392,11 +392,11 @@ class Specifier(BaseSpecifier):
         """A representation of the Specifier that shows all internal state.
 
         >>> Specifier('>=1.0.0')
-        <Specifier('>=1.0.0')>
+        Specifier('>=1.0.0')
         >>> Specifier('>=1.0.0', prereleases=False)
-        <Specifier('>=1.0.0', prereleases=False)>
+        Specifier('>=1.0.0', prereleases=False)
         >>> Specifier('>=1.0.0', prereleases=True)
-        <Specifier('>=1.0.0', prereleases=True)>
+        Specifier('>=1.0.0', prereleases=True)
         """
         pre = (
             f", prereleases={self.prereleases!r}"
@@ -404,7 +404,7 @@ class Specifier(BaseSpecifier):
             else ""
         )
 
-        return f"<{self.__class__.__name__}({str(self)!r}{pre})>"
+        return f"{self.__class__.__name__}({str(self)!r}{pre})"
 
     def __str__(self) -> str:
         """A string representation of the Specifier that can be round-tripped.
@@ -702,7 +702,7 @@ class Specifier(BaseSpecifier):
         >>> list(Specifier(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
         >>> list(Specifier(">=1.2.3").filter(["1.2", "1.2.3", "1.3", Version("1.4")]))
-        ['1.2.3', '1.3', <Version('1.4')>]
+        ['1.2.3', '1.3', Version('1.4')]
         >>> list(Specifier(">=1.2.3").filter(["1.2", "1.5a1"]))
         ['1.5a1']
         >>> list(Specifier(">=1.2.3").filter(["1.3", "1.5a1"], prereleases=True))
@@ -997,11 +997,11 @@ class SpecifierSet(BaseSpecifier):
         match the input string.
 
         >>> SpecifierSet('>=1.0.0,!=2.0.0')
-        <SpecifierSet('!=2.0.0,>=1.0.0')>
+        SpecifierSet('!=2.0.0,>=1.0.0')
         >>> SpecifierSet('>=1.0.0,!=2.0.0', prereleases=False)
-        <SpecifierSet('!=2.0.0,>=1.0.0', prereleases=False)>
+        SpecifierSet('!=2.0.0,>=1.0.0', prereleases=False)
         >>> SpecifierSet('>=1.0.0,!=2.0.0', prereleases=True)
-        <SpecifierSet('!=2.0.0,>=1.0.0', prereleases=True)>
+        SpecifierSet('!=2.0.0,>=1.0.0', prereleases=True)
         """
         pre = (
             f", prereleases={self.prereleases!r}"
@@ -1009,7 +1009,7 @@ class SpecifierSet(BaseSpecifier):
             else ""
         )
 
-        return f"<{self.__class__.__name__}({str(self)!r}{pre})>"
+        return f"{self.__class__.__name__}({str(self)!r}{pre})"
 
     def __str__(self) -> str:
         """A string representation of the specifier set that can be round-tripped.
@@ -1033,9 +1033,9 @@ class SpecifierSet(BaseSpecifier):
         :param other: The other object to combine with.
 
         >>> SpecifierSet(">=1.0.0,!=1.0.1") & '<=2.0.0,!=2.0.1'
-        <SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')>
+        SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')
         >>> SpecifierSet(">=1.0.0,!=1.0.1") & SpecifierSet('<=2.0.0,!=2.0.1')
-        <SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')>
+        SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')
         """
         if isinstance(other, str):
             other = SpecifierSet(other)
@@ -1096,7 +1096,7 @@ class SpecifierSet(BaseSpecifier):
         in this specifier set.
 
         >>> sorted(SpecifierSet(">=1.0.0,!=1.0.1"), key=str)
-        [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
+        [Specifier('!=1.0.1'), Specifier('>=1.0.0')]
         """
         return iter(self._specs)
 
@@ -1205,7 +1205,7 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", Version("1.4")]))
-        ['1.3', <Version('1.4')>]
+        ['1.3', Version('1.4')]
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.5a1"]))
         ['1.5a1']
         >>> list(SpecifierSet(">=1.2.3").filter(["1.3", "1.5a1"], prereleases=True))
