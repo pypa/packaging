@@ -410,7 +410,8 @@ class Version(_BaseVersion):
                 # propagate to the caller.
                 if "" in version.split("."):
                     raise InvalidVersion(f"Invalid version: {version!r}") from None
-                raise  # something else is wrong (e.g. oversized int)
+                # TODO: remove "no cover" when Python 3.9 is dropped.
+                raise  # pragma: no cover
 
             self._epoch = 0
             self._pre = None
