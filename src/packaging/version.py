@@ -405,7 +405,12 @@ class Version(_BaseVersion):
             try:
                 self._release = tuple(map(int, version.split(".")))
             except ValueError:
-                raise InvalidVersion(f"Invalid version: {version!r}") from None
+                # Empty parts (from "1..2", ".1", etc.) are invalid versions.
+                # Any other ValueError (e.g. int str-digits limit) should
+                # propagate to the caller.
+                if "" in version.split("."):
+                    raise InvalidVersion(f"Invalid version: {version!r}") from None
+                raise  # something else is wrong (e.g. oversized int)
 
             self._epoch = 0
             self._pre = None
