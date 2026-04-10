@@ -49,6 +49,10 @@ Usage
     # you can validate a manually constructed Pylock class
     pylock.validate()
 
+    # select packages to install for the current environment
+    for package, artifact in pylock.select():
+        print(f"Install {package.name} from {artifact}")
+
 Reference
 ---------
 
@@ -59,7 +63,7 @@ structure of a pylock file. The attributes correspond to the fields in the
 pylock file specification.
 
 .. autoclass:: Pylock
-    :members: from_dict, to_dict, validate
+    :members: from_dict, to_dict, validate, select
     :exclude-members: __init__, __new__
 
 .. class:: Package
@@ -74,10 +78,13 @@ pylock file specification.
 
 .. class:: PackageDirectory
 
-The following exception may be raised by this module:
+The following exceptions may be raised by this module:
 
 .. autoexception:: PylockValidationError
     :exclude-members: __init__, __new__
 
 .. autoexception:: PylockUnsupportedVersionError
+    :exclude-members: __init__, __new__
+
+.. autoexception:: PylockSelectError
     :exclude-members: __init__, __new__
