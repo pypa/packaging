@@ -56,6 +56,10 @@ def tests(session: nox.Session) -> None:
     session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
+    # Property tests are marked with @pytest.mark.property and are excluded by default
+    # via pyproject.toml. Run the regular test suite normally; property tests can be
+    # run explicitly with `pytest -m property` or the `property_tests` nox session.
+
     assert session.python is not None
     assert not isinstance(session.python, bool)
     if "pypy" not in session.python:
@@ -77,6 +81,23 @@ def tests(session: nox.Session) -> None:
             "--capture=no",
             *session.posargs,
         )
+
+
+@nox.session(default=False)
+def property_tests(session: nox.Session) -> None:
+    """
+    Run property-based tests (no coverage).
+    """
+    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
+    session.install("-e.")
+    session.run(
+        "python",
+        "-m",
+        "pytest",
+        "-m",
+        "property",
+        *session.posargs,
+    )
 
 
 PROJECTS = {
