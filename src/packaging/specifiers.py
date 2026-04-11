@@ -59,24 +59,24 @@ class _BoundaryKind(enum.Enum):
 
 @functools.total_ordering
 class _BoundaryVersion:
-    """A synthetic version that marks a boundary between version families.
+    """A point on the version line between two real PEP 440 versions.
 
-    PEP 440 has rules where ``>V`` excludes post-releases and ``<=V``
-    includes local versions.  These cannot be expressed with plain
-    Version bounds, so this class creates boundary markers that sort
-    between version families.
+    Some specifier semantics imply boundaries between real versions:
+    ``<=1.0`` includes ``1.0+local`` and ``>1.0`` excludes
+    ``1.0.post0``.  No real :class:`Version` falls on those boundaries,
+    so this class creates values that sort between the real versions
+    on either side.
 
-    ``AFTER_LOCALS``: sorts after V and all V+local, before V.post0.
-    Used for ``<=V``, ``==V``, and ``!=V`` to correctly handle local
-    versions.
+    Two kinds exist, shown relative to a base version V::
 
-    ``AFTER_POSTS``: sorts after all V.postN, before the next release
-    segment.  Used for ``>V`` where V is a final or pre-release (not
-    dev, not post) to exclude post-releases per PEP 440.
+        V < V+local < AFTER_LOCALS(V) < V.post0 < AFTER_POSTS(V)
 
-    Ordering for base version V::
+    ``AFTER_LOCALS`` sits after V and every V+local, but before
+    V.post0.  Upper bound of ``<=V``, ``==V``, ``!=V``.
 
-        V < V+local < AFTER_LOCALS(V) < V.post0 < ... < AFTER_POSTS(V) < V.0.1
+    ``AFTER_POSTS`` sits after every V.postN, but before the next
+    release segment.  Lower bound of ``>V`` (final or pre-release V)
+    to exclude post-releases per PEP 440.
     """
 
     __slots__ = ("_kind", "_trimmed_release", "version")
@@ -122,10 +122,11 @@ class _BoundaryVersion:
 
 @functools.total_ordering
 class _LowerBound:
-    """Lower bound of a version interval.
+    """Lower bound of a version range.
 
-    None means -inf.  At equal versions, [v < (v because inclusive
-    starts earlier.
+    A version *v* of ``None`` means unbounded below (-inf).
+    At equal versions, ``[v`` sorts before ``(v`` because an inclusive
+    bound starts earlier.
     """
 
     __slots__ = ("inclusive", "version")
@@ -162,10 +163,11 @@ class _LowerBound:
 
 @functools.total_ordering
 class _UpperBound:
-    """Upper bound of a version interval.
+    """Upper bound of a version range.
 
-    None means +inf.  At equal versions, v) < v] because exclusive
-    ends earlier.
+    A version *v* of ``None`` means unbounded above (+inf).
+    At equal versions, ``v)`` sorts before ``v]`` because an exclusive
+    bound ends earlier.
     """
 
     __slots__ = ("inclusive", "version")
@@ -202,15 +204,18 @@ class _UpperBound:
 
 if typing.TYPE_CHECKING:
     _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
-    _SpecifierInterval = tuple[_LowerBound, _UpperBound]
+
+    #: A single contiguous version range, represented as a
+    #: (lower bound, upper bound) pair.
+    _VersionRange = tuple[_LowerBound, _UpperBound]
 
 _NEG_INF = _LowerBound(None, False)
 _POS_INF = _UpperBound(None, False)
-_FULL_RANGE: list[_SpecifierInterval] = [(_NEG_INF, _POS_INF)]
+_FULL_RANGE: list[_VersionRange] = [(_NEG_INF, _POS_INF)]
 
 
-def _interval_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
-    """Is the interval [lower, upper] empty?"""
+def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
+    """True when the range defined by *lower* and *upper* contains no versions."""
     if lower.version is None or upper.version is None:
         return False
     if lower.version == upper.version:
@@ -218,21 +223,21 @@ def _interval_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
     return lower.version > upper.version
 
 
-def _intersect_intervals(
-    left_intervals: list[_SpecifierInterval],
-    right_intervals: list[_SpecifierInterval],
-) -> list[_SpecifierInterval]:
-    """Intersect two sorted, non-overlapping interval lists (two-pointer merge)."""
-    result: list[_SpecifierInterval] = []
+def _intersect_ranges(
+    left: list[_VersionRange],
+    right: list[_VersionRange],
+) -> list[_VersionRange]:
+    """Intersect two sorted, non-overlapping range lists (two-pointer merge)."""
+    result: list[_VersionRange] = []
     left_index = right_index = 0
-    while left_index < len(left_intervals) and right_index < len(right_intervals):
-        left_lower, left_upper = left_intervals[left_index]
-        right_lower, right_upper = right_intervals[right_index]
+    while left_index < len(left) and right_index < len(right):
+        left_lower, left_upper = left[left_index]
+        right_lower, right_upper = right[right_index]
 
         lower = max(left_lower, right_lower)
         upper = min(left_upper, right_upper)
 
-        if not _interval_is_empty(lower, upper):
+        if not _range_is_empty(lower, upper):
             result.append((lower, upper))
 
         # Advance whichever side has the smaller upper bound.
@@ -412,8 +417,8 @@ class Specifier(BaseSpecifier):
     """
 
     __slots__ = (
-        "_intervals",
         "_prereleases",
+        "_ranges",
         "_spec",
         "_spec_version",
         "_wildcard_split",
@@ -561,8 +566,8 @@ class Specifier(BaseSpecifier):
         # Populated on first wildcard (==X.*) comparison
         self._wildcard_split: tuple[list[str], int] | None = None
 
-        # Interval representation cache
-        self._intervals: list[_SpecifierInterval] | None = None
+        # Version range cache (populated by _to_ranges)
+        self._ranges: list[_VersionRange] | None = None
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -586,31 +591,31 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_intervals(self) -> list[_SpecifierInterval]:
-        """Convert this specifier to sorted, non-overlapping intervals.
+    def _to_ranges(self) -> list[_VersionRange]:
+        """Convert this specifier to sorted, non-overlapping version ranges.
 
-        Each standard operator maps to one or two intervals.  ``===`` is
+        Each standard operator maps to one or two ranges.  ``===`` is
         modeled as full range (actual check done separately).  Cached.
         """
-        if self._intervals is not None:
-            return self._intervals
+        if self._ranges is not None:
+            return self._ranges
 
         op = self.operator
         ver_str = self.version
 
         if op == "===":
-            self._intervals = _FULL_RANGE
+            self._ranges = _FULL_RANGE
             return _FULL_RANGE
 
         if ver_str.endswith(".*"):
-            result = self._wildcard_intervals(op, ver_str)
+            result = self._wildcard_ranges(op, ver_str)
         else:
-            result = self._standard_intervals(op, ver_str)
+            result = self._standard_ranges(op, ver_str)
 
-        self._intervals = result
+        self._ranges = result
         return result
 
-    def _wildcard_intervals(self, op: str, ver_str: str) -> list[_SpecifierInterval]:
+    def _wildcard_ranges(self, op: str, ver_str: str) -> list[_VersionRange]:
         # ==1.2.* -> [1.2.dev0, 1.3.dev0);  !=1.2.* -> complement.
         base = self._require_spec_version(ver_str[:-2])
         lower = _base_dev0(base)
@@ -623,7 +628,7 @@ class Specifier(BaseSpecifier):
             (_LowerBound(upper, True), _POS_INF),
         ]
 
-    def _standard_intervals(self, op: str, ver_str: str) -> list[_SpecifierInterval]:
+    def _standard_ranges(self, op: str, ver_str: str) -> list[_VersionRange]:
         v = self._require_spec_version(ver_str)
 
         if op == ">=":
@@ -1452,29 +1457,26 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_intervals(self) -> list[_SpecifierInterval]:
-        """Compute the intersected interval representation.
+    def _get_ranges(self) -> list[_VersionRange]:
+        """Intersect all specifiers into a single list of version ranges.
 
-        Returns an empty list if unsatisfiable, or the intersected interval
-        list otherwise. ``===`` specs are modeled as full range (no
-        constraint).
-
-        Called once by is_unsatisfiable(), which caches its own result.
+        Returns an empty list when unsatisfiable.  ``===`` specs are
+        modeled as full range; string matching is checked separately
+        by :meth:`_check_arbitrary_unsatisfiable`.
         """
         specs = self._specs
 
-        # Intersect specs' intervals, with early exit on empty intersection.
-        result: list[_SpecifierInterval] | None = None
+        result: list[_VersionRange] | None = None
         for s in specs:
             if result is None:
-                result = s._to_intervals()
+                result = s._to_ranges()
             else:
-                result = _intersect_intervals(result, s._to_intervals())
+                result = _intersect_ranges(result, s._to_ranges())
                 if not result:
                     break
 
         if result is None:  # pragma: no cover
-            raise RuntimeError("_get_intervals called with no specs")
+            raise RuntimeError("_get_ranges called with no specs")
         return result
 
     def is_unsatisfiable(self) -> bool:
@@ -1499,21 +1501,21 @@ class SpecifierSet(BaseSpecifier):
             self._is_unsatisfiable = False
             return False
 
-        result = not self._get_intervals()
+        result = not self._get_ranges()
 
         if not result:
             result = self._check_arbitrary_unsatisfiable()
 
         if not result and self.prereleases is False:
-            result = self._check_prerelease_only_intervals()
+            result = self._check_prerelease_only_ranges()
 
         self._is_unsatisfiable = result
         return result
 
-    def _check_prerelease_only_intervals(self) -> bool:
-        """With prereleases=False, check if all intervals contain only
+    def _check_prerelease_only_ranges(self) -> bool:
+        """With prereleases=False, check if every range contains only
         pre-release versions (which would be excluded from matching)."""
-        for lower, upper in self._get_intervals():
+        for lower, upper in self._get_ranges():
             nearest = _nearest_non_prerelease(lower.version)
             if nearest is None:
                 return False

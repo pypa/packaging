@@ -2792,27 +2792,27 @@ class TestIsUnsatisfiable:
         # Compute intervals on the original sets first.
         assert not s1.is_unsatisfiable()
         assert not s2.is_unsatisfiable()
-        # __and__ reuses the same Specifier objects, so _to_intervals()
+        # __and__ reuses the same Specifier objects, so _to_ranges()
         # hits the cache on those Specifier instances.
         combined = s1 & s2
         assert not combined.is_unsatisfiable()
 
-    def test_interval_bounds_hashable_and_equal(self) -> None:
-        """Interval bounds are hashable and support equality."""
-        a = Specifier(">1.0")._to_intervals()
-        b = Specifier(">1.0")._to_intervals()
+    def test_range_bounds_hashable_and_equal(self) -> None:
+        """Range bounds are hashable and support equality."""
+        a = Specifier(">1.0")._to_ranges()
+        b = Specifier(">1.0")._to_ranges()
         for (al, au), (bl, bu) in zip(a, b):
             hash(al)
             hash(au)
             assert al == bl
             assert au == bu
 
-    def test_interval_bounds_repr(self) -> None:
-        [(lower, upper)] = Specifier(">=1.0")._to_intervals()
+    def test_range_bounds_repr(self) -> None:
+        [(lower, upper)] = Specifier(">=1.0")._to_ranges()
         assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
         assert repr(upper) == "<_UpperBound None)>"
 
-        [(lower2, upper2)] = Specifier(">1.0")._to_intervals()
+        [(lower2, upper2)] = Specifier(">1.0")._to_ranges()
         assert (
             repr(lower2)
             == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
