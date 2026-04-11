@@ -1543,11 +1543,21 @@ class SpecifierSet(BaseSpecifier):
 
         # The sole candidate is the === version string.  Check whether
         # it can satisfy every standard spec.
+        candidate = _coerce_version(arbitrary[0].version)
+
+        # With prereleases=False, a prerelease candidate is excluded
+        # by contains() before the === string check even runs.
+        if (
+            self.prereleases is False
+            and candidate is not None
+            and candidate.is_prerelease
+        ):
+            return True
+
         standard = [s for s in self._specs if s.operator != "==="]
         if not standard:
             return False
 
-        candidate = _coerce_version(arbitrary[0].version)
         if candidate is None:
             # Unparsable string cannot satisfy any standard spec.
             return True
