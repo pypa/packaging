@@ -15,7 +15,7 @@ import enum
 import functools
 import re
 import typing
-from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union
+from typing import Any, Callable, Final, Iterable, Iterator, Sequence, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
@@ -205,7 +205,7 @@ if typing.TYPE_CHECKING:
 
 _NEG_INF = _LowerBound(None, False)
 _POS_INF = _UpperBound(None, False)
-_FULL_RANGE: list[_VersionRange] = [(_NEG_INF, _POS_INF)]
+_FULL_RANGE: tuple[_VersionRange] = ((_NEG_INF, _POS_INF),)
 
 
 def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
@@ -218,8 +218,8 @@ def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
 
 
 def _intersect_ranges(
-    left_intervals: list[_VersionRange],
-    right_intervals: list[_VersionRange],
+    left_intervals: Sequence[_VersionRange],
+    right_intervals: Sequence[_VersionRange],
 ) -> list[_VersionRange]:
     """Intersect two sorted, non-overlapping range lists (two-pointer merge)."""
     result: list[_VersionRange] = []
@@ -244,7 +244,7 @@ def _intersect_ranges(
 
 
 def _filter_by_ranges(
-    ranges: list[_VersionRange],
+    ranges: Sequence[_VersionRange],
     iterable: Iterable[Any],
     key: Callable[[Any], UnparsedVersion] | None,
     prereleases: bool,
@@ -604,7 +604,7 @@ class Specifier(BaseSpecifier):
         self._spec_version: tuple[str, Version] | None = None
 
         # Version range cache.
-        self._ranges: list[_VersionRange] | None = None
+        self._ranges: Sequence[_VersionRange] | None = None
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -628,7 +628,7 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> list[_VersionRange]:
+    def _to_ranges(self) -> Sequence[_VersionRange]:
         """Convert this specifier to sorted, non-overlapping version ranges.
 
         ``===`` is modeled as full range (actual check done separately).
@@ -1044,7 +1044,7 @@ class SpecifierSet(BaseSpecifier):
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
-        self._ranges: list[_VersionRange] | None = None
+        self._ranges: Sequence[_VersionRange] | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -1194,7 +1194,7 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> list[_VersionRange] | None:
+    def _get_ranges(self) -> Sequence[_VersionRange] | None:
         """Intersect all specifiers into a single list of version ranges.
 
         Returns ``None`` if any spec uses ``===`` (arbitrary string
@@ -1208,7 +1208,7 @@ class SpecifierSet(BaseSpecifier):
 
         # Intersect each spec's ranges, bailing out on === (string
         # matching, not version comparison) or empty intersection.
-        result: list[_VersionRange] | None = None
+        result: Sequence[_VersionRange] | None = None
         for s in specs:
             if s.operator == "===":
                 return None
