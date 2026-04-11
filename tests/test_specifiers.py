@@ -2723,6 +2723,8 @@ class TestIsUnsatisfiable:
         ">=1.0a1,<1.0a2",
         ">=1.0b1,<1.0rc1",
         ">=1.0.dev0,<1.0.dev5",
+        # Strict > on pre-release lower bound (BoundaryVersion path)
+        ">1.0a1,<1.0a3",
         # != removes all non-pre-releases from range
         ">=1.0rc1,<=1.0,!=1.0",
         ">=1.0.dev0,<=1.0,!=1.0",
@@ -2741,6 +2743,10 @@ class TestIsUnsatisfiable:
         "==1.0",
         "==1.0.post0",
         ">=1.0.dev0,<1.0.post1",
+        # Unbounded lower (nearest_non_prerelease(None) path)
+        "<2.0",
+        # Exact local pin: nearest == upper and upper inclusive
+        "==1.0+local",
         # Compatible release from pre-release includes final release
         "~=1.0a1",
         "~=1.0.dev0",
