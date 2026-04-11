@@ -2755,6 +2755,8 @@ class TestIsUnsatisfiable:
         "<2.0",
         # Exact local pin: nearest == upper and upper inclusive
         "==1.0+local",
+        # === forces interval fallback in prerelease check
+        "===1.0",
         # Compatible release from pre-release includes final release
         "~=1.0a1",
         "~=1.0.dev0",
