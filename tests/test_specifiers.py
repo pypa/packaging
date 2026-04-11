@@ -7,6 +7,7 @@ from __future__ import annotations
 import itertools
 import operator
 import re
+import sys
 import typing
 
 import pytest
@@ -2064,6 +2065,27 @@ class TestSpecifierSet:
     ) -> None:
         spec = SpecifierSet(specifier, prereleases=True)
         assert not spec.contains(input)
+
+    @pytest.mark.skipif(
+        not hasattr(sys, "get_int_max_str_digits"),
+        reason="requires int max str digits limit",
+    )
+    @pytest.mark.parametrize(
+        "specifier",
+        [
+            ">=" + "1" * 5000,
+            ">=1.0a" + "1" * 5000,
+        ],
+    )
+    def test_contains_oversized_version_raises_valueerror(self, specifier: str) -> None:
+        old = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(4300)
+        try:
+            spec = SpecifierSet(specifier)
+            with pytest.raises(ValueError, match="Exceeds the limit"):
+                spec.contains("1.0")
+        finally:
+            sys.set_int_max_str_digits(old)
 
     @pytest.mark.parametrize(
         ("version", "specifier", "expected"),

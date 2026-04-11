@@ -213,6 +213,28 @@ class TestVersion:
         with pytest.raises(InvalidVersion):
             Version(version)
 
+    @pytest.mark.skipif(
+        not hasattr(sys, "get_int_max_str_digits"),
+        reason="requires int max str digits limit",
+    )
+    @pytest.mark.parametrize(
+        "version",
+        [
+            # Simple path (digits only)
+            "1" * 5000,
+            # Regex path (has pre-release)
+            "1.0a" + "1" * 5000,
+        ],
+    )
+    def test_oversized_version_raises_valueerror(self, version: str) -> None:
+        old = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(4300)
+        try:
+            with pytest.raises(ValueError, match="Exceeds the limit"):
+                Version(version)
+        finally:
+            sys.set_int_max_str_digits(old)
+
     @pytest.mark.parametrize(
         ("version", "normalized"),
         [
