@@ -2428,12 +2428,12 @@ _SAMPLE_VERSIONS += [
 
 
 class TestIsUnsatisfiable:
-    """Tests for SpecifierSet.is_unsatisfiable() and interval-based filtering.
+    """Tests for SpecifierSet.is_unsatisfiable() and range-based filtering.
 
     Testing approach:
     - UNSATISFIABLE_SPECS: detected as unsatisfiable, filter returns nothing.
     - SATISFIABLE_SPECS: not falsely reported as unsatisfiable.
-    - Cross-validation: for each satisfiable spec, interval-based filter()
+    - Cross-validation: for each satisfiable spec, range-based filter()
       must produce identical results to per-spec contains() across a large
       sample of versions (version_family x SAMPLE_BASES).
     """
@@ -2544,7 +2544,7 @@ class TestIsUnsatisfiable:
     ]
 
     # Specifier sets that must NOT be detected as unsatisfiable.
-    # Also used for cross-validation of interval filtering.
+    # Also used for cross-validation of range-based filtering.
     SATISFIABLE: typing.ClassVar[list[str]] = [
         "",
         ">=1.0",
@@ -2689,7 +2689,7 @@ class TestIsUnsatisfiable:
 
     @pytest.mark.parametrize("spec_str", SATISFIABLE)
     def test_filter_matches_per_spec_filter(self, spec_str: str) -> None:
-        """Interval-based filter() must match per-spec contains() check."""
+        """Range-based filter() must match per-spec contains() check."""
         if not spec_str:
             return
         ss = SpecifierSet(spec_str)
@@ -2755,7 +2755,7 @@ class TestIsUnsatisfiable:
         "<2.0",
         # Exact local pin: nearest == upper and upper inclusive
         "==1.0+local",
-        # === forces interval fallback in prerelease check
+        # === forces range fallback in prerelease check
         "===1.0",
         # Compatible release from pre-release includes final release
         "~=1.0a1",
@@ -2796,21 +2796,21 @@ class TestIsUnsatisfiable:
         assert not combined.is_unsatisfiable()
 
     def test_and_reuses_interval_cache(self) -> None:
-        """Specifier interval cache is reused when specs are shared via &."""
+        """Specifier range cache is reused when specs are shared via &."""
         s1 = SpecifierSet(">=1.0")
         s2 = SpecifierSet("<2.0")
         # Compute intervals on the original sets first.
         assert not s1.is_unsatisfiable()
         assert not s2.is_unsatisfiable()
-        # __and__ reuses the same Specifier objects, so _to_intervals()
+        # __and__ reuses the same Specifier objects, so _to_ranges()
         # hits the cache on those Specifier instances.
         combined = s1 & s2
         assert not combined.is_unsatisfiable()
 
     def test_interval_bounds_hashable_and_equal(self) -> None:
-        """Interval bounds are hashable and support equality."""
-        a = Specifier(">1.0")._to_intervals()
-        b = Specifier(">1.0")._to_intervals()
+        """Range bounds are hashable and support equality."""
+        a = Specifier(">1.0")._to_ranges()
+        b = Specifier(">1.0")._to_ranges()
         for (al, au), (bl, bu) in zip(a, b):
             hash(al)
             hash(au)
@@ -2818,11 +2818,11 @@ class TestIsUnsatisfiable:
             assert au == bu
 
     def test_interval_bounds_repr(self) -> None:
-        [(lower, upper)] = Specifier(">=1.0")._to_intervals()
+        [(lower, upper)] = Specifier(">=1.0")._to_ranges()
         assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
         assert repr(upper) == "<_UpperBound None)>"
 
-        [(lower2, upper2)] = Specifier(">1.0")._to_intervals()
+        [(lower2, upper2)] = Specifier(">1.0")._to_ranges()
         assert (
             repr(lower2)
             == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
