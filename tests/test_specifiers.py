@@ -2740,6 +2740,9 @@ class TestIsUnsatisfiable:
         # Epoch pre-release
         "==1!1.0.dev0",
         ">=1!1.0a1,<1!1.0",
+        # === with parseable pre-release string
+        "===1.0a1",
+        "===1.0.dev0",
         # Already unsatisfiable regardless of prereleases
         ">=2.0,<1.0",
     ]
@@ -2757,6 +2760,8 @@ class TestIsUnsatisfiable:
         "==1.0+local",
         # === forces range fallback in prerelease check
         "===1.0",
+        # === with unparsable string (prereleases filter does not apply)
+        "===foobar",
         # Compatible release from pre-release includes final release
         "~=1.0a1",
         "~=1.0.dev0",

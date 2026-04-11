@@ -949,11 +949,20 @@ class Specifier(BaseSpecifier):
         """
         if self.operator == "===":
             # === uses arbitrary string matching, not version comparison.
+            # Still respect prereleases when the string parses to a version.
+            if prereleases is None and self._prereleases is not None:
+                prereleases = self._prereleases
+            exclude_pre = prereleases is False
             spec_str = self.version
             for item in iterable:
                 raw = item if key is None else key(item)
-                if str(raw).lower() == spec_str.lower():
-                    yield item
+                if str(raw).lower() != spec_str.lower():
+                    continue
+                if exclude_pre:
+                    parsed = _coerce_version(raw)
+                    if parsed is not None and parsed.is_prerelease:
+                        continue
+                yield item
             return
 
         # Determine concrete prerelease behavior, or leave as None
@@ -1296,11 +1305,21 @@ class SpecifierSet(BaseSpecifier):
 
         # The sole candidate is the === version string.  Check whether
         # it can satisfy every standard spec.
+        candidate = _coerce_version(arbitrary[0].version)
+
+        # With prereleases=False, a prerelease candidate is excluded
+        # by contains() before the === string check even runs.
+        if (
+            self.prereleases is False
+            and candidate is not None
+            and candidate.is_prerelease
+        ):
+            return True
+
         standard = [s for s in self._specs if s.operator != "==="]
         if not standard:
             return False
 
-        candidate = _coerce_version(arbitrary[0].version)
         if candidate is None:
             # Unparsable string cannot satisfy any standard spec.
             return True
