@@ -16,7 +16,7 @@ import functools
 import itertools
 import re
 import typing
-from typing import Any, Callable, Final, Iterable, Iterator, TypeVar, Union
+from typing import Any, Callable, Final, Iterable, Iterator, Sequence, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
@@ -211,7 +211,7 @@ if typing.TYPE_CHECKING:
 
 _NEG_INF = _LowerBound(None, False)
 _POS_INF = _UpperBound(None, False)
-_FULL_RANGE: list[_VersionRange] = [(_NEG_INF, _POS_INF)]
+_FULL_RANGE: tuple[_VersionRange] = ((_NEG_INF, _POS_INF),)
 
 
 def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
@@ -224,8 +224,8 @@ def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
 
 
 def _intersect_ranges(
-    left: list[_VersionRange],
-    right: list[_VersionRange],
+    left: Sequence[_VersionRange],
+    right: Sequence[_VersionRange],
 ) -> list[_VersionRange]:
     """Intersect two sorted, non-overlapping range lists (two-pointer merge)."""
     result: list[_VersionRange] = []
@@ -567,7 +567,7 @@ class Specifier(BaseSpecifier):
         self._wildcard_split: tuple[list[str], int] | None = None
 
         # Version range cache (populated by _to_ranges)
-        self._ranges: list[_VersionRange] | None = None
+        self._ranges: Sequence[_VersionRange] | None = None
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -591,7 +591,7 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> list[_VersionRange]:
+    def _to_ranges(self) -> Sequence[_VersionRange]:
         """Convert this specifier to sorted, non-overlapping version ranges.
 
         Each standard operator maps to one or two ranges.  ``===`` is
@@ -1457,7 +1457,7 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> list[_VersionRange]:
+    def _get_ranges(self) -> Sequence[_VersionRange]:
         """Intersect all specifiers into a single list of version ranges.
 
         Returns an empty list when unsatisfiable.  ``===`` specs are
@@ -1466,7 +1466,7 @@ class SpecifierSet(BaseSpecifier):
         """
         specs = self._specs
 
-        result: list[_VersionRange] | None = None
+        result: Sequence[_VersionRange] | None = None
         for s in specs:
             if result is None:
                 result = s._to_ranges()
