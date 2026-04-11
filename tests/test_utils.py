@@ -138,6 +138,16 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
         ),
         (
+            "pyvirtualcam-0.13.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+            "pyvirtualcam",
+            Version("0.13.0"),
+            (),
+            {
+                Tag("cp310", "cp310", "manylinux2014_x86_64"),
+                Tag("cp310", "cp310", "manylinux_2_17_x86_64"),
+            },
+        ),
+        (
             "foo_bár-1.0-py3-none-any.whl",
             "foo-bár",
             Version("1.0"),
@@ -175,6 +185,30 @@ def test_parse_wheel_filename(
 def test_parse_wheel_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_valid_by_default(filename: str) -> None:
+    # Unsorted compressed tags should parse fine without validate_order
+    parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_invalid_with_validate(filename: str) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, validate_order=True)
 
 
 @pytest.mark.parametrize(

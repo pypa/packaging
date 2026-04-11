@@ -11,7 +11,6 @@ try:
     import ctypes
 except ImportError:
     ctypes = None  # type: ignore[assignment]
-import importlib
 import os
 import pathlib
 import pickle
@@ -167,6 +166,35 @@ class TestParseTag:
             "macosx_10_10_intel.macosx_10_10_x86_64"
         )
         assert given == expected
+
+    def test_unsorted_interpreter_parses_by_default(self) -> None:
+        # Unsorted tags should parse fine without validate_order
+        result = tags.parse_tag("py3.py2-none-any")
+        assert tags.Tag("py3", "none", "any") in result
+        assert tags.Tag("py2", "none", "any") in result
+
+    def test_unsorted_interpreter_raises_with_validate(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag("py3.py2-none-any", validate_order=True)
+
+    def test_unsorted_platform_parses_by_default(self) -> None:
+        result = tags.parse_tag(
+            "cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64"
+        )
+        assert len(result) == 2
+
+    def test_unsorted_platform_raises_with_validate(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag(
+                "cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64",
+                validate_order=True,
+            )
+
+    def test_sorted_multi_interpreter_valid(self) -> None:
+        # py2 < py3 alphabetically — should not raise even with validation
+        result = tags.parse_tag("py2.py3-none-any", validate_order=True)
+        assert tags.Tag("py2", "none", "any") in result
+        assert tags.Tag("py3", "none", "any") in result
 
 
 class TestInterpreterName:
@@ -1038,9 +1066,103 @@ class TestCPythonTags:
         assert result == [
             tags.Tag("cp313", "cp313t", "plat1"),
             tags.Tag("cp313", "cp313t", "plat2"),
+            tags.Tag("cp313", "abi3t", "plat1"),
+            tags.Tag("cp313", "abi3t", "plat2"),
             tags.Tag("cp313", "none", "plat1"),
             tags.Tag("cp313", "none", "plat2"),
+            tags.Tag("cp312", "abi3t", "plat1"),
+            tags.Tag("cp312", "abi3t", "plat2"),
+            tags.Tag("cp311", "abi3t", "plat1"),
+            tags.Tag("cp311", "abi3t", "plat2"),
+            tags.Tag("cp310", "abi3t", "plat1"),
+            tags.Tag("cp310", "abi3t", "plat2"),
+            tags.Tag("cp39", "abi3t", "plat1"),
+            tags.Tag("cp39", "abi3t", "plat2"),
+            tags.Tag("cp38", "abi3t", "plat1"),
+            tags.Tag("cp38", "abi3t", "plat2"),
+            tags.Tag("cp37", "abi3t", "plat1"),
+            tags.Tag("cp37", "abi3t", "plat2"),
+            tags.Tag("cp36", "abi3t", "plat1"),
+            tags.Tag("cp36", "abi3t", "plat2"),
+            tags.Tag("cp35", "abi3t", "plat1"),
+            tags.Tag("cp35", "abi3t", "plat2"),
+            tags.Tag("cp34", "abi3t", "plat1"),
+            tags.Tag("cp34", "abi3t", "plat2"),
+            tags.Tag("cp33", "abi3t", "plat1"),
+            tags.Tag("cp33", "abi3t", "plat2"),
+            tags.Tag("cp32", "abi3t", "plat1"),
+            tags.Tag("cp32", "abi3t", "plat2"),
         ]
+
+        result = list(tags.cpython_tags((3, 15), ["cp315t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp315", "cp315t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp315", "none", "platform"),
+            tags.Tag("cp314", "abi3t", "platform"),
+            tags.Tag("cp313", "abi3t", "platform"),
+            tags.Tag("cp312", "abi3t", "platform"),
+            tags.Tag("cp311", "abi3t", "platform"),
+            tags.Tag("cp310", "abi3t", "platform"),
+            tags.Tag("cp39", "abi3t", "platform"),
+            tags.Tag("cp38", "abi3t", "platform"),
+            tags.Tag("cp37", "abi3t", "platform"),
+            tags.Tag("cp36", "abi3t", "platform"),
+            tags.Tag("cp35", "abi3t", "platform"),
+            tags.Tag("cp34", "abi3t", "platform"),
+            tags.Tag("cp33", "abi3t", "platform"),
+            tags.Tag("cp32", "abi3t", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316t", "platform"),
+            tags.Tag("cp316", "abi3t", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp314", "abi3t", "platform"),
+            tags.Tag("cp313", "abi3t", "platform"),
+            tags.Tag("cp312", "abi3t", "platform"),
+            tags.Tag("cp311", "abi3t", "platform"),
+            tags.Tag("cp310", "abi3t", "platform"),
+            tags.Tag("cp39", "abi3t", "platform"),
+            tags.Tag("cp38", "abi3t", "platform"),
+            tags.Tag("cp37", "abi3t", "platform"),
+            tags.Tag("cp36", "abi3t", "platform"),
+            tags.Tag("cp35", "abi3t", "platform"),
+            tags.Tag("cp34", "abi3t", "platform"),
+            tags.Tag("cp33", "abi3t", "platform"),
+            tags.Tag("cp32", "abi3t", "platform"),
+        ]
+
+        result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
+        assert result == [
+            tags.Tag("cp316", "cp316", "platform"),
+            tags.Tag("cp316", "abi3", "platform"),
+            tags.Tag("cp316", "none", "platform"),
+            tags.Tag("cp315", "abi3", "platform"),
+            tags.Tag("cp314", "abi3", "platform"),
+            tags.Tag("cp313", "abi3", "platform"),
+            tags.Tag("cp312", "abi3", "platform"),
+            tags.Tag("cp311", "abi3", "platform"),
+            tags.Tag("cp310", "abi3", "platform"),
+            tags.Tag("cp39", "abi3", "platform"),
+            tags.Tag("cp38", "abi3", "platform"),
+            tags.Tag("cp37", "abi3", "platform"),
+            tags.Tag("cp36", "abi3", "platform"),
+            tags.Tag("cp35", "abi3", "platform"),
+            tags.Tag("cp34", "abi3", "platform"),
+            tags.Tag("cp33", "abi3", "platform"),
+            tags.Tag("cp32", "abi3", "platform"),
+        ]
+
+    def test_no_abi3t_in_non_threaded_interpreter(self) -> None:
+        result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
+        assert all(t.abi in ("cp316", "none", "abi3") for t in result)
+
+    def test_no_abi3_in_threaded_interpreter(self) -> None:
+        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
+        assert all(t.abi in ("cp316t", "none", "abi3t") for t in result)
 
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
@@ -1657,11 +1779,61 @@ class TestSysTags:
         interpreter = f"cp{tags.interpreter_version()}"
         assert tag == tags.Tag(interpreter, "none", "any")
 
+    def test_emscripten(
+        self,
+        mock_interpreter_name: Callable[[str], bool],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        config = {
+            "Py_GIL_DISABLED": 0,
+        }
+
+        monkeypatch.setattr(sysconfig, "get_config_var", config.get)
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
+        )
+        assert list(tags.platform_tags()) == ["emscripten_5_0_3_wasm32"]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "emscripten_5_0_3_wasm32"
+        )
+
+    def test_pyemscripten(
+        self,
+        mock_interpreter_name: Callable[[str], bool],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
+        config = {
+            "PYEMSCRIPTEN_ABI_VERSION": "2026_0",
+        }
+
+        monkeypatch.setattr(sysconfig, "get_config_var", config.get)
+        if mock_interpreter_name("CPython"):
+            monkeypatch.setattr(
+                tags, "_cpython_abis", lambda _1, _2: [expected_interpreter]
+            )
+        monkeypatch.setattr(platform, "system", lambda: "Emscripten")
+        monkeypatch.setattr(
+            sysconfig, "get_platform", lambda: "emscripten-5.0.3-wasm32"
+        )
+        assert list(tags.platform_tags()) == [
+            "pyemscripten_2026_0_wasm32",
+            "emscripten_5_0_3_wasm32",
+        ]
+        result = list(tags.sys_tags())
+        assert result[0] == tags.Tag(
+            expected_interpreter, expected_interpreter, "pyemscripten_2026_0_wasm32"
+        )
+
 
 class TestBitness:
-    def teardown_method(self) -> None:
-        importlib.reload(tags)
-
     @pytest.mark.parametrize(
         ("maxsize", "sizeof_voidp", "expected"),
         [
@@ -1686,8 +1858,7 @@ class TestBitness:
 
         monkeypatch.setattr(sys, "maxsize", maxsize)
         monkeypatch.setattr(struct, "calcsize", _calcsize)
-        importlib.reload(tags)
-        assert expected == tags._32_BIT_INTERPRETER
+        assert expected == tags._compute_32_bit_interpreter()
 
 
 def test_pickle() -> None:

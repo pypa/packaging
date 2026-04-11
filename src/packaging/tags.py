@@ -36,6 +36,7 @@ __all__ = [
     "AppleVersion",
     "PythonVersion",
     "Tag",
+    "UnsortedTagsError",
     "android_platforms",
     "compatible_tags",
     "cpython_tags",
@@ -70,7 +71,19 @@ INTERPRETER_SHORT_NAMES: dict[str, str] = {
 }
 
 
-_32_BIT_INTERPRETER = struct.calcsize("P") == 4
+# This function can be unit tested without reloading the module
+# (Unlike _32_BIT_INTERPRETER)
+def _compute_32_bit_interpreter() -> bool:
+    return struct.calcsize("P") == 4
+
+
+_32_BIT_INTERPRETER = _compute_32_bit_interpreter()
+
+
+class UnsortedTagsError(ValueError):
+    """
+    Raised when a tag component is not in sorted order per PEP 425.
+    """
 
 
 class Tag:
@@ -153,7 +166,7 @@ class Tag:
         self._hash = hash((self._interpreter, self._abi, self._platform))
 
 
-def parse_tag(tag: str) -> frozenset[Tag]:
+def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
     """
     Parses the provided tag (e.g. `py3-none-any`) into a frozenset of
     :class:`Tag` instances.
@@ -162,10 +175,27 @@ def parse_tag(tag: str) -> frozenset[Tag]:
     `compressed tag set`_, e.g. ``"py2.py3-none-any"`` which supports both
     Python 2 and Python 3.
 
+    If **validate_order** is true, compressed tag set components are checked
+    to be in sorted order as required by PEP 425.
+
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
+    :param bool validate_order: Check whether compressed tag set components
+        are in sorted order.
+    :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
+        set component is not in sorted order.
+
+    .. versionadded:: 26.1
+       The *validate_order* parameter.
     """
     tags = set()
     interpreters, abis, platforms = tag.split("-")
+    if validate_order:
+        for component in (interpreters, abis, platforms):
+            parts = component.split(".")
+            if parts != sorted(parts):
+                raise UnsortedTagsError(
+                    f"Tag component {component!r} is not in sorted order per PEP 425"
+                )
     for interpreter in interpreters.split("."):
         for abi in abis.split("."):
             for platform_ in platforms.split("."):
@@ -206,10 +236,23 @@ def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:
     """
     Determine if the Python version supports abi3.
 
-    PEP 384 was first implemented in Python 3.2. The threaded (`--disable-gil`)
+    PEP 384 was first implemented in Python 3.2. The free-threaded
     builds do not support abi3.
     """
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and not threading
+
+
+def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
+    """
+    Determine if the Python version supports abi3t.
+
+    PEP 803 was first implemented in Python 3.15 but, per PEP 803, this
+    returns tags going back to Python 3.2 to mirror the abi3
+    implementation and leave open the possibility of abi3t wheels
+    supporting older Python versions.
+
+    """
+    return len(python_version) > 1 and tuple(python_version) >= (3, 2) and threading
 
 
 def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
@@ -258,13 +301,17 @@ def cpython_tags(
     The specific tags generated are:
 
     - ``cp<python_version>-<abi>-<platform>``
-    - ``cp<python_version>-abi3-<platform>``
+    - ``cp<python_version>-<stable_abi>-<platform>``
     - ``cp<python_version>-none-<platform>``
-    - ``cp<older version>-abi3-<platform>`` where "older version" is all older
+    - ``cp<older version>-<stable_abi>-<platform>`` where "older version" is all older
       minor versions down to Python 3.2 (when ``abi3`` was introduced)
 
     If ``python_version`` only provides a major-only version then only
     user-provided ABIs via ``abis`` and the ``none`` ABI will be used.
+
+    The ``stable_abi`` will be either ``abi3`` or ``abi3t`` if `abi` is a
+    GIL-enabled ABI like `"cp315"` or a free-threaded ABI like `"cp315t"`,
+    respectively.
 
     :param Sequence python_version: A one- or two-item sequence representing the
                                  targeted Python version. Defaults to
@@ -297,16 +344,27 @@ def cpython_tags(
 
     threading = _is_threaded_cpython(abis)
     use_abi3 = _abi3_applies(python_version, threading)
-    if use_abi3:
-        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
-    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+    use_abi3t = _abi3t_applies(python_version, threading)
 
     if use_abi3:
+        yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
+    if use_abi3t:
+        yield from (Tag(interpreter, "abi3t", platform_) for platform_ in platforms)
+
+    yield from (Tag(interpreter, "none", platform_) for platform_ in platforms)
+
+    if use_abi3 or use_abi3t:
         for minor_version in range(python_version[1] - 1, 1, -1):
             for platform_ in platforms:
                 version = _version_nodot((python_version[0], minor_version))
                 interpreter = f"cp{version}"
-                yield Tag(interpreter, "abi3", platform_)
+                if use_abi3:
+                    yield Tag(interpreter, "abi3", platform_)
+                if use_abi3t:
+                    # Support for abi3t was introduced in Python 3.15, but in
+                    # principle abi3t wheels are possible for older limited API
+                    # versions, so allow things like ("cp37", "abi3t", "platform")
+                    yield Tag(interpreter, "abi3t", platform_)
 
 
 def _generic_abi() -> list[str]:
@@ -690,6 +748,13 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         yield f"linux_{arch}"
 
 
+def _emscripten_platforms() -> Iterator[str]:
+    pyemscripten_abi_version = sysconfig.get_config_var("PYEMSCRIPTEN_ABI_VERSION")
+    if pyemscripten_abi_version:
+        yield f"pyemscripten_{pyemscripten_abi_version}_wasm32"
+    yield from _generic_platforms()
+
+
 def _generic_platforms() -> Iterator[str]:
     yield _normalize_string(sysconfig.get_platform())
 
@@ -706,6 +771,8 @@ def platform_tags() -> Iterator[str]:
         return android_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
+    elif platform.system() == "Emscripten":
+        return _emscripten_platforms()
     else:
         return _generic_platforms()
 
@@ -764,6 +831,8 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
 
     .. versionchanged:: 21.3
         Added the `pp3-none-any` tag (:issue:`311`).
+    .. versionchanged:: 27.0
+        Added the `abi3t` tag (:issue:`1099`).
     """
 
     interp_name = interpreter_name()

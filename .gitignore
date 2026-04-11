@@ -8,6 +8,7 @@
 .idea
 .venv*
 .vscode/
+.hypothesis/
 
 .mypy_cache/
 .pytest_cache/

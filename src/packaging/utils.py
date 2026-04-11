@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import NewType, Tuple, Union, cast
 
-from .tags import Tag, parse_tag
+from .tags import Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 __all__ = [
@@ -156,6 +156,8 @@ def canonicalize_version(
 
 def parse_wheel_filename(
     filename: str,
+    *,
+    validate_order: bool = False,
 ) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
     """
     This function takes the filename of a wheel file, and parses it,
@@ -171,7 +173,12 @@ def parse_wheel_filename(
     string format allows multiple tags to be combined into a single
     string).
 
+    If **validate_order** is true, compressed tag set components are
+    checked to be in sorted order as required by PEP 425.
+
     :param str filename: The name of the wheel file.
+    :param bool validate_order: Check whether compressed tag set components
+        are in sorted order.
     :raises InvalidWheelFilename: If the filename in question
         does not follow the :ref:`wheel specification
         <pypug:binary-distribution-format>`.
@@ -188,6 +195,9 @@ def parse_wheel_filename(
     True
     >>> not build
     True
+
+    .. versionadded:: 26.1
+       The *validate_order* parameter.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -225,7 +235,14 @@ def parse_wheel_filename(
         build = cast("BuildTag", (int(build_match.group(1)), build_match.group(2)))
     else:
         build = ()
-    tags = parse_tag(parts[-1])
+    tag_str = parts[-1]
+    try:
+        tags = parse_tag(tag_str, validate_order=validate_order)
+    except UnsortedTagsError:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (compressed tag set components must be in "
+            f"sorted order per PEP 425): {filename!r}"
+        ) from None
     return (name, version, build, tags)
 
 
