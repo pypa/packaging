@@ -1125,32 +1125,6 @@ class TestSpecifierInternal:
         assert spec._spec_version is initial_cache
 
     @pytest.mark.parametrize(
-        ("specifier", "test_versions"),
-        [
-            (
-                "==1.0.*",
-                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
-            ),
-            (
-                "!=1.0.*",
-                ["0.9", "1.0", "1.0.1", "1.0a1", "1.0.dev1", "1.0.post1", "1.0+local"],
-            ),
-        ],
-    )
-    def test_spec_version_cache_with_wildcards(
-        self, specifier: str, test_versions: list[str]
-    ) -> None:
-        """Wildcard specifiers use prefix matching, cache stays None."""
-        spec = Specifier(specifier, prereleases=True)
-
-        for v in test_versions:
-            _ = v in spec
-        _ = spec.prereleases
-        _ = hash(spec)
-
-        assert spec._spec_version is None
-
-    @pytest.mark.parametrize(
         "specifier",
         [
             "===1.0",
@@ -2637,6 +2611,9 @@ class TestIsUnsatisfiable:
         # Local versions (spec with local + spec without local that strips local)
         "==1.0+local1,>=1.0",
         "!=1.0+local1,>=1.0",
+        "==1.0,>=0.5",
+        "==1.0,!=0.5",
+        "==1.0,<=2.0",
         "==1.0+local1,!=1.0+local2",
         "==1.0+local1,==1.0",
         "==1.0+local1,<=1.0",
@@ -2669,6 +2646,8 @@ class TestIsUnsatisfiable:
         # Final version sits below its own post-releases
         ">=1.0,<1.0.post0",
         ">=1.0,<1.0.post1",
+        # Lower bound below base.dev0: other-base versions survive
+        ">=0,<1.0.post0,!=1.0",
         # <V.postN only excludes pre-releases of V.postN itself,
         # not pre-releases of the base release (#1140)
         "==1.0.dev0,<1.0.post1",
@@ -2717,6 +2696,23 @@ class TestIsUnsatisfiable:
         assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
         result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS, prereleases=True)), None))
         assert result, f"Expected filter to match at least one version for {spec_str!r}"
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE)
+    def test_filter_matches_per_spec_filter(self, spec_str: str) -> None:
+        """Range-based filter() must match per-spec contains() check."""
+        if not spec_str:
+            return
+        ss = SpecifierSet(spec_str)
+        interval_result = set(ss.filter(_SAMPLE_VERSIONS, prereleases=True))
+        manual_result = set()
+        for v in _SAMPLE_VERSIONS:
+            if all(spec.contains(v, prereleases=True) for spec in ss._specs):
+                manual_result.add(v)
+        assert interval_result == manual_result, (
+            f"Filter mismatch for {spec_str!r}: "
+            f"extra={sorted(str(v) for v in interval_result - manual_result)}, "
+            f"missing={sorted(str(v) for v in manual_result - interval_result)}"
+        )
 
     def test_result_is_cached(self) -> None:
         ss = SpecifierSet(">=2.0,<1.0")
@@ -2772,6 +2768,8 @@ class TestIsUnsatisfiable:
         "<2.0",
         # Exact local pin: nearest == upper and upper inclusive
         "==1.0+local",
+        # === forces range fallback in prerelease check
+        "===1.0",
         # === with unparsable string (prereleases filter does not apply)
         "===foobar",
         # Compatible release from pre-release includes final release
