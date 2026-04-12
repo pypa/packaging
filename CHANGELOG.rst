@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Features:
+
+* Expose a public structured marker tree via ``Marker.as_ast()`` (:pull:`1145`)
 
 26.0 - 2026-01-20
 ~~~~~~~~~~~~~~~~~
