@@ -105,12 +105,12 @@ class _BoundaryVersion:
             return self.version == other.version and self._kind == other._kind
         return NotImplemented
 
-    def __lt__(self, other: object) -> bool:
+    def __lt__(self, other: _BoundaryVersion | Version) -> bool:
         if isinstance(other, _BoundaryVersion):
             if self.version != other.version:
                 return self.version < other.version
             return self._kind.value < other._kind.value
-        return not self._is_family(other) and self.version < other  # type: ignore[arg-type, operator]
+        return not self._is_family(other) and self.version < other
 
     def __hash__(self) -> int:
         return hash((self.version, self._kind))
@@ -138,7 +138,7 @@ class _LowerBound:
             return NotImplemented  # pragma: no cover
         return self.version == other.version and self.inclusive == other.inclusive
 
-    def __lt__(self, other: object) -> bool:
+    def __lt__(self, other: _LowerBound) -> bool:
         if not isinstance(other, _LowerBound):  # pragma: no cover
             return NotImplemented
         # -inf < anything (except -inf).
@@ -178,7 +178,7 @@ class _UpperBound:
             return NotImplemented  # pragma: no cover
         return self.version == other.version and self.inclusive == other.inclusive
 
-    def __lt__(self, other: object) -> bool:
+    def __lt__(self, other: _UpperBound) -> bool:
         if not isinstance(other, _UpperBound):  # pragma: no cover
             return NotImplemented
         # Nothing < +inf (except +inf itself).
