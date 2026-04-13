@@ -2367,3 +2367,481 @@ class TestSpecifierSet:
         combined_versions = set(SpecifierSet(f"{spec1},{spec2}").filter(input_versions))
 
         assert versions1 & versions2 == combined_versions
+
+
+def _version_family(base: str) -> list[str]:
+    """All PEP 440 suffixes and combinations around a base version."""
+    return [
+        f"{base}.dev0",
+        f"{base}.dev1",
+        f"{base}.dev0+local",
+        f"{base}a0",
+        f"{base}a0.post0.dev0",
+        f"{base}a0.post0",
+        f"{base}a1.dev1",
+        f"{base}a1.dev1+local",
+        f"{base}a1",
+        f"{base}a1+local",
+        f"{base}b1",
+        f"{base}b2.post1.dev1",
+        f"{base}b2.post1",
+        f"{base}rc1.dev1",
+        f"{base}rc1",
+        f"{base}rc2",
+        f"{base}a2.dev0",
+        base,
+        f"{base}.0",
+        f"{base}.post0.dev0",
+        f"{base}.post0",
+        f"{base}.post1.dev0",
+        f"{base}.post1",
+        f"{base}.post1+local",
+        f"{base}.post2",
+        f"{base}+local",
+        f"{base}+local1",
+        f"{base}+local2",
+        f"{base}+1",
+        f"{base}+1.local",
+        f"{base}.1.dev1",
+        f"{base}.1a1",
+        f"{base}.1",
+        f"{base}.1+local",
+        f"{base}.1.post1",
+    ]
+
+
+_SAMPLE_BASES: list[str] = [
+    "0",
+    "0.0",
+    "1.0",
+    "1.1",
+    "1.2",
+    "2.0",
+    "2.1",
+    "3.0",
+    "1.0.1",
+    "1.4.2",
+    "2.0.0",
+    "3.10.2",
+    "3.8",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "10.0",
+    "100.0",
+    "1!0.0",
+    "1!1.0",
+    "1!2.0",
+]
+
+
+def _build_sample_versions(
+    bases: list[str], family_fn: Callable[[str], list[str]]
+) -> list[str]:
+    """version_family x bases, deduplicated.  Returns strings (not Version
+    objects) so === can also match unnormalized and non-PEP-440 samples."""
+    version_strs: list[str] = []
+    for base in bases:
+        version_strs.extend(family_fn(base))
+    seen: set[str] = set()
+    unique: list[str] = []
+    for v in version_strs:
+        if v not in seen:
+            seen.add(v)
+            unique.append(v)
+    return unique
+
+
+_SAMPLE_VERSIONS: list[str] = _build_sample_versions(_SAMPLE_BASES, _version_family)
+
+# Extra strings for === (arbitrary equality): unnormalized forms and
+# non-PEP-440 strings that no Version object can represent.
+_SAMPLE_VERSIONS += [
+    "foobar",
+    "a",
+    "b",
+    "not-a-version",
+    "1.01",
+    "1.0-1",
+    "v1.0",
+]
+
+
+class TestIsUnsatisfiable:
+    """Tests for SpecifierSet.is_unsatisfiable().
+
+    Testing approach:
+    - UNSATISFIABLE: detected as unsatisfiable, filter returns nothing.
+    - SATISFIABLE: not falsely reported as unsatisfiable.
+    """
+
+    UNSATISFIABLE: typing.ClassVar[list[str]] = [
+        # Crossed bounds
+        ">=2.0,<1.0",
+        ">=2.0,<2.0",
+        ">2.0,<=2.0",
+        ">2.0,<2.0",
+        # Equality conflicts
+        "==1.0,!=1.0",
+        "==1.0,>1.0",
+        "==1.0,<1.0",
+        "==1.0,>=2.0",
+        "==3.0,<2.0",
+        # Wildcard conflicts
+        "==1.*,>=2.0",
+        "==2.*,<2.0.dev0",
+        "==3.*,<3.0.dev0",
+        "==1.0.*,!=1.0.*",
+        "==1.0,!=1.*",
+        # Compatible release conflicts
+        "~=2.0,<2.0",
+        "~=2.0,>=3.0",
+        "~=2.5,<2.5",
+        "~=1.0,>=2.0",
+        "~=1.4.2,<1.4.2",
+        # Point range excluded
+        ">=1.0,<=1.0,!=1.0",
+        # Epoch conflicts
+        "==1!1.0,==1.0",
+        ">=1!1.0,<1.0",
+        ">=1!0.0,<1.0",
+        # Zero/dev edge cases
+        "<0",
+        "<0.0",
+        "<0.0.dev0",
+        ">=1.0,<0.0.dev0",
+        # <V excludes prereleases of V when V is not a prerelease
+        ">=1.0a1,<1.0",
+        ">=1.0.dev0,<1.0",
+        ">=1.0rc1,<1.0",
+        # <V.postN excludes dev releases of V.postN
+        ">=1.0.post1,<1.0.post1",
+        ">=1.0.post1.dev0,<1.0.post1",
+        # >V excludes posts of V; <V.postN bound leaves no room
+        ">1.0,<1.0.post0",
+        ">1.0,<1.0.post1",
+        # >V.postN + <V.postN+1: no version exists in the gap
+        ">1.0.post0,<1.0.post1",
+        # dev crossing
+        ">=1.0.dev5,<1.0.dev3",
+        # == with dev/pre/post + > same version
+        "==1.0.dev0,>1.0.dev0",
+        "==1.0a1,>1.0a1",
+        "==1.0.post1,>1.0.post1",
+        # >V.preN excludes posts of V.preN; nothing between
+        ">1.0a1,<1.0a1.post1",
+        # ~= with dev/pre + conflicting range
+        "~=1.0.dev0,>=2.0",
+        "~=1.0a1,>=2.0",
+        # Wildcard exhausts range
+        ">=1.0,<2.0,!=1.*",
+        "~=1.4.2,!=1.4.*",
+        # Local version conflicts
+        "==1.0+local,!=1.0+local",
+        # === conflicts: multiple === with different strings
+        "===a,===b",
+        "===1.0,===2.0",
+        # === with unparsable + standard spec
+        "===foobar,==1.0",
+        "===foobar,>=1.0",
+        "===a,!=1.0",
+        "===not-a-version,~=1.0",
+        "===foobar,>=2.0,<3.0",
+        # === with parsable version that fails standard specs
+        "===1.0,>=2.0",
+        "===1.0,!=1.0",
+        "===1.0,>1.0",
+        "===1.01,==1.0",
+        # Non-overlapping wildcards (adjacent boundaries, upper exclusive)
+        "==1.0.*,==1.1.*",
+        "==1.*,==2.*",
+        # Conflicting compatible releases
+        "~=1.0,~=2.0",
+        "~=1.4.2,~=1.5.0",
+        # Local excluded by non-local != (locals ignored per spec)
+        "==1.0+local1,!=1.0",
+        # Wildcard exhaustion (single and multiple)
+        ">=1.0,<1.1,!=1.0.*",
+        "!=1.*,!=2.*,>=1.0,<3.0",
+        "~=1.0,!=1.*",
+        # >V excludes posts of pre-release V
+        ">1.0a1,<1.0a1.post2",
+        # Adjacent dev of zero: no version between devN and dev(N+1)
+        ">0.dev0,<0.dev1",
+        # Compatible release with pre/dev suffix vs <base
+        "~=1.0a1,<1.0",
+        "~=1.0.dev5,<1.0",
+        # Between post dev and post: >V.postK.devN leaves no room
+        ">1.0.post0.dev0,<1.0.post0",
+        # Deep release crossing compatible release boundary
+        "~=1.2.3.4.5,>=1.2.3.5",
+        # Different base but release is above the <V.postN bound
+        "==1.1.dev0,<1.0.post1",
+    ]
+
+    SATISFIABLE: typing.ClassVar[list[str]] = [
+        "",
+        ">=1.0",
+        "<2.0",
+        ">1.0",
+        ">=1.0,<2.0",
+        ">=1.0,<=1.0",
+        ">=1.0,<100.0",
+        # Compatible release
+        "~=1.0",
+        "~=1.0,<1.5",
+        "~=1.4.2",
+        # Wildcards
+        "==1.0.*",
+        "!=1.0.*",
+        "==1.*,!=1.5",
+        "==1.0.*,==1.*",
+        "!=1.*,>=2.0",
+        # Exclusions that don't exhaust range
+        ">=1.0,<2.0,!=1.5,!=1.6",
+        ">=1.0,<2.0,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4",
+        # Single operators
+        "==1.0",
+        "!=1.0",
+        # Prerelease ranges
+        ">=1.0.dev0,<1.0.dev1",
+        ">=1.0a1,<1.0a2",
+        # Pre-release ranges with room between
+        ">1.0a1,<1.0a2",
+        ">=1.0a1,<1.0b1",
+        ">=1.0b1,<1.0rc1",
+        # Post-release ranges
+        ">1.0.post0,<1.0.post2",
+        ">1.0.post0,<1.0.post3",
+        # Dev range within a release
+        ">=1.0a1.dev0,<1.0a1",
+        # Epoch
+        ">=1!1.0,<1!2.0",
+        ">1!1.0,<1!3.0",
+        # Wildcards that don't exhaust range
+        ">=1.0,<3.0,!=2.*",
+        # Real-world
+        ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14",
+        # Boundary checks
+        "<1.0.dev1",
+        ">1!1.0",
+        "<1!2.0",
+        ">1.0,<3.0",
+        ">1.0,>2.0",
+        "<2.0,<3.0",
+        ">1.0.post0",
+        ">1.0.post1,<2.0",
+        # Local versions (spec with local + spec without local that strips local)
+        "==1.0+local1,>=1.0",
+        "!=1.0+local1,>=1.0",
+        "==1.0+local1,!=1.0+local2",
+        "==1.0+local1,==1.0",
+        "==1.0+local1,<=1.0",
+        "==1.0+local,>=1.0,<=1.0",
+        "==1.0.post1+local,<=1.0.post1",
+        # Various multi-spec
+        ">1.0,!=0.5",
+        ">=1.0,<2.0rc1",
+        ">=0.5,!=1.0.*",
+        "~=1.0,!=1.3",
+        ">=1!0.0,<1!1.0",
+        # === (arbitrary string equality)
+        "===foobar",
+        "===1.0",
+        "===1.0a1",
+        # === with unnormalized version string (PR #1124)
+        "===1.01",
+        # === mixed with standard operators
+        "===1.0,==1.0",
+        "===1.0,>=1.0",
+        "===1.0,>=0.5",
+        "===1.0,!=2.0",
+        "===1.0.0,>=1.0",
+        "===1.01,>=1.0",
+        # === with unnormalized version that parses to a matching version
+        "===1.01,==1.1",
+        # === case-insensitive identity
+        "===FOOBAR,===foobar",
+        "===FooBar,===FOOBAR",
+        # Final version sits below its own post-releases
+        ">=1.0,<1.0.post0",
+        ">=1.0,<1.0.post1",
+        # <V.postN only excludes pre-releases of V.postN itself,
+        # not pre-releases of the base release (#1140)
+        "==1.0.dev0,<1.0.post1",
+        "==1.0a1,<1.0.post0",
+        "==1.0rc1,<1.0.post0",
+        "==1.0.post0.dev0,<1.0.post1",
+        ">=1.0.dev0,<1.0.post1,!=1.0,!=1.0.post0",
+        # === with normalization variants
+        "===v1.0,>=1.0",
+        "===1.0-1,>=1.0",
+        # Zero-padding equivalence
+        "==1.0,==1.0.0",
+        # Compatible release with post suffix
+        "~=1.0.post1,>=1.0",
+        # Range below post dev
+        ">=1.0,<1.0.post0.dev1",
+        # Post of alpha satisfies (1.0a1.post0 exists)
+        ">=1.0a1,<1.0a2,!=1.0a1",
+        # Alpha-to-beta range has room (1.0a2.dev0, etc.)
+        ">1.0a1,<1.0b1",
+        # Overlapping compatible releases
+        "~=1.0,~=1.1",
+        "~=1.0,~=1.0.1",
+        # Partial wildcard exclusion doesn't exhaust range
+        ">=1.0,<2.0,!=1.0.*,!=1.1.*",
+        # ~= with pre/dev lower bound still accepts the final release
+        "~=1.0.dev0,<1.0.post0",
+        "~=1.0a1,<1.0.post0",
+    ]
+
+    @pytest.mark.parametrize("spec_str", UNSATISFIABLE)
+    def test_unsatisfiable(self, spec_str: str) -> None:
+        """Unsatisfiable specs must be detected, and filter must return empty."""
+        ss = SpecifierSet(spec_str)
+        assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
+        result = list(ss.filter(_SAMPLE_VERSIONS, prereleases=True))
+        assert result == [], (
+            f"is_unsatisfiable() but filter matched: "
+            f"{[str(v) for v in result]} for {spec_str!r}"
+        )
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE)
+    def test_satisfiable(self, spec_str: str) -> None:
+        """Satisfiable specs must not be falsely reported, and filter must match."""
+        ss = SpecifierSet(spec_str)
+        assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+        result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS, prereleases=True)), None))
+        assert result, f"Expected filter to match at least one version for {spec_str!r}"
+
+    def test_result_is_cached(self) -> None:
+        ss = SpecifierSet(">=2.0,<1.0")
+        assert ss.is_unsatisfiable()
+        assert ss._is_unsatisfiable is True
+        assert ss.is_unsatisfiable()  # second call uses cache
+
+    def test_cache_reset_on_prereleases_change(self) -> None:
+        ss = SpecifierSet(">=1.0,<2.0")
+        assert not ss.is_unsatisfiable()
+        ss.prereleases = True
+        assert ss._is_unsatisfiable is None
+
+    UNSATISFIABLE_NO_PRE: typing.ClassVar[list[str]] = [
+        # Only pre-releases in range
+        ">=1.0.dev0,<1.0",
+        ">=1.0a1,<1.0",
+        ">=1.0rc1,<1.0",
+        # Single pre-release pin
+        "==1.0.dev0",
+        "==1.0a1",
+        "==1.0a1.post0",
+        "==1.0.post0.dev0",
+        "==0.dev0",
+        # Ranges within one pre-release family
+        ">=1.0a1,<1.0a2",
+        ">=1.0b1,<1.0rc1",
+        ">=1.0.dev0,<1.0.dev5",
+        # Strict > on pre-release lower bound (BoundaryVersion path)
+        ">1.0a1,<1.0a3",
+        # != removes all non-pre-releases from range
+        ">=1.0rc1,<=1.0,!=1.0",
+        ">=1.0.dev0,<=1.0,!=1.0",
+        ">=1.0.dev0,<=1.0.post0,!=1.0,!=1.0.post0",
+        # Epoch pre-release
+        "==1!1.0.dev0",
+        ">=1!1.0a1,<1!1.0",
+        # === with parseable pre-release string
+        "===1.0a1",
+        "===1.0.dev0",
+        # Already unsatisfiable regardless of prereleases
+        ">=2.0,<1.0",
+    ]
+
+    SATISFIABLE_NO_PRE: typing.ClassVar[list[str]] = [
+        "",
+        ">=1.0,<2.0",
+        ">=1.0.dev0,<2.0",
+        "==1.0",
+        "==1.0.post0",
+        ">=1.0.dev0,<1.0.post1",
+        # Unbounded lower (nearest_non_prerelease(None) path)
+        "<2.0",
+        # Exact local pin: nearest == upper and upper inclusive
+        "==1.0+local",
+        # === with unparsable string (prereleases filter does not apply)
+        "===foobar",
+        # Compatible release from pre-release includes final release
+        "~=1.0a1",
+        "~=1.0.dev0",
+        # != removes some but not all
+        ">=1.0rc1,<=1.0.post0,!=1.0",
+        # Inclusive upper at non-pre-release boundary
+        ">=1.0rc1,<=1.0",
+        ">=1.0.dev0,<=1.0",
+    ]
+
+    @pytest.mark.parametrize("spec_str", UNSATISFIABLE_NO_PRE)
+    def test_unsatisfiable_prereleases_false(self, spec_str: str) -> None:
+        """With prereleases=False, detected as unsatisfiable and
+        filter returns nothing."""
+        ss = SpecifierSet(spec_str, prereleases=False)
+        assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
+        result = list(ss.filter(_SAMPLE_VERSIONS))
+        assert result == [], (
+            f"is_unsatisfiable() but filter matched: "
+            f"{[str(v) for v in result]} for {spec_str!r}"
+        )
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE_NO_PRE)
+    def test_satisfiable_prereleases_false(self, spec_str: str) -> None:
+        """With prereleases=False, not falsely reported and filter matches."""
+        ss = SpecifierSet(spec_str, prereleases=False)
+        assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
+        result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS)), None))
+        assert result, f"Expected filter to match at least one version for {spec_str!r}"
+
+    def test_and_preserves_unsatisfiable(self) -> None:
+        combined = SpecifierSet(">=2.0") & SpecifierSet("<1.0")
+        assert combined.is_unsatisfiable()
+
+    def test_and_satisfiable(self) -> None:
+        combined = SpecifierSet(">=1.0") & SpecifierSet("<2.0")
+        assert not combined.is_unsatisfiable()
+
+    def test_and_reuses_interval_cache(self) -> None:
+        """Specifier interval cache is reused when specs are shared via &."""
+        s1 = SpecifierSet(">=1.0")
+        s2 = SpecifierSet("<2.0")
+        # Compute intervals on the original sets first.
+        assert not s1.is_unsatisfiable()
+        assert not s2.is_unsatisfiable()
+        # __and__ reuses the same Specifier objects, so _to_ranges()
+        # hits the cache on those Specifier instances.
+        combined = s1 & s2
+        assert not combined.is_unsatisfiable()
+
+    def test_range_bounds_hashable_and_equal(self) -> None:
+        """Range bounds are hashable and support equality."""
+        a = Specifier(">1.0")._to_ranges()
+        b = Specifier(">1.0")._to_ranges()
+        for (al, au), (bl, bu) in zip(a, b):
+            hash(al)
+            hash(au)
+            assert al == bl
+            assert au == bu
+
+    def test_range_bounds_repr(self) -> None:
+        [(lower, upper)] = Specifier(">=1.0")._to_ranges()
+        assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
+        assert repr(upper) == "<_UpperBound None)>"
+
+        [(lower2, upper2)] = Specifier(">1.0")._to_ranges()
+        assert (
+            repr(lower2)
+            == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
+        )
+        assert repr(upper2) == "<_UpperBound None)>"
