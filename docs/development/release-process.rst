@@ -9,7 +9,12 @@ Release Process
 
 #. Manually update the changelog to list all unreleased changes. Also verify
    that no new changes were added to a previous release in an earlier PR due to
-   merge/rebase issues.
+   merge/rebase issues. You can get started with this::
+
+    $ gh api repos/pypa/packaging/releases/generate-notes \
+                                -f tag_name=YY.N \
+                                -f previous_tag_name=YY.(N-1) \
+                                --jq .body
 
 #. Run the release automation with the required version number (YY.N)::
 
