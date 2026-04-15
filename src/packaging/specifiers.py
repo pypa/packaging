@@ -22,9 +22,6 @@ from typing import (
     Any,
     Callable,
     Final,
-    Iterable,
-    Iterator,
-    Sequence,
     TypeVar,
     Union,
 )
@@ -232,6 +229,8 @@ class _UpperBound:
 
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Sequence
+
     _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
 
     #: A single contiguous version range, represented as a

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from typing import NewType, Tuple, Union, cast
+from typing import NewType, Union, cast
 
 from .tags import Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
@@ -28,7 +28,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
-BuildTag = Union[Tuple[()], Tuple[int, str]]
+BuildTag = Union[tuple[()], tuple[int, str]]
 
 NormalizedName = NewType("NormalizedName", str)
 """
