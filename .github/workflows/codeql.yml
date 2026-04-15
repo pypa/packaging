@@ -1,5 +1,9 @@
 name: "CodeQL"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ "main" ]
@@ -8,6 +12,8 @@ on:
     branches: [ "main" ]
   schedule:
     - cron: '16 5 * * 6'
+
+permissions: {}
 
 jobs:
   analyze:
@@ -20,9 +26,9 @@ jobs:
     runs-on: 'ubuntu-latest'
     timeout-minutes: 360
     permissions:
-      actions: read
+      actions: read # Allow CodeQL action to read metadata needed for analysis.
       contents: read
-      security-events: write
+      security-events: write # So CodeQL can upload analysis events.
 
     strategy:
       fail-fast: false

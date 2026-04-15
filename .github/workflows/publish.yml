@@ -1,5 +1,9 @@
 name: Publish
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +20,7 @@ permissions: {}
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.get-tag.outputs.tag }}
@@ -66,13 +71,14 @@ jobs:
           compression-level: 0
 
   publish:
+    name: Publish
     needs:
       - build
     environment:
       name: pypi
       url: https://pypi.org/project/packaging/${{ needs.build.outputs.tag }}
     permissions:
-      id-token: write
+      id-token: write # Allow OIDC id-token for authenticated publishing to PyPI
     # Only publish if there's a matching tag, and if this is not a fork
     if: needs.build.outputs.tag != '' && !github.event.repository.fork
 
