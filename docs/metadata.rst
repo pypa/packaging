@@ -58,8 +58,12 @@ Exceptions
 .. autoclass:: packaging.metadata.InvalidMetadata
     :members:
 
-.. autoclass:: packaging.metadata.ExceptionGroup
-    :members:
+.. note::
+
+    ``packaging.metadata.ExceptionGroup`` is a backward-compatible re-export
+    of :class:`packaging.errors.ExceptionGroup` and is omitted here to avoid
+    duplicate documentation. See :mod:`packaging.errors` for the canonical
+    documentation.
 
 
 .. _source distributions: https://packaging.python.org/en/latest/specifications/source-distribution-format/
