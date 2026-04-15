@@ -424,14 +424,15 @@ class Marker:
             "dict[str, str | AbstractSet[str]]", default_environment()
         )
         if context == "lock_file":
-            current_environment.update(
-                extras=frozenset(), dependency_groups=frozenset()
-            )
+            current_environment |= {
+                "extras": frozenset(),
+                "dependency_groups": frozenset(),
+            }
         elif context == "metadata":
             current_environment["extra"] = ""
 
         if environment is not None:
-            current_environment.update(environment)
+            current_environment |= environment
             if "extra" in current_environment:
                 # The API used to allow setting extra to None. We need to handle
                 # this case for backwards compatibility. Also skip running
