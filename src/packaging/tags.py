@@ -749,9 +749,11 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
 
 
 def _emscripten_platforms() -> Iterator[str]:
-    pyemscripten_abi_version = sysconfig.get_config_var("PYEMSCRIPTEN_ABI_VERSION")
-    if pyemscripten_abi_version:
-        yield f"pyemscripten_{pyemscripten_abi_version}_wasm32"
+    pyemscripten_platform_version = sysconfig.get_config_var(
+        "PYEMSCRIPTEN_PLATFORM_VERSION"
+    )
+    if pyemscripten_platform_version:
+        yield f"pyemscripten_{pyemscripten_platform_version}_wasm32"
     yield from _generic_platforms()
 
 

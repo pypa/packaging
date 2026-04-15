@@ -1811,7 +1811,7 @@ class TestSysTags:
     ) -> None:
         expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
         config = {
-            "PYEMSCRIPTEN_ABI_VERSION": "2026_0",
+            "PYEMSCRIPTEN_PLATFORM_VERSION": "2026_0",
         }
 
         monkeypatch.setattr(sysconfig, "get_config_var", config.get)
