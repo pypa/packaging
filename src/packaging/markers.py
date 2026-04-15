@@ -8,9 +8,29 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Callable, Literal, Mapping, TypedDict, Union, cast
+from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    AbstractSet,
+    Callable,
+    Literal,
+    Mapping,
+    TypedDict,
+    Union,
+    cast,
+)
 
-from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+from ._parser import (
+    MarkerAtom,
+    MarkerItem,
+    MarkerList,
+    Op,
+    Value,
+    Variable,
+)
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
@@ -21,6 +41,11 @@ __all__ = [
     "EvaluateContext",
     "InvalidMarker",
     "Marker",
+    "MarkerAnd",
+    "MarkerCompare",
+    "MarkerCompareOp",
+    "MarkerNode",
+    "MarkerOr",
     "UndefinedComparison",
     "UndefinedEnvironmentName",
     "default_environment",
@@ -314,6 +339,97 @@ def default_environment() -> Environment:
     }
 
 
+MarkerCompareOp = Literal[
+    "===",
+    "==",
+    "!=",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "~=",
+    "in",
+    "not in",
+]
+
+
+@dataclass(frozen=True)
+class MarkerCompare:
+    """One comparison from a marker expression (a PEP 508 atom).
+
+    *left*, *op*, and *right* match the parse tree. Each side is the string form
+    of a variable name or literal value (without surrounding quote characters).
+    """
+
+    left: str
+    op: MarkerCompareOp
+    right: str
+
+
+@dataclass(frozen=True)
+class MarkerAnd:
+    """The boolean ``and`` of one or more sub-expressions."""
+
+    operands: tuple[MarkerNode, ...]
+
+
+@dataclass(frozen=True)
+class MarkerOr:
+    """The boolean ``or`` of one or more sub-expressions."""
+
+    operands: tuple[MarkerNode, ...]
+
+
+MarkerNode: TypeAlias = Union[MarkerCompare, MarkerAnd, MarkerOr]
+"""A marker expression: comparison, conjunction, or disjunction."""
+
+
+def _split_marker_or_groups(markers: MarkerList) -> list[list[MarkerList | MarkerItem]]:
+    """Split a marker list into ``or`` groups (each group is ``and``-combined)."""
+    groups: list[list[MarkerList | MarkerItem]] = [[]]
+    for item in markers:
+        if item == "or":
+            groups.append([])
+        elif item == "and":
+            continue
+        else:
+            groups[-1].append(cast("MarkerList | MarkerItem", item))
+    return groups
+
+
+def _marker_expr_to_node(item: MarkerList | MarkerItem) -> MarkerNode:
+    if isinstance(item, list):
+        inner = _markers_to_ast(item)
+        if inner is None:
+            raise InvalidMarker("empty parenthesized marker expression")
+        return inner
+    lhs, op, rhs = item
+    return MarkerCompare(lhs.value, cast("MarkerCompareOp", op.value), rhs.value)
+
+
+def _markers_to_ast(markers: MarkerList) -> MarkerNode | None:
+    """Build a public AST from the internal marker list representation."""
+    if not markers:
+        return None
+
+    or_groups = _split_marker_or_groups(markers)
+    or_operands: list[MarkerNode] = []
+    for group in or_groups:
+        if not group:
+            continue
+        and_parts = [_marker_expr_to_node(item) for item in group]
+        if len(and_parts) == 1:
+            or_operands.append(and_parts[0])
+        else:
+            or_operands.append(MarkerAnd(tuple(and_parts)))
+
+    if not or_operands:
+        return None
+    if len(or_operands) == 1:
+        return or_operands[0]
+    return MarkerOr(tuple(or_operands))
+
+
 class Marker:
     """Represents a parsed dependency marker expression.
 
@@ -390,6 +506,19 @@ class Marker:
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "or", other._markers])
+
+    def as_ast(self) -> MarkerNode | None:
+        """Return a structured tree for this marker.
+
+        The tree uses :class:`MarkerCompare`, :class:`MarkerAnd`, and
+        :class:`MarkerOr`. It preserves PEP 508 ``and`` / ``or`` precedence.
+        Parenthesized sub-expressions are nested nodes.
+
+        :returns: The root node, or ``None`` if the internal marker list is empty
+            (a vacuous marker, which :meth:`evaluate` treats as true).
+
+        """
+        return _markers_to_ast(self._markers)
 
     def evaluate(
         self,
