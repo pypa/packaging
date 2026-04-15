@@ -20,11 +20,14 @@ import textwrap
 import time
 import urllib.request
 from pathlib import Path
-from typing import IO, Generator
+from typing import IO, TYPE_CHECKING
 
 import nox
 
 import packaging.version  # will always be present with nox
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
@@ -39,7 +42,6 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
         *PYTHON_VERSIONS,
         "3.13t",
         "3.14t",
-        "pypy3.8",
         "pypy3.9",
         "pypy3.10",
         "pypy3.11",

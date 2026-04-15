@@ -3,13 +3,16 @@
 # for complete details.
 from __future__ import annotations
 
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
 from .markers import Marker, _normalize_extra_values
 from .specifiers import SpecifierSet
 from .utils import canonicalize_name
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __all__ = [
     "InvalidRequirement",

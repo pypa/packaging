@@ -8,13 +8,17 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Callable, Literal, Mapping, TypedDict, Union, cast
+from collections.abc import Set as AbstractSet
+from typing import TYPE_CHECKING, Callable, Literal, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = [
     "Environment",

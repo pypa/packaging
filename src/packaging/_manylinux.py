@@ -7,9 +7,12 @@ import os
 import re
 import sys
 import warnings
-from typing import Generator, Iterator, NamedTuple, Sequence
+from typing import TYPE_CHECKING, NamedTuple
 
 from ._elffile import EIClass, EIData, ELFFile, EMachine
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000

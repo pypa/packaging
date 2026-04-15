@@ -16,7 +16,7 @@ import functools
 import itertools
 import re
 import typing
-from typing import Any, Callable, Final, Iterable, Iterator, Sequence, TypeVar, Union
+from typing import Any, Callable, Final, TypeVar, Union
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
@@ -203,6 +203,8 @@ class _UpperBound:
 
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Sequence
+
     _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
 
     #: A single contiguous version range, represented as a
