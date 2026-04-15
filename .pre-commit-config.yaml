@@ -41,6 +41,7 @@ repos:
     hooks:
       - id: zizmor
         files: "^\\.github"
+        args: [--persona=auditor]
 
   - repo: https://github.com/rhysd/actionlint
     rev: 393031adb9afb225ee52ae2ccd7a5af5525e03e8  # frozen: v1.7.11
