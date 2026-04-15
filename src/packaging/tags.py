@@ -16,7 +16,6 @@ from collections.abc import Iterable, Iterator, Sequence
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
     TYPE_CHECKING,
-    Any,
     TypeVar,
     cast,
 )
