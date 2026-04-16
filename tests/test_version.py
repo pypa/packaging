@@ -1356,3 +1356,27 @@ def test_pickle_26_0_slots_format_loads() -> None:
     assert v == Version("1.2.3")
     assert v < Version("2.0")
     assert v > Version("1.2.2")
+
+
+# Pickle bytes generated with packaging==26.2.dev0, Python 3.13.1, pickle protocol 2.
+# Uses string-based __reduce__ — only references packaging.version.Version.
+# This fixture uses a rich version exercising epoch, pre, post, dev, and local.
+_PACKAGING_26_2_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00X\x18\x00\x00\x00"
+    b"1!2.3.4a5.post6.dev7+zzzq\x01\x85q\x02Rq\x03."
+)
+
+
+def test_pickle_26_2_string_reduce_loads() -> None:
+    # Verify that pickles created with packaging 26.2 (string-based __reduce__)
+    # can be loaded and produce correct Version objects.
+    v = pickle.loads(_PACKAGING_26_2_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ)
+    assert isinstance(v, Version)
+    assert str(v) == "1!2.3.4a5.post6.dev7+zzz"
+    assert v == Version("1!2.3.4a5.post6.dev7+zzz")
+    assert v.epoch == 1
+    assert v.release == (2, 3, 4)
+    assert v.pre == ("a", 5)
+    assert v.post == 6
+    assert v.dev == 7
+    assert v.local == "zzz"
