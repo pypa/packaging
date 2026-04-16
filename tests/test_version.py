@@ -13,6 +13,7 @@ import typing
 import pretend
 import pytest
 
+from packaging._structures import Infinity, NegativeInfinity
 from packaging.version import (
     InvalidVersion,
     Version,
@@ -1398,7 +1399,5 @@ def test_pickle_setstate_rejects_invalid_state() -> None:
 
 def test_structures_shim_repr() -> None:
     # Cover the __repr__ methods on the backward-compatibility shim classes.
-    from packaging._structures import Infinity, NegativeInfinity
-
     assert repr(Infinity) == "Infinity"
     assert repr(NegativeInfinity) == "-Infinity"
