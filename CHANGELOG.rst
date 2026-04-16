@@ -6,16 +6,25 @@ Changelog
 
 Fixes:
 
+* Fix incorrect sysconfig var name for pyemscripten in (:pull:`1160`)
 * Make ``Version`` pickle-safe and backward-compatible with pickles created
   before 26.1 that reference the removed ``packaging._structures`` module
   (:pull:`1163`)
+
+Documentation:
+
+* Add errors section and fix missing details in (:pull:`1159`)
+
+Internal:
+
+* Enable the auditor persona on zizmor in (:pull:`1158`)
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~
 
 Features:
 
-* PEP 783: add handling for Emscripten wheel tags in (:pull:`804`)
+* PEP 783: add handling for Emscripten wheel tags in (:pull:`804`) (old name used in implementation, fixed in next release)
 * PEP 803: add handling for the ``abi3.abi3t`` free-threading tag in (:pull:`1099`)
 * PEP 723: add ``packaging.dependency_groups`` module, based on the ``dependency-groups`` package in (:pull:`1065`)
 * Add the ``packaging.direct_url`` module in (:pull:`944`)
