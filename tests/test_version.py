@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import itertools
 import operator
+import pickle
 import sys
 import typing
 
@@ -1257,3 +1258,24 @@ def test_hatchling_usage__version() -> None:
 def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
     v = Version.from_parts(**args)
     assert v == Version(string)
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "1.2.3",
+        "0.1.0",
+        "2.0a1",
+        "1.0b2",
+        "3.0rc1",
+        "1.0.post1",
+        "1.0.dev3",
+        "1!2.3.4a5.post6.dev7+zzz",
+    ],
+)
+def test_pickle_roundtrip(version: str) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    v = Version(version)
+    loaded = pickle.loads(pickle.dumps(v))
+    assert loaded == v
+    assert str(loaded) == str(v)

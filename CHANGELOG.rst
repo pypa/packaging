@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Fixes:
+
+* Make ``Version`` objects pickle-safe by implementing ``__reduce__``
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~

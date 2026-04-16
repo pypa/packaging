@@ -741,6 +741,9 @@ class Version(_BaseVersion):
 
         return super().__ne__(other)
 
+    def __reduce__(self) -> tuple[type[Version], tuple[str]]:
+        return (self.__class__, (str(self),))
+
     @property
     @_deprecated("Version._version is private and will be removed soon")
     def _version(self) -> _Version:
