@@ -6,18 +6,18 @@ Changelog
 
 Fixes:
 
-* Fix incorrect sysconfig var name for pyemscripten in (:pr:`1160`)
+* Fix incorrect sysconfig var name for pyemscripten in (:pull:`1160`)
 * Make ``Version`` pickle-safe and backward-compatible with pickles created
   before 26.1 that reference the removed ``packaging._structures`` module
   (:pull:`1163`)
 
 Documentation:
 
-* Add errors section and fix missing details in (:pr:`1159`)
+* Add errors section and fix missing details in (:pull:`1159`)
 
 Internal:
 
-* Enable the auditor persona on zizmor in (:pr:`1158`)
+* Enable the auditor persona on zizmor in (:pull:`1158`)
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~
