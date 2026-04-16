@@ -6,9 +6,9 @@ Changelog
 
 Fixes:
 
-* Make ``Version`` objects pickle-safe by implementing ``__reduce__``, and
-  restore backward compatibility for ``Version`` pickles created before 26.1
-  that reference the removed ``packaging._structures`` module (:pull:`1163`)
+* Make ``Version`` pickle-safe and backward-compatible with pickles created
+  before 26.1 that reference the removed ``packaging._structures`` module
+  (:pull:`1163`)
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~
