@@ -1284,7 +1284,7 @@ def test_pickle_roundtrip(version: str) -> None:
 # Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
 # These contain references to packaging._structures.InfinityType and
 # NegativeInfinityType in the _key cache, which were removed in packaging 26.1.
-_PRE_26_1_PICKLE_V1_2_3 = (
+_PACKAGING_25_0_PICKLE_V1_2_3 = (
     b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01}q\x02"
     b"(X\x08\x00\x00\x00_versionq\x03cpackaging.version\n_Version\n"
     b"q\x04(K\x00K\x01K\x02K\x03\x87q\x05NNNNtq\x06\x81q\x07X\x04"
@@ -1293,7 +1293,7 @@ _PRE_26_1_PICKLE_V1_2_3 = (
     b"q\x0c)\x81q\rh\x0bh\rtq\x0eub."
 )
 
-_PRE_26_1_PICKLE_V2_0A1 = (
+_PACKAGING_25_0_PICKLE_V2_0A1 = (
     b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01}q\x02"
     b"(X\x08\x00\x00\x00_versionq\x03cpackaging.version\n_Version\n"
     b"q\x04(K\x00K\x02K\x00\x86q\x05NX\x01\x00\x00\x00aq\x06K\x01"
@@ -1307,14 +1307,14 @@ _PRE_26_1_PICKLE_V2_0A1 = (
 def test_pickle_old_format_loads() -> None:
     # Verify that pickles created with packaging <= 25.x can be loaded
     # and produce correct Version objects.
-    v = pickle.loads(_PRE_26_1_PICKLE_V1_2_3)
+    v = pickle.loads(_PACKAGING_25_0_PICKLE_V1_2_3)
     assert isinstance(v, Version)
     assert str(v) == "1.2.3"
     assert v == Version("1.2.3")
     assert v < Version("2.0")
     assert v > Version("1.2.2")
 
-    v2 = pickle.loads(_PRE_26_1_PICKLE_V2_0A1)
+    v2 = pickle.loads(_PACKAGING_25_0_PICKLE_V2_0A1)
     assert isinstance(v2, Version)
     assert str(v2) == "2.0a1"
     assert v2 == Version("2.0a1")
@@ -1324,7 +1324,7 @@ def test_pickle_old_format_loads() -> None:
 def test_pickle_old_format_re_pickled_is_clean() -> None:
     # Verify that loading an old pickle and re-pickling it produces
     # a clean payload that no longer references packaging._structures.
-    v = pickle.loads(_PRE_26_1_PICKLE_V1_2_3)
+    v = pickle.loads(_PACKAGING_25_0_PICKLE_V1_2_3)
     new_data = pickle.dumps(v)
     assert b"_structures" not in new_data
     # And the re-pickled version still works.
@@ -1336,7 +1336,7 @@ def test_pickle_old_format_re_pickled_is_clean() -> None:
 # Pickle bytes generated with packaging==26.0, Python 3.13.1, pickle protocol 2.
 # 26.0 used __slots__ (no __dict__), so the pickle state is (None, {slot: value}).
 # The _key_cache slot still contains packaging._structures.InfinityType references.
-_PRE_26_1_PICKLE_V1_2_3_SLOTS = (
+_PACKAGING_26_0_PICKLE_V1_2_3 = (
     b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01N}q\x02"
     b"(X\x04\x00\x00\x00_devq\x03NX\x06\x00\x00\x00_epochq\x04K\x00"
     b"X\n\x00\x00\x00_key_cacheq\x05(K\x00K\x01K\x02K\x03\x87q\x06"
@@ -1350,7 +1350,7 @@ _PRE_26_1_PICKLE_V1_2_3_SLOTS = (
 def test_pickle_26_0_slots_format_loads() -> None:
     # Verify that pickles created with packaging 26.0 (__slots__, no __reduce__)
     # can be loaded and produce correct Version objects.
-    v = pickle.loads(_PRE_26_1_PICKLE_V1_2_3_SLOTS)
+    v = pickle.loads(_PACKAGING_26_0_PICKLE_V1_2_3)
     assert isinstance(v, Version)
     assert str(v) == "1.2.3"
     assert v == Version("1.2.3")
