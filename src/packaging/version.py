@@ -741,10 +741,58 @@ class Version(_BaseVersion):
 
         return super().__ne__(other)
 
-    def __reduce__(self) -> tuple[type[Version], tuple[str]]:
-        return (self.__class__, (str(self),))
+    def __getstate__(
+        self,
+    ) -> tuple[
+        int,
+        tuple[int, ...],
+        tuple[str, int] | None,
+        tuple[str, int] | None,
+        tuple[str, int] | None,
+        LocalType | None,
+    ]:
+        # Return state as a 6-item tuple for compactness:
+        #   (epoch, release, pre, post, dev, local)
+        # Cache members are excluded and will be recomputed on demand
+        return (
+            self._epoch,
+            self._release,
+            self._pre,
+            self._post,
+            self._dev,
+            self._local,
+        )
 
     def __setstate__(self, state: object) -> None:
+        # Always discard cached values — they may contain stale references
+        # (e.g. packaging._structures.InfinityType from pre-26.1 pickles)
+        # and will be recomputed on demand from the core fields above.
+        self._key_cache = None
+        self._hash_cache = None
+
+        if isinstance(state, tuple):
+            if len(state) == 6:
+                # New format (26.2+): (epoch, release, pre, post, dev, local)
+                (
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                ) = state
+                return
+            if len(state) == 2:
+                # Format (packaging 26.x): (None, {slot: value}).
+                _, slot_dict = state
+                if isinstance(slot_dict, dict):
+                    self._epoch = slot_dict["_epoch"]
+                    self._release = slot_dict["_release"]
+                    self._pre = slot_dict.get("_pre")
+                    self._post = slot_dict.get("_post")
+                    self._dev = slot_dict.get("_dev")
+                    self._local = slot_dict.get("_local")
+                    return
         if isinstance(state, dict):
             # Old format (packaging <= 25.x, no __slots__): state is a plain
             # dict with "_version" (_Version NamedTuple) and "_key" entries.
@@ -756,27 +804,9 @@ class Version(_BaseVersion):
                 self._post = version_nt.post
                 self._dev = version_nt.dev
                 self._local = version_nt.local
-            else:
-                raise TypeError(f"Cannot restore Version from {state!r}")
-        elif isinstance(state, tuple) and len(state) == 2:
-            # New format (packaging 26.x, __slots__): (None, {slot: value}).
-            _, slot_dict = state
-            if isinstance(slot_dict, dict):
-                self._epoch = slot_dict["_epoch"]
-                self._release = slot_dict["_release"]
-                self._pre = slot_dict.get("_pre")
-                self._post = slot_dict.get("_post")
-                self._dev = slot_dict.get("_dev")
-                self._local = slot_dict.get("_local")
-            else:
-                raise TypeError(f"Cannot restore Version from {state!r}")
-        else:
-            raise TypeError(f"Cannot restore Version from {state!r}")
-        # Always discard cached values — they may contain stale references
-        # (e.g. packaging._structures.InfinityType from pre-26.1 pickles)
-        # and will be recomputed on demand from the core fields above.
-        self._key_cache = None
-        self._hash_cache = None
+                return
+
+        raise TypeError(f"Cannot restore Version from {state!r}")
 
     @property
     @_deprecated("Version._version is private and will be removed soon")
