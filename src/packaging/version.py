@@ -18,7 +18,6 @@ from typing import (
     Literal,
     NamedTuple,
     SupportsInt,
-    Tuple,
     TypedDict,
     Union,
 )
@@ -67,13 +66,13 @@ def __dir__() -> list[str]:
     return __all__
 
 
-LocalType = Tuple[Union[int, str], ...]
+LocalType = tuple[Union[int, str], ...]
 
-CmpLocalType = Tuple[Tuple[int, str], ...]
-CmpSuffix = Tuple[int, int, int, int, int, int]
+CmpLocalType = tuple[tuple[int, str], ...]
+CmpSuffix = tuple[int, int, int, int, int, int]
 CmpKey = Union[
-    Tuple[int, Tuple[int, ...], CmpSuffix],
-    Tuple[int, Tuple[int, ...], CmpSuffix, CmpLocalType],
+    tuple[int, tuple[int, ...], CmpSuffix],
+    tuple[int, tuple[int, ...], CmpSuffix, CmpLocalType],
 ]
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
