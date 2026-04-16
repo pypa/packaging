@@ -783,7 +783,7 @@ class Version(_BaseVersion):
                 ) = state
                 return
             if len(state) == 2:
-                # Format (packaging 26.x): (None, {slot: value}).
+                # Format (packaging 26.0-26.1): (None, {slot: value}).
                 _, slot_dict = state
                 if isinstance(slot_dict, dict):
                     self._epoch = slot_dict["_epoch"]
