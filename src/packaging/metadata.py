@@ -27,6 +27,7 @@ T = typing.TypeVar("T")
 
 
 __all__ = [
+    "ExceptionGroup",  # Keep this in all for a bit (makes mypy happy with location from 26.0)
     "InvalidMetadata",
     "Metadata",
     "RFC822Message",
