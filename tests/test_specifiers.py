@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import itertools
 import operator
+import pickle
 import re
 import sys
 import typing
@@ -2845,3 +2846,72 @@ class TestIsUnsatisfiable:
             == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
         )
         assert repr(upper2) == "<_UpperBound None)>"
+
+
+@pytest.mark.parametrize(
+    ("specifier", "spec_prereleases"),
+    [
+        (">=1.0", None),
+        ("==2.1.*", None),
+        ("!=2.2.*", None),
+        ("~=2.0", None),
+        (">=1.0.dev1", None),
+        ("<1.0.post1", None),
+        (">2.0.post1", None),
+        ("<=5", None),
+        (">=7.9a1", None),
+        ("<1.0.dev1", None),
+        ("===foobar", None),
+        # With prereleases override
+        (">=1.0", True),
+        (">=1.0", False),
+    ],
+)
+def test_pickle_specifier_roundtrip(
+    specifier: str, spec_prereleases: bool | None
+) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    s = Specifier(specifier, prereleases=spec_prereleases)
+    loaded = pickle.loads(pickle.dumps(s))
+    assert loaded == s
+    assert str(loaded) == str(s)
+    assert loaded.prereleases == s.prereleases
+
+
+@pytest.mark.parametrize(
+    ("specifiers", "ss_prereleases"),
+    [
+        (">=1.0,<2.0", None),
+        ("~=1.0,!=1.1", None),
+        (">=1.0.dev1,<2.0", None),
+        ("", None),  # Empty
+        (">=1.0,<2.0,!=1.5", None),
+        # With prereleases override
+        (">=1.0,<2.0", True),
+        (">=1.0,<2.0", False),
+    ],
+)
+def test_pickle_specifierset_roundtrip(
+    specifiers: str, ss_prereleases: bool | None
+) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    ss = SpecifierSet(specifiers, prereleases=ss_prereleases)
+    loaded = pickle.loads(pickle.dumps(ss))
+    assert loaded == ss
+    assert str(loaded) == str(ss)
+    assert loaded.prereleases == ss.prereleases
+
+
+def test_pickle_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    s = Specifier.__new__(Specifier)
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((1, 2, 3))  # Wrong tuple length
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__(12345)  # Not a tuple or dict
+
+    ss = SpecifierSet.__new__(SpecifierSet)
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__((1, 2, 3))  # Wrong tuple length
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__(12345)  # Not a tuple or dict

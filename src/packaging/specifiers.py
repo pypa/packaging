@@ -722,6 +722,45 @@ class Specifier(BaseSpecifier):
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
 
+    def __getstate__(self) -> tuple[tuple[str, str], bool | None]:
+        # Return state as a 2-item tuple for compactness:
+        #   ((operator, version), prereleases)
+        # Cache members are excluded and will be recomputed on demand.
+        return (self._spec, self._prereleases)
+
+    def __setstate__(self, state: object) -> None:
+        # Always discard cached values - they will be recomputed on demand.
+        self._spec_version = None
+        self._wildcard_split = None
+        self._ranges = None
+
+        if isinstance(state, tuple):
+            if len(state) == 2:
+                # New format (26.2+): ((operator, version), prereleases)
+                spec, prereleases = state
+                if (
+                    isinstance(spec, tuple)
+                    and len(spec) == 2
+                    and isinstance(spec[0], str)
+                    and isinstance(spec[1], str)
+                ):
+                    self._spec = spec
+                    self._prereleases = prereleases
+                    return
+            if len(state) == 2 and isinstance(state[1], dict):
+                # Format (packaging 26.0-26.1): (None, {slot: value}).
+                _, slot_dict = state
+                self._spec = slot_dict.get("_spec", ("", ""))
+                self._prereleases = slot_dict.get("_prereleases")
+                return
+        if isinstance(state, dict):
+            # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
+            self._spec = state.get("_spec", ("", ""))
+            self._prereleases = state.get("_prereleases")
+            return
+
+        raise TypeError(f"Cannot restore Specifier from {state!r}")
+
     @property
     def operator(self) -> str:
         """The operator of this specifier.
@@ -1346,6 +1385,56 @@ class SpecifierSet(BaseSpecifier):
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
         self._is_unsatisfiable = None
+
+    def __getstate__(self) -> tuple[tuple[Specifier, ...], bool | None]:
+        # Return state as a 2-item tuple for compactness:
+        #   (specs, prereleases)
+        # Cache members are excluded and will be recomputed on demand.
+        return (self._specs, self._prereleases)
+
+    def __setstate__(self, state: object) -> None:
+        # Always discard cached values - they will be recomputed on demand.
+        self._canonicalized = (
+            len(self._specs) <= 1 if hasattr(self, "_specs") else False
+        )
+        self._resolved_ops = None
+        self._is_unsatisfiable = None
+        # Substring check works for both Specifier objects and plain strings.
+        self._has_arbitrary = (
+            any("===" in str(s) for s in self._specs)
+            if hasattr(self, "_specs")
+            else False
+        )
+
+        if isinstance(state, tuple):
+            if len(state) == 2:
+                # New format (26.2+): (specs, prereleases)
+                specs, prereleases = state
+                if isinstance(specs, tuple) and all(
+                    isinstance(s, Specifier) for s in specs
+                ):
+                    self._specs = specs
+                    self._prereleases = prereleases
+                    self._canonicalized = len(specs) <= 1
+                    self._has_arbitrary = any("===" in str(s) for s in specs)
+                    return
+            if len(state) == 2 and isinstance(state[1], dict):
+                # Format (packaging 26.0-26.1): (None, {slot: value}).
+                _, slot_dict = state
+                self._specs = slot_dict.get("_specs", ())
+                self._prereleases = slot_dict.get("_prereleases")
+                self._canonicalized = len(self._specs) <= 1
+                self._has_arbitrary = any("===" in str(s) for s in self._specs)
+                return
+        if isinstance(state, dict):
+            # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
+            self._specs = state.get("_specs", ())
+            self._prereleases = state.get("_prereleases")
+            self._canonicalized = len(self._specs) <= 1
+            self._has_arbitrary = any("===" in str(s) for s in self._specs)
+            return
+
+        raise TypeError(f"Cannot restore SpecifierSet from {state!r}")
 
     def __repr__(self) -> str:
         """A representation of the specifier set that shows all internal state.
