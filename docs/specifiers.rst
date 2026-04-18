@@ -49,6 +49,11 @@ Usage
     >>> # contained within our specifier.
     >>> list(combined_spec.filter([v1, v2, "1.4"]))
     [<Version('1.0')>, '1.4']
+    >>> # We can check if a specifier set can never be satisfied
+    >>> SpecifierSet(">=2.0,<1.0").is_unsatisfiable()
+    True
+    >>> SpecifierSet(">=1.0,<2.0").is_unsatisfiable()
+    False
 
 
 Reference
