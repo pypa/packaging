@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import itertools
 import operator
+import pickle
 import sys
 import typing
 
 import pretend
 import pytest
 
+from packaging._structures import Infinity, NegativeInfinity
 from packaging.version import (
     InvalidVersion,
     Version,
@@ -1257,3 +1259,149 @@ def test_hatchling_usage__version() -> None:
 def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
     v = Version.from_parts(**args)
     assert v == Version(string)
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "1.2.3",
+        "0.1.0",
+        "2.0a1",
+        "1.0b2",
+        "3.0rc1",
+        "1.0.post1",
+        "1.0.dev3",
+        "1!2.3.4a5.post6.dev7+zzz",
+    ],
+)
+def test_pickle_roundtrip(version: str) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    v = Version(version)
+    loaded = pickle.loads(pickle.dumps(v))
+    assert loaded == v
+    assert str(loaded) == str(v)
+
+
+# Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
+# These contain references to packaging._structures.InfinityType and
+# NegativeInfinityType in the _key cache, which were removed in packaging 26.1.
+_PACKAGING_25_0_PICKLE_V1_2_3 = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01}q\x02"
+    b"(X\x08\x00\x00\x00_versionq\x03cpackaging.version\n_Version\n"
+    b"q\x04(K\x00K\x01K\x02K\x03\x87q\x05NNNNtq\x06\x81q\x07X\x04"
+    b"\x00\x00\x00_keyq\x08(K\x00K\x01K\x02K\x03\x87q\tcpackaging._structures\n"
+    b"InfinityType\nq\n)\x81q\x0bcpackaging._structures\nNegativeInfinityType\n"
+    b"q\x0c)\x81q\rh\x0bh\rtq\x0eub."
+)
+
+_PACKAGING_25_0_PICKLE_V2_0A1 = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01}q\x02"
+    b"(X\x08\x00\x00\x00_versionq\x03cpackaging.version\n_Version\n"
+    b"q\x04(K\x00K\x02K\x00\x86q\x05NX\x01\x00\x00\x00aq\x06K\x01"
+    b"\x86q\x07NNtq\x08\x81q\tX\x04\x00\x00\x00_keyq\n(K\x00K\x02"
+    b"\x85q\x0bh\x07cpackaging._structures\nNegativeInfinityType\n"
+    b"q\x0c)\x81q\rcpackaging._structures\nInfinityType\nq\x0e)\x81"
+    b"q\x0fh\rtq\x10ub."
+)
+
+
+def test_pickle_old_format_loads() -> None:
+    # Verify that pickles created with packaging <= 25.x can be loaded
+    # and produce correct Version objects.
+    v = pickle.loads(_PACKAGING_25_0_PICKLE_V1_2_3)
+    assert isinstance(v, Version)
+    assert str(v) == "1.2.3"
+    assert v == Version("1.2.3")
+    assert v < Version("2.0")
+    assert v > Version("1.2.2")
+
+    v2 = pickle.loads(_PACKAGING_25_0_PICKLE_V2_0A1)
+    assert isinstance(v2, Version)
+    assert str(v2) == "2.0a1"
+    assert v2 == Version("2.0a1")
+    assert v2 < Version("2.0")
+
+
+def test_pickle_old_format_re_pickled_is_clean() -> None:
+    # Verify that loading an old pickle and re-pickling it produces
+    # a clean payload that no longer references packaging._structures.
+    v = pickle.loads(_PACKAGING_25_0_PICKLE_V1_2_3)
+    new_data = pickle.dumps(v)
+    assert b"_structures" not in new_data
+    # And the re-pickled version still works.
+    v2 = pickle.loads(new_data)
+    assert v2 == Version("1.2.3")
+    assert str(v2) == "1.2.3"
+
+
+# Pickle bytes generated with packaging==26.0, Python 3.13.1, pickle protocol 2.
+# 26.0 used __slots__ (no __dict__), so the pickle state is (None, {slot: value}).
+# The _key_cache slot still contains packaging._structures.InfinityType references.
+_PACKAGING_26_0_PICKLE_V1_2_3 = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01N}q\x02"
+    b"(X\x04\x00\x00\x00_devq\x03NX\x06\x00\x00\x00_epochq\x04K\x00"
+    b"X\n\x00\x00\x00_key_cacheq\x05(K\x00K\x01K\x02K\x03\x87q\x06"
+    b"cpackaging._structures\nInfinityType\nq\x07)\x81q\x08cpackaging._structures\n"
+    b"NegativeInfinityType\nq\t)\x81q\nh\x08h\ntq\x0bX\x06\x00\x00\x00"
+    b"_localq\x0cNX\x05\x00\x00\x00_postq\rNX\x04\x00\x00\x00_preq\x0e"
+    b"NX\x08\x00\x00\x00_releaseq\x0fh\x06u\x86q\x10b."
+)
+
+
+def test_pickle_26_0_slots_format_loads() -> None:
+    # Verify that pickles created with packaging 26.0 (__slots__, no __reduce__)
+    # can be loaded and produce correct Version objects.
+    v = pickle.loads(_PACKAGING_26_0_PICKLE_V1_2_3)
+    assert isinstance(v, Version)
+    assert str(v) == "1.2.3"
+    assert v == Version("1.2.3")
+    assert v < Version("2.0")
+    assert v > Version("1.2.2")
+
+
+# Pickle bytes generated with packaging 26.2+ (6-tuple __getstate__ format),
+# Python 3.13.1, pickle protocol 2.
+_PACKAGING_26_2_TUPLE_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01(K\x01K\x02K\x03"
+    b"K\x04\x87q\x02X\x01\x00\x00\x00aq\x03K\x05\x86q\x04X\x04\x00\x00"
+    b"\x00postq\x05K\x06\x86q\x06X\x03\x00\x00\x00devq\x07K\x07\x86q\x08"
+    b"X\x03\x00\x00\x00zzzq\t\x85q\ntq\x0bb."
+)
+
+
+def test_pickle_26_2_tuple_getstate_loads() -> None:
+    # Verify that pickles created with packaging 26.2+ (6-tuple __getstate__)
+    # can be loaded and produce correct Version objects.
+    v = pickle.loads(_PACKAGING_26_2_TUPLE_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ)
+    assert isinstance(v, Version)
+    assert str(v) == "1!2.3.4a5.post6.dev7+zzz"
+    assert v == Version("1!2.3.4a5.post6.dev7+zzz")
+    assert v.epoch == 1
+    assert v.release == (2, 3, 4)
+    assert v.pre == ("a", 5)
+    assert v.post == 6
+    assert v.dev == 7
+    assert v.local == "zzz"
+
+
+def test_pickle_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    v = Version.__new__(Version)
+    # dict without "_version" key
+    with pytest.raises(TypeError, match="Cannot restore Version"):
+        v.__setstate__({"bad_key": 123})
+    # tuple with non-dict second element
+    with pytest.raises(TypeError, match="Cannot restore Version"):
+        v.__setstate__((None, "not_a_dict"))
+    # tuple with unexpected length (not 2 or 6)
+    with pytest.raises(TypeError, match="Cannot restore Version"):
+        v.__setstate__((1, 2, 3))
+    # completely wrong type
+    with pytest.raises(TypeError, match="Cannot restore Version"):
+        v.__setstate__(12345)
+
+
+def test_structures_shim_repr() -> None:
+    # Cover the __repr__ methods on the backward-compatibility shim classes.
+    assert repr(Infinity) == "Infinity"
+    assert repr(NegativeInfinity) == "-Infinity"

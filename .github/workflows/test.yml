@@ -48,7 +48,9 @@ jobs:
           allow-prereleases: true
 
       - name: Run nox
-        run: pipx run nox -s tests --force-python=${{ matrix.python_version }}
+        run: pipx run nox -s tests
+        env:
+          NOXFORCEPYTHON: ${{ matrix.python_version }}
 
   property-tests:
     name: Property tests
@@ -88,7 +90,9 @@ jobs:
           cache: "pip"
 
       - name: Run nox
-        run: pipx run nox -s 'downstream(project="${{ matrix.project }}")'
+        env:
+          MATRIX_PROJECT: ${{ matrix.project }}
+        run: pipx run nox -s "downstream(project='$MATRIX_PROJECT')"
 
   pass:
     name: All pass

@@ -4,7 +4,100 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Fixes:
+
+* Make ``Version`` pickle-safe and backward-compatible with pickles created
+  before 26.1 that reference the removed ``packaging._structures`` module
+  (:pull:`1163`)
+
+26.1 - 2026-04-14
+~~~~~~~~~~~~~~~~~
+
+Features:
+
+* PEP 783: add handling for Emscripten wheel tags in (:pull:`804`)
+* PEP 803: add handling for the ``abi3.abi3t`` free-threading tag in (:pull:`1099`)
+* PEP 723: add ``packaging.dependency_groups`` module, based on the ``dependency-groups`` package in (:pull:`1065`)
+* Add the ``packaging.direct_url`` module in (:pull:`944`)
+* Add the ``packaging.errors`` module in (:pull:`1071`)
+* Add ``SpecifierSet.is_unsatisfiable`` using ranges (new internals that will be expanded in future versions) in (:pull:`1119`)
+* Add ``create_compatible_tags_selector`` to select compatible tags in (:pull:`1110`)
+* Add a ``key`` argument to ``SpecifierSet.filter()`` in (:pull:`1068`)
+* Support ``&`` and ``|`` for ``Marker``'s in (:pull:`1146`)
+* Normalize ``Version.__replace__`` and add ``Version.from_parts`` in (:pull:`1078`)
+* Add an option to validate compressed tag set sort order in ``parse_wheel_filename`` in (:pull:`1150`)
+
+Behavior adaptations:
+
+* Narrow exclusion of pre-releases for ``<V.postN`` to match spec in (:pull:`1140`)
+* Narrow exclusion of post-releases for ``>V`` to match spec in (:pull:`1141`)
+* Rename ``format_full_version`` to ``_format_full_version`` to make it visibly private in (:pull:`1125`)
+* Restrict local version to ASCII in (:pull:`1102`)
+
+Pylock (PEP 751) updates:
+
+* Add pylock ``select`` function in (:pull:`1092`)
+* Document pylock ``select()`` method and ``PylockSelectError`` in (:pull:`1153`)
+* Add ``filename`` property to ``PackageSdist`` and ``PackageWheel``, more validation in (:pull:`1095`)
+* Give preference to path over url in (:pull:`1128`)
+* Validate name/version consistency in file names in (:pull:`1114`)
+
+Fixes:
+
+* Fix ``>`` comparison for versions with dev+local segments in (:pull:`1097`)
+* Fix incorrect self-comparison for ``InfinityType`` and ``NegativeInfinityType`` in (:pull:`1093`)
+* Canonicalize when deduplicating specifiers in ``SpecifierSet`` in (:pull:`1109`)
+* Fix charset error message formatting in (:pull:`1121`)
+* Handle the ``key`` parameter in ``SpecifierSet.filter`` when specifiers are empty and prerelease is ``False`` in (:pull:`1096`)
+* Standardize inner components of ``repr`` output in (:pull:`1090`)
+* ``Specifier``'s ``===`` uses original string, not normalized, when available in (:pull:`1124`)
+* Propagate int-max-str-digits ``ValueError`` in (:pull:`1155`)
+
+Performance:
+
+* Add fast path for parsing simple versions (digits and dots only) in (:pull:`1082`)
+* Add fast path for ``Version`` to ``Version`` comparison by skipping ``_key`` property in (:pull:`1083`)
+* Cache ``Version`` hash value in dedicated slot in (:pull:`1118`)
+* Overhaul ``_cmpkey`` to remove use of custom objects in (:pull:`1116`)
+* Skip ``__replace__`` in Specifier comparison if not needed in (:pull:`1081`)
+* ``SpecifierSet`` use ``tuple`` instead of ``frozenset`` for ``_specs`` in (:pull:`1108`)
+* Speed up complex ``SpecifierSet`` filtering by implementing cost-based ordering in (:pull:`1105`)
+* Speed up wildcard comparison in (:pull:`1111`)
+* Stream PEP440 filtering in ``SpecifierSet.filter`` in (:pull:`1076`)
+* Add ``__slots__`` to ``Marker`` in (:pull:`1147`)
+* Simply ``Specifier`` regex in (:pull:`1106`)
+* Skip using the hash property internally in (:pull:`1115`)
+
+Internal:
+
+* Add downstream testing in (:pull:`1049`)
+* Benchmarking suite in (:pull:`1059`)
+* Benchmark variance reduction in (:pull:`1107`)
+* Add property-based tests for PEP 440 in (:pull:`1144`)
+* Clean up a few ``collections.namedtuple`` in tests in (:pull:`1070`)
+* Do not reload the tags module in tests in (:pull:`1152`)
+* Limit ``dir()`` / tab-completion in REPL in (:pull:`1011`)
+* Add more ``__all__`/`__dir__`` in (:pull:`1069`)
+* Cleanup pre-commit a bit in (:pull:`1080`)
+* Pin pre-commit file, use dependabot in (:pull:`1133`)
+* Remove sphinx-toolbox in (:pull:`1135`)
+* Use docs group, faster readthedocs in (:pull:`1061`)
+* Add free-threaded Python to CI in (:pull:`1098`)
+* Simplify combining ``SpecifierSet.prereleases`` in (:pull:`1073`)
+* Use direct operator methods in ``_compare_compatible`` in (:pull:`1100`)
+* Remove unnecessary if statement in ``Specifier.prereleases`` in (:pull:`1074`)
+* Remove unneeded nesting in ``Specifier.prereleases`` in (:pull:`1072`)
+
+Documentation:
+
+* Fix documentation: grammar, typos, formatting, and outdated references in (:pull:`1084`)
+* Fix versionadded for ``Version.from_parts()`` in (:pull:`1134`)
+* Document ``&`` and ``|`` operators for combining ``Marker`` objects in (:pull:`1151`)
+* Expand and clean up ``Version`` documentation in (:pull:`1089`)
+* Move license docs inline in (:pull:`1131`)
+* Move markers inline in (:pull:`1104`)
+* Move tags docs to inline in (:pull:`1130`)
+* Move utilities inline, like other modules in (:pull:`1103`)
 
 26.0 - 2026-01-20
 ~~~~~~~~~~~~~~~~~
