@@ -22,7 +22,7 @@ class Node:
         return self.value
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({self.value!r})>"
+        return f"{self.__class__.__name__}({self.value!r})"
 
     def serialize(self) -> str:
         raise NotImplementedError
