@@ -2917,6 +2917,14 @@ def test_pickle_setstate_rejects_invalid_state() -> None:
         ss.__setstate__(12345)  # Not a tuple or dict
 
 
+def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
+    # Cover the branch where hasattr(self, "_specs") is True in __setstate__.
+    # This happens when __setstate__ is called on an already-initialized instance.
+    ss = SpecifierSet(">=1.0")
+    ss.__setstate__(((Specifier(">=2.0"),), None))
+    assert ss == SpecifierSet(">=2.0")
+
+
 # Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
 # Format: plain __dict__ (no __slots__). _spec is stored as a (operator, version) tuple
 # and _prereleases as a separate key.
