@@ -1394,17 +1394,8 @@ class SpecifierSet(BaseSpecifier):
 
     def __setstate__(self, state: object) -> None:
         # Always discard cached values - they will be recomputed on demand.
-        self._canonicalized = (
-            len(self._specs) <= 1 if hasattr(self, "_specs") else False
-        )
         self._resolved_ops = None
         self._is_unsatisfiable = None
-        # Substring check works for both Specifier objects and plain strings.
-        self._has_arbitrary = (
-            any("===" in str(s) for s in self._specs)
-            if hasattr(self, "_specs")
-            else False
-        )
 
         if isinstance(state, tuple):
             if len(state) == 2:
