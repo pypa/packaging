@@ -1412,14 +1412,21 @@ class SpecifierSet(BaseSpecifier):
             if len(state) == 2 and isinstance(state[1], dict):
                 # Format (packaging 26.0-26.1): (None, {slot: value}).
                 _, slot_dict = state
-                self._specs = slot_dict.get("_specs", ())
+                specs = slot_dict.get("_specs", ())
+                # Convert frozenset to tuple (26.0 stored as frozenset)
+                if isinstance(specs, frozenset):
+                    specs = tuple(sorted(specs, key=str))
+                self._specs = specs
                 self._prereleases = slot_dict.get("_prereleases")
                 self._canonicalized = len(self._specs) <= 1
                 self._has_arbitrary = any("===" in str(s) for s in self._specs)
                 return
         if isinstance(state, dict):
             # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
-            self._specs = state.get("_specs", ())
+            specs = state.get("_specs", ())
+            # Convert frozenset to tuple (26.0 stored as frozenset)
+            specs = tuple(sorted(specs, key=str))
+            self._specs = specs
             self._prereleases = state.get("_prereleases")
             self._canonicalized = len(self._specs) <= 1
             self._has_arbitrary = any("===" in str(s) for s in self._specs)
