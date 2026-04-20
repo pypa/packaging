@@ -381,6 +381,28 @@ class Marker:
 
         return str(self) == str(other)
 
+    def __getstate__(self) -> str:
+        # Return the marker expression string for compactness and stability.
+        # Internal Node objects are excluded; the string is re-parsed on load.
+        return str(self)
+
+    def __setstate__(self, state: object) -> None:
+        if isinstance(state, str):
+            # New format (26.2+): just the marker expression string.
+            self._markers = _normalize_extra_values(_parse_marker(state))
+            return
+        if isinstance(state, dict) and "_markers" in state:
+            # Old format (packaging <= 26.1, no __slots__): plain __dict__.
+            self._markers = state["_markers"]
+            return
+        if isinstance(state, tuple) and len(state) == 2:
+            # Old format (packaging <= 26.1, __slots__): (None, {slot: value}).
+            _, slot_dict = state
+            if isinstance(slot_dict, dict) and "_markers" in slot_dict:
+                self._markers = slot_dict["_markers"]
+                return
+        raise TypeError(f"Cannot restore Marker from {state!r}")
+
     def __and__(self, other: Marker) -> Marker:
         if not isinstance(other, Marker):
             return NotImplemented

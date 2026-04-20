@@ -73,6 +73,27 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
+    def __getstate__(self) -> str:
+        # Return the requirement string for compactness and stability.
+        # Re-parsed on load to reconstruct all fields.
+        return str(self)
+
+    def __setstate__(self, state: object) -> None:
+        if isinstance(state, str):
+            # New format (26.2+): just the requirement string.
+            tmp = Requirement(state)
+            self.name = tmp.name
+            self.url = tmp.url
+            self.extras = tmp.extras
+            self.specifier = tmp.specifier
+            self.marker = tmp.marker
+            return
+        if isinstance(state, dict):
+            # Old format (packaging <= 26.1, no __slots__): plain __dict__.
+            self.__dict__.update(state)
+            return
+        raise TypeError(f"Cannot restore Requirement from {state!r}")
+
     def __str__(self) -> str:
         return "".join(self._iter_parts(self.name))
 

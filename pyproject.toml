@@ -75,6 +75,7 @@ exclude = [
 iMatix = "iMatix"
 ANDed = "ANDed"
 ORed = "ORed"
+ba = "ba"
 
 [tool.typos.default.extend-words]
 dynamc = "dynamc"
