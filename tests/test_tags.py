@@ -1868,6 +1868,100 @@ def test_pickle() -> None:
 
 
 @pytest.mark.parametrize(
+    ("interpreter", "abi", "platform"),
+    [
+        ("py3", "none", "any"),
+        ("cp39", "cp39", "linux_x86_64"),
+        ("cp312", "cp312", "win_amd64"),
+        ("pp310", "pypy310_pp73", "manylinux_2_17_x86_64"),
+    ],
+)
+def test_pickle_tag_roundtrip(interpreter: str, abi: str, platform: str) -> None:
+    # Make sure equality, str(), and hash() work between a pickle/unpickle round trip.
+    t = tags.Tag(interpreter, abi, platform)
+    loaded = pickle.loads(pickle.dumps(t))
+    assert loaded == t
+    assert str(loaded) == str(t)
+    assert hash(loaded) == hash(t)
+
+
+def test_pickle_tag_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    t = tags.Tag.__new__(tags.Tag)
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__(12345)
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__((1, 2, 3))  # Wrong types, not all strings
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
+# Format: __slots__ (no __getstate__), state is (None, {slot: value}). The
+# _hash slot contains a pre-computed integer that must be discarded on load.
+_PACKAGING_26_1_PICKLE_TAG_CP39 = (
+    b"\x80\x02cpackaging.tags\nTag\nq\x00)\x81q\x01N}q\x02(X\x04\x00\x00"
+    b"\x00_abiq\x03X\x04\x00\x00\x00cp39q\x04X\x05\x00\x00\x00_hashq\x05"
+    b"\x8a\x08)\xb1\xe8\x9d\x90\xf8tFX\x0c\x00\x00\x00_interpreterq\x06X"
+    b"\x04\x00\x00\x00cp39q\x07X\t\x00\x00\x00_platformq\x08X\x0c\x00\x00"
+    b"\x00linux_x86_64q\tu\x86q\nb."
+)
+
+
+# Pickle bytes generated with packaging==26.0, Python 3.13.1, pickle protocol 2.
+# Format: __slots__ (no __getstate__), state is (None, {slot: value}).
+_PACKAGING_26_0_PICKLE_TAG_CP39 = (
+    b"\x80\x02cpackaging.tags\nTag\nq\x00)\x81q\x01N}q\x02(X\x04\x00\x00"
+    b"\x00_abiq\x03X\x04\x00\x00\x00cp39q\x04X\x05\x00\x00\x00_hashq\x05"
+    b"\x8a\x08\xc1\xdb\xa0\xe5]7z\x87X\x0c\x00\x00\x00_interpreterq\x06X"
+    b"\x04\x00\x00\x00cp39q\x07X\t\x00\x00\x00_platformq\x08X\x0c\x00\x00"
+    b"\x00linux_x86_64q\tu\x86q\nb."
+)
+
+
+# Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
+# Format: plain __dict__ (no __slots__).
+_PACKAGING_25_0_PICKLE_TAG_CP39 = (
+    b"\x80\x02cpackaging.tags\nTag\nq\x00)\x81q\x01N}q\x02(X\x04\x00\x00"
+    b"\x00_abiq\x03X\x04\x00\x00\x00cp39q\x04X\x05\x00\x00\x00_hashq\x05"
+    b"\x8a\x08\xa2\x088\xe6j:\xcaSX\x0c\x00\x00\x00_interpreterq\x06X"
+    b"\x04\x00\x00\x00cp39q\x07X\t\x00\x00\x00_platformq\x08X\x0c\x00\x00"
+    b"\x00linux_x86_64q\tu\x86q\nb."
+)
+
+
+def test_pickle_tag_old_format_loads() -> None:
+    # Verify that Tag pickles created with packaging <= 26.1 (__slots__,
+    # no __getstate__) can be loaded and produce correct Tag objects.
+    t = pickle.loads(_PACKAGING_26_1_PICKLE_TAG_CP39)
+    assert isinstance(t, tags.Tag)
+    assert str(t) == "cp39-cp39-linux_x86_64"
+    assert t == tags.Tag("cp39", "cp39", "linux_x86_64")
+    assert t.interpreter == "cp39"
+    assert t.abi == "cp39"
+    assert t.platform == "linux_x86_64"
+    assert t._hash == hash(("cp39", "cp39", "linux_x86_64"))
+
+
+def test_pickle_tag_26_0_format_loads() -> None:
+    # Verify that Tag pickles created with packaging 26.0 (__slots__,
+    # no __getstate__) can be loaded and produce correct Tag objects.
+    t = pickle.loads(_PACKAGING_26_0_PICKLE_TAG_CP39)
+    assert isinstance(t, tags.Tag)
+    assert str(t) == "cp39-cp39-linux_x86_64"
+    assert t == tags.Tag("cp39", "cp39", "linux_x86_64")
+    assert t._hash == hash(("cp39", "cp39", "linux_x86_64"))
+
+
+def test_pickle_tag_25_0_format_loads() -> None:
+    # Verify that Tag pickles created with packaging 25.0 (plain __dict__)
+    # can be loaded and produce correct Tag objects.
+    t = pickle.loads(_PACKAGING_25_0_PICKLE_TAG_CP39)
+    assert isinstance(t, tags.Tag)
+    assert str(t) == "cp39-cp39-linux_x86_64"
+    assert t == tags.Tag("cp39", "cp39", "linux_x86_64")
+    assert t._hash == hash(("cp39", "cp39", "linux_x86_64"))
+
+
+@pytest.mark.parametrize(
     ("supported", "things", "expected"),
     [
         (["t1", "t2"], ["t1", "t2"], ["t1", "t2"]),
