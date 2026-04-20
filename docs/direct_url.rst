@@ -49,7 +49,7 @@ Usage
     )
 
     # Load from JSON. The resulting DirectUrl object is validated against the
-    # specification, else a DirectUrlalidationError is raised
+    # specification, else a DirectUrlValidationError is raised
     direct_url = DirectUrl.from_dict(
         json.loads(Path("/tmp/direct_url.json").read_text(encoding="utf-8"))
     )
