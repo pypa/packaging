@@ -2925,6 +2925,41 @@ def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
     assert ss == SpecifierSet(">=2.0")
 
 
+def test_pickle_specifier_setstate_clears_cache() -> None:
+    # Verify that __setstate__ resets all three cached slots to None,
+    # regardless of what was cached before the call.
+    s = Specifier("==1.*")
+    # Warm up every cache slot.
+    _ = s.prereleases  # populates _spec_version
+    _ = s._get_wildcard_split("1.*")  # populates _wildcard_split
+    _ = s._to_ranges()  # populates _ranges
+    assert s._spec_version is not None
+    assert s._wildcard_split is not None
+    assert s._ranges is not None
+
+    s.__setstate__((("==", "1.*"), None))
+
+    assert s._spec_version is None
+    assert s._wildcard_split is None
+    assert s._ranges is None
+
+
+def test_pickle_specifierset_setstate_clears_cache() -> None:
+    # Verify that __setstate__ resets all cached slots to None,
+    # regardless of what was cached before the call.
+    ss = SpecifierSet(">=1.0,<2.0")
+    # Warm up every cache slot.
+    ss.is_unsatisfiable()  # populates _is_unsatisfiable
+    list(ss.filter(["1.5"]))  # populates _resolved_ops
+    assert ss._is_unsatisfiable is not None
+    assert ss._resolved_ops is not None
+
+    ss.__setstate__(((Specifier(">=3.0"), Specifier("<4.0")), None))
+
+    assert ss._is_unsatisfiable is None
+    assert ss._resolved_ops is None
+
+
 # Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
 # Format: plain __dict__ (no __slots__). _spec is stored as a (operator, version) tuple
 # and _prereleases as a separate key.
