@@ -54,6 +54,11 @@ Usage
     True
     >>> SpecifierSet(">=1.0,<2.0").is_unsatisfiable()
     False
+    >>> # Compound sets built with ``&`` may also become unsatisfiable
+    >>> (SpecifierSet(">=3.9,<4.0") & SpecifierSet("==3.12.*")).is_unsatisfiable()
+    False
+    >>> (SpecifierSet(">=3.13,<4.0") & SpecifierSet("==3.12.*")).is_unsatisfiable()
+    True
 
 
 Reference
