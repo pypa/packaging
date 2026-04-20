@@ -43,6 +43,24 @@ each supported Python version and run the tests. For example:
 You may not have all the required Python versions installed, in which case you
 will see one or more ``InterpreterNotFound`` errors.
 
+Running property-based tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The tests under ``tests/property/`` use `Hypothesis`_ and are gated by the
+``property`` pytest marker. They are excluded from the default ``pytest``
+run (and from ``nox -s tests``) so that downstream packagers and CI stay
+fast. To run them explicitly:
+
+.. code-block:: console
+
+    $ python -m pytest -m property
+
+Or via `nox`_:
+
+.. code-block:: console
+
+    $ nox -s property_tests
+
 Running linters
 ~~~~~~~~~~~~~~~
 
@@ -79,3 +97,4 @@ The HTML documentation index can now be found at
 .. _`sphinx`: https://pypi.org/project/Sphinx/
 .. _`reStructured Text`: https://www.sphinx-doc.org/en/master/usage/restructuredtext/
 .. _`pre-commit`: https://pre-commit.com
+.. _`Hypothesis`: https://pypi.org/project/hypothesis/
