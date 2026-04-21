@@ -2872,6 +2872,9 @@ def test_pickle_specifier_roundtrip(
 ) -> None:
     # Make sure equality and str() work between a pickle/unpickle round trip.
     s = Specifier(specifier, prereleases=spec_prereleases)
+    # Warm up caches before pickling to ensure they are excluded from state.
+    _ = s.prereleases
+    _ = s._to_ranges()
     loaded = pickle.loads(pickle.dumps(s))
     assert loaded == s
     assert str(loaded) == str(s)
@@ -2896,6 +2899,10 @@ def test_pickle_specifierset_roundtrip(
 ) -> None:
     # Make sure equality and str() work between a pickle/unpickle round trip.
     ss = SpecifierSet(specifiers, prereleases=ss_prereleases)
+    # Warm up caches before pickling to ensure they are excluded from state.
+    _ = ss.prereleases
+    _ = ss.is_unsatisfiable()
+    list(ss.filter(["1.5"]))
     loaded = pickle.loads(pickle.dumps(ss))
     assert loaded == ss
     assert str(loaded) == str(ss)
@@ -2915,6 +2922,36 @@ def test_pickle_setstate_rejects_invalid_state() -> None:
         ss.__setstate__((1, 2, 3))  # Wrong tuple length
     with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
         ss.__setstate__(12345)  # Not a tuple or dict
+
+
+def test_pickle_specifier_setstate_rejects_malformed_legacy_state() -> None:
+    # Verify validation catches malformed legacy slot-dict and dict formats.
+    s = Specifier.__new__(Specifier)
+    # Missing _spec key (legacy slot-dict format).
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((None, {"_prereleases": None}))
+    # Missing _spec key (legacy dict format).
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__({"_prereleases": None})
+    # _spec is not a 2-tuple of strings.
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((("bad",), None))
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((None, {"_spec": 123}))
+    # _prereleases is not bool|None.
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((("==", "1.0"), "yes"))
+
+
+def test_pickle_specifierset_setstate_rejects_malformed_legacy_state() -> None:
+    # Verify validation catches malformed legacy slot-dict and dict formats.
+    ss = SpecifierSet.__new__(SpecifierSet)
+    # _specs contains non-Specifier items (legacy slot-dict format).
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__((None, {"_specs": {1, 2}, "_prereleases": None}))
+    # _specs contains non-Specifier items (legacy dict format).
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__({"_specs": {1, 2}, "_prereleases": None})
 
 
 def test_pickle_specifierset_setstate_on_initialized_instance() -> None:

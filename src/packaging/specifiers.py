@@ -15,11 +15,27 @@ import enum
 import functools
 import itertools
 import re
+import sys
 import typing
-from typing import Any, Callable, Final, Iterable, Iterator, Sequence, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Final,
+    Iterable,
+    Iterator,
+    Sequence,
+    TypeVar,
+    Union,
+)
 
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
+
+if sys.version_info >= (3, 10):
+    from typing import TypeGuard  # pragma: no cover
+elif TYPE_CHECKING:
+    from typing_extensions import TypeGuard
 
 __all__ = [
     "BaseSpecifier",
@@ -31,6 +47,19 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
+
+
+def _validate_spec(spec: object, /) -> TypeGuard[tuple[str, str]]:
+    return (
+        isinstance(spec, tuple)
+        and len(spec) == 2
+        and isinstance(spec[0], str)
+        and isinstance(spec[1], str)
+    )
+
+
+def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
+    return pre is None or isinstance(pre, bool)
 
 
 T = TypeVar("T")
@@ -738,26 +767,27 @@ class Specifier(BaseSpecifier):
             if len(state) == 2:
                 # New format (26.2+): ((operator, version), prereleases)
                 spec, prereleases = state
-                if (
-                    isinstance(spec, tuple)
-                    and len(spec) == 2
-                    and isinstance(spec[0], str)
-                    and isinstance(spec[1], str)
-                ):
+                if _validate_spec(spec) and _validate_pre(prereleases):
                     self._spec = spec
                     self._prereleases = prereleases
                     return
             if len(state) == 2 and isinstance(state[1], dict):
                 # Format (packaging 26.0-26.1): (None, {slot: value}).
                 _, slot_dict = state
-                self._spec = slot_dict.get("_spec", ("", ""))
-                self._prereleases = slot_dict.get("_prereleases")
-                return
+                spec = slot_dict.get("_spec")
+                prereleases = slot_dict.get("_prereleases", "invalid")
+                if _validate_spec(spec) and _validate_pre(prereleases):
+                    self._spec = spec
+                    self._prereleases = prereleases
+                    return
         if isinstance(state, dict):
             # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
-            self._spec = state.get("_spec", ("", ""))
-            self._prereleases = state.get("_prereleases")
-            return
+            spec = state.get("_spec")
+            prereleases = state.get("_prereleases", "invalid")
+            if _validate_spec(spec) and _validate_pre(prereleases):
+                self._spec = spec
+                self._prereleases = prereleases
+                return
 
         raise TypeError(f"Cannot restore Specifier from {state!r}")
 
@@ -1413,24 +1443,37 @@ class SpecifierSet(BaseSpecifier):
                 # Format (packaging 26.0-26.1): (None, {slot: value}).
                 _, slot_dict = state
                 specs = slot_dict.get("_specs", ())
+                prereleases = slot_dict.get("_prereleases")
                 # Convert frozenset to tuple (26.0 stored as frozenset)
                 if isinstance(specs, frozenset):
                     specs = tuple(sorted(specs, key=str))
-                self._specs = specs
-                self._prereleases = slot_dict.get("_prereleases")
-                self._canonicalized = len(self._specs) <= 1
-                self._has_arbitrary = any("===" in str(s) for s in self._specs)
-                return
+                if (
+                    isinstance(specs, tuple)
+                    and all(isinstance(s, Specifier) for s in specs)
+                    and _validate_pre(prereleases)
+                ):
+                    self._specs = specs
+                    self._prereleases = prereleases
+                    self._canonicalized = len(self._specs) <= 1
+                    self._has_arbitrary = any("===" in str(s) for s in self._specs)
+                    return
         if isinstance(state, dict):
             # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
             specs = state.get("_specs", ())
+            prereleases = state.get("_prereleases")
             # Convert frozenset to tuple (26.0 stored as frozenset)
-            specs = tuple(sorted(specs, key=str))
-            self._specs = specs
-            self._prereleases = state.get("_prereleases")
-            self._canonicalized = len(self._specs) <= 1
-            self._has_arbitrary = any("===" in str(s) for s in self._specs)
-            return
+            if isinstance(specs, frozenset):
+                specs = tuple(sorted(specs, key=str))
+            if (
+                isinstance(specs, tuple)
+                and all(isinstance(s, Specifier) for s in specs)
+                and _validate_pre(prereleases)
+            ):
+                self._specs = specs
+                self._prereleases = prereleases
+                self._canonicalized = len(self._specs) <= 1
+                self._has_arbitrary = any("===" in str(s) for s in self._specs)
+                return
 
         raise TypeError(f"Cannot restore SpecifierSet from {state!r}")
 
