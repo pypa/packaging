@@ -14,6 +14,7 @@ from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
+from .version import Version, InvalidVersion
 from .utils import canonicalize_name
 
 __all__ = [
@@ -221,7 +222,24 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
         except InvalidSpecifier:
             pass
         else:
-            return spec.contains(lhs, prereleases=True)
+            if spec.contains(lhs, prereleases=True):
+                return True
+            # When the marker variable is on the RHS, lhs may be a version
+            # pattern (e.g. "3.12.*") while rhs is the resolved env value.
+            # Building the specifier from rhs produced no match (above), so
+            # try building it from lhs instead — but only when lhs doesn't
+            # parse as a concrete version (to avoid wrong answers for
+            # asymmetric operators like "<" / ">").
+            try:
+                Version(lhs)
+            except InvalidVersion:
+                try:
+                    swapped = Specifier(f"{op_str}{lhs}")
+                except InvalidSpecifier:
+                    pass
+                else:
+                    if swapped.contains(rhs, prereleases=True):
+                        return True
 
     oper: Operator | None = _operators.get(op_str)
     if oper is None:
