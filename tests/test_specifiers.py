@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import itertools
 import operator
+import pickle
 import re
 import sys
 import typing
@@ -2845,3 +2846,342 @@ class TestIsUnsatisfiable:
             == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
         )
         assert repr(upper2) == "<_UpperBound None)>"
+
+
+@pytest.mark.parametrize(
+    ("specifier", "spec_prereleases"),
+    [
+        (">=1.0", None),
+        ("==2.1.*", None),
+        ("!=2.2.*", None),
+        ("~=2.0", None),
+        (">=1.0.dev1", None),
+        ("<1.0.post1", None),
+        (">2.0.post1", None),
+        ("<=5", None),
+        (">=7.9a1", None),
+        ("<1.0.dev1", None),
+        ("===foobar", None),
+        # With prereleases override
+        (">=1.0", True),
+        (">=1.0", False),
+    ],
+)
+def test_pickle_specifier_roundtrip(
+    specifier: str, spec_prereleases: bool | None
+) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    s = Specifier(specifier, prereleases=spec_prereleases)
+    # Warm up caches before pickling to ensure they are excluded from state.
+    _ = s.prereleases
+    _ = s._to_ranges()
+    loaded = pickle.loads(pickle.dumps(s))
+    assert loaded == s
+    assert str(loaded) == str(s)
+    assert loaded.prereleases == s.prereleases
+
+
+@pytest.mark.parametrize(
+    ("specifiers", "ss_prereleases"),
+    [
+        (">=1.0,<2.0", None),
+        ("~=1.0,!=1.1", None),
+        (">=1.0.dev1,<2.0", None),
+        ("", None),  # Empty
+        (">=1.0,<2.0,!=1.5", None),
+        # With prereleases override
+        (">=1.0,<2.0", True),
+        (">=1.0,<2.0", False),
+    ],
+)
+def test_pickle_specifierset_roundtrip(
+    specifiers: str, ss_prereleases: bool | None
+) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    ss = SpecifierSet(specifiers, prereleases=ss_prereleases)
+    # Warm up caches before pickling to ensure they are excluded from state.
+    _ = ss.prereleases
+    _ = ss.is_unsatisfiable()
+    list(ss.filter(["1.5"]))
+    loaded = pickle.loads(pickle.dumps(ss))
+    assert loaded == ss
+    assert str(loaded) == str(ss)
+    assert loaded.prereleases == ss.prereleases
+
+
+def test_pickle_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    s = Specifier.__new__(Specifier)
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((1, 2, 3))  # Wrong tuple length
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__(12345)  # Not a tuple or dict
+
+    ss = SpecifierSet.__new__(SpecifierSet)
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__((1, 2, 3))  # Wrong tuple length
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__(12345)  # Not a tuple or dict
+
+
+def test_pickle_specifier_setstate_rejects_malformed_legacy_state() -> None:
+    # Verify validation catches malformed legacy slot-dict and dict formats.
+    s = Specifier.__new__(Specifier)
+    # Missing _spec key (legacy slot-dict format).
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((None, {"_prereleases": None}))
+    # Missing _spec key (legacy dict format).
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__({"_prereleases": None})
+    # _spec is not a 2-tuple of strings.
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((("bad",), None))
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((None, {"_spec": 123}))
+    # _prereleases is not bool|None.
+    with pytest.raises(TypeError, match="Cannot restore Specifier"):
+        s.__setstate__((("==", "1.0"), "yes"))
+
+
+def test_pickle_specifierset_setstate_rejects_malformed_legacy_state() -> None:
+    # Verify validation catches malformed legacy slot-dict and dict formats.
+    ss = SpecifierSet.__new__(SpecifierSet)
+    # _specs contains non-Specifier items (legacy slot-dict format).
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__((None, {"_specs": {1, 2}, "_prereleases": None}))
+    # _specs contains non-Specifier items (legacy dict format).
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__({"_specs": {1, 2}, "_prereleases": None})
+
+
+def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
+    # Cover the branch where hasattr(self, "_specs") is True in __setstate__.
+    # This happens when __setstate__ is called on an already-initialized instance.
+    ss = SpecifierSet(">=1.0")
+    ss.__setstate__(((Specifier(">=2.0"),), None))
+    assert ss == SpecifierSet(">=2.0")
+
+
+def test_pickle_specifier_setstate_clears_cache() -> None:
+    # Verify that __setstate__ resets all three cached slots to None,
+    # regardless of what was cached before the call.
+    s = Specifier("==1.*")
+    # Warm up every cache slot.
+    _ = s.prereleases  # populates _spec_version
+    _ = s._get_wildcard_split("1.*")  # populates _wildcard_split
+    _ = s._to_ranges()  # populates _ranges
+    assert s._spec_version is not None
+    assert s._wildcard_split is not None
+    assert s._ranges is not None
+
+    s.__setstate__((("==", "1.*"), None))
+
+    assert s._spec_version is None
+    assert s._wildcard_split is None
+    assert s._ranges is None
+
+
+def test_pickle_specifierset_setstate_clears_cache() -> None:
+    # Verify that __setstate__ resets all cached slots to None,
+    # regardless of what was cached before the call.
+    ss = SpecifierSet(">=1.0,<2.0")
+    # Warm up every cache slot.
+    ss.is_unsatisfiable()  # populates _is_unsatisfiable
+    list(ss.filter(["1.5"]))  # populates _resolved_ops
+    assert ss._is_unsatisfiable is not None
+    assert ss._resolved_ops is not None
+
+    ss.__setstate__(((Specifier(">=3.0"), Specifier("<4.0")), None))
+
+    assert ss._is_unsatisfiable is None
+    assert ss._resolved_ops is None
+
+
+# Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
+# Format: plain __dict__ (no __slots__). _spec is stored as a (operator, version) tuple
+# and _prereleases as a separate key.
+_PACKAGING_25_0_PICKLE_GE_3_10 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01}q\x02"
+    b"(X\x05\x00\x00\x00_specq\x03X\x02\x00\x00\x00>=q\x04X\x04\x00\x00"
+    b"\x003.10q\x05\x86q\x06X\x0c\x00\x00\x00_prereleasesq\x07Nub."
+)
+
+_PACKAGING_25_0_PICKLE_SS_GE_3_10_LT_4_0 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifierSet\nq\x00)\x81q\x01}q\x02"
+    b"(X\x06\x00\x00\x00_specsq\x03c__builtin__\nfrozenset\nq\x04]q\x05"
+    b"(cpackaging.specifiers\nSpecifier\nq\x06)\x81q\x07}q\x08(X\x05\x00"
+    b"\x00\x00_specq\tX\x02\x00\x00\x00>=q\nX\x04\x00\x00\x003.10q\x0b"
+    b"\x86q\x0cX\x0c\x00\x00\x00_prereleasesq\rNubh\x06)\x81q\x0e}q\x0f"
+    b"(h\tX\x01\x00\x00\x00<q\x10X\x03\x00\x00\x004.0q\x11\x86q\x12h\r"
+    b"Nube\x85q\x13Rq\x14h\rNub."
+)
+
+
+def test_pickle_specifier_25_0_format_loads() -> None:
+    # Verify that Specifier pickles created with packaging <= 25.x (plain __dict__)
+    # can be loaded and produce correct Specifier objects.
+    s = pickle.loads(_PACKAGING_25_0_PICKLE_GE_3_10)
+    assert isinstance(s, Specifier)
+    assert str(s) == ">=3.10"
+    assert s == Specifier(">=3.10")
+    assert s.operator == ">="
+    assert s.version == "3.10"
+    assert s.prereleases == Specifier(">=3.10").prereleases
+
+
+def test_pickle_specifierset_25_0_format_loads() -> None:
+    # Verify that SpecifierSet pickles created with packaging <= 25.x (plain __dict__,
+    # _specs stored as a frozenset) can be loaded and produce correct objects.
+    ss = pickle.loads(_PACKAGING_25_0_PICKLE_SS_GE_3_10_LT_4_0)
+    assert isinstance(ss, SpecifierSet)
+    assert ss == SpecifierSet(">=3.10,<4.0")
+    assert "3.10" in ss
+    assert "3.12" in ss
+    assert "4.0" not in ss
+    assert ss.prereleases is None
+
+
+# Pickle bytes generated with packaging==26.0, Python 3.13.13, pickle protocol 2.
+# Format: __slots__ (no __dict__), state is (None, {slot: value}). Includes
+# _spec_version slot (a cached Version object, may be present or None).
+_PACKAGING_26_0_PICKLE_GE_3_10 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01N}q\x02"
+    b"(X\x0c\x00\x00\x00_prereleasesq\x03NX\x05\x00\x00\x00_specq\x04"
+    b"X\x02\x00\x00\x00>=q\x05X\x04\x00\x00\x003.10q\x06\x86q\x07X\r"
+    b"\x00\x00\x00_spec_versionq\x08Nu\x86q\tb."
+)
+
+_PACKAGING_26_0_PICKLE_SS_GE_3_10_LT_4_0 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifierSet\nq\x00)\x81q\x01N}q\x02"
+    b"(X\x0c\x00\x00\x00_prereleasesq\x03NX\x06\x00\x00\x00_specsq\x04"
+    b"c__builtin__\nfrozenset\nq\x05]q\x06(cpackaging.specifiers\nSpecifier"
+    b"\nq\x07)\x81q\x08N}q\t(h\x03NX\x05\x00\x00\x00_specq\nX\x02\x00"
+    b"\x00\x00>=q\x0bX\x04\x00\x00\x003.10q\x0c\x86q\rX\r\x00\x00\x00"
+    b"_spec_versionq\x0eh\x0ccpackaging.version\nVersion\nq\x0f)\x81q\x10"
+    b"N}q\x11(X\x04\x00\x00\x00_devq\x12NX\x06\x00\x00\x00_epochq\x13K"
+    b"\x00X\n\x00\x00\x00_key_cacheq\x14NX\x06\x00\x00\x00_localq\x15N"
+    b"X\x05\x00\x00\x00_postq\x16NX\x04\x00\x00\x00_preq\x17NX\x08\x00"
+    b"\x00\x00_releaseq\x18K\x03K\n\x86q\x19u\x86q\x1ab\x86q\x1bu\x86"
+    b"q\x1cbh\x07)\x81q\x1dN}q\x1e(h\x03Nh\nX\x01\x00\x00\x00<q\x1fX"
+    b'\x03\x00\x00\x004.0q \x86q!h\x0eh h\x0f)\x81q"N}q#(h\x12Nh\x13'
+    b"K\x00h\x14Nh\x15Nh\x16Nh\x17Nh\x18K\x04K\x00\x86q$u\x86q%b\x86"
+    b"q&u\x86q'be\x85q(Rq)u\x86q*b."
+)
+
+
+def test_pickle_specifier_26_0_slots_format_loads() -> None:
+    # Verify that Specifier pickles created with packaging 26.0 (__slots__,
+    # state is (None, {slot_dict})) can be loaded and produce correct objects.
+    s = pickle.loads(_PACKAGING_26_0_PICKLE_GE_3_10)
+    assert isinstance(s, Specifier)
+    assert str(s) == ">=3.10"
+    assert s == Specifier(">=3.10")
+    assert s.operator == ">="
+    assert s.version == "3.10"
+    assert s.prereleases == Specifier(">=3.10").prereleases
+
+
+def test_pickle_specifierset_26_0_slots_format_loads() -> None:
+    # Verify that SpecifierSet pickles created with packaging 26.0 (__slots__,
+    # state is (None, {slot_dict}), _specs stored as frozenset) can be loaded.
+    ss = pickle.loads(_PACKAGING_26_0_PICKLE_SS_GE_3_10_LT_4_0)
+    assert isinstance(ss, SpecifierSet)
+    assert ss == SpecifierSet(">=3.10,<4.0")
+    assert "3.10" in ss
+    assert "3.12" in ss
+    assert "4.0" not in ss
+    assert ss.prereleases is None
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.13, pickle protocol 2.
+# Format: __slots__ (no __dict__), state is (None, {slot: value}). Compared to 26.0,
+# the slot dict now includes _ranges and _wildcard_split cache fields, and SpecifierSet
+# adds _canonicalized, _has_arbitrary, _is_unsatisfiable, and _resolved_ops.
+_PACKAGING_26_1_PICKLE_GE_3_10 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01N}q\x02"
+    b"(X\x0c\x00\x00\x00_prereleasesq\x03NX\x07\x00\x00\x00_rangesq\x04"
+    b"NX\x05\x00\x00\x00_specq\x05X\x02\x00\x00\x00>=q\x06X\x04\x00\x00"
+    b"\x003.10q\x07\x86q\x08X\r\x00\x00\x00_spec_versionq\tNX\x0f\x00"
+    b"\x00\x00_wildcard_splitq\nNu\x86q\x0bb."
+)
+
+_PACKAGING_26_1_PICKLE_SS_GE_3_10_LT_4_0 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifierSet\nq\x00)\x81q\x01N}q\x02"
+    b"(X\x0e\x00\x00\x00_canonicalizedq\x03\x89X\x0e\x00\x00\x00_has_arb"
+    b"itraryq\x04\x89X\x11\x00\x00\x00_is_unsatisfiableq\x05NX\x0c\x00"
+    b"\x00\x00_prereleasesq\x06NX\r\x00\x00\x00_resolved_opsq\x07NX\x06"
+    b"\x00\x00\x00_specsq\x08cpackaging.specifiers\nSpecifier\nq\t)\x81q"
+    b"\nN}q\x0b(h\x06NX\x07\x00\x00\x00_rangesq\x0cNX\x05\x00\x00\x00"
+    b"_specq\rX\x02\x00\x00\x00>=q\x0eX\x04\x00\x00\x003.10q\x0f\x86q"
+    b"\x10X\r\x00\x00\x00_spec_versionq\x11NX\x0f\x00\x00\x00_wildcard_"
+    b"splitq\x12Nu\x86q\x13bh\t)\x81q\x14N}q\x15(h\x06Nh\x0cNh\rX\x01"
+    b"\x00\x00\x00<q\x16X\x03\x00\x00\x004.0q\x17\x86q\x18h\x11Nh\x12N"
+    b"u\x86q\x19b\x86q\x1au\x86q\x1bb."
+)
+
+
+def test_pickle_specifier_26_1_slots_format_loads() -> None:
+    # Verify that Specifier pickles created with packaging 26.1 (__slots__,
+    # state includes _ranges and _wildcard_split) can be loaded correctly.
+    s = pickle.loads(_PACKAGING_26_1_PICKLE_GE_3_10)
+    assert isinstance(s, Specifier)
+    assert str(s) == ">=3.10"
+    assert s == Specifier(">=3.10")
+    assert s.operator == ">="
+    assert s.version == "3.10"
+    assert s.prereleases == Specifier(">=3.10").prereleases
+
+
+def test_pickle_specifierset_26_1_slots_format_loads() -> None:
+    # Verify that SpecifierSet pickles created with packaging 26.1 (__slots__,
+    # state includes _canonicalized, _has_arbitrary, _is_unsatisfiable,
+    # _resolved_ops, and _specs as a tuple) can be loaded correctly.
+    ss = pickle.loads(_PACKAGING_26_1_PICKLE_SS_GE_3_10_LT_4_0)
+    assert isinstance(ss, SpecifierSet)
+    assert ss == SpecifierSet(">=3.10,<4.0")
+    assert "3.10" in ss
+    assert "3.12" in ss
+    assert "4.0" not in ss
+    assert ss.prereleases is None
+
+
+# Pickle bytes generated with packaging==26.2.dev0 (the 26.2 clean-tuple format),
+# Python 3.13.13, pickle protocol 2.
+# Format: Specifier state is ((operator, version), prereleases). SpecifierSet state
+# is (tuple[Specifier, ...], prereleases). No slot dicts or __dict__ wrappers.
+_PACKAGING_26_2_PICKLE_GE_3_10 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01X\x02\x00"
+    b"\x00\x00>=q\x02X\x04\x00\x00\x003.10q\x03\x86q\x04N\x86q\x05b."
+)
+
+_PACKAGING_26_2_PICKLE_SS_GE_3_10_LT_4_0 = (
+    b"\x80\x02cpackaging.specifiers\nSpecifierSet\nq\x00)\x81q\x01cpackag"
+    b"ing.specifiers\nSpecifier\nq\x02)\x81q\x03X\x02\x00\x00\x00>=q\x04"
+    b"X\x04\x00\x00\x003.10q\x05\x86q\x06N\x86q\x07bh\x02)\x81q\x08X\x01"
+    b"\x00\x00\x00<q\tX\x03\x00\x00\x004.0q\n\x86q\x0bN\x86q\x0cb\x86q\r"
+    b"N\x86q\x0eb."
+)
+
+
+def test_pickle_specifier_26_2_tuple_format_loads() -> None:
+    # Verify that Specifier pickles created with packaging 26.2+ (compact 2-tuple
+    # state: ((operator, version), prereleases)) load correctly.
+    s = pickle.loads(_PACKAGING_26_2_PICKLE_GE_3_10)
+    assert isinstance(s, Specifier)
+    assert str(s) == ">=3.10"
+    assert s == Specifier(">=3.10")
+    assert s.operator == ">="
+    assert s.version == "3.10"
+    assert s.prereleases == Specifier(">=3.10").prereleases
+
+
+def test_pickle_specifierset_26_2_tuple_format_loads() -> None:
+    # Verify that SpecifierSet pickles created with packaging 26.2+ (compact 2-tuple
+    # state: (tuple[Specifier, ...], prereleases)) load correctly.
+    ss = pickle.loads(_PACKAGING_26_2_PICKLE_SS_GE_3_10_LT_4_0)
+    assert isinstance(ss, SpecifierSet)
+    assert ss == SpecifierSet(">=3.10,<4.0")
+    assert "3.10" in ss
+    assert "3.12" in ss
+    assert "4.0" not in ss
+    assert ss.prereleases is None
