@@ -14,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node
+from packaging._parser import Node, Op, Value, Variable
 from packaging.markers import (
     InvalidMarker,
     Marker,
@@ -654,3 +654,34 @@ def test_pickle_marker_25_0_format_loads() -> None:
     assert isinstance(m, Marker)
     assert str(m) == 'python_version >= "3.8"'
     assert m == Marker('python_version >= "3.8"')
+
+
+def test_pickle_node_roundtrip() -> None:
+    # Cover Node.__getstate__ and Node.__setstate__ with the new string format.
+    for node in (Variable("python_version"), Value("3.8"), Op(">=")):
+        loaded = pickle.loads(pickle.dumps(node))
+        assert loaded.value == node.value
+        assert str(loaded) == str(node)
+
+
+def test_pickle_node_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branch in Node.__setstate__ for invalid input.
+    node = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node.__setstate__(12345)
+
+    node2 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node2.__setstate__((1, 2, 3))  # Wrong tuple length
+
+    # Cover the legacy tuple branch where slot_dict doesn't have "value".
+    node3 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node3.__setstate__((None, {"wrong_key": "foo"}))
+
+
+def test_pickle_marker_setstate_legacy_slot_dict_without_markers_key() -> None:
+    # Cover Marker.__setstate__ legacy tuple branch where slot_dict has no "_markers".
+    m = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__((None, {"other_key": "value"}))
