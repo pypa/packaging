@@ -1892,6 +1892,16 @@ def test_pickle_tag_setstate_rejects_invalid_state() -> None:
         t.__setstate__(12345)
     with pytest.raises(TypeError, match="Cannot restore Tag"):
         t.__setstate__((1, 2, 3))  # Wrong types, not all strings
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__((None, {"_interpreter": "cp39", "_abi": "cp39"}))
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__(
+            (None, {"_interpreter": 123, "_abi": "cp39", "_platform": "linux_x86_64"})
+        )
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__((1, 2))  # len==2 but second element not a dict
+    with pytest.raises(TypeError, match="Cannot restore Tag"):
+        t.__setstate__((1, 2, 3, 4))  # tuple length not 2 or 3
 
 
 # Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
@@ -1920,11 +1930,11 @@ _PACKAGING_26_0_PICKLE_TAG_CP39 = (
 # Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
 # Format: plain __dict__ (no __slots__).
 _PACKAGING_25_0_PICKLE_TAG_CP39 = (
-    b"\x80\x02cpackaging.tags\nTag\nq\x00)\x81q\x01N}q\x02(X\x04\x00\x00"
-    b"\x00_abiq\x03X\x04\x00\x00\x00cp39q\x04X\x05\x00\x00\x00_hashq\x05"
-    b"\x8a\x08\xa2\x088\xe6j:\xcaSX\x0c\x00\x00\x00_interpreterq\x06X"
-    b"\x04\x00\x00\x00cp39q\x07X\t\x00\x00\x00_platformq\x08X\x0c\x00\x00"
-    b"\x00linux_x86_64q\tu\x86q\nb."
+    b"\x80\x02cpackaging.tags\nTag\nq\x00)\x81q\x01N}q\x02(X\x04\x00\x00\x00"
+    b"_abiq\x03X\x04\x00\x00\x00cp39q\x04X\x05\x00\x00\x00_hashq\x05\x8a\x08"
+    b"\xea\xa5X\x92\xa5\xc9\x11\x0cX\x0c\x00\x00\x00_interpreterq\x06X\x04"
+    b"\x00\x00\x00cp39q\x07X\t\x00\x00\x00_platformq\x08X\x0c\x00\x00\x00"
+    b"linux_x86_64q\tu\x86q\nb."
 )
 
 

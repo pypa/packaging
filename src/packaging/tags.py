@@ -172,9 +172,19 @@ class Tag:
             if len(state) == 2 and isinstance(state[1], dict):
                 # Old format (packaging <= 26.1, __slots__): (None, {slot: value}).
                 _, slots = state
-                self._interpreter = slots["_interpreter"]
-                self._abi = slots["_abi"]
-                self._platform = slots["_platform"]
+                try:
+                    interpreter = slots["_interpreter"]
+                    abi = slots["_abi"]
+                    platform = slots["_platform"]
+                except KeyError:
+                    raise TypeError(f"Cannot restore Tag from {state!r}") from None
+                if not all(
+                    isinstance(value, str) for value in (interpreter, abi, platform)
+                ):
+                    raise TypeError(f"Cannot restore Tag from {state!r}")
+                self._interpreter = interpreter.lower()
+                self._abi = abi.lower()
+                self._platform = platform.lower()
                 self._hash = hash((self._interpreter, self._abi, self._platform))
                 return
         raise TypeError(f"Cannot restore Tag from {state!r}")
