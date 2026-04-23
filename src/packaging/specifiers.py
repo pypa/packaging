@@ -1431,8 +1431,10 @@ class SpecifierSet(BaseSpecifier):
             if len(state) == 2:
                 # New format (26.2+): (specs, prereleases)
                 specs, prereleases = state
-                if isinstance(specs, tuple) and all(
-                    isinstance(s, Specifier) for s in specs
+                if (
+                    isinstance(specs, tuple)
+                    and all(isinstance(s, Specifier) for s in specs)
+                    and _validate_pre(prereleases)
                 ):
                     self._specs = specs
                     self._prereleases = prereleases
