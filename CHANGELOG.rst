@@ -10,6 +10,8 @@ Fixes:
 * Make ``Version`` pickle-safe and backward-compatible with pickles created
   before 26.1 that reference the removed ``packaging._structures`` module
   (:pull:`1163`)
+* Make ``Specifier`` and ``SpecifierSet`` pickle-safe, as a followup to
+  :pull:`1163` applying the same pattern (:pull:`1168`)
 
 Documentation:
 
