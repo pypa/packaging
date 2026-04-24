@@ -679,9 +679,43 @@ def test_pickle_node_setstate_rejects_invalid_state() -> None:
     with pytest.raises(TypeError, match="Cannot restore Variable"):
         node3.__setstate__((None, {"wrong_key": "foo"}))
 
+    # Cover the legacy tuple branch where slot_dict has "value" but it's not a str.
+    node4 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable value from 123"):
+        node4.__setstate__((None, {"value": 123}))
+
+    # Cover the legacy dict branch where "value" exists but it's not a str.
+    node5 = Value.__new__(Value)
+    with pytest.raises(TypeError, match="Cannot restore Value value from 456"):
+        node5.__setstate__({"value": 456})
+
+    # Cover the legacy dict branch on Op (different subclass to ensure coverage).
+    node6 = Op.__new__(Op)
+    with pytest.raises(TypeError, match="Cannot restore Op value from 789"):
+        node6.__setstate__({"value": 789})
+
 
 def test_pickle_marker_setstate_legacy_slot_dict_without_markers_key() -> None:
     # Cover Marker.__setstate__ legacy tuple branch where slot_dict has no "_markers".
     m = Marker.__new__(Marker)
     with pytest.raises(TypeError, match="Cannot restore Marker"):
         m.__setstate__((None, {"other_key": "value"}))
+
+
+def test_pickle_marker_setstate_rejects_invalid_markers_type() -> None:
+    # Cover the dict branch where "_markers" exists but is not a list.
+    m1 = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m1.__setstate__({"_markers": "not a list"})
+
+    # Cover the tuple branch where "_markers" exists but is not a list.
+    m2 = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m2.__setstate__((None, {"_markers": "not a list"}))
+
+
+def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
+    # Cover the string branch where parsing raises ParserSyntaxError.
+    m = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__("this is not a valid marker")

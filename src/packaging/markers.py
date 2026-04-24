@@ -389,18 +389,25 @@ class Marker:
     def __setstate__(self, state: object) -> None:
         if isinstance(state, str):
             # New format (26.2+): just the marker expression string.
-            self._markers = _normalize_extra_values(_parse_marker(state))
+            try:
+                self._markers = _normalize_extra_values(_parse_marker(state))
+            except ParserSyntaxError as exc:
+                raise TypeError(f"Cannot restore Marker from {state!r}") from exc
             return
         if isinstance(state, dict) and "_markers" in state:
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
-            self._markers = state["_markers"]
-            return
+            markers = state["_markers"]
+            if isinstance(markers, list):
+                self._markers = markers
+                return
         if isinstance(state, tuple) and len(state) == 2:
             # Old format (packaging <= 26.1, __slots__): (None, {slot: value}).
             _, slot_dict = state
             if isinstance(slot_dict, dict) and "_markers" in slot_dict:
-                self._markers = slot_dict["_markers"]
-                return
+                markers = slot_dict["_markers"]
+                if isinstance(markers, list):
+                    self._markers = markers
+                    return
         raise TypeError(f"Cannot restore Marker from {state!r}")
 
     def __and__(self, other: Marker) -> Marker:

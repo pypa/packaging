@@ -81,7 +81,10 @@ class Requirement:
     def __setstate__(self, state: object) -> None:
         if isinstance(state, str):
             # New format (26.2+): just the requirement string.
-            tmp = Requirement(state)
+            try:
+                tmp = Requirement(state)
+            except InvalidRequirement as exc:
+                raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
             self.name = tmp.name
             self.url = tmp.url
             self.extras = tmp.extras

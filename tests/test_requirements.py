@@ -738,6 +738,13 @@ def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
         r.__setstate__((1, 2, 3))
 
 
+def test_pickle_requirement_setstate_rejects_invalid_string() -> None:
+    # Cover the string branch where Requirement() raises InvalidRequirement.
+    r = Requirement.__new__(Requirement)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__("this is not a valid requirement")
+
+
 # Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
 # Format: plain __dict__ (no __getstate__). Contains nested SpecifierSet and
 # Marker objects also pickled in their old format.
@@ -773,7 +780,8 @@ _PACKAGING_26_0_PICKLE_REQUESTS_GE_2_0 = (
     b"q\x1b)\x81q\x1cN}q\x1d(X\x04\x00\x00\x00_devq\x1eNX\x06\x00\x00\x00_epo"
     b"chq\x1fK\x00X\n\x00\x00\x00_key_cacheq NX\x06\x00\x00\x00_localq!NX\x05"
     b'\x00\x00\x00_postq"NX\x04\x00\x00\x00_preq#NX\x08\x00\x00\x00_releaseq$'
-    b"K\x02K\x00\x86q%u\x86q&b\x86q'u\x86q(ba\x85q)Rq*u\x86q+bX\x06\x00\x00"
+    b"K\x02K\x00\x86q%u\x86q&b\x86q'u\x86q(b"
+    b"a\x85q)Rq*u\x86q+bX\x06\x00\x00"
     b"\x00markerq,Nub."
 )
 
