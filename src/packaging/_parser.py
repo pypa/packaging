@@ -44,13 +44,13 @@ class Node:
             self._restore_value(state)
             return
         if isinstance(state, tuple) and len(state) == 2:
-            # Old format (packaging <= 26.1, __slots__): (None, {slot: value}).
+            # Old format (packaging <= 26.0, __slots__): (None, {slot: value}).
             _, slot_dict = state
             if isinstance(slot_dict, dict) and "value" in slot_dict:
                 self._restore_value(slot_dict["value"])
                 return
         if isinstance(state, dict) and "value" in state:
-            # Old format (packaging <= 26.0, no __slots__): plain __dict__.
+            # Old format (packaging <= 25.0, no __slots__): plain __dict__.
             self._restore_value(state["value"])
             return
         raise TypeError(f"Cannot restore {self.__class__.__name__} from {state!r}")
