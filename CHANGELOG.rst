@@ -7,8 +7,9 @@ Changelog
 Fixes:
 
 * Fix incorrect sysconfig var name for pyemscripten in (:pull:`1160`)
-* Make ``Version``, ``Specifier``, ``SpecifierSet``, ``Tag``, ``Marker``, and ``Requirement`` pickle-safe and backward-compatible with pickles created
-  in 25.0-26.1 (including references to the removed ``packaging._structures`` module) (:pull:`1163`, :pull:`1168`, :pull:`1170`, :pull:`1171`)
+* Make ``Version``, ``Specifier``, ``SpecifierSet``, ``Tag``, ``Marker``, and ``Requirement`` pickle-safe
+  and backward-compatible with pickles created in 25.0-26.1 (including references to the removed
+  ``packaging._structures`` module) (:pull:`1163`, :pull:`1168`, :pull:`1170`, :pull:`1171`)
 
 Documentation:
 
