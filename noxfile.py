@@ -336,6 +336,40 @@ def update_licenses(session: nox.Session) -> None:
     session.run("python", "tasks/licenses.py")
 
 
+@nox.session(default=False)
+@nox.parametrize("version", ["21.0", "24.0", "25.0", "26.0", "26.1"])
+def test_pickle(session: nox.Session, version: str) -> None:
+    """
+    Make sure pickles written by an older packaging release can be read
+    by the current code.
+    """
+    tmp_dir = Path(session.create_tmp())
+    pickle_file = tmp_dir / f"packaging_{version}_pickles.pkl"
+
+    # Step 1: install the old release so the generator pickles objects in
+    # the format that version serialises.
+    session.install(f"packaging=={version}")
+    session.run(
+        "python",
+        "tasks/pickle_compat.py",
+        "write",
+        version,
+        str(tmp_dir),
+    )
+
+    # Step 2: install the current (in-tree) packaging so we can verify
+    # backward compatibility of the load path.
+    session.install("-e.")
+    session.run(
+        "python",
+        "tasks/pickle_compat.py",
+        "verify",
+        "--version",
+        version,
+        str(pickle_file),
+    )
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------

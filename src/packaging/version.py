@@ -358,6 +358,16 @@ class Version(_BaseVersion):
 
     :class:`Version` is immutable; use :meth:`__replace__` to change
     part of a version.
+
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging releases.
+
+    .. versionchanged:: 26.2
+
+        Added a stable pickle format. Pickles created with packaging 26.2+ can
+        be unpickled with future releases.  Backward compatibility with pickles
+        from packaging < 26.2 is supported but may be removed in a future
+        release.
     """
 
     __slots__ = (

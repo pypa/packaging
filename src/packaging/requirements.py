@@ -33,6 +33,16 @@ class Requirement:
     Parse a given requirement string into its parts, such as name, specifier,
     URL, and extras. Raises InvalidRequirement on a badly-formed requirement
     string.
+
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging releases.
+
+    .. versionchanged:: 26.2
+
+        Added a stable pickle format. Pickles created with packaging 26.2+ can
+        be unpickled with future releases.  Backward compatibility with pickles
+        from packaging < 26.2 is supported but may be removed in a future
+        release.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
