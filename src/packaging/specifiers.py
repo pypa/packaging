@@ -443,6 +443,16 @@ class Specifier(BaseSpecifier):
         It is generally not required to instantiate this manually. You should instead
         prefer to work with :class:`SpecifierSet` instead, which can parse
         comma-separated version specifiers (which is what package metadata contains).
+
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging releases.
+
+    .. versionchanged:: 26.2
+
+        Added a stable pickle format. Pickles created with packaging 26.2+ can
+        be unpickled with future releases.  Backward compatibility with pickles
+        from packaging < 26.2 is supported but may be removed in a future
+        release.
     """
 
     __slots__ = (
@@ -1326,6 +1336,18 @@ class SpecifierSet(BaseSpecifier):
 
     It can be passed a single specifier (``>=3.0``), a comma-separated list of
     specifiers (``>=3.0,!=3.1``), or no specifier at all.
+
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging
+    releases.
+
+    .. versionchanged:: 26.2
+
+        Added a stable pickle format. Pickles created with
+        packaging 26.2+ can be unpickled with future releases.
+        Backward compatibility with pickles from
+        packaging < 26.2 is supported but may be removed in a future
+        release.
     """
 
     __slots__ = (
