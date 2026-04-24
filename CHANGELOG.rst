@@ -17,6 +17,7 @@ Documentation:
 Internal:
 
 * Enable the auditor persona on zizmor in (:pull:`1158`)
+* Test new pickle gaurentees in (:pull:`1074`)
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~
