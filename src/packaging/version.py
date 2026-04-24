@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = ["functools", "warnings"]
+
 import re
 import sys
 import typing

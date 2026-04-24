@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = [f"{__spec__.parent}.errors", "keyword", "pathlib"]
+
 import email.header
 import email.message
 import email.parser
