@@ -15,7 +15,7 @@ Fixes:
 * Make ``Version``, ``Specifier``, ``SpecifierSet``, ``Tag``, ``Marker``, and ``Requirement`` pickle-safe
   and backward-compatible with pickles created in 25.0-26.1 (including references to the removed
   ``packaging._structures`` module) (:pull:`1163`, :pull:`1168`, :pull:`1170`, :pull:`1171`)
-* Re-export ``ExceptionGroup`` in metatadata for now in (:pull:`1164`)
+* Re-export ``ExceptionGroup`` in metadata for now in (:pull:`1164`)
 
 Documentation:
 
@@ -27,7 +27,7 @@ Documentation:
 Internal:
 
 * Enable the auditor persona on zizmor in (:pull:`1158`)
-* Test new pickle gaurentees in (:pull:`1174`)
+* Test new pickle guarantees in (:pull:`1174`)
 * Use new native ReadTheDocs uv integration in (:pull:`1175`)
 
 
