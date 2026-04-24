@@ -10,15 +10,21 @@ Fixes:
 * Make ``Version``, ``Specifier``, ``SpecifierSet``, ``Tag``, ``Marker``, and ``Requirement`` pickle-safe
   and backward-compatible with pickles created in 25.0-26.1 (including references to the removed
   ``packaging._structures`` module) (:pull:`1163`, :pull:`1168`, :pull:`1170`, :pull:`1171`)
+* Re-export ``ExceptionGroup`` in metatadata for now in (:pull:`1164`)
 
 Documentation:
 
 * Add errors section and fix missing details in (:pull:`1159`)
+* Document our property-based test suite in (:pull:`1167`)
+* Fix a ``DirectUrl`` typo in (:pull:`1167`)
+* Add example of ``is_unsatisfiable`` in (:pull:`1166`)
 
 Internal:
 
 * Enable the auditor persona on zizmor in (:pull:`1158`)
-* Test new pickle gaurentees in (:pull:`1074`)
+* Test new pickle gaurentees in (:pull:`1174`)
+* Use new native ReadTheDocs uv integration in (:pull:`1175`)
+
 
 26.1 - 2026-04-14
 ~~~~~~~~~~~~~~~~~
