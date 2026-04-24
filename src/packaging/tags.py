@@ -15,7 +15,6 @@ import sysconfig
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
     TYPE_CHECKING,
-    Any,
     Iterable,
     Iterator,
     Sequence,
@@ -158,12 +157,37 @@ class Tag:
     def __repr__(self) -> str:
         return f"<{self} @ {id(self)}>"
 
-    def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
-        # The cached _hash is wrong when unpickling.
-        _, slots = state
-        for k, v in slots.items():
-            setattr(self, k, v)
-        self._hash = hash((self._interpreter, self._abi, self._platform))
+    def __getstate__(self) -> tuple[str, str, str]:
+        # Return state as a 3-item tuple: (interpreter, abi, platform).
+        # Cache member _hash is excluded and will be recomputed.
+        return (self._interpreter, self._abi, self._platform)
+
+    def __setstate__(self, state: object) -> None:
+        if isinstance(state, tuple):
+            if len(state) == 3 and all(isinstance(s, str) for s in state):
+                # New format (26.2+): (interpreter, abi, platform)
+                self._interpreter, self._abi, self._platform = state
+                self._hash = hash((self._interpreter, self._abi, self._platform))
+                return
+            if len(state) == 2 and isinstance(state[1], dict):
+                # Old format (packaging <= 26.1, __slots__): (None, {slot: value}).
+                _, slots = state
+                try:
+                    interpreter = slots["_interpreter"]
+                    abi = slots["_abi"]
+                    platform = slots["_platform"]
+                except KeyError:
+                    raise TypeError(f"Cannot restore Tag from {state!r}") from None
+                if not all(
+                    isinstance(value, str) for value in (interpreter, abi, platform)
+                ):
+                    raise TypeError(f"Cannot restore Tag from {state!r}")
+                self._interpreter = interpreter.lower()
+                self._abi = abi.lower()
+                self._platform = platform.lower()
+                self._hash = hash((self._interpreter, self._abi, self._platform))
+                return
+        raise TypeError(f"Cannot restore Tag from {state!r}")
 
 
 def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
