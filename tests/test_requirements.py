@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import pickle
+
 import pytest
 
 from packaging.markers import Marker
@@ -705,3 +707,135 @@ class TestRequirementBehaviour:
 
     def test_compare_with_string(self) -> None:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
+
+
+@pytest.mark.parametrize(
+    "req_str",
+    [
+        "requests",
+        "requests>=2.0",
+        "requests>=2.0,<3.0",
+        'requests>=2.0; python_version >= "3.8"',
+        "requests[security,socks]>=2.0",
+        "my-pkg @ https://example.com",
+        'Django>=1.4.2,!=1.5.0,!=1.5.1; python_version < "3"',
+    ],
+)
+def test_pickle_requirement_roundtrip(req_str: str) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    r = Requirement(req_str)
+    loaded = pickle.loads(pickle.dumps(r))
+    assert loaded == r
+    assert str(loaded) == str(r)
+
+
+def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    r = Requirement.__new__(Requirement)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__(12345)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__((1, 2, 3))
+
+
+def test_pickle_requirement_setstate_rejects_invalid_string() -> None:
+    # Cover the string branch where Requirement() raises InvalidRequirement.
+    r = Requirement.__new__(Requirement)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__("this is not a valid requirement")
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
+# Format: plain __dict__ (no __getstate__). Contains nested SpecifierSet and
+# Marker objects also pickled in their old format.
+_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_WITH_MARKER = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01}q\x02("
+    b"X\x04\x00\x00\x00nameq\x03X\x08\x00\x00\x00requestsq\x04X\x03\x00"
+    b"\x00\x00urlq\x05NX\x06\x00\x00\x00extrasq\x06c__builtin__\nset\nq\x07"
+    b"]q\x08\x85q\tRq\nX\t\x00\x00\x00specifierq\x0bcpackaging.specifiers\n"
+    b"SpecifierSet\nq\x0c)\x81q\rcpackaging.specifiers\nSpecifier\nq\x0e)\x81"
+    b"q\x0fX\x02\x00\x00\x00>=q\x10X\x03\x00\x00\x002.0q\x11\x86q\x12N\x86"
+    b"q\x13b\x85q\x14N\x86q\x15bX\x06\x00\x00\x00markerq\x16cpackaging."
+    b"markers\nMarker\nq\x17)\x81q\x18N}q\x19X\x08\x00\x00\x00_markersq\x1a"
+    b"]q\x1bcpackaging._parser\nVariable\nq\x1c)\x81q\x1dN}q\x1eX\x05\x00"
+    b"\x00\x00valueq\x1fX\x0e\x00\x00\x00python_versionq s\x86q!b"
+    b'cpackaging._parser\nOp\nq")\x81q#N}q$h\x1fX\x02\x00\x00\x00>=q%s'
+    b"\x86q&bcpackaging._parser\nValue\nq')\x81q(N}q)h\x1fX\x03\x00\x00"
+    b"\x003.8q*s\x86q+b\x87q,as\x86q-bub."
+)
+
+
+# Pickle bytes generated with packaging==26.0, Python 3.13.1, pickle protocol 2.
+# Format: plain __dict__ (no __getstate__).
+_PACKAGING_26_0_PICKLE_REQUESTS_GE_2_0 = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01}q\x02("
+    b"X\x04\x00\x00\x00nameq\x03X\x08\x00\x00\x00requestsq\x04X\x03\x00"
+    b"\x00\x00urlq\x05NX\x06\x00\x00\x00extrasq\x06c__builtin__\nset\nq\x07"
+    b"]q\x08\x85q\tRq\nX\t\x00\x00\x00specifierq\x0bcpackaging.specifiers\n"
+    b"SpecifierSet\nq\x0c)\x81q\rN}q\x0e(X\x0c\x00\x00\x00_prereleasesq\x0f"
+    b"NX\x06\x00\x00\x00_specsq\x10c__builtin__\nfrozenset\nq\x11]q\x12cpackag"
+    b"ing.specifiers\nSpecifier\nq\x13)\x81q\x14N}q\x15(h\x0fNX\x05\x00\x00"
+    b"\x00_specq\x16X\x02\x00\x00\x00>=q\x17X\x03\x00\x00\x002.0q\x18\x86q"
+    b"\x19X\r\x00\x00\x00_spec_versionq\x1ah\x18cpackaging.version\nVersion\n"
+    b"q\x1b)\x81q\x1cN}q\x1d(X\x04\x00\x00\x00_devq\x1eNX\x06\x00\x00\x00_epo"
+    b"chq\x1fK\x00X\n\x00\x00\x00_key_cacheq NX\x06\x00\x00\x00_localq!NX\x05"
+    b'\x00\x00\x00_postq"NX\x04\x00\x00\x00_preq#NX\x08\x00\x00\x00_releaseq$'
+    b"K\x02K\x00\x86q%u\x86q&b\x86q'u\x86q(b"
+    b"a\x85q)Rq*u\x86q+bX\x06\x00\x00"
+    b"\x00markerq,Nub."
+)
+
+
+# Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
+# Format: plain __dict__ (no __getstate__).
+_PACKAGING_25_0_PICKLE_REQUESTS_GE_2_0 = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01}q\x02("
+    b"X\x04\x00\x00\x00nameq\x03X\x08\x00\x00\x00requestsq\x04X\x03\x00"
+    b"\x00\x00urlq\x05NX\x06\x00\x00\x00extrasq\x06c__builtin__\nset\nq\x07"
+    b"]q\x08\x85q\tRq\nX\t\x00\x00\x00specifierq\x0bcpackaging.specifiers\n"
+    b"SpecifierSet\nq\x0c)\x81q\r}q\x0e(X\x06\x00\x00\x00_specsq\x0fc__bui"
+    b"ltin__\nfrozenset\nq\x10]q\x11cpackaging.specifiers\nSpecifier\nq\x12)\x81"
+    b"q\x13}q\x14(X\x05\x00\x00\x00_specq\x15X\x02\x00\x00\x00>=q\x16X\x03\x00"
+    b"\x00\x002.0q\x17\x86q\x18X\x0c\x00\x00\x00_prereleasesq\x19Nuba\x85q\x1a"
+    b"Rq\x1bh\x19NubX\x06\x00\x00\x00markerq\x1cNub."
+)
+
+
+def test_pickle_requirement_old_format_loads() -> None:
+    # Verify that Requirement pickles created with packaging <= 26.1 (plain
+    # __dict__, no __getstate__) can be loaded and produce correct objects.
+    r = pickle.loads(_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_WITH_MARKER)
+    assert isinstance(r, Requirement)
+    assert r.name == "requests"
+    assert r.url is None
+    assert r.extras == set()
+    assert str(r.specifier) == ">=2.0"
+    assert r.marker is not None
+    assert str(r.marker) == 'python_version >= "3.8"'
+    assert r == Requirement('requests>=2.0; python_version >= "3.8"')
+
+
+def test_pickle_requirement_26_0_format_loads() -> None:
+    # Verify that Requirement pickles created with packaging 26.0 (plain __dict__)
+    # can be loaded and produce correct objects.
+    r = pickle.loads(_PACKAGING_26_0_PICKLE_REQUESTS_GE_2_0)
+    assert isinstance(r, Requirement)
+    assert r.name == "requests"
+    assert r.url is None
+    assert r.extras == set()
+    assert str(r.specifier) == ">=2.0"
+    assert r.marker is None
+    assert r == Requirement("requests>=2.0")
+
+
+def test_pickle_requirement_25_0_format_loads() -> None:
+    # Verify that Requirement pickles created with packaging 25.0 (plain __dict__)
+    # can be loaded and produce correct objects.
+    r = pickle.loads(_PACKAGING_25_0_PICKLE_REQUESTS_GE_2_0)
+    assert isinstance(r, Requirement)
+    assert r.name == "requests"
+    assert r.url is None
+    assert r.extras == set()
+    assert str(r.specifier) == ">=2.0"
+    assert r.marker is None
+    assert r == Requirement("requests>=2.0")

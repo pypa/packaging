@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import pickle
 import platform
 import sys
 from typing import Any, NamedTuple, cast
@@ -13,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node
+from packaging._parser import Node, Op, Value, Variable
 from packaging.markers import (
     InvalidMarker,
     Marker,
@@ -564,3 +565,157 @@ def test_evaluation_of_combined_markers() -> None:
         & Marker('platform_system == "Linux"')
     )
     assert m.evaluate(env) is True
+
+
+@pytest.mark.parametrize(
+    "marker_str",
+    [
+        'python_version >= "3.8"',
+        'python_version >= "3.8" and os_name == "posix"',
+        'python_version >= "3.8" or platform_system == "Windows"',
+        'extra == "security"',
+    ],
+)
+def test_pickle_marker_roundtrip(marker_str: str) -> None:
+    # Make sure equality and str() work between a pickle/unpickle round trip.
+    m = Marker(marker_str)
+    loaded = pickle.loads(pickle.dumps(m))
+    assert loaded == m
+    assert str(loaded) == str(m)
+
+
+def test_pickle_marker_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branches in __setstate__ for invalid input.
+    m = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__(12345)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__((1, 2, 3))  # Wrong tuple length
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
+# Format: __slots__ (no __getstate__), state is (None, {slot: value}).
+_PACKAGING_26_1_PICKLE_MARKER_PYTHON_VERSION_GE_3_8 = (
+    b"\x80\x02cpackaging.markers\nMarker\nq\x00)\x81q\x01N}q\x02X\x08\x00"
+    b"\x00\x00_markersq\x03]q\x04cpackaging._parser\nVariable\nq\x05)\x81"
+    b"q\x06N}q\x07X\x05\x00\x00\x00valueq\x08X\x0e\x00\x00\x00python_vers"
+    b"ionq\ts\x86q\nbcpackaging._parser\nOp\nq\x0b)\x81q\x0cN}q\rh\x08X\x02"
+    b"\x00\x00\x00>=q\x0es\x86q\x0fbcpackaging._parser\nValue\nq\x10)\x81q"
+    b"\x11N}q\x12h\x08X\x03\x00\x00\x003.8q\x13s\x86q\x14b\x87q\x15as\x86"
+    b"q\x16b."
+)
+
+
+# Pickle bytes generated with packaging==26.0, Python 3.13.1, pickle protocol 2.
+# Format: __slots__ (no __getstate__), state is plain __dict__.
+_PACKAGING_26_0_PICKLE_MARKER_PYTHON_VERSION_GE_3_8 = (
+    b"\x80\x02cpackaging.markers\nMarker\nq\x00)\x81q\x01}q\x02X\x08\x00\x00"
+    b"\x00_markersq\x03]q\x04cpackaging._parser\nVariable\nq\x05)\x81q\x06N}"
+    b"q\x07X\x05\x00\x00\x00valueq\x08X\x0e\x00\x00\x00python_versionq\ts\x86"
+    b"q\nbcpackaging._parser\nOp\nq\x0b)\x81q\x0cN}q\rh\x08X\x02\x00\x00"
+    b"\x00>=q\x0es\x86q\x0fbcpackaging._parser\nValue\nq\x10)\x81q\x11N}q\x12"
+    b"h\x08X\x03\x00\x00\x003.8q\x13s\x86q\x14b\x87q\x15asb."
+)
+
+# Format: __slots__ with Node objects using __dict__ format (packaging <= 25.0).
+# Now loadable because Node classes have __getstate__/__setstate__.
+_PACKAGING_25_0_PICKLE_MARKER_PYTHON_VERSION_GE_3_8 = (
+    b"\x80\x02cpackaging.markers\nMarker\nq\x00)\x81q\x01}q\x02X\x08\x00\x00"
+    b"\x00_markersq\x03]q\x04cpackaging._parser\nVariable\nq\x05)\x81q\x06}q\x07"
+    b"X\x05\x00\x00\x00valueq\x08X\x0e\x00\x00\x00python_versionq\tsbcpackaging"
+    b"._parser\nOp\nq\n)\x81q\x0b}q\x0ch\x08X\x02\x00\x00\x00>=q\rsbcpackaging"
+    b"._parser\nValue\nq\x0e)\x81q\x0f}q\x10h\x08X\x03\x00\x00\x003.8q\x11sb\x87"
+    b"q\x12asb."
+)
+
+
+def test_pickle_marker_old_format_loads() -> None:
+    # Verify that Marker pickles created with packaging <= 26.1 (__slots__,
+    # no __getstate__) can be loaded and produce correct Marker objects.
+    m = pickle.loads(_PACKAGING_26_1_PICKLE_MARKER_PYTHON_VERSION_GE_3_8)
+    assert isinstance(m, Marker)
+    assert str(m) == 'python_version >= "3.8"'
+    assert m == Marker('python_version >= "3.8"')
+
+
+def test_pickle_marker_26_0_format_loads() -> None:
+    # Verify that Marker pickles created with packaging 26.0 (plain __dict__)
+    # can be loaded and produce correct Marker objects.
+    m = pickle.loads(_PACKAGING_26_0_PICKLE_MARKER_PYTHON_VERSION_GE_3_8)
+    assert isinstance(m, Marker)
+    assert str(m) == 'python_version >= "3.8"'
+    assert m == Marker('python_version >= "3.8"')
+
+
+def test_pickle_marker_25_0_format_loads() -> None:
+    # Verify that Marker pickles created with packaging 25.0 (with Node __dict__)
+    # can now be loaded thanks to __getstate__/__setstate__ in Node classes.
+    m = pickle.loads(_PACKAGING_25_0_PICKLE_MARKER_PYTHON_VERSION_GE_3_8)
+    assert isinstance(m, Marker)
+    assert str(m) == 'python_version >= "3.8"'
+    assert m == Marker('python_version >= "3.8"')
+
+
+def test_pickle_node_roundtrip() -> None:
+    # Cover Node.__getstate__ and Node.__setstate__ with the new string format.
+    for node in (Variable("python_version"), Value("3.8"), Op(">=")):
+        loaded = pickle.loads(pickle.dumps(node))
+        assert loaded.value == node.value
+        assert str(loaded) == str(node)
+
+
+def test_pickle_node_setstate_rejects_invalid_state() -> None:
+    # Cover the TypeError branch in Node.__setstate__ for invalid input.
+    node = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node.__setstate__(12345)
+
+    node2 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node2.__setstate__((1, 2, 3))  # Wrong tuple length
+
+    # Cover the legacy tuple branch where slot_dict doesn't have "value".
+    node3 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable"):
+        node3.__setstate__((None, {"wrong_key": "foo"}))
+
+    # Cover the legacy tuple branch where slot_dict has "value" but it's not a str.
+    node4 = Variable.__new__(Variable)
+    with pytest.raises(TypeError, match="Cannot restore Variable value from 123"):
+        node4.__setstate__((None, {"value": 123}))
+
+    # Cover the legacy dict branch where "value" exists but it's not a str.
+    node5 = Value.__new__(Value)
+    with pytest.raises(TypeError, match="Cannot restore Value value from 456"):
+        node5.__setstate__({"value": 456})
+
+    # Cover the legacy dict branch on Op (different subclass to ensure coverage).
+    node6 = Op.__new__(Op)
+    with pytest.raises(TypeError, match="Cannot restore Op value from 789"):
+        node6.__setstate__({"value": 789})
+
+
+def test_pickle_marker_setstate_legacy_slot_dict_without_markers_key() -> None:
+    # Cover Marker.__setstate__ legacy tuple branch where slot_dict has no "_markers".
+    m = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__((None, {"other_key": "value"}))
+
+
+def test_pickle_marker_setstate_rejects_invalid_markers_type() -> None:
+    # Cover the dict branch where "_markers" exists but is not a list.
+    m1 = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m1.__setstate__({"_markers": "not a list"})
+
+    # Cover the tuple branch where "_markers" exists but is not a list.
+    m2 = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m2.__setstate__((None, {"_markers": "not a list"}))
+
+
+def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
+    # Cover the string branch where parsing raises ParserSyntaxError.
+    m = Marker.__new__(Marker)
+    with pytest.raises(TypeError, match="Cannot restore Marker"):
+        m.__setstate__("this is not a valid marker")
