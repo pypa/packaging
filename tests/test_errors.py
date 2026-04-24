@@ -61,8 +61,9 @@ def test_error_collector_exception_group() -> None:
 def test_error_collector_on_exit() -> None:
     collector = packaging.errors._ErrorCollector()
 
-    with pytest.raises(packaging.errors.ExceptionGroup) as exc_info, collector.on_exit(
-        "exiting"
+    with (
+        pytest.raises(packaging.errors.ExceptionGroup) as exc_info,
+        collector.on_exit("exiting"),
     ):
         collector.error(ValueError("an error"))
 
@@ -100,9 +101,10 @@ def test_error_collector_collect_unmatched_exception() -> None:
     collector = packaging.errors._ErrorCollector()
 
     # Now test that other exceptions are not collected
-    with pytest.raises(
-        ValueError, match="a value error"
-    ) as exc_info, collector.collect(KeyError):
+    with (
+        pytest.raises(ValueError, match="a value error") as exc_info,
+        collector.collect(KeyError),
+    ):
         raise ValueError("a value error")
 
     assert str(exc_info.value) == "a value error"

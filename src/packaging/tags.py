@@ -12,13 +12,10 @@ import struct
 import subprocess
 import sys
 import sysconfig
+from collections.abc import Iterable, Iterator, Sequence
 from importlib.machinery import EXTENSION_SUFFIXES
 from typing import (
     TYPE_CHECKING,
-    Iterable,
-    Iterator,
-    Sequence,
-    Tuple,
     TypeVar,
     cast,
 )
@@ -26,8 +23,8 @@ from typing import (
 from . import _manylinux, _musllinux
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
-    from typing import AbstractSet
+    from collections.abc import Callable
+    from collections.abc import Set as AbstractSet
 
 
 __all__ = [
@@ -58,7 +55,7 @@ def __dir__() -> list[str]:
 logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
-AppleVersion = Tuple[int, int]
+AppleVersion = tuple[int, int]
 _T = TypeVar("_T")
 
 INTERPRETER_SHORT_NAMES: dict[str, str] = {

@@ -8,13 +8,17 @@ import operator
 import os
 import platform
 import sys
-from typing import AbstractSet, Callable, Literal, Mapping, TypedDict, Union, cast
+from collections.abc import Set as AbstractSet
+from typing import TYPE_CHECKING, Callable, Literal, TypedDict, Union, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = [
     "Environment",
@@ -459,14 +463,15 @@ class Marker:
             "dict[str, str | AbstractSet[str]]", default_environment()
         )
         if context == "lock_file":
-            current_environment.update(
-                extras=frozenset(), dependency_groups=frozenset()
-            )
+            current_environment |= {
+                "extras": frozenset(),
+                "dependency_groups": frozenset(),
+            }
         elif context == "metadata":
             current_environment["extra"] = ""
 
         if environment is not None:
-            current_environment.update(environment)
+            current_environment |= environment
             if "extra" in current_environment:
                 # The API used to allow setting extra to None. We need to handle
                 # this case for backwards compatibility. Also skip running

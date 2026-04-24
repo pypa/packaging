@@ -9,7 +9,7 @@ description = "Core utilities for Python packages"
 dynamic = ["version"]
 license = "Apache-2.0 OR BSD-2-Clause"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -17,7 +17,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -48,7 +47,6 @@ test = [
 ]
 docs = [
   "furo",
-  "typing-extensions>=4.1.0; python_version < '3.9'",
 ]
 benchmark = [
   "asv",
@@ -111,7 +109,7 @@ markers = ["property: property-based tests (opt-in)"]
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
-python_version = "3.8"
+python_version = "3.9"
 files = ["src", "tests", "noxfile.py"]
 
 [[tool.mypy.overrides]]
