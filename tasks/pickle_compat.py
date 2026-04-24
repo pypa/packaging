@@ -5,8 +5,8 @@
 """Generate or verify pickle files with packaging objects for cross-version testing.
 
 Usage:
-    python tasks/pickle.py write <version> <output_dir>
-    python tasks/pickle.py verify <pickle_file>
+    python tasks/pickle_compat.py write <version> <output_dir>
+    python tasks/pickle_compat.py verify [--version <version>] <pickle_file>
 
 The ``write`` command generates a pickle file using the *currently installed*
 release of ``packaging``.  ``<version>`` is recorded as metadata in the file
@@ -17,11 +17,15 @@ The ``verify`` command loads a pickle and checks that every object:
 * has the expected type,
 * compares equal to a freshly constructed counterpart, and
 * round-trips through ``pickle.dumps`` / ``pickle.loads``.
+
+When ``--version`` is supplied, ``verify`` also checks that the pickle was
+generated with that release of ``packaging``.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import pathlib
 import pickle
 import sys
@@ -78,6 +82,12 @@ _TYPE_CHECKS: dict[str, type[object]] = {
 
 def write(version: str, output_dir: pathlib.Path) -> pathlib.Path:
     """Pickle a representative set of objects and write them to disk."""
+    installed = importlib.metadata.version("packaging")
+    if version != installed:
+        raise SystemExit(
+            f"Requested packaging=={version} but the installed version is {installed}"
+        )
+
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"packaging_{version}_pickles.pkl"
 
@@ -87,7 +97,7 @@ def write(version: str, output_dir: pathlib.Path) -> pathlib.Path:
     return path
 
 
-def verify(path: pathlib.Path) -> int:
+def verify(path: pathlib.Path, expected_version: str | None = None) -> int:
     """Load a pickle file and verify its contents.
 
     Returns 0 on success, 1 on failure.
@@ -98,6 +108,14 @@ def verify(path: pathlib.Path) -> int:
     generated_with = data["generated_with"]
     objects: dict[str, list[Any]] = data["objects"]
     print(f"Verifying pickles generated with packaging=={generated_with}")
+
+    if expected_version is not None and generated_with != expected_version:
+        print(
+            f"FAIL: generated_with ({generated_with}) != expected version "
+            f"({expected_version})",
+            file=sys.stderr,
+        )
+        return 1
 
     for kind, expected_cls in _TYPE_CHECKS.items():
         loaded_list = objects[kind]
@@ -160,6 +178,9 @@ def main() -> int:
     verify_parser.add_argument(
         "pickle_file", type=pathlib.Path, help="path to the pickle file"
     )
+    verify_parser.add_argument(
+        "--version", dest="expected_version", help="expected packaging version"
+    )
 
     args = parser.parse_args()
 
@@ -169,7 +190,7 @@ def main() -> int:
         return 0
 
     if args.command == "verify":
-        return verify(args.pickle_file)
+        return verify(args.pickle_file, args.expected_version)
 
     return 1
 

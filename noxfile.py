@@ -364,6 +364,8 @@ def test_pickle(session: nox.Session, version: str) -> None:
         "python",
         "tasks/pickle_compat.py",
         "verify",
+        "--version",
+        version,
         str(pickle_file),
     )
 
