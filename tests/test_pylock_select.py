@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from packaging.markers import Marker
+from packaging.markers import Marker, default_environment
 from packaging.pylock import (
     Package,
     PackageArchive,
@@ -369,3 +369,24 @@ def test_extras_and_groups(
         )
     ]
     assert selected_names == expected
+
+
+def test_python_prerelease() -> None:
+    """Python pre-release versions are not PEP 440 compliant.
+    Test that Pylock.requires_python supports that.
+    """
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="repro",
+        requires_python=SpecifierSet(">=3.12"),
+        packages=[
+            Package(
+                name=cast("NormalizedName", "pkga"),
+                requires_python=SpecifierSet(">=3.12"),
+                directory=PackageDirectory(path="./pkga"),
+            )
+        ],
+    )
+    env = default_environment()
+    env["python_full_version"] = "3.15.0a8+"
+    list(pylock.select(environment=env))

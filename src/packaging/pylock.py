@@ -16,7 +16,12 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-from .markers import Environment, Marker, default_environment
+from .markers import (
+    Environment,
+    Marker,
+    _pep440_python_full_version,
+    default_environment,
+)
 from .specifiers import SpecifierSet
 from .tags import create_compatible_tags_selector, sys_tags
 from .utils import (
@@ -782,7 +787,7 @@ class Pylock:
                 ),
             ),
         )
-        env_python_full_version = (
+        env_python_full_version = _pep440_python_full_version(
             environment["python_full_version"]
             if environment
             else default_environment()["python_full_version"]
