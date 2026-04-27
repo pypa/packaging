@@ -27,5 +27,8 @@ jobs:
           python-version: "3.9"
           cache: "pip"
 
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
+
       - name: Build documentation
-        run: pipx run nox --error-on-missing-interpreters -s docs
+        run: pipx run nox -s docs

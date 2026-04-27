@@ -37,8 +37,11 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
+
       - name: Run `nox -s lint`
-        run: pipx run nox --error-on-missing-interpreters -s lint -- --show-diff-on-failure
+        run: pipx run nox -s lint -- --show-diff-on-failure
 
   build:
     name: Build sdist and wheel
@@ -54,11 +57,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build
-        run: pipx run build
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
 
       - name: Build
-        run: pipx run twine check --strict ./dist/*
+        run: uv build
+
+      - name: Build
+        run: uvx twine check --strict ./dist/*
 
       - name: Archive files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

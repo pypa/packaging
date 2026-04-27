@@ -38,6 +38,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
+
       - name: Check ref is the commit SHA
         # require SHA as tags and branches are mutable
         run: test "${INPUTS_REF}"

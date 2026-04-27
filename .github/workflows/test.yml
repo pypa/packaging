@@ -46,7 +46,7 @@ jobs:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         name: Setup uv
 
       - name: Run nox
@@ -68,6 +68,9 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
 
       - name: Run nox
         run: pipx run nox -s property_tests
@@ -91,6 +94,9 @@ jobs:
           python-version: "3.14"
           cache: "pip"
 
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
+
       - name: Run nox
         env:
           MATRIX_PROJECT: ${{ matrix.project }}
@@ -109,6 +115,9 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
 
       - name: Run nox
         run: pipx run nox -s test_pickle
