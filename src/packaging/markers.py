@@ -12,7 +12,6 @@ from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    AbstractSet,
     Callable,
     Literal,
     TypedDict,
@@ -387,6 +386,29 @@ MarkerNode: TypeAlias = Union[MarkerCompare, MarkerAnd, MarkerOr]
 """A marker expression: comparison, conjunction, or disjunction."""
 
 
+# Canonical marker environment variable names after normalization
+# (process_env_var + .replace(".", "_")), used to distinguish variables
+# from literal values when serializing a MarkerNode tree.
+_MARKER_VARIABLE_NAMES: frozenset[str] = frozenset(
+    {
+        "python_version",
+        "python_full_version",
+        "os_name",
+        "sys_platform",
+        "platform_release",
+        "platform_system",
+        "platform_version",
+        "platform_machine",
+        "platform_python_implementation",
+        "implementation_name",
+        "implementation_version",
+        "extra",
+        "extras",
+        "dependency_groups",
+    }
+)
+
+
 def _split_marker_or_groups(markers: MarkerList) -> list[list[MarkerList | MarkerItem]]:
     """Split a marker list into ``or`` groups (each group is ``and``-combined)."""
     groups: list[list[MarkerList | MarkerItem]] = [[]]
@@ -431,6 +453,27 @@ def _markers_to_ast(markers: MarkerList) -> MarkerNode | None:
     if len(or_operands) == 1:
         return or_operands[0]
     return MarkerOr(tuple(or_operands))
+
+
+def _serialize_node(node: MarkerNode, *, _parens: bool = False) -> str:
+    """Serialize a :class:`MarkerNode` tree to a PEP 508 marker string.
+
+    Parenthesization rule: a :class:`MarkerOr` appearing as a direct operand
+    of :class:`MarkerAnd` is wrapped in parentheses because ``and`` binds more
+    tightly than ``or`` in PEP 508 syntax.
+    """
+    if isinstance(node, MarkerCompare):
+        lhs = node.left if node.left in _MARKER_VARIABLE_NAMES else f'"{node.left}"'
+        rhs = node.right if node.right in _MARKER_VARIABLE_NAMES else f'"{node.right}"'
+        return f"{lhs} {node.op} {rhs}"
+    if isinstance(node, MarkerAnd):
+        inner = " and ".join(
+            _serialize_node(op, _parens=isinstance(op, MarkerOr))
+            for op in node.operands
+        )
+    else:  # MarkerOr
+        inner = " or ".join(_serialize_node(op) for op in node.operands)
+    return f"({inner})" if _parens else inner
 
 
 class Marker:
@@ -561,6 +604,39 @@ class Marker:
 
         """
         return _markers_to_ast(self._markers)
+
+    @classmethod
+    def from_ast(cls, node: MarkerNode) -> Marker:
+        """Construct a :class:`Marker` from a :class:`MarkerNode` tree.
+
+        This is the inverse of :meth:`as_ast`.  It lets you build or mutate a
+        marker programmatically using :class:`MarkerCompare`,
+        :class:`MarkerAnd`, and :class:`MarkerOr`, then get a fully functional
+        :class:`Marker` back.
+
+        The node tree is serialized to a PEP 508 string and parsed by the
+        normal constructor, so all validation and normalization (including
+        ``PEP 503`` canonicalization of extra names) are applied automatically.
+        An invalid operator or unknown structure raises :exc:`InvalidMarker`.
+
+        :param node: The root of a marker expression tree.
+        :returns: A new :class:`Marker` equivalent to the given tree.
+
+        Example::
+
+            from packaging.markers import Marker, MarkerAnd, MarkerCompare
+
+            # python_version >= "3.10" and extra == "docs"
+            node = MarkerAnd(
+                operands=(
+                    MarkerCompare("python_version", ">=", "3.10"),
+                    MarkerCompare("extra", "==", "docs"),
+                )
+            )
+            m = Marker.from_ast(node)
+            print(m)  # python_version >= "3.10" and extra == "docs"
+        """
+        return cls(_serialize_node(node))
 
     def evaluate(
         self,
