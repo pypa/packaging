@@ -213,9 +213,25 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
+def _eval_op(
+    lhs: str,
+    op: Op,
+    rhs: str | AbstractSet[str],
+    *,
+    key: str,
+    rhs_is_environment: bool = False,
+) -> bool:
     op_str = op.serialize()
     if key in MARKERS_REQUIRING_VERSION:
+        if rhs_is_environment and op_str in {"==", "!=", "==="}:
+            try:
+                spec = Specifier(f"{op_str}{lhs}")
+            except InvalidSpecifier:
+                pass
+            else:
+                assert isinstance(rhs, str), "rhs must be a string"
+                return spec.contains(rhs, prereleases=True)
+
         try:
             spec = Specifier(f"{op_str}{rhs}")
         except InvalidSpecifier:
@@ -273,7 +289,15 @@ def _evaluate_markers(
 
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
+            groups[-1].append(
+                _eval_op(
+                    lhs_value,
+                    op,
+                    rhs_value,
+                    key=environment_key,
+                    rhs_is_environment=not isinstance(lhs, Variable),
+                )
+            )
         elif marker == "or":
             groups.append([])
         elif marker == "and":

@@ -109,6 +109,29 @@ class TestOperatorEvaluation:
             {"python_full_version": "3.11.0a5"}
         )
 
+    @pytest.mark.parametrize(
+        ("marker_string", "python_full_version", "expected"),
+        [
+            ('python_full_version == "3.13.*"', "3.13.7", True),
+            ('"3.13.*" == python_full_version', "3.13.7", True),
+            ('python_full_version == "3.13.*"', "3.14.0", False),
+            ('"3.13.*" == python_full_version', "3.14.0", False),
+            ('python_full_version != "3.13.*"', "3.13.7", False),
+            ('"3.13.*" != python_full_version', "3.13.7", False),
+            ('python_full_version != "3.13.*"', "3.14.0", True),
+            ('"3.13.*" != python_full_version', "3.14.0", True),
+        ],
+    )
+    def test_version_marker_rhs_variable_arbitrary_equality(
+        self,
+        marker_string: str,
+        python_full_version: str,
+        expected: bool,
+    ) -> None:
+        assert Marker(marker_string).evaluate(
+            {"python_full_version": python_full_version}
+        ) is expected
+
 
 class FakeVersionInfo(NamedTuple):
     major: int
