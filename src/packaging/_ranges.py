@@ -66,7 +66,7 @@ class _BoundaryVersion:
     def __init__(self, version: Version, kind: _BoundaryKind) -> None:
         self.version = version
         self._kind = kind
-        self._cached_trimmed_release = _trim_release(version.release)
+        self._cached_trimmed_release = trim_release(version.release)
         self._cached_epoch = version.epoch
         self._cached_pre = version.pre
         self._cached_post = version.post
@@ -78,7 +78,7 @@ class _BoundaryVersion:
             return False
         # Inline release-trim comparison: other.release matches the
         # trimmed release iff its leading slice is equal and any extra
-        # components are zero. Avoids _trim_release's tuple allocation.
+        # components are zero. Avoids trim_release's tuple allocation.
         other_release = other.release
         trimmed_release = self._cached_trimmed_release
         trimmed_length = len(trimmed_release)
@@ -258,7 +258,7 @@ _POS_INF: Final[_UpperBound] = _UpperBound(None, False)
 FULL_RANGE: Final[tuple[VersionRange]] = ((_NEG_INF, _POS_INF),)
 
 
-def _trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
+def trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
     """Strip trailing zeros from a release tuple for normalized comparison."""
     end = len(release)
     while end > 1 and release[end - 1] == 0:
@@ -297,7 +297,7 @@ def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
     version_epoch = version.epoch
     version_pre = version.pre
     version_dev = version.dev
-    version_release_trimmed = _trim_release(version.release)
+    version_release_trimmed = trim_release(version.release)
     trimmed_length = len(version_release_trimmed)
 
     def above(parsed: Version) -> bool:
@@ -340,7 +340,7 @@ def _make_above_after_locals(version: Version) -> Callable[[Version], bool]:
     version_pre = version.pre
     version_post = version.post
     version_dev = version.dev
-    version_release_trimmed = _trim_release(version.release)
+    version_release_trimmed = trim_release(version.release)
     trimmed_length = len(version_release_trimmed)
 
     def above(parsed: Version) -> bool:
@@ -379,7 +379,7 @@ def _make_below_after_locals(version: Version) -> Callable[[Version], bool]:
     version_pre = version.pre
     version_post = version.post
     version_dev = version.dev
-    version_release_trimmed = _trim_release(version.release)
+    version_release_trimmed = trim_release(version.release)
     trimmed_length = len(version_release_trimmed)
 
     def below(parsed: Version) -> bool:

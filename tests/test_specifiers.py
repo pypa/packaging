@@ -3264,7 +3264,13 @@ def test_boundary_closure_short_release(
     spec_str: str, version_str: str, expected: bool
 ) -> None:
     """Closures handle parsed versions whose release is shorter than the boundary's."""
-    assert Specifier(spec_str).contains(Version(version_str)) is expected
+    spec = Specifier(spec_str)
+    version = Version(version_str)
+    assert spec.contains(version) is expected
+    # Also drive Specifier.filter directly: contains has a fast path that
+    # bypasses the range closures for short releases, but filter does not.
+    filtered = list(spec.filter([version], prereleases=True))
+    assert (filtered == [version]) is expected
 
 
 def test_filter_arbitrary_with_prereleases_false_skips_pre() -> None:

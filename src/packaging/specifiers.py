@@ -29,6 +29,7 @@ from ._ranges import (
     intersect_ranges,
     ranges_are_prerelease_only,
     standard_ranges,
+    trim_release,
     wildcard_ranges,
 )
 from .utils import canonicalize_version
@@ -82,6 +83,46 @@ def _coerce_version(version: UnparsedVersion) -> Version | None:
         except InvalidVersion:
             return None
     return version
+
+
+# Operators whose result is just a direct Version comparison, given a parsed
+# item with no local. ``<=``/``==``/``!=`` need that no-local guard because
+# PEP 440 strips locals on those; ``>=`` works regardless.
+_DIRECT_COMPARE_OPS: dict[str, Callable[[Version, Version], bool]] = {
+    ">=": Version.__ge__,
+    "<=": Version.__le__,
+    "==": Version.__eq__,
+    "!=": Version.__ne__,
+}
+
+
+def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
+    """Match ``parsed`` against ``specifier`` without building a range.
+
+    Handles ``>=``, ``<=``, ``==``, ``!=``, ``<``, ``>`` when the spec is
+    not a wildcard and ``parsed`` has no local. Returns ``None`` when the
+    range path must be used. Pre-release policy is left to the caller.
+    """
+    op_str, ver_str = specifier._spec
+    if ver_str.endswith(".*") or parsed.local is not None:
+        return None
+
+    direct_compare = _DIRECT_COMPARE_OPS.get(op_str)
+    if direct_compare is not None:
+        return direct_compare(parsed, specifier._require_spec_version(ver_str))
+
+    if op_str in ("<", ">"):
+        spec_v = specifier._require_spec_version(ver_str)
+        # ``<V``/``>V`` carve out V's family (pre/dev/post); that only
+        # matters when parsed shares V's epoch and trimmed release.
+        # Otherwise a direct cmpkey comparison is correct.
+        if parsed.epoch != spec_v.epoch or trim_release(parsed.release) != trim_release(
+            spec_v.release
+        ):
+            return parsed < spec_v if op_str == "<" else parsed > spec_v
+        return None
+
+    return None
 
 
 class InvalidSpecifier(ValueError):
@@ -603,8 +644,30 @@ class Specifier(BaseSpecifier):
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
         True
         """
+        # ``===`` compares the raw string, so a Version parse here would
+        # be wasted.
+        if self._spec[0] == "===":
+            return bool(list(self.filter([item], prereleases=prereleases)))
 
-        return bool(list(self.filter([item], prereleases=prereleases)))
+        parsed = _coerce_version(item)
+        if parsed is None:
+            # Standard operators never match an unparsable input.
+            return False
+
+        match = _fast_match(self, parsed)
+        if match is not None:
+            if prereleases is None:
+                if self._prereleases is not None:
+                    prereleases = self._prereleases
+                elif self.prereleases:
+                    prereleases = True
+            if prereleases is False and parsed.is_prerelease:
+                return False
+            return match
+
+        # Pass the already-parsed Version so filter_by_ranges doesn't
+        # re-coerce it.
+        return bool(list(self.filter([parsed], prereleases=prereleases)))
 
     @typing.overload
     def filter(
@@ -1138,6 +1201,33 @@ class SpecifierSet(BaseSpecifier):
             check_item = item
         else:
             check_item = version
+
+        # Fast path: skip the intersected-range build while every spec
+        # answers directly. Once ``_ranges`` is set the cached range
+        # path beats re-iterating specs, so fall through then. A local
+        # on ``version`` needs PEP 440 stripping that the range path
+        # applies.
+        if (
+            self._ranges is None
+            and version is not None
+            and not self._has_arbitrary
+            and version.local is None
+            and self._specs
+        ):
+            if version.is_prerelease and (
+                prereleases is False
+                or (prereleases is None and self._prereleases is False)
+            ):
+                return False
+            for spec in self._specs:
+                match = _fast_match(spec, version)
+                if match is None:
+                    break
+                if not match:
+                    return False
+            else:
+                return True
+
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
     @typing.overload
