@@ -21,7 +21,7 @@ Documentation:
 
 * Add errors section and fix missing details in (:pull:`1159`)
 * Document our property-based test suite in (:pull:`1167`)
-* Fix a ``DirectUrl`` typo in (:pull:`1167`)
+* Fix a ``DirectUrl`` typo in (:pull:`1169`)
 * Add example of ``is_unsatisfiable`` in (:pull:`1166`)
 
 Internal:
