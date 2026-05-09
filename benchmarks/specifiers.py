@@ -60,10 +60,16 @@ class TimeSpecSuite:
             spec._canonicalized = False
         if hasattr(spec, "_resolved_ops"):
             spec._resolved_ops = None
+        if hasattr(spec, "_ranges"):
+            spec._ranges = None
+        if hasattr(spec, "_is_unsatisfiable"):
+            spec._is_unsatisfiable = None
         for sp in spec._specs:
             sp._spec_version = None
             if hasattr(sp, "_wildcard_split"):
                 sp._wildcard_split = None
+            if hasattr(sp, "_ranges"):
+                sp._ranges = None
 
     @add_attributes(pretty_name="SpecifierSet constructor")
     def time_constructor(self) -> None:
