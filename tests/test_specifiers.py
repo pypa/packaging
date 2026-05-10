@@ -3286,6 +3286,16 @@ def test_filter_arbitrary_constructor_prereleases_false_skips_pre() -> None:
     assert spec.contains("1.0a1") is False
 
 
+def test_filter_arbitrary_unparsable_uses_key() -> None:
+    """``===`` filter with ``key=`` matches against the keyed value."""
+    items = [{"v": "wat"}, {"v": "WAT"}, {"v": "else"}]
+    spec = Specifier("===wat")
+    assert list(spec.filter(items, key=lambda x: x["v"])) == [
+        {"v": "wat"},
+        {"v": "WAT"},
+    ]
+
+
 def test_filter_arbitrary_pep440_unparsable_buffer_flush() -> None:
     """``===wat`` flushes the unparsable buffer when no final ever lands."""
     # "wat" never parses, so no final can be reached for the literal
