@@ -3279,6 +3279,13 @@ def test_filter_arbitrary_with_prereleases_false_skips_pre() -> None:
     assert list(spec.filter(["1.0a1", "0.9"], prereleases=False)) == []
 
 
+def test_filter_arbitrary_constructor_prereleases_false_skips_pre() -> None:
+    """``Specifier('===1.0a1', prereleases=False)`` honors the constructor flag."""
+    spec = Specifier("===1.0a1", prereleases=False)
+    assert list(spec.filter(["1.0a1"])) == []
+    assert spec.contains("1.0a1") is False
+
+
 def test_filter_arbitrary_pep440_unparsable_buffer_flush() -> None:
     """``===wat`` flushes the unparsable buffer when no final ever lands."""
     # "wat" never parses, so no final can be reached for the literal

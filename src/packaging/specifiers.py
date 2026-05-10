@@ -720,6 +720,12 @@ class Specifier(BaseSpecifier):
         ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
         """
+        if prereleases is None:
+            if self._prereleases is not None:
+                prereleases = self._prereleases
+            elif self.prereleases:
+                prereleases = True
+
         if self.operator == "===":
             spec_lower = self.version.lower()
             matches = (
@@ -728,12 +734,6 @@ class Specifier(BaseSpecifier):
                 if str(item if key is None else key(item)).lower() == spec_lower
             )
             return _apply_prereleases_filter(matches, key, prereleases)
-
-        if prereleases is None:
-            if self._prereleases is not None:
-                prereleases = self._prereleases
-            elif self.prereleases:
-                prereleases = True
 
         ranges = self._ranges
         if ranges is None:
