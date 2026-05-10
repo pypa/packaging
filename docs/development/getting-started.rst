@@ -30,15 +30,17 @@ each supported Python version and run the tests. For example:
     $ nox -s tests
     ...
     nox > Ran multiple sessions:
-    nox > * tests-3.8: success
     nox > * tests-3.9: success
     nox > * tests-3.10: success
     nox > * tests-3.11: success
     nox > * tests-3.12: success
     nox > * tests-3.13: success
-    nox > * tests-pypy3.8: skipped
+    nox > * tests-3.14: success
+    nox > * tests-3.13t: success
+    nox > * tests-3.14t: success
     nox > * tests-pypy3.9: skipped
     nox > * tests-pypy3.10: skipped
+    nox > * tests-pypy3.11: skipped
 
 You may not have all the required Python versions installed, in which case you
 will see one or more ``InterpreterNotFound`` errors.
