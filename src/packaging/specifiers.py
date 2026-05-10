@@ -1044,7 +1044,7 @@ class SpecifierSet(BaseSpecifier):
     def _get_ranges(self) -> Sequence[VersionRange]:
         """Intersect all specifiers into a single sequence of version ranges.
 
-        Empty when unsatisfiable. Callers must  ensure ``self._specs``
+        Empty when unsatisfiable. Callers must ensure ``self._specs``
         is non-empty.
         """
         if self._ranges is not None:
