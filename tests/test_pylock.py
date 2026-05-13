@@ -282,6 +282,54 @@ def test_pylock_invalid_vcs() -> None:
 
 
 @pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        (
+            {
+                "lock-version": "1.0",
+                "created-by": "pip",
+                "packages": [
+                    {
+                        "name": "example",
+                        "index": "not-a-url",
+                        "wheels": [
+                            {
+                                "name": "example-1.0-py3-none-any.whl",
+                                "url": "https://example.com/example-1.0-py3-none-any.whl",
+                                "hashes": {"sha256": "f" * 40},
+                            }
+                        ],
+                    }
+                ],
+            },
+            "URL must be absolute in 'packages[0].index'",
+        ),
+        (
+            {
+                "lock-version": "1.0",
+                "created-by": "pip",
+                "packages": [
+                    {
+                        "name": "example",
+                        "vcs": {
+                            "type": "git",
+                            "url": "not-a-url",
+                            "commit-id": "f" * 40,
+                        },
+                    }
+                ],
+            },
+            "URL must be absolute in 'packages[0].vcs.url'",
+        ),
+    ],
+)
+def test_pylock_invalid_urls(data: dict[str, Any], expected: str) -> None:
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == expected
+
+
+@pytest.mark.parametrize(
     ("dist", "expected_filename"),
     [
         # sdists
