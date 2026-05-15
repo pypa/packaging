@@ -919,6 +919,14 @@ class TestVersion:
         v2 = SimpleVersion("2.0")
         assert v1 != v2
 
+    def test_gt_with_cached_other(self) -> None:
+        """__gt__ fast path when other already has a cached key."""
+        other = Version("1.0")
+        # Warm other's key cache.
+        _ = other < Version("2.0")
+        # Fresh version on the left, cached one on the right.
+        assert Version("2.0") > other
+
     def test_version_compare_with_base_version_subclass(self) -> None:
         """Test Version comparison with another _BaseVersion subclass"""
         v1 = Version("1.0")

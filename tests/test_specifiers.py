@@ -1141,7 +1141,7 @@ class TestSpecifierInternal:
     def test_spec_version_cache_with_wildcards(
         self, specifier: str, test_versions: list[str]
     ) -> None:
-        """Wildcard specifiers use prefix matching, cache stays None."""
+        """Wildcard specifiers cache the parsed base version once."""
         spec = Specifier(specifier, prereleases=True)
 
         for v in test_versions:
@@ -1149,7 +1149,10 @@ class TestSpecifierInternal:
         _ = spec.prereleases
         _ = hash(spec)
 
-        assert spec._spec_version is None
+        # ``==1.0.*`` parses ``1.0`` for the range bounds; that
+        # parsed base lands in the cache.
+        assert spec._spec_version is not None
+        assert spec._spec_version[0] == "1.0"
 
     @pytest.mark.parametrize(
         "specifier",
@@ -2638,6 +2641,9 @@ class TestIsUnsatisfiable:
         # Local versions (spec with local + spec without local that strips local)
         "==1.0+local1,>=1.0",
         "!=1.0+local1,>=1.0",
+        "==1.0,>=0.5",
+        "==1.0,!=0.5",
+        "==1.0,<=2.0",
         "==1.0+local1,!=1.0+local2",
         "==1.0+local1,==1.0",
         "==1.0+local1,<=1.0",
@@ -2670,6 +2676,8 @@ class TestIsUnsatisfiable:
         # Final version sits below its own post-releases
         ">=1.0,<1.0.post0",
         ">=1.0,<1.0.post1",
+        # Lower bound below base.dev0: other-base versions survive
+        ">=0,<1.0.post0,!=1.0",
         # <V.postN only excludes pre-releases of V.postN itself,
         # not pre-releases of the base release (#1140)
         "==1.0.dev0,<1.0.post1",
@@ -2773,6 +2781,8 @@ class TestIsUnsatisfiable:
         "<2.0",
         # Exact local pin: nearest == upper and upper inclusive
         "==1.0+local",
+        # === forces range fallback in prerelease check
+        "===1.0",
         # === with unparsable string (prereleases filter does not apply)
         "===foobar",
         # Compatible release from pre-release includes final release
@@ -2963,38 +2973,33 @@ def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
 
 
 def test_pickle_specifier_setstate_clears_cache() -> None:
-    # Verify that __setstate__ resets all three cached slots to None,
-    # regardless of what was cached before the call.
+    # Verify that __setstate__ resets all cached slots to their reset
+    # values, regardless of what was cached before the call.
     s = Specifier("==1.*")
     # Warm up every cache slot.
-    _ = s.prereleases  # populates _spec_version
-    _ = s._get_wildcard_split("1.*")  # populates _wildcard_split
-    _ = s._to_ranges()  # populates _ranges
+    _ = s._to_ranges()  # populates _spec_version + _ranges
     assert s._spec_version is not None
-    assert s._wildcard_split is not None
     assert s._ranges is not None
 
     s.__setstate__((("==", "1.*"), None))
 
     assert s._spec_version is None
-    assert s._wildcard_split is None
     assert s._ranges is None
 
 
 def test_pickle_specifierset_setstate_clears_cache() -> None:
-    # Verify that __setstate__ resets all cached slots to None,
-    # regardless of what was cached before the call.
+    # Verify that __setstate__ resets all cached slots, regardless of
+    # what was cached before the call.
     ss = SpecifierSet(">=1.0,<2.0")
     # Warm up every cache slot.
-    ss.is_unsatisfiable()  # populates _is_unsatisfiable
-    list(ss.filter(["1.5"]))  # populates _resolved_ops
+    ss.is_unsatisfiable()  # populates _is_unsatisfiable + _ranges
     assert ss._is_unsatisfiable is not None
-    assert ss._resolved_ops is not None
+    assert ss._ranges is not None
 
     ss.__setstate__(((Specifier(">=3.0"), Specifier("<4.0")), None))
 
     assert ss._is_unsatisfiable is None
-    assert ss._resolved_ops is None
+    assert ss._ranges is None
 
 
 # Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
@@ -3185,3 +3190,121 @@ def test_pickle_specifierset_26_2_tuple_format_loads() -> None:
     assert "3.12" in ss
     assert "4.0" not in ss
     assert ss.prereleases is None
+
+
+def test_filter_multirange_pep440_prerelease_after_final() -> None:
+    """Multi-range PEP 440 path drops a prerelease that arrives after a final."""
+    # `!=1.5` has two ranges: (-inf, 1.5) and (AFTER_LOCALS(1.5), +inf).
+    ss = SpecifierSet("!=1.5")
+    assert list(ss.filter(["1.4", "1.6a1"])) == ["1.4"]
+    assert list(ss.filter(["1.6a1", "1.4"])) == ["1.4"]
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        ">0.5",
+        ">=1.0",
+        "<=2.0",
+        "<3.0",
+        "==1.5",
+        "!=1.5",
+        "==1.*",
+        "!=1.0+local",
+        "~=1.2.3",
+        "===wat",
+    ],
+)
+def test_specifier_construction_is_lazy(spec: str) -> None:
+    s = Specifier(spec)
+    assert s._spec_version is None
+    assert s._ranges is None
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "",
+        ">=1.0",
+        ">=1.0,<2.0",
+        ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14,!=3.11.0",
+        "===wat",
+    ],
+)
+def test_specifierset_construction_is_lazy(spec: str) -> None:
+    ss = SpecifierSet(spec)
+    assert ss._is_unsatisfiable is None
+    assert ss._ranges is None
+    # Every inner Specifier must also be untouched.
+    for inner in ss._specs:
+        assert inner._spec_version is None
+        assert inner._ranges is None
+
+
+def test_specifier_filter_with_version_iterable_warms_then_reuses_cache() -> None:
+    """filter() reuses warm _ranges and exercises the Version isinstance branch."""
+    spec = Specifier(">=1.5")
+    assert spec.contains(Version("2.0"))
+    items = [Version("1.0"), Version("2.0"), Version("3.0")]
+    assert list(spec.filter(items)) == [Version("2.0"), Version("3.0")]
+
+
+@pytest.mark.parametrize(
+    ("spec_str", "version_str", "expected"),
+    [
+        # >V (AFTER_POSTS): trimmed release longer than parsed.release
+        (">1.2.3", "2", True),
+        # !=V (AFTER_LOCALS upper-side): trimmed release longer than parsed
+        ("!=1.2.3", "2", True),
+        # <=V (AFTER_LOCALS upper): parsed > V cmpkey-wise but shorter release
+        ("<=1.2.3", "2", False),
+    ],
+)
+def test_boundary_closure_short_release(
+    spec_str: str, version_str: str, expected: bool
+) -> None:
+    """Closures handle parsed versions whose release is shorter than the boundary's."""
+    spec = Specifier(spec_str)
+    version = Version(version_str)
+    assert spec.contains(version) is expected
+    # Also drive Specifier.filter directly: contains has a fast path that
+    # bypasses the range closures for short releases, but filter does not.
+    filtered = list(spec.filter([version], prereleases=True))
+    assert (filtered == [version]) is expected
+
+
+def test_filter_arbitrary_with_prereleases_false_skips_pre() -> None:
+    """``===1.0a1`` with ``prereleases=False`` drops the pre-release."""
+    spec = Specifier("===1.0a1")
+    assert list(spec.filter(["1.0a1", "0.9"], prereleases=False)) == []
+
+
+def test_filter_arbitrary_constructor_prereleases_false_skips_pre() -> None:
+    """``Specifier('===1.0a1', prereleases=False)`` honors the constructor flag."""
+    spec = Specifier("===1.0a1", prereleases=False)
+    assert list(spec.filter(["1.0a1"])) == []
+    assert spec.contains("1.0a1") is False
+
+
+def test_filter_arbitrary_unparsable_uses_key() -> None:
+    """``===`` filter with ``key=`` matches against the keyed value."""
+    items = [{"v": "wat"}, {"v": "WAT"}, {"v": "else"}]
+    spec = Specifier("===wat")
+    assert list(spec.filter(items, key=lambda x: x["v"])) == [
+        {"v": "wat"},
+        {"v": "WAT"},
+    ]
+
+
+def test_filter_arbitrary_pep440_unparsable_buffer_flush() -> None:
+    """``===wat`` flushes the unparsable buffer when no final ever lands."""
+    # "wat" never parses, so no final can be reached for the literal
+    # match. Two matching items both buffer and then flush at the end.
+    spec = Specifier("===wat")
+    assert list(spec.filter(["wat", "wat"])) == ["wat", "wat"]
+
+
+def test_filter_arbitrary_pep440_pre_only() -> None:
+    """``===1.0a1`` PEP 440 default: prerelease literal flushes without a final."""
+    pre_spec = Specifier("===1.0a1")
+    assert list(pre_spec.filter(["1.0a1"])) == ["1.0a1"]
