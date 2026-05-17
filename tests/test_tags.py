@@ -613,9 +613,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)  # type: ignore[attr-defined]
-        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[
-            -len(expected) :
-        ]
+        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[: len(expected)]
         assert linux_platform == expected
 
     def test_linux_platforms_manylinux_unsupported(
@@ -638,9 +636,9 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         assert platforms == [
+            "linux_x86_64",
             "manylinux_2_5_x86_64",
             "manylinux1_x86_64",
-            "linux_x86_64",
         ]
 
     def test_linux_platforms_manylinux2010(
@@ -651,6 +649,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.12", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
+            "linux_x86_64",
             "manylinux_2_12_x86_64",
             "manylinux2010_x86_64",
             "manylinux_2_11_x86_64",
@@ -661,7 +660,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_x86_64",
             "manylinux_2_5_x86_64",
             "manylinux1_x86_64",
-            "linux_x86_64",
         ]
         assert platforms == expected
 
@@ -674,6 +672,7 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
         expected = [
+            "linux_" + arch,
             "manylinux_2_17_" + arch,
             "manylinux2014_" + arch,
             "manylinux_2_16_" + arch,
@@ -690,7 +689,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_" + arch,
             "manylinux_2_5_" + arch,
             "manylinux1_" + arch,
-            "linux_" + arch,
         ]
         assert platforms == expected
 
@@ -719,10 +717,9 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
         archs = {"armv8l": ["armv8l", "armv7l"]}.get(cross_arch, [cross_arch])
-        expected = []
+        expected = [f"linux_{arch}" for arch in archs]
         for arch in archs:
             expected.extend([f"manylinux_2_17_{arch}", f"manylinux2014_{arch}"])
-        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(
@@ -741,6 +738,7 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = [
+            "linux_i686",
             "manylinux_2_17_i686",
             "manylinux2014_i686",
             "manylinux_2_16_i686",
@@ -757,7 +755,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_i686",
             "manylinux_2_5_i686",
             "manylinux1_i686",
-            "linux_i686",
         ]
         assert platforms == expected
 
@@ -779,9 +776,14 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = (
-            ["manylinux_3_2_aarch64", "manylinux_3_1_aarch64", "manylinux_3_0_aarch64"]
+            [
+                "linux_aarch64",
+                "manylinux_3_2_aarch64",
+                "manylinux_3_1_aarch64",
+                "manylinux_3_0_aarch64",
+            ]
             + [f"manylinux_2_{i}_aarch64" for i in range(50, 16, -1)]
-            + ["manylinux2014_aarch64", "linux_aarch64"]
+            + ["manylinux2014_aarch64"]
         )
         assert platforms == expected
 
@@ -818,13 +820,12 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=cross32))
         target_arch = cross32_arch if cross32 else native_arch
         archs = {"armv8l": ["armv8l", "armv7l"]}.get(target_arch, [target_arch])
-        expected: list[str] = []
+        expected = [f"linux_{arch}" for arch in archs]
         for arch in archs:
             expected.extend(
                 f"musllinux_{musl_version[0]}_{minor}_{arch}"
                 for minor in range(musl_version[1], -1, -1)
             )
-        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
         assert recorder.calls == [pretend.call(fake_executable)]
@@ -1656,12 +1657,12 @@ class TestSysTags:
             manylinux_module, "manylinux2014_compatible", False, raising=False
         )
         expected = [
+            "linux_ppc64",
             "manylinux_2_20_ppc64",
             "manylinux_2_19_ppc64",
             "manylinux_2_18_ppc64",
             # "manylinux2014_ppc64",  # this one is skipped
             # "manylinux_2_17_ppc64", # this one is also skipped
-            "linux_ppc64",
         ]
         platforms = list(tags._linux_platforms())
         assert platforms == expected
@@ -1719,8 +1720,9 @@ class TestSysTags:
             raising=False,
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
-        expected = [f"manylinux_2_22_{machine}"] if tf else []
-        expected.append(f"linux_{machine}")
+        expected = [f"linux_{machine}"]
+        if tf:
+            expected.append(f"manylinux_2_22_{machine}")
         assert platforms == expected
 
     def test_linux_use_manylinux_compatible_none(
@@ -1745,13 +1747,13 @@ class TestSysTags:
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
+            "linux_x86_64",
             "manylinux_2_30_x86_64",
             "manylinux_2_29_x86_64",
             "manylinux_2_28_x86_64",
             "manylinux_2_27_x86_64",
             "manylinux_2_26_x86_64",
             "manylinux_2_25_x86_64",
-            "linux_x86_64",
         ]
         assert platforms == expected
 
