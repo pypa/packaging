@@ -243,6 +243,15 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
+def _validate_index_url(url: str) -> str:
+    parsed_url = urlparse(url)
+    if not parsed_url.scheme:
+        raise PylockValidationError(f"URL {url!r} must be absolute")
+    if parsed_url.scheme in {"http", "https"} and not parsed_url.netloc:
+        raise PylockValidationError(f"URL {url!r} must include a host")
+    return url
+
+
 def _path_name(path: str | None) -> str | None:
     if not path:
         return None
@@ -580,7 +589,7 @@ class Package:
             vcs=_get_object(d, PackageVcs, "vcs"),
             directory=_get_object(d, PackageDirectory, "directory"),
             archive=_get_object(d, PackageArchive, "archive"),
-            index=_get(d, str, "index"),
+            index=_get_as(d, str, _validate_index_url, "index"),
             sdist=_get_object(d, PackageSdist, "sdist"),
             wheels=_get_sequence_of_objects(d, PackageWheel, "wheels"),
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
