@@ -9,7 +9,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 6fec9b7edb08fd9989088709d864a7826dc74e80  # frozen: v0.15.12
+    rev: 5e2fb545eba1ea9dc051f6f962d52fe8f76a9794  # frozen: v0.15.13
     hooks:
       - id: ruff-check
         args: [ --fix ]
@@ -23,21 +23,28 @@ repos:
     - id: rst-inline-touching-normal
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: fc0f09a29bb495f4a91f00266155d6282d52485d  # frozen: v1.20.2
+    rev: d2823d321df3af8f878f7ee3414dc94d037145b9  # frozen: v2.1.0
     hooks:
       - id: mypy
         exclude: '^(docs)'
         args: []
-        additional_dependencies: [hypothesis, nox, orjson, 'pytest<9', tomli, tomli_w, types-invoke, httpx]
+        additional_dependencies: &type_deps
+          - hypothesis
+          - nox
+          - 'pytest<9'
+          - tomli
+          - tomli_w
+          - types-invoke
+          - httpx
 
   - repo: https://github.com/crate-ci/typos
-    rev: 631208b7aac2daa8b707f55e7331f9112b0e062d  # frozen: v1.44.0
+    rev: aca895bf05aec0cb7dffa6f94495e923224d9f17  # frozen: typos-dict-v0.13.26
     hooks:
       - id: typos
         args: []
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: a4727cbbcd26d7098e96b9cb738169b59711ae51  # frozen: v1.24.1
+    rev: 9257c6050c0261b8c57e712f632dc4a8010109a9  # frozen: v1.25.2
     hooks:
       - id: zizmor
         files: "^\\.github"
