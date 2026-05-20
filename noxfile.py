@@ -104,7 +104,7 @@ def property_tests(session: nox.Session) -> None:
 
 PROJECTS = {
     "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
-    "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
+    "build": "https://github.com/pypa/build/archive/refs/tags/1.5.0.tar.gz",
     "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
     "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
@@ -140,7 +140,7 @@ def downstream(session: nox.Session, project: str) -> None:
         session.run(*pip_cmd, "list")
         session.run("pytest", *session.posargs, env=env)
     elif project in {"build", "pyproject_metadata"}:
-        session.install("-e.", "uv==0.11.11", "--group=test")
+        session.install("-e.", "--group=test")
         if project != "build":
             session.run(*pip_cmd, "list")
         session.run("pytest", *session.posargs, env=env)
