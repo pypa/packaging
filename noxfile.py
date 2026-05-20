@@ -140,7 +140,7 @@ def downstream(session: nox.Session, project: str) -> None:
         session.run(*pip_cmd, "list")
         session.run("pytest", *session.posargs, env=env)
     elif project in {"build", "pyproject_metadata"}:
-        session.install("-e.", "--group=test")
+        session.install("-e.", "uv==0.11.11", "--group=test")
         if project != "build":
             session.run(*pip_cmd, "list")
         session.run("pytest", *session.posargs, env=env)
