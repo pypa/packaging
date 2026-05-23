@@ -25,6 +25,7 @@ The ``packaging`` library uses calendar-based versioning (``YY.N``).
 
     version
     specifiers
+    ranges
     markers
     licenses
     requirements

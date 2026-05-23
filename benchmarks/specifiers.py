@@ -60,6 +60,8 @@ class TimeSpecSuite:
             spec._canonicalized = False
         if hasattr(spec, "_resolved_ops"):
             spec._resolved_ops = None
+        if hasattr(spec, "_range_cache"):
+            spec._range_cache = None
         if hasattr(spec, "_ranges"):
             spec._ranges = None
         if hasattr(spec, "_is_unsatisfiable"):
@@ -68,6 +70,8 @@ class TimeSpecSuite:
             sp._spec_version = None
             if hasattr(sp, "_wildcard_split"):
                 sp._wildcard_split = None
+            if hasattr(sp, "_range_cache"):
+                sp._range_cache = None
             if hasattr(sp, "_ranges"):
                 sp._ranges = None
 

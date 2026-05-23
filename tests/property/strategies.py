@@ -133,7 +133,11 @@ def versions_with_local(draw: st.DrawFn) -> Version:
 
 @st.composite
 def specifier_sets(draw: st.DrawFn) -> SpecifierSet:
-    """Generate a random SpecifierSet from common operator/version pairs."""
+    """Random SpecifierSet over ``>= <= > < == !=`` and ``major.minor``.
+
+    Narrow on purpose. Tests that need wildcards, locals, pre/post/dev
+    on the RHS, epochs, or ``===`` should use :func:`rich_specifier_sets`.
+    """
     num = draw(st.integers(min_value=1, max_value=3))
     parts: list[str] = []
     for _ in range(num):
@@ -141,6 +145,58 @@ def specifier_sets(draw: st.DrawFn) -> SpecifierSet:
         major = draw(small_ints)
         minor = draw(small_ints)
         parts.append(f"{op}{major}.{minor}")
+    return SpecifierSet(",".join(parts))
+
+
+_ordered_ops = st.sampled_from([">=", "<=", ">", "<"])
+_equality_ops = st.sampled_from(["==", "!="])
+
+
+@st.composite
+def pep440_specifier_strings(
+    draw: st.DrawFn,
+    *,
+    include_arbitrary: bool = False,
+) -> str:
+    """One specifier string covering the full PEP 440 surface.
+
+    Includes pre/post/dev/local-bearing RHS versions, epochs, multi-
+    segment release tuples, ``==V.*`` / ``!=V.*`` wildcards, and
+    optionally ``===L``.
+    """
+    shape = draw(st.sampled_from(["ordered", "equality", "wildcard", "compatible"]))
+    if include_arbitrary and draw(st.booleans()):
+        shape = "arbitrary"
+    if shape == "ordered":
+        # ``>= <= > <`` reject ``+local`` on the RHS.
+        return f"{draw(_ordered_ops)}{draw(pep440_versions(include_local=False))}"
+    if shape == "equality":
+        return f"{draw(_equality_ops)}{draw(pep440_versions())}"
+    if shape == "wildcard":
+        # ``==V.*`` / ``!=V.*`` take a release-only RHS.
+        return f"{draw(_equality_ops)}{draw(release_versions())}.*"
+    if shape == "compatible":
+        return f"~={draw(multi_segment_versions())}"
+    # ``===L`` with a parseable literal. Unparsable literals like
+    # ``===wat`` are skipped: De Morgan can fail when an unparsable
+    # ``===`` interacts with a non-full rangelike, since the bound
+    # universe is parseable Versions but the literal universe is
+    # all strings.
+    return f"==={draw(pep440_versions())}"
+
+
+@st.composite
+def rich_specifier_sets(
+    draw: st.DrawFn,
+    *,
+    include_arbitrary: bool = False,
+) -> SpecifierSet:
+    """1-3 specifiers from :func:`pep440_specifier_strings`, joined."""
+    num = draw(st.integers(min_value=1, max_value=3))
+    parts = [
+        draw(pep440_specifier_strings(include_arbitrary=include_arbitrary))
+        for _ in range(num)
+    ]
     return SpecifierSet(",".join(parts))
 
 
