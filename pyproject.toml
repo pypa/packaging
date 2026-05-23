@@ -112,6 +112,7 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
 python_version = "3.9"
 files = ["src", "tests", "noxfile.py"]
+native_parser = true
 
 [[tool.mypy.overrides]]
 module = ["_manylinux", "pretend", "progress.*", "pkg_resources"]
