@@ -42,6 +42,7 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
         *PYTHON_VERSIONS,
         "3.13t",
         "3.14t",
+        "3.15t",
         "pypy3.9",
         "pypy3.10",
         "pypy3.11",
@@ -104,7 +105,7 @@ def property_tests(session: nox.Session) -> None:
 
 PROJECTS = {
     "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
-    "build": "https://github.com/pypa/build/archive/refs/tags/1.4.0.tar.gz",
+    "build": "https://github.com/pypa/build/archive/refs/tags/1.5.0.tar.gz",
     "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
     "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
