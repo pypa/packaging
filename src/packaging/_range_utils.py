@@ -27,8 +27,6 @@ from .version import Version
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
-    from .specifiers import Specifier
-
 
 __all__ = [
     "FULL_RANGE",
@@ -43,7 +41,6 @@ __all__ = [
     "bounds_for_spec",
     "filter_by_ranges",
     "intersect_ranges",
-    "intersect_specifier_bounds",
     "matches_bounds_only",
     "range_is_empty",
     "standard_ranges",
@@ -741,33 +738,3 @@ def bounds_for_spec(operator: str, version_str: str) -> tuple[Interval, ...]:
     return standard_ranges(
         operator=operator, version=version, has_local="+" in version_str
     )
-
-
-def intersect_specifier_bounds(specs: Iterable[Specifier]) -> tuple[Interval, ...]:
-    """Intersect bounds of every spec in ``specs``.
-
-    Each :class:`~packaging.specifiers.Specifier` contributes its cached
-    :meth:`~packaging.specifiers.Specifier._to_ranges` bounds, which reuse
-    the per-spec parsed-version cache rather than re-parsing the version
-    string.
-
-    ``===`` contributes the empty list, which collapses the intersection
-    to empty; callers that need ``===`` literal handling must filter
-    such specs out beforehand.
-    """
-    result_bounds: Sequence[Interval] | None = None
-    for s in specs:
-        sub_bounds = s._to_ranges()
-        if result_bounds is None:
-            result_bounds = sub_bounds
-        elif not result_bounds:
-            break
-        else:
-            result_bounds = intersect_ranges(result_bounds, sub_bounds)
-
-    if result_bounds is None:
-        # Every caller guards on a non-empty spec list; an empty
-        # intersection would mean the unbounded full range.
-        return FULL_RANGE  # pragma: no cover
-
-    return tuple(result_bounds)

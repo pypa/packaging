@@ -26,7 +26,7 @@ from typing import (
 
 from ._range_utils import (
     filter_by_ranges,
-    intersect_specifier_bounds,
+    intersect_ranges,
     matches_bounds_only,
     standard_ranges,
     wildcard_ranges,
@@ -42,7 +42,7 @@ elif TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Sequence
 
 
 __all__ = [
@@ -846,7 +846,7 @@ class SpecifierSet(BaseSpecifier):
         self._is_unsatisfiable: bool | None = None
         self._range_cache: VersionRange | None = None
         # Internal bounds cache for the hot filter/contains path
-        # (populated by :func:`packaging._range_utils.intersect_specifier_bounds`).
+        # (populated by :meth:`_intersect_bounds`).
         self._ranges: tuple[Any, ...] | None = None
         self._prereleases = prereleases
 
@@ -1121,6 +1121,28 @@ class SpecifierSet(BaseSpecifier):
 
         return cache
 
+    def _intersect_bounds(self) -> tuple[Any, ...]:
+        """Intersect every specifier's bounds into a single range.
+
+        Reuses each :class:`Specifier`'s per-instance bounds cache rather
+        than re-parsing version strings. Callers must exclude ``===``
+        specifiers (which have no bound form) and guard against the empty
+        set; the result feeds the cold path of :meth:`__contains__` and
+        :meth:`filter`.
+        """
+        result: Sequence[Any] | None = None
+        for spec in self._specs:
+            sub = spec._to_ranges()
+            if result is None:
+                result = sub
+            elif not result:
+                break
+            else:
+                result = intersect_ranges(result, sub)
+        if result is None:  # pragma: no cover - callers guard non-empty specs
+            raise RuntimeError("intersection over an empty SpecifierSet")
+        return tuple(result)
+
     def __contains__(self, item: UnparsedVersion) -> bool:
         """Return whether or not the item is contained in this specifier.
 
@@ -1218,7 +1240,7 @@ class SpecifierSet(BaseSpecifier):
             # interval form; build it once and reuse via ``_ranges``.
             bounds = self._ranges
             if bounds is None:
-                bounds = intersect_specifier_bounds(self._specs)
+                bounds = self._intersect_bounds()
                 self._ranges = bounds
 
             return matches_bounds_only(bounds, version)
@@ -1311,7 +1333,7 @@ class SpecifierSet(BaseSpecifier):
         if not self._has_arbitrary and self._specs:
             bounds = self._ranges
             if bounds is None:
-                bounds = intersect_specifier_bounds(self._specs)
+                bounds = self._intersect_bounds()
                 self._ranges = bounds
 
             return filter_by_ranges(

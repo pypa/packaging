@@ -1377,6 +1377,14 @@ class TestSpecifierSet:
         version_range = spec.to_range()
         assert list(version_range.filter(versions)) == expected
 
+    def test_filter_unsatisfiable_multispec_short_circuits(self) -> None:
+        # The specs sort to ``<1.0``, ``>=2.0``, ``>=2.5``, so the running
+        # bounds intersection is already empty before the last spec; the
+        # fold short-circuits and the set matches nothing.
+        spec = SpecifierSet("<1.0,>=2.0,>=2.5")
+        assert list(spec.filter(["0.5", "1.5", "3.0"])) == []
+        assert spec.to_range().is_empty
+
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
         specs = [Specifier(s) for s in spec_strs]

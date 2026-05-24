@@ -41,7 +41,6 @@ from ._range_utils import (
     bounds_for_spec,
     filter_by_ranges,
     intersect_ranges,
-    intersect_specifier_bounds,
     matches_bounds_only,
     range_is_empty,
 )
@@ -402,17 +401,33 @@ def _detect_not_equal(
     left_upper: UpperBound,
     right_lower: LowerBound,
 ) -> Version | None:
-    """If ``[..., V (excl)] [AFTER_LOCALS(V) (excl), ...]`` matches, return V.
+    """If the gap between two intervals is an ``!=V`` exclusion, return V.
 
-    The gap shape ``!=V`` produces when intersected with surrounding
-    bounds. Only ``!=V`` pattern that can appear inside a multi-interval
-    range.
+    Two gap shapes encode as ``!=V``:
+
+    - ``[..., V (excl)] [AFTER_LOCALS(V) (excl), ...]`` -- ``!=V`` for a
+      *V* with no local segment; the gap spans V and its whole local
+      family, exactly what ``==V`` (and thus ``!=V``) covers.
+    - ``[..., V+local (excl)] [V+local (excl), ...]`` -- ``!=V+local``;
+      the gap is the single point ``V+local``, which ``==V+local``
+      matches verbatim. A no-local single point (a strict singleton's
+      complement) has no ``!=`` form, so *V* must carry a local segment.
     """
     if isinstance(left_upper.version, BoundaryVersion):
         return None
     if left_upper.version is None or left_upper.inclusive:
         return None
     if not isinstance(right_lower.version, BoundaryVersion):
+        # Single-point ``!=V+local`` gap: same exclusive bound on both
+        # sides, and V carries a local. An inclusive right lower would
+        # leave no gap; a no-local point has no ``!=`` form.
+        if (
+            right_lower.version is not None
+            and not right_lower.inclusive
+            and right_lower.version == left_upper.version
+            and left_upper.version.local is not None
+        ):
+            return left_upper.version
         return None
     if right_lower.version.kind != BoundaryKind.AFTER_LOCALS:
         return None
@@ -464,6 +479,42 @@ def _detect_not_equal_wildcard(
     if right_release[-1] != left_release[-1] + 1:
         return None
     return left_upper_v.__replace__(dev=None)
+
+
+def _encode_grouped(bounds: list[Interval]) -> list[list[str]] | None:
+    """Split *bounds* into disjoint groups, encoding each as fragments.
+
+    Consecutive intervals whose gap is an ``!=V`` / ``!=V+local`` /
+    ``!=V.*`` exclusion stay in one group, with that exclusion recorded
+    as an ``!=`` fragment; any other gap starts a new group. Each group
+    encodes as ``_encode_interval`` of its outer bounds plus its ``!=``
+    fragments. Returns one fragment list per group, or ``None`` if any
+    group's outer interval has no PEP 440 form.
+    """
+    groups: list[list[str]] = []
+    group_lower, group_upper = bounds[0]
+    exclusions: list[str] = []
+    for next_lower, next_upper in bounds[1:]:
+        not_equal = _detect_not_equal(group_upper, next_lower)
+        not_equal_wildcard = _detect_not_equal_wildcard(group_upper, next_lower)
+        if not_equal is not None:
+            exclusions.append(f"!={not_equal}")
+        elif not_equal_wildcard is not None:
+            exclusions.append(f"!={not_equal_wildcard}.*")
+        else:
+            # A non-``!=`` gap closes the current group and opens a new one.
+            outer = _encode_interval(group_lower, group_upper)
+            if outer is None:
+                return None
+            groups.append(outer + exclusions)
+            group_lower, exclusions = next_lower, []
+        group_upper = next_upper
+
+    outer = _encode_interval(group_lower, group_upper)
+    if outer is None:
+        return None
+    groups.append(outer + exclusions)
+    return groups
 
 
 class VersionRange:
@@ -835,43 +886,14 @@ class VersionRange:
         >>> VersionRange.from_specifier_set(SpecifierSet(">=2.0,<1.0")).is_empty
         True
         """
-        specs = []
-        arbitrary_specs = []
+        # Intersect every specifier through the public API. ``&`` and
+        # :meth:`from_specifier` already handle ``===`` literals via the
+        # admit set, so the fold needs no operator-specific special
+        # cases. An empty set leaves the unbounded ``full()``.
+        result = cls.full()
         for spec in specifier_set:
-            specs.append(spec)
-            if spec.operator == "===":
-                arbitrary_specs.append(spec)
-
-        if not specs:
-            return cls._build(bounds=FULL_RANGE)
-
-        if not arbitrary_specs:
-            # Common case: no ``===`` literals. Intersect raw bound
-            # tuples; one wrapper allocation for the result.
-            return cls._build_simple(intersect_specifier_bounds(specs))
-
-        # ``===`` literals need separate handling: the rangelike specs
-        # build the bounds, and a single literal is admitted only if
-        # it also satisfies those bounds.
-        rangelike_specs = [s for s in specs if s.operator != "==="]
-        if not rangelike_specs:
-            rangelike_result: VersionRange = cls._build(bounds=FULL_RANGE)
-        else:
-            rangelike_result = cls._build_simple(
-                intersect_specifier_bounds(rangelike_specs)
-            )
-
-        # Each ``===L_i`` requires the candidate's string to equal L_i.
-        # Distinct literals can never all match, so the result is empty.
-        literals_lower = {s.version.lower() for s in arbitrary_specs}
-        if len(literals_lower) > 1:
-            return cls._build(bounds=())
-
-        (literal_lower,) = literals_lower
-        if literal_lower in rangelike_result:
-            return cls._build(bounds=(), admit=frozenset({literal_lower}))
-
-        return cls._build(bounds=())
+            result = result.intersection(cls.from_specifier(spec))
+        return result
 
     def to_specifier_set(self) -> SpecifierSet | None:
         """Return a single :class:`SpecifierSet` whose
@@ -909,38 +931,24 @@ class VersionRange:
         if self._bounds == FULL_RANGE:
             return SpecifierSet("")
 
-        # Walk left-to-right, merging adjacent intervals whose gap is
-        # a ``!=V`` or ``!=V.*`` exclusion. The merged outer bounds
-        # plus the chain of ``!=`` fragments form a single SpecifierSet.
-        bounds = list(self._bounds)
-        outer_lower = bounds[0][0]
-        outer_upper = bounds[0][1]
-        exclusions: list[str] = []
-        for next_lower, next_upper in bounds[1:]:
-            not_equal = _detect_not_equal(outer_upper, next_lower)
-            not_equal_wildcard = _detect_not_equal_wildcard(outer_upper, next_lower)
-            if not_equal is not None:
-                exclusions.append(f"!={not_equal}")
-            elif not_equal_wildcard is not None:
-                exclusions.append(f"!={not_equal_wildcard}.*")
-            else:
-                return None
-            outer_upper = next_upper
-
-        outer_parts = _encode_interval(outer_lower, outer_upper)
-        if outer_parts is None:
+        # A single SpecifierSet exists only when every interval joins
+        # into one ``!=``-connected group; a genuine disjoint gap (more
+        # than one group) has no single-set form.
+        groups = _encode_grouped(list(self._bounds))
+        if groups is None or len(groups) != 1:
             return None
-        return SpecifierSet(",".join(outer_parts + exclusions))
+        return SpecifierSet(",".join(groups[0]))
 
     def to_specifier_sets(self) -> tuple[SpecifierSet, ...] | None:
         """Return a tuple of :class:`SpecifierSet` whose union equals
         *self*, or ``None`` if no such tuple exists.
 
-        Looser than :meth:`to_specifier_set`: a range that fits a
-        single :class:`SpecifierSet` returns a one-tuple, otherwise
-        each interval encodes separately. ``None`` only for ranges
-        whose individual intervals still have no PEP 440 specifier
-        (for example the singleton produced by :meth:`singleton`).
+        Looser than :meth:`to_specifier_set`: each maximal run of
+        intervals joined by ``!=V`` / ``!=V.*`` gaps becomes one
+        :class:`SpecifierSet`, and genuinely disjoint runs become
+        separate ones. ``None`` only when some run's outer interval has
+        no PEP 440 form (for example the strict singleton produced by
+        :meth:`singleton`).
 
         >>> r = (
         ...     VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -965,20 +973,12 @@ class VersionRange:
         if self._bounds == FULL_RANGE:
             return (SpecifierSet(""),)
 
-        # Prefer the single-set form when it exists; that catches
-        # multi-interval ``!=V`` / ``!=V.*`` patterns the per-interval
-        # encoder rejects.
-        single = self.to_specifier_set()
-        if single is not None:
-            return (single,)
-
-        out: list[SpecifierSet] = []
-        for lower, upper in self._bounds:
-            parts = _encode_interval(lower, upper)
-            if parts is None:
-                return None
-            out.append(SpecifierSet(",".join(parts)))
-        return tuple(out)
+        # One SpecifierSet per disjoint group; ``!=`` gaps stay merged
+        # inside their group.
+        groups = _encode_grouped(list(self._bounds))
+        if groups is None:
+            return None
+        return tuple(SpecifierSet(",".join(group)) for group in groups)
 
     def _admit_to_specifier_set(self) -> SpecifierSet | None:
         """Encode a single ``===L`` range as ``SpecifierSet("===L")``.

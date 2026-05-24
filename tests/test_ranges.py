@@ -905,6 +905,50 @@ class TestToSpecifierSets:
         u = a | b
         assert u.to_specifier_set() is None
 
+    def test_local_not_equal_round_trips(self) -> None:
+        # ``!=1.0+foo`` excludes exactly the single local version
+        # ``1.0+foo`` (a single-point gap), so it round-trips through a
+        # single SpecifierSet rather than raising ``InvalidSpecifier``.
+        r = VersionRange.from_specifier(Specifier("!=1.0+foo"))
+        assert r.to_specifier_set() == SpecifierSet("!=1.0+foo")
+        assert r.to_specifier_sets() == (SpecifierSet("!=1.0+foo"),)
+
+    def test_disjoint_groups_keep_internal_not_equal_merged(self) -> None:
+        # Two disjoint runs, each with an internal ``!=`` gap, stay
+        # merged within their own group instead of splitting per interval.
+        r = VersionRange.from_specifier_set(
+            SpecifierSet(">=1.0,<2.0,!=1.5")
+        ) | VersionRange.from_specifier_set(SpecifierSet(">=5.0,<6.0,!=5.5"))
+        sets = r.to_specifier_sets()
+        assert sets is not None
+        assert [str(s) for s in sets] == ["!=1.5,<2.0,>=1.0", "!=5.5,<6.0,>=5.0"]
+        union = VersionRange.empty()
+        for s in sets:
+            union = union | VersionRange.from_specifier_set(s)
+        assert union == r
+
+    def test_local_not_equal_in_disjoint_group_round_trips(self) -> None:
+        # A ``!=V+local`` gap inside one disjoint run survives the split
+        # (this raised InvalidSpecifier before the single-point gap fix).
+        r = (
+            VersionRange.from_specifier(Specifier("!=1.0+foo"))
+            & VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
+        ) | VersionRange.from_specifier_set(SpecifierSet(">=5.0"))
+        sets = r.to_specifier_sets()
+        assert sets is not None
+        union = VersionRange.empty()
+        for s in sets:
+            union = union | VersionRange.from_specifier_set(s)
+        assert union == r
+
+    def test_unencodable_nonfinal_group_returns_none(self) -> None:
+        # A strict singleton run ahead of a disjoint interval has no
+        # PEP 440 form, so the whole conversion is None.
+        r = VersionRange.singleton("1.5") | VersionRange.from_specifier_set(
+            SpecifierSet(">=5.0")
+        )
+        assert r.to_specifier_sets() is None
+
 
 class TestArbitraryCarveOut:
     """``===`` arbitrary-equality ranges: a case-insensitive string-match
