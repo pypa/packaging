@@ -7,17 +7,13 @@ from __future__ import annotations
 
 import enum
 import functools
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Final,
-)
 
 from .version import InvalidVersion, Version
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
-    from typing import Union
+    from typing import Any, Final, Union
 
 __all__ = [
     "FULL_RANGE",

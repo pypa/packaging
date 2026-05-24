@@ -7,10 +7,11 @@ import os
 import re
 import sys
 import warnings
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 from ._elffile import EIClass, EIData, ELFFile, EMachine
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator, Sequence
 

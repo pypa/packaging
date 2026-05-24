@@ -3,12 +3,13 @@ from __future__ import annotations
 import contextlib
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NoReturn
 
 from .specifiers import Specifier
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
+    from typing import NoReturn
 
 
 @dataclass

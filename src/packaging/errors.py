@@ -3,7 +3,10 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import sys
-import typing
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import typing
 
 __all__ = ["ExceptionGroup"]
 

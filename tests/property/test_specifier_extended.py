@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import typing
-
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
@@ -20,7 +18,8 @@ from tests.property.strategies import (
     specifier_sets,
 )
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from packaging.version import Version
 
 pytestmark = pytest.mark.property

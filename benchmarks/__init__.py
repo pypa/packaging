@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar
-
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Any, TypeVar
 
-F = TypeVar("F", bound="Callable[..., Any]")
+    F = TypeVar("F", bound="Callable[..., Any]")
 
 
 def add_attributes(**attrs: object) -> Callable[[F], F]:

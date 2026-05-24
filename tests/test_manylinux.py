@@ -12,9 +12,6 @@ import sys
 import types
 import typing
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Generator
-
 import pretend
 import pytest
 
@@ -29,6 +26,10 @@ from packaging._manylinux import (
     _parse_elf,
     _parse_glibc_version,
 )
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @pytest.fixture(autouse=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pytest
 
@@ -27,6 +27,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from packaging.markers import Environment
     from packaging.utils import NormalizedName

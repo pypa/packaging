@@ -14,14 +14,11 @@ import sys
 import sysconfig
 from collections.abc import Iterable, Iterator, Sequence
 from importlib.machinery import EXTENSION_SUFFIXES
-from typing import (
-    TYPE_CHECKING,
-    TypeVar,
-    cast,
-)
+from typing import TypeVar, cast
 
 from . import _manylinux, _musllinux
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable
     from collections.abc import Set as AbstractSet

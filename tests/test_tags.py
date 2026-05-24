@@ -28,7 +28,8 @@ from packaging import tags
 from packaging._manylinux import _GLibCVersion
 from packaging._musllinux import _MuslVersion
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from collections.abc import Callable
 
 

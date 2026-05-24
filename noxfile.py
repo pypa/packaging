@@ -20,14 +20,15 @@ import textwrap
 import time
 import urllib.request
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
 
 import nox
 
 import packaging.version  # will always be present with nox
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from typing import IO
 
 nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True

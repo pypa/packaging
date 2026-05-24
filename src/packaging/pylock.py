@@ -7,7 +7,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Protocol,
@@ -32,6 +31,7 @@ from .utils import (
 )
 from .version import Version
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Collection, Iterator
     from pathlib import Path

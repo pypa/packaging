@@ -10,10 +10,11 @@ import functools
 import re
 import subprocess
 import sys
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 from ._elffile import ELFFile
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 

@@ -22,7 +22,8 @@ from packaging.version import (
     parse,
 )
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from collections.abc import Callable
 
     from typing_extensions import Self, Unpack

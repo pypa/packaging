@@ -18,7 +18,8 @@ from packaging.version import Version, parse
 
 from .test_version import VERSIONS
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from collections.abc import Callable
 
 LEGACY_SPECIFIERS = [

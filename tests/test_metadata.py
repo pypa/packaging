@@ -4,14 +4,14 @@ import email
 import inspect
 import pathlib
 import textwrap
-import typing
 
 import pytest
 
 from packaging import metadata, requirements, specifiers, utils, version
 from packaging.errors import ExceptionGroup
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from packaging.metadata import RawMetadata
 
 

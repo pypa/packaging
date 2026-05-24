@@ -12,10 +12,8 @@ from __future__ import annotations
 
 import abc
 import re
-import sys
 import typing
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Final,
@@ -35,13 +33,15 @@ from ._ranges import (
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
 
-if sys.version_info >= (3, 10):
-    from typing import TypeGuard  # pragma: no cover
-elif TYPE_CHECKING:
-    from typing_extensions import TypeGuard
-
+TYPE_CHECKING = False
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Iterable, Iterator, Sequence
+
+    if sys.version_info >= (3, 10):
+        from typing import TypeGuard  # pragma: no cover
+    elif TYPE_CHECKING:
+        from typing_extensions import TypeGuard
 
     from ._ranges import VersionRange
 

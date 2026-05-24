@@ -20,7 +20,8 @@ from . import licenses, requirements, specifiers, utils
 from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
 
 T = typing.TypeVar("T")

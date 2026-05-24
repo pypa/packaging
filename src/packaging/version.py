@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 import sys
-import typing
 from typing import (
     Any,
     Callable,
@@ -22,12 +21,13 @@ from typing import (
     Union,
 )
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from typing_extensions import Self, Unpack
 
 if sys.version_info >= (3, 13):  # pragma: no cover
     from warnings import deprecated as _deprecated
-elif typing.TYPE_CHECKING:
+elif TYPE_CHECKING:
     from typing_extensions import deprecated as _deprecated
 else:  # pragma: no cover
     import functools
@@ -137,7 +137,7 @@ class _BaseVersion:
     # This can also be a normal member (see the packaging_legacy package);
     # we are just requiring it to be readable. Actually defining a property
     # has runtime effect on subclasses, so it's typing only.
-    if typing.TYPE_CHECKING:
+    if TYPE_CHECKING:
 
         @property
         def _key(self) -> tuple[Any, ...]: ...

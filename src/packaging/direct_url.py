@@ -4,16 +4,25 @@ import dataclasses
 import re
 import urllib.parse
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:  # pragma: no cover
     import sys
     from collections.abc import Collection
+    from typing import Any, Protocol, TypeVar
 
     if sys.version_info >= (3, 11):
         from typing import Self
     else:
         from typing_extensions import Self
+
+    _T = TypeVar("_T")
+
+    class _FromMappingProtocol(Protocol):  # pragma: no cover
+        @classmethod
+        def _from_dict(cls, d: Mapping[str, Any]) -> Self: ...
+
+    _FromMappingProtocolT = TypeVar("_FromMappingProtocolT", bound=_FromMappingProtocol)
 
 __all__ = [
     "ArchiveInfo",
@@ -26,17 +35,6 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
-
-
-_T = TypeVar("_T")
-
-
-class _FromMappingProtocol(Protocol):  # pragma: no cover
-    @classmethod
-    def _from_dict(cls, d: Mapping[str, Any]) -> Self: ...
-
-
-_FromMappingProtocolT = TypeVar("_FromMappingProtocolT", bound=_FromMappingProtocol)
 
 
 def _json_dict_factory(data: list[tuple[str, Any]]) -> dict[str, Any]:

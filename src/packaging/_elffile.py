@@ -12,7 +12,10 @@ from __future__ import annotations
 import enum
 import os
 import struct
-from typing import IO
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import IO
 
 
 class ELFInvalid(ValueError):

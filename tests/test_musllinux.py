@@ -10,7 +10,8 @@ import pytest
 from packaging import _musllinux
 from packaging._musllinux import _get_musl_version, _MuslVersion, _parse_musl_version
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from collections.abc import Generator
 
 
