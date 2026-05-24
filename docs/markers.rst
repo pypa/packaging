@@ -1,6 +1,8 @@
 Markers
 =======
 
+.. currentmodule:: packaging.markers
+
 One extra requirement of dealing with dependencies is the ability to specify
 if it is required depending on the operating system or Python version in use.
 The :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`

@@ -51,6 +51,8 @@ Low Level Interface
 
 .. autofunction:: packaging.metadata.parse_email
 
+.. autoclass:: packaging.metadata.RFC822Message
+
 
 Exceptions
 ''''''''''
