@@ -3,6 +3,8 @@ Ranges
 
 .. versionadded:: 26.3
 
+.. currentmodule:: packaging.ranges
+
 A :class:`~packaging.ranges.VersionRange` represents the set of
 :class:`~packaging.version.Version` values matched by a
 :class:`~packaging.specifiers.Specifier` or
@@ -15,8 +17,9 @@ reduce to direct set operations.
 Constructing a range
 --------------------
 
-Build a range from a :class:`Specifier` or :class:`SpecifierSet`
-using :meth:`~Specifier.to_range`:
+Build a range from a :class:`~packaging.specifiers.Specifier` or
+:class:`~packaging.specifiers.SpecifierSet` using
+:meth:`~packaging.specifiers.Specifier.to_range`:
 
 .. doctest::
 
@@ -90,8 +93,10 @@ Set operations answer overlap and subset questions directly:
 Membership and filtering
 ------------------------
 
-``in`` and :meth:`~VersionRange.filter` mirror :class:`SpecifierSet`'s
-:meth:`~SpecifierSet.__contains__` and :meth:`~SpecifierSet.filter`,
+``in`` and :meth:`~VersionRange.filter` mirror
+:class:`~packaging.specifiers.SpecifierSet`'s
+:meth:`~packaging.specifiers.SpecifierSet.__contains__` and
+:meth:`~packaging.specifiers.SpecifierSet.filter`,
 including the PEP 440 pre-release behaviour: with
 ``prereleases=None`` (the default), pre-releases are buffered and
 emitted only when the iterable contains no in-range final release.
@@ -111,7 +116,8 @@ Converting back to a SpecifierSet
 ---------------------------------
 
 :meth:`~VersionRange.to_specifier_set` returns a single
-:class:`SpecifierSet` whose :meth:`~SpecifierSet.to_range` yields the
+:class:`~packaging.specifiers.SpecifierSet` whose
+:meth:`~packaging.specifiers.SpecifierSet.to_range` yields the
 same range, or ``None`` if no such single set exists. Redundant
 specifiers are dropped, which makes the round-trip a useful
 normalisation step:
@@ -128,7 +134,7 @@ normalisation step:
 PEP 440 specifier sets are not closed under union, so the disjoint
 union of two intervals returns ``None``;
 :meth:`~VersionRange.to_specifier_sets` returns one
-:class:`SpecifierSet` per interval:
+:class:`~packaging.specifiers.SpecifierSet` per interval:
 
 .. doctest::
 
