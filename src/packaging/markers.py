@@ -9,9 +9,27 @@ import os
 import platform
 import sys
 from collections.abc import Set as AbstractSet
-from typing import TYPE_CHECKING, Callable, Literal, TypedDict, Union, cast
+from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Literal,
+    TypedDict,
+    Union,
+    cast,
+)
 
-from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+from ._parser import (
+    MarkerAtom,
+    MarkerItem,
+    MarkerList,
+    Op,
+    Value,
+    Variable,
+)
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
@@ -25,6 +43,11 @@ __all__ = [
     "EvaluateContext",
     "InvalidMarker",
     "Marker",
+    "MarkerAnd",
+    "MarkerCompare",
+    "MarkerCompareOp",
+    "MarkerNode",
+    "MarkerOr",
     "UndefinedComparison",
     "UndefinedEnvironmentName",
     "default_environment",
@@ -318,6 +341,141 @@ def default_environment() -> Environment:
     }
 
 
+MarkerCompareOp = Literal[
+    "===",
+    "==",
+    "!=",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "~=",
+    "in",
+    "not in",
+]
+
+
+@dataclass(frozen=True)
+class MarkerCompare:
+    """One comparison from a marker expression (a PEP 508 atom).
+
+    *left*, *op*, and *right* match the parse tree. Each side is the string form
+    of a variable name or literal value (without surrounding quote characters).
+    """
+
+    left: str
+    op: MarkerCompareOp
+    right: str
+
+
+@dataclass(frozen=True)
+class MarkerAnd:
+    """The boolean ``and`` of one or more sub-expressions."""
+
+    operands: tuple[MarkerNode, ...]
+
+
+@dataclass(frozen=True)
+class MarkerOr:
+    """The boolean ``or`` of one or more sub-expressions."""
+
+    operands: tuple[MarkerNode, ...]
+
+
+MarkerNode: TypeAlias = Union[MarkerCompare, MarkerAnd, MarkerOr]
+"""A marker expression: comparison, conjunction, or disjunction."""
+
+
+# Canonical marker environment variable names after normalization
+# (process_env_var + .replace(".", "_")), used to distinguish variables
+# from literal values when serializing a MarkerNode tree.
+_MARKER_VARIABLE_NAMES: frozenset[str] = frozenset(
+    {
+        "python_version",
+        "python_full_version",
+        "os_name",
+        "sys_platform",
+        "platform_release",
+        "platform_system",
+        "platform_version",
+        "platform_machine",
+        "platform_python_implementation",
+        "implementation_name",
+        "implementation_version",
+        "extra",
+        "extras",
+        "dependency_groups",
+    }
+)
+
+
+def _split_marker_or_groups(markers: MarkerList) -> list[list[MarkerList | MarkerItem]]:
+    """Split a marker list into ``or`` groups (each group is ``and``-combined)."""
+    groups: list[list[MarkerList | MarkerItem]] = [[]]
+    for item in markers:
+        if item == "or":
+            groups.append([])
+        elif item == "and":
+            continue
+        else:
+            groups[-1].append(cast("MarkerList | MarkerItem", item))
+    return groups
+
+
+def _marker_expr_to_node(item: MarkerList | MarkerItem) -> MarkerNode:
+    if isinstance(item, list):
+        inner = _markers_to_ast(item)
+        if inner is None:
+            raise InvalidMarker("empty parenthesized marker expression")
+        return inner
+    lhs, op, rhs = item
+    return MarkerCompare(lhs.value, cast("MarkerCompareOp", op.value), rhs.value)
+
+
+def _markers_to_ast(markers: MarkerList) -> MarkerNode | None:
+    """Build a public AST from the internal marker list representation."""
+    if not markers:
+        return None
+
+    or_groups = _split_marker_or_groups(markers)
+    or_operands: list[MarkerNode] = []
+    for group in or_groups:
+        if not group:
+            continue
+        and_parts = [_marker_expr_to_node(item) for item in group]
+        if len(and_parts) == 1:
+            or_operands.append(and_parts[0])
+        else:
+            or_operands.append(MarkerAnd(tuple(and_parts)))
+
+    if not or_operands:
+        return None
+    if len(or_operands) == 1:
+        return or_operands[0]
+    return MarkerOr(tuple(or_operands))
+
+
+def _serialize_node(node: MarkerNode, *, _parens: bool = False) -> str:
+    """Serialize a :class:`MarkerNode` tree to a PEP 508 marker string.
+
+    Parenthesization rule: a :class:`MarkerOr` appearing as a direct operand
+    of :class:`MarkerAnd` is wrapped in parentheses because ``and`` binds more
+    tightly than ``or`` in PEP 508 syntax.
+    """
+    if isinstance(node, MarkerCompare):
+        lhs = node.left if node.left in _MARKER_VARIABLE_NAMES else f'"{node.left}"'
+        rhs = node.right if node.right in _MARKER_VARIABLE_NAMES else f'"{node.right}"'
+        return f"{lhs} {node.op} {rhs}"
+    if isinstance(node, MarkerAnd):
+        inner = " and ".join(
+            _serialize_node(op, _parens=isinstance(op, MarkerOr))
+            for op in node.operands
+        )
+    else:  # MarkerOr
+        inner = " or ".join(_serialize_node(op) for op in node.operands)
+    return f"({inner})" if _parens else inner
+
+
 class Marker:
     """Represents a parsed dependency marker expression.
 
@@ -433,6 +591,52 @@ class Marker:
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "or", other._markers])
+
+    def as_ast(self) -> MarkerNode | None:
+        """Return a structured tree for this marker.
+
+        The tree uses :class:`MarkerCompare`, :class:`MarkerAnd`, and
+        :class:`MarkerOr`. It preserves PEP 508 ``and`` / ``or`` precedence.
+        Parenthesized sub-expressions are nested nodes.
+
+        :returns: The root node, or ``None`` if the internal marker list is empty
+            (a vacuous marker, which :meth:`evaluate` treats as true).
+
+        """
+        return _markers_to_ast(self._markers)
+
+    @classmethod
+    def from_ast(cls, node: MarkerNode) -> Marker:
+        """Construct a :class:`Marker` from a :class:`MarkerNode` tree.
+
+        This is the inverse of :meth:`as_ast`.  It lets you build or mutate a
+        marker programmatically using :class:`MarkerCompare`,
+        :class:`MarkerAnd`, and :class:`MarkerOr`, then get a fully functional
+        :class:`Marker` back.
+
+        The node tree is serialized to a PEP 508 string and parsed by the
+        normal constructor, so all validation and normalization (including
+        ``PEP 503`` canonicalization of extra names) are applied automatically.
+        An invalid operator or unknown structure raises :exc:`InvalidMarker`.
+
+        :param node: The root of a marker expression tree.
+        :returns: A new :class:`Marker` equivalent to the given tree.
+
+        Example::
+
+            from packaging.markers import Marker, MarkerAnd, MarkerCompare
+
+            # python_version >= "3.10" and extra == "docs"
+            node = MarkerAnd(
+                operands=(
+                    MarkerCompare("python_version", ">=", "3.10"),
+                    MarkerCompare("extra", "==", "docs"),
+                )
+            )
+            m = Marker.from_ast(node)
+            print(m)  # python_version >= "3.10" and extra == "docs"
+        """
+        return cls(_serialize_node(node))
 
     def evaluate(
         self,

@@ -33,3 +33,15 @@ class TimeMarkerSuite:
     def time_evaluate(self) -> None:
         for m in self.markers:
             m.evaluate(self.env)
+
+    @add_attributes(pretty_name="Marker as_ast")
+    def time_as_ast(self) -> None:
+        for m in self.markers:
+            m.as_ast()
+
+    @add_attributes(pretty_name="Marker from_ast")
+    def time_from_ast(self) -> None:
+        for m in self.markers:
+            ast = m.as_ast()
+            if ast is not None:
+                Marker.from_ast(ast)

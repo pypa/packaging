@@ -14,14 +14,19 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node, Op, Value, Variable
+from packaging._parser import Node, Op, Value, Variable, parse_marker
 from packaging.markers import (
     InvalidMarker,
     Marker,
+    MarkerAnd,
+    MarkerCompare,
+    MarkerNode,
+    MarkerOr,
     UndefinedComparison,
     _format_full_version,
     default_environment,
 )
+from packaging.requirements import Requirement
 
 VARIABLES = [
     "extra",
@@ -488,83 +493,294 @@ class TestMarker:
         assert marker.evaluate(environment) is expected
 
 
-def test_and_operator_evaluates_true() -> None:
-    env = {"python_version": "3.8", "os_name": "posix"}
+class TestMarkerAsAST:
+    def test_evaluation_of_combined_markers(self) -> None:
+        env = {"python_version": "3.8", "os_name": "posix", "platform_system": "Linux"}
+        m = (
+            Marker('python_version >= "3.6"')
+            & Marker('os_name == "posix"')
+            & Marker('platform_system == "Linux"')
+        )
+        assert m.evaluate(env) is True
 
-    m = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-    assert m.evaluate(env) is True
-
-
-def test_and_operator_str_equality() -> None:
-    a = Marker('python_version >= "3.6" and os_name == "posix"')
-    b = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-    assert a == b
-    assert str(a) == str(b)
-
-
-def test_or_operator_evaluates_true() -> None:
-    env = {"python_version": "3.7", "os_name": "windows"}
-
-    m = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
-    assert m.evaluate(env) is True
-
-
-def test_or_operator_str_equality() -> None:
-    a = Marker('python_version < "3.6" or os_name == "windows"')
-    b = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
-    assert a == b
-    assert str(a) == str(b)
-
-
-def test_operator_rejects_non_marker() -> None:
-    m = Marker('python_version >= "3.6"')
-    # dunder returns NotImplemented for non-Marker
-    assert m.__and__(cast("Any", "not-a-marker")) is NotImplemented
-    assert m.__or__(cast("Any", 123)) is NotImplemented
-
-
-def test_inplace_operators_fallback() -> None:
-    m = Marker('python_version >= "3.6"')
-    m &= Marker('os_name == "posix"')
-    assert isinstance(m, Marker)
-    assert m == Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
-
-
-def test_right_hand_ops_and_typeerror() -> None:
-    m = Marker('python_version >= "3.6"')
-    assert m.__and__(cast("Any", "x")) is NotImplemented
-    with pytest.raises(TypeError):
-        cast("Any", "not-a-marker") & Marker('python_version >= "3.6"')
-
-
-def test_chaining_associativity_and_str() -> None:
-    a = Marker(
-        '(python_version >= "3.6" and os_name == "posix") '
-        'and platform_system == "Linux"'
+    @pytest.mark.parametrize(
+        ("marker_string", "expected"),
+        [
+            (
+                'python_version == "2.7"',
+                MarkerCompare("python_version", "==", "2.7"),
+            ),
+            (
+                '"2.7" == python_version',
+                MarkerCompare("2.7", "==", "python_version"),
+            ),
+            (
+                'python_version == "2.7" and os_name == "linux"',
+                MarkerAnd(
+                    (
+                        MarkerCompare("python_version", "==", "2.7"),
+                        MarkerCompare("os_name", "==", "linux"),
+                    )
+                ),
+            ),
+            (
+                'python_version == "2.7" or os_name == "linux"',
+                MarkerOr(
+                    (
+                        MarkerCompare("python_version", "==", "2.7"),
+                        MarkerCompare("os_name", "==", "linux"),
+                    )
+                ),
+            ),
+            (
+                'python_version == "2.7" and os_name == "linux" or '
+                'sys_platform == "win32"',
+                MarkerOr(
+                    (
+                        MarkerAnd(
+                            (
+                                MarkerCompare("python_version", "==", "2.7"),
+                                MarkerCompare("os_name", "==", "linux"),
+                            )
+                        ),
+                        MarkerCompare("sys_platform", "==", "win32"),
+                    )
+                ),
+            ),
+            (
+                'python_version == "2.7" and (sys_platform == "win32" or '
+                'sys_platform == "linux")',
+                MarkerAnd(
+                    (
+                        MarkerCompare("python_version", "==", "2.7"),
+                        MarkerOr(
+                            (
+                                MarkerCompare("sys_platform", "==", "win32"),
+                                MarkerCompare("sys_platform", "==", "linux"),
+                            )
+                        ),
+                    )
+                ),
+            ),
+            (
+                '"dev" in dependency_groups',
+                MarkerCompare("dev", "in", "dependency_groups"),
+            ),
+        ],
     )
-    b = (
-        Marker('python_version >= "3.6"')
-        & Marker('os_name == "posix"')
-        & Marker('platform_system == "Linux"')
+    def test_as_ast(self, marker_string: str, expected: MarkerNode) -> None:
+        marker = Marker(marker_string)
+        assert marker.as_ast() == expected
+
+    def test_requirement_marker_as_ast(self) -> None:
+        requirement = Requirement('foo; os_name == "posix"')
+        assert requirement.marker is not None
+        assert requirement.marker.as_ast() == MarkerCompare("os_name", "==", "posix")
+
+    def test_as_ast_none_when_markers_empty(self) -> None:
+        marker = Marker.__new__(Marker)
+        marker._markers = []
+        assert marker.as_ast() is None
+
+    def test_as_ast_none_when_only_or_separators(self) -> None:
+        marker = Marker.__new__(Marker)
+        marker._markers = ["or"]
+        assert marker.as_ast() is None
+
+    def test_as_ast_skips_empty_or_group(self) -> None:
+        marker = Marker.__new__(Marker)
+        marker._markers = ["or", *parse_marker('os_name == "posix"')]
+        assert marker.as_ast() == MarkerCompare("os_name", "==", "posix")
+
+    def test_invalid_empty_parenthesized_subexpression(self) -> None:
+        marker = Marker.__new__(Marker)
+        marker._markers = [[]]
+        with pytest.raises(InvalidMarker, match="empty parenthesized"):
+            _ = marker.as_ast()
+
+
+class TestMarkerFromAST:
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            'python_version == "2.7"',
+            '"2.7" == python_version',
+            'python_version == "2.7" and os_name == "linux"',
+            'python_version == "2.7" or os_name == "linux"',
+            'python_version == "2.7" and os_name == "linux" or sys_platform == "win32"',
+            (
+                'python_version == "2.7" and '
+                '(sys_platform == "win32" or sys_platform == "linux")'
+            ),
+            '"dev" in dependency_groups',
+        ],
     )
-    assert a == b
-    assert str(a) == str(b)
+    def test_roundtrip(self, marker_string: str) -> None:
+        m = Marker(marker_string)
+        node = m.as_ast()
+        assert node is not None
+        assert str(Marker.from_ast(node)) == str(m)
 
-
-def test_hash_eq_for_combined_markers() -> None:
-    assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
-        Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+    @pytest.mark.parametrize(
+        ("node", "expected_string"),
+        [
+            (
+                MarkerCompare("python_version", "==", "2.7"),
+                'python_version == "2.7"',
+            ),
+            (
+                MarkerAnd(
+                    operands=(
+                        MarkerCompare("python_version", "==", "2.7"),
+                        MarkerCompare("os_name", "==", "linux"),
+                    )
+                ),
+                'python_version == "2.7" and os_name == "linux"',
+            ),
+            (
+                MarkerOr(
+                    operands=(
+                        MarkerCompare("python_version", "==", "2.7"),
+                        MarkerCompare("os_name", "==", "linux"),
+                    )
+                ),
+                'python_version == "2.7" or os_name == "linux"',
+            ),
+            (
+                # MarkerOr inside MarkerAnd — parens required
+                MarkerAnd(
+                    operands=(
+                        MarkerCompare("python_version", ">=", "3.10"),
+                        MarkerOr(
+                            operands=(
+                                MarkerCompare("sys_platform", "==", "linux"),
+                                MarkerCompare("sys_platform", "==", "darwin"),
+                            )
+                        ),
+                    )
+                ),
+                (
+                    'python_version >= "3.10" and '
+                    '(sys_platform == "linux" or sys_platform == "darwin")'
+                ),
+            ),
+            (
+                # MarkerAnd inside MarkerOr — no extra parens needed
+                MarkerOr(
+                    operands=(
+                        MarkerCompare("sys_platform", "==", "win32"),
+                        MarkerAnd(
+                            operands=(
+                                MarkerCompare("python_version", ">=", "3.10"),
+                                MarkerCompare("os_name", "==", "posix"),
+                            )
+                        ),
+                    )
+                ),
+                (
+                    'sys_platform == "win32" or '
+                    'python_version >= "3.10" and os_name == "posix"'
+                ),
+            ),
+        ],
     )
+    def test_from_node(self, node: MarkerNode, expected_string: str) -> None:
+        m = Marker.from_ast(node)
+        assert str(m) == expected_string
+        assert m == Marker(expected_string)
+
+    def test_extra_normalization(self) -> None:
+        m = Marker.from_ast(MarkerCompare("extra", "==", "My-Extra"))
+        assert "my-extra" in str(m)
+        assert m.evaluate({"extra": "my-extra"})
+        assert not m.evaluate({"extra": "other"})
+
+    def test_evaluate_correctness(self) -> None:
+        node = MarkerAnd(
+            operands=(
+                MarkerCompare("python_version", ">=", "3.10"),
+                MarkerCompare("os_name", "==", "posix"),
+            )
+        )
+        m = Marker.from_ast(node)
+        ref = Marker('python_version >= "3.10" and os_name == "posix"')
+        matching = {"python_version": "3.12", "os_name": "posix"}
+        non_matching = {"python_version": "3.9", "os_name": "posix"}
+        assert m.evaluate(matching) == ref.evaluate(matching)
+        assert m.evaluate(non_matching) == ref.evaluate(non_matching)
+
+    def test_in_operator_with_set_variable(self) -> None:
+        m = Marker.from_ast(MarkerCompare("dev", "in", "dependency_groups"))
+        assert m.evaluate({"dependency_groups": {"dev", "docs"}}, context="lock_file")
+        assert not m.evaluate({"dependency_groups": {"docs"}}, context="lock_file")
+
+    def test_invalid_op_raises(self) -> None:
+        with pytest.raises(InvalidMarker):
+            Marker.from_ast(
+                MarkerCompare("python_version", cast("Any", "xyzzy"), "3.10")
+            )
 
 
-def test_evaluation_of_combined_markers() -> None:
-    env = {"python_version": "3.8", "os_name": "posix", "platform_system": "Linux"}
-    m = (
-        Marker('python_version >= "3.6"')
-        & Marker('os_name == "posix"')
-        & Marker('platform_system == "Linux"')
-    )
-    assert m.evaluate(env) is True
+class TestMarkerOperators:
+    def test_and_operator_evaluates_true(self) -> None:
+        env = {"python_version": "3.8", "os_name": "posix"}
+
+        m = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        assert m.evaluate(env) is True
+
+    def test_and_operator_str_equality(self) -> None:
+        a = Marker('python_version >= "3.6" and os_name == "posix"')
+        b = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        assert a == b
+        assert str(a) == str(b)
+
+    def test_or_operator_evaluates_true(self) -> None:
+        env = {"python_version": "3.7", "os_name": "windows"}
+
+        m = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+        assert m.evaluate(env) is True
+
+    def test_or_operator_str_equality(self) -> None:
+        a = Marker('python_version < "3.6" or os_name == "windows"')
+        b = Marker('python_version < "3.6"') | Marker('os_name == "windows"')
+        assert a == b
+        assert str(a) == str(b)
+
+    def test_operator_rejects_non_marker(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        # dunder returns NotImplemented for non-Marker
+        assert m.__and__(cast("Any", "not-a-marker")) is NotImplemented
+        assert m.__or__(cast("Any", 123)) is NotImplemented
+
+    def test_inplace_operators_fallback(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        m &= Marker('os_name == "posix"')
+        assert isinstance(m, Marker)
+        assert m == Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+
+    def test_right_hand_ops_and_typeerror(self) -> None:
+        m = Marker('python_version >= "3.6"')
+        assert m.__and__(cast("Any", "x")) is NotImplemented
+        with pytest.raises(TypeError):
+            cast("Any", "not-a-marker") & Marker('python_version >= "3.6"')
+
+    def test_chaining_associativity_and_str(self) -> None:
+        a = Marker(
+            '(python_version >= "3.6" and os_name == "posix") '
+            'and platform_system == "Linux"'
+        )
+        b = (
+            Marker('python_version >= "3.6"')
+            & Marker('os_name == "posix"')
+            & Marker('platform_system == "Linux"')
+        )
+        assert a == b
+        assert str(a) == str(b)
+
+    def test_hash_eq_for_combined_markers(self) -> None:
+        assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
+            Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+        )
 
 
 @pytest.mark.parametrize(

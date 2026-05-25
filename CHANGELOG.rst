@@ -4,7 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Features:
+
+* Expose a public structured marker tree via ``Marker.as_ast()`` in (:pull:`1145`)
+* Add ``Marker.from_ast()`` to construct a ``Marker`` from a ``MarkerNode`` tree for marker construction and mutation in (:pull:`1145`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~
