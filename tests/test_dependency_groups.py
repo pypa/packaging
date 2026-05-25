@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import re
-import sys
 import unittest.mock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -18,12 +17,15 @@ from packaging.dependency_groups import (
 from packaging.errors import ExceptionGroup
 from packaging.requirements import Requirement
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
+if TYPE_CHECKING:
+    import sys
 
-GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
 
 
 def _group_contains(
