@@ -88,6 +88,13 @@ autodoc_typehints = "description"
 # Don't show class signature with the class' name.
 autodoc_class_signature = "separated"
 
+# Rewrite bare ``Path`` in rendered annotations to the stdlib target so
+# intersphinx resolves it (annotations are strings under
+# ``from __future__ import annotations``).
+autodoc_type_aliases = {
+    "Path": "pathlib.Path",
+}
+
 # -- Options for extlinks -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/extensions/extlinks.html#configuration
 
@@ -103,3 +110,22 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "pypug": ("https://packaging.python.org/", None),
 }
+
+# -- Options for nitpicky mode ------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-nitpick_ignore
+
+# Built with ``-n`` so unresolved cross-references fail the build. These
+# targets have no documentation page on purpose, so they are allowed to
+# stay unresolved: private internal types, and TypeVars / type aliases the
+# Python domain cannot resolve as classes.
+nitpick_ignore = [
+    ("py:class", "packaging.version._BaseVersion"),
+    ("py:class", "_Validator"),
+    ("py:class", "_MetadataVersion"),
+    ("py:class", "_VersionReplace"),
+    ("py:class", "T"),
+    ("py:class", "_T"),
+    ("py:class", "packaging.specifiers.T"),
+    ("py:class", "UnparsedVersion"),
+    ("py:class", "UnparsedVersionVar"),
+]
