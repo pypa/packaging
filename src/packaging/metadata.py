@@ -22,6 +22,7 @@ from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
+    from .version import Version
 
 T = typing.TypeVar("T")
 
@@ -597,7 +598,7 @@ class _Validator(Generic[T]):
         else:
             return value
 
-    def _process_version(self, value: str) -> version_module.Version:
+    def _process_version(self, value: str) -> Version:
         if not value:
             raise self._invalid_metadata("{field} is a required field")
         try:
@@ -853,7 +854,7 @@ class Metadata:
     """:external:ref:`core-metadata-name`
     (required; validated using :func:`~packaging.utils.canonicalize_name` and its
     *validate* parameter)"""
-    version: _Validator[version_module.Version] = _Validator()
+    version: _Validator[Version] = _Validator()
     """:external:ref:`core-metadata-version` (required)"""
     dynamic: _Validator[list[str] | None] = _Validator(
         added="2.2",

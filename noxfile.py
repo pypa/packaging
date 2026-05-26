@@ -214,6 +214,7 @@ def docs(session: nox.Session) -> None:
         session.run(
             "sphinx-build",
             "-W",
+            "-n",
             "-b",
             builder,
             "-d",

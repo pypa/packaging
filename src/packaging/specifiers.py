@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import abc
 import re
-import sys
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -35,13 +34,14 @@ from ._ranges import (
 from .utils import canonicalize_version
 from .version import InvalidVersion, Version
 
-if sys.version_info >= (3, 10):
-    from typing import TypeGuard  # pragma: no cover
-elif TYPE_CHECKING:
-    from typing_extensions import TypeGuard
-
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Iterable, Iterator, Sequence
+
+    if sys.version_info >= (3, 10):
+        from typing import TypeGuard
+    else:
+        from typing_extensions import TypeGuard
 
     from ._ranges import VersionRange
 
@@ -625,7 +625,7 @@ class Specifier(BaseSpecifier):
 
         :param item:
             The item to check for, which can be a version string or a
-            :class:`Version` instance.
+            :class:`~packaging.version.Version` instance.
         :param prereleases:
             Whether or not to match prereleases with this Specifier. If set to
             ``None`` (the default), it will follow the recommendation from
@@ -694,16 +694,17 @@ class Specifier(BaseSpecifier):
         """Filter items in the given iterable, that match the specifier.
 
         :param iterable:
-            An iterable that can contain version strings and :class:`Version` instances.
-            The items in the iterable will be filtered according to the specifier.
+            An iterable that can contain version strings and
+            :class:`~packaging.version.Version` instances. The items in the
+            iterable will be filtered according to the specifier.
         :param prereleases:
             Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
             and match prereleases if there are no other versions.
         :param key:
             A callable that takes a single argument (an item from the iterable) and
-            returns a version string or :class:`Version` instance to be used for
-            filtering.
+            returns a version string or :class:`~packaging.version.Version`
+            instance to be used for filtering.
 
         >>> list(Specifier(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
@@ -1168,7 +1169,7 @@ class SpecifierSet(BaseSpecifier):
 
         :param item:
             The item to check for, which can be a version string or a
-            :class:`Version` instance.
+            :class:`~packaging.version.Version` instance.
         :param prereleases:
             Whether or not to match prereleases with this SpecifierSet. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
@@ -1255,16 +1256,17 @@ class SpecifierSet(BaseSpecifier):
         """Filter items in the given iterable, that match the specifiers in this set.
 
         :param iterable:
-            An iterable that can contain version strings and :class:`Version` instances.
-            The items in the iterable will be filtered according to the specifier.
+            An iterable that can contain version strings and
+            :class:`~packaging.version.Version` instances. The items in the
+            iterable will be filtered according to the specifier.
         :param prereleases:
             Whether or not to allow prereleases in the returned iterator. If set to
             ``None`` (the default), it will follow the recommendation from :pep:`440`
             and match prereleases if there are no other versions.
         :param key:
             A callable that takes a single argument (an item from the iterable) and
-            returns a version string or :class:`Version` instance to be used for
-            filtering.
+            returns a version string or :class:`~packaging.version.Version`
+            instance to be used for filtering.
 
         >>> list(SpecifierSet(">=1.2.3").filter(["1.2", "1.3", "1.5a1"]))
         ['1.3']
