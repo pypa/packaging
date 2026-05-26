@@ -21,7 +21,7 @@ from typing import (
     Union,
 )
 
-from ._version_utils import coerce_version, trim_release
+from ._version_utils import coerce_version, trim_release, version_cmpkey
 from .version import Version
 
 if TYPE_CHECKING:
@@ -118,13 +118,9 @@ class BoundaryVersion:
         self._cached_post = version.post
         self._cached_dev = version.dev
 
-        # Order key for boundary-vs-boundary comparison. Raw versions
-        # are wrong (1.0.post0 > 1.0, yet AFTER_LOCALS(1.0.post0) <
-        # AFTER_POSTS(1.0)); AFTER_POSTS lifts the post above any real
-        # post, and both lift the local dimension.
-        epoch = version._key[0]
-        release = version._key[1]
-        suffix: _BoundaryOrderSuffix = version._key[2]
+        # Distinguish AFTER_LOCALS from AFTER_POSTS.
+        epoch, release, raw_suffix = version_cmpkey(version)
+        suffix: _BoundaryOrderSuffix = raw_suffix
         if kind == BoundaryKind.AFTER_POSTS:
             suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
         self._order_key = (epoch, release, suffix, _BOUNDARY_INF)
@@ -133,9 +129,8 @@ class BoundaryVersion:
         """Is ``other`` a version that this boundary sorts above?"""
         if other.epoch != self._cached_epoch:
             return False
-        # Inline release-trim comparison: other.release matches the
-        # trimmed release iff its leading slice is equal and any extra
-        # components are zero. Avoids trim_release's tuple allocation.
+
+        # Match the trimmed release without allocating a new tuple.
         other_release = other.release
         trimmed_release = self._cached_trimmed_release
         trimmed_length = len(trimmed_release)

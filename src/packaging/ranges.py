@@ -8,7 +8,8 @@ versions accepted by a :class:`~packaging.specifiers.Specifier` or
 :class:`~packaging.specifiers.SpecifierSet`. Bound primitives, range
 algebra, and the spec-to-bounds dispatch live in
 :mod:`packaging._range_utils`; this module composes them into the
-public class plus the :meth:`VersionRange.to_specifier_set` encoders,
+public class plus the
+:meth:`~packaging.ranges.VersionRange.to_specifier_set` encoders,
 ``__repr__``, and pickle helpers that only :class:`VersionRange`
 itself uses.
 
@@ -522,7 +523,8 @@ class VersionRange:
     a union of disjoint intervals on the PEP 440 version ordering.
 
     Construct with :meth:`from_specifier` / :meth:`from_specifier_set`,
-    or via :meth:`Specifier.to_range` / :meth:`SpecifierSet.to_range`.
+    or via :meth:`~packaging.specifiers.Specifier.to_range` /
+    :meth:`~packaging.specifiers.SpecifierSet.to_range`.
     Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`
     (and the ``&`` / ``|`` / ``~`` operator aliases).
 
@@ -535,9 +537,11 @@ class VersionRange:
     False
 
     PEP 440's ``===`` operator matches a candidate string verbatim
-    (case-insensitive) rather than a set of :class:`Version` values.
+    (case-insensitive) rather than a set of
+    :class:`~packaging.version.Version` values.
     Ranges built from ``===`` specifiers still support membership,
-    set operations, and conversion back to a :class:`SpecifierSet`;
+    set operations, and conversion back to a
+    :class:`~packaging.specifiers.SpecifierSet`;
     matching follows the literal-equality rule instead of the
     version-ordering rule.
     """
@@ -766,9 +770,11 @@ class VersionRange:
         pre-releases are buffered and only emitted if no final release
         in *iterable* is in range.
 
-        Filtering matches :class:`SpecifierSet.filter` for the same
-        :class:`Specifier` / :class:`SpecifierSet`, including
-        :class:`SpecifierSet("")`'s admission of unparsable strings
+        Filtering matches
+        :meth:`~packaging.specifiers.SpecifierSet.filter` for the same
+        :class:`~packaging.specifiers.Specifier` /
+        :class:`~packaging.specifiers.SpecifierSet`, including the
+        admission of unparsable strings for the empty ``SpecifierSet("")``
         and the case-insensitive literal match for ``===``.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -873,10 +879,11 @@ class VersionRange:
         """Return the :class:`VersionRange` accepted by *specifier_set*.
 
         The intersection of every specifier in the set. An empty
-        :class:`SpecifierSet` yields the unbounded range; an
-        unsatisfiable set yields an empty :class:`VersionRange`. To reuse
-        the result, call :meth:`SpecifierSet.to_range`, which caches it
-        on the instance.
+        :class:`~packaging.specifiers.SpecifierSet` yields the
+        unbounded range; an unsatisfiable set yields an empty
+        :class:`VersionRange`. To reuse the result, call
+        :meth:`~packaging.specifiers.SpecifierSet.to_range`, which
+        caches it on the instance.
 
         >>> isinstance(
         ...     VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0")),
@@ -896,18 +903,20 @@ class VersionRange:
         return result
 
     def to_specifier_set(self) -> SpecifierSet | None:
-        """Return a single :class:`SpecifierSet` whose
+        """Return a single
+        :class:`~packaging.specifiers.SpecifierSet` whose
         :meth:`from_specifier_set` yields *self*, or ``None`` if no
         such set exists.
 
-        :class:`SpecifierSet` cannot express every range. PEP 440's
+        :class:`~packaging.specifiers.SpecifierSet` cannot express every
+        range. PEP 440's
         operator set has no syntax for the strict singleton ``{V}`` or
         for the bounds produced by complementing ``>V``; for those
         ranges the result is ``None``. Use :meth:`to_specifier_sets`
         when a tuple of specifier sets is acceptable. The empty range
-        maps to ``SpecifierSet("<0")`` (``<0`` excludes ``0.dev0``,
-        the smallest PEP 440 version); the full range maps to
-        ``SpecifierSet("")``.
+        maps to the range ``SpecifierSet("<0")`` (``<0`` excludes
+        ``0.dev0``, the smallest PEP 440 version); the full range maps
+        to the empty ``SpecifierSet("")``.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         >>> str(r.to_specifier_set())
@@ -940,15 +949,16 @@ class VersionRange:
         return SpecifierSet(",".join(groups[0]))
 
     def to_specifier_sets(self) -> tuple[SpecifierSet, ...] | None:
-        """Return a tuple of :class:`SpecifierSet` whose union equals
+        """Return a tuple of
+        :class:`~packaging.specifiers.SpecifierSet` whose union equals
         *self*, or ``None`` if no such tuple exists.
 
         Looser than :meth:`to_specifier_set`: each maximal run of
         intervals joined by ``!=V`` / ``!=V.*`` gaps becomes one
-        :class:`SpecifierSet`, and genuinely disjoint runs become
-        separate ones. ``None`` only when some run's outer interval has
-        no PEP 440 form (for example the strict singleton produced by
-        :meth:`singleton`).
+        :class:`~packaging.specifiers.SpecifierSet`, and genuinely
+        disjoint runs become separate ones. ``None`` only when some
+        run's outer interval has no PEP 440 form (for example the
+        strict singleton produced by :meth:`singleton`).
 
         >>> r = (
         ...     VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -1025,7 +1035,9 @@ class VersionRange:
     def is_prerelease_only(self) -> bool:
         """``True`` when every match is a PEP 440 pre-release.
 
-        Used by :meth:`SpecifierSet.is_unsatisfiable` to detect sets
+        Used by
+        :meth:`~packaging.specifiers.SpecifierSet.is_unsatisfiable` to
+        detect sets
         that admit no candidate under the default ``prereleases=False``
         reading. Returns ``False`` for the empty range.
 
@@ -1060,10 +1072,10 @@ class VersionRange:
     def __contains__(self, item: Version | str) -> bool:
         """Return whether *item* is contained in this range.
 
-        Unparsable strings do not match, except where
-        :class:`SpecifierSet` would also match: the full range admits
-        any string, and a ``===`` range admits items whose string
-        equals the literal case-insensitively.
+        Unparsable strings do not match, except where the full
+        ``SpecifierSet`` would also match: the full range admits any
+        string, and a ``===`` range admits items whose string equals
+        the literal case-insensitively.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         >>> "1.5" in r

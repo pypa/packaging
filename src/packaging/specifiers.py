@@ -210,9 +210,11 @@ class Specifier(BaseSpecifier):
 
     .. tip::
 
-        It is generally not required to instantiate this manually. You should instead
-        prefer to work with :class:`SpecifierSet` instead, which can parse
-        comma-separated version specifiers (which is what package metadata contains).
+        It is generally not required to instantiate this manually. You
+        should instead prefer to work with
+        :class:`~packaging.specifiers.SpecifierSet` instead, which can
+        parse comma-separated version specifiers (which is what package
+        metadata contains).
 
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
@@ -673,11 +675,13 @@ class Specifier(BaseSpecifier):
         return bool(list(self.filter([parsed], prereleases=prereleases)))
 
     def to_range(self) -> VersionRange:
-        """The :class:`VersionRange` accepted by this specifier.
+        """The :class:`~packaging.ranges.VersionRange` accepted by this
+        specifier.
 
         For ``===`` the returned range matches the literal string
-        case-insensitively; no PEP 440 :class:`Version` other than the
-        literal itself is contained.
+        case-insensitively; no PEP 440
+        :class:`~packaging.version.Version` other than the literal
+        itself is contained.
 
         >>> isinstance(Specifier(">=1.0").to_range(), VersionRange)
         True
@@ -1097,13 +1101,15 @@ class SpecifierSet(BaseSpecifier):
         return result
 
     def to_range(self) -> VersionRange:
-        """The :class:`VersionRange` accepted by this specifier set.
+        """The :class:`~packaging.ranges.VersionRange` accepted by this
+        specifier set.
 
         The intersection of every specifier in the set. An empty
-        :class:`SpecifierSet` yields the unbounded range; an
-        unsatisfiable set yields an empty :class:`VersionRange`. Sets
-        containing ``===`` produce a range whose only matching items
-        are the literal strings (case-insensitive) that satisfy every
+        :class:`~packaging.specifiers.SpecifierSet` yields the
+        unbounded range; an unsatisfiable set yields an empty
+        :class:`~packaging.ranges.VersionRange`. Sets containing
+        ``===`` produce a range whose only matching items are the
+        literal strings (case-insensitive) that satisfy every
         rangelike specifier in the set as well.
 
         >>> isinstance(SpecifierSet(">=1.0,<2.0").to_range(), VersionRange)

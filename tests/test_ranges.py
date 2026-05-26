@@ -9,6 +9,7 @@ import pickle
 import pytest
 
 from packaging._range_utils import BoundaryKind, BoundaryVersion
+from packaging._version_utils import version_cmpkey
 from packaging.ranges import VersionRange, _restore_version_range
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import Version
@@ -426,6 +427,20 @@ class TestBoundaryClosureEdgeCases:
 class TestBoundaryVersionCompare:
     """The :class:`BoundaryVersion` class is private but its comparison
     operators must stay correct for the bound-sorting machinery."""
+
+    @pytest.mark.parametrize(
+        "version",
+        [
+            Version("1"),
+            Version("1.0.dev1"),
+            Version("1.0a1"),
+            Version("1.0.post1"),
+            Version("1.0+local"),
+            Version("1.0.post1.dev2"),
+        ],
+    )
+    def test_cmpkey_prefix_matches_version(self, version: Version) -> None:
+        assert version_cmpkey(version) == version._key[:3]
 
     def test_lt_same_version_different_kind(self) -> None:
         # AFTER_LOCALS sorts before AFTER_POSTS for the same V.
