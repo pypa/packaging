@@ -17,10 +17,10 @@ Usage
 .. doctest::
 
     >>> from packaging.metadata import parse_email
-    >>> metadata = "Metadata-Version: 2.3\nName: packaging\nVersion: 24.0"
+    >>> metadata = "Metadata-Version: 2.6\nName: packaging\nVersion: 24.0"
     >>> raw, unparsed = parse_email(metadata)
     >>> raw["metadata_version"]
-    '2.3'
+    '2.6'
     >>> raw["name"]
     'packaging'
     >>> raw["version"]

@@ -132,6 +132,8 @@ class RawMetadata(TypedDict, total=False):
     import_names: list[str]
     import_namespaces: list[str]
 
+    # Metadata 2.6 - PEP 808 (no new fields, behavior change for Dynamic)
+
 
 # 'keywords' is special as it's a string in the core metadata spec, but we
 # represent it as a list.
@@ -512,8 +514,20 @@ _NOT_FOUND = object()
 
 
 # Keep the two values in sync.
-_VALID_METADATA_VERSIONS = ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
-_MetadataVersion = Literal["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5"]
+_VALID_METADATA_VERSIONS = [
+    "1.0",
+    "1.1",
+    "1.2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "2.4",
+    "2.5",
+    "2.6",
+]
+_MetadataVersion = Literal[
+    "1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6"
+]
 
 _REQUIRED_ATTRS = frozenset(["metadata_version", "name", "version"])
 
