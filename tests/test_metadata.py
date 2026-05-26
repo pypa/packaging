@@ -646,6 +646,65 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic  # noqa: B018
 
+    def test_pep808_dynamic_with_static_values(self) -> None:
+        """PEP 808 allows list/table fields to have static values
+        while their key is also listed in ``Dynamic``."""
+        raw: RawMetadata = {
+            "metadata_version": "2.6",
+            "name": "packaging",
+            "version": "1.0.0",
+            "classifiers": ["Development Status :: 4 - Beta"],
+            "requires_dist": ["pytest"],
+            "provides_extra": ["test"],
+            "license_files": ["LICENSE"],
+            "project_urls": {"homepage": "example.com"},
+            "import_names": ["packaging"],
+            "import_namespaces": ["pkg.ns"],
+            "dynamic": [
+                "classifier",
+                "requires-dist",
+                "provides-extra",
+                "license-file",
+                "project-url",
+                "import-name",
+                "import-namespace",
+            ],
+        }
+
+        meta = metadata.Metadata.from_raw(raw, validate=True)
+        assert meta.classifiers == ["Development Status :: 4 - Beta"]
+        assert meta.requires_dist == [requirements.Requirement("pytest")]
+        assert meta.provides_extra == [utils.canonicalize_name("test")]
+        assert meta.license_files == ["LICENSE"]
+        assert meta.project_urls == {"homepage": "example.com"}
+        assert meta.import_names == ["packaging"]
+        assert meta.import_namespaces == ["pkg.ns"]
+        assert meta.dynamic == [
+            "classifier",
+            "requires-dist",
+            "provides-extra",
+            "license-file",
+            "project-url",
+            "import-name",
+            "import-namespace",
+        ]
+
+        rfc822 = meta.as_rfc822()
+        assert ("classifier", "Development Status :: 4 - Beta") in rfc822.items()
+        assert ("requires-dist", "pytest") in rfc822.items()
+        assert ("provides-extra", "test") in rfc822.items()
+        assert ("license-file", "LICENSE") in rfc822.items()
+        assert ("project-url", "homepage, example.com") in rfc822.items()
+        assert ("import-name", "packaging") in rfc822.items()
+        assert ("import-namespace", "pkg.ns") in rfc822.items()
+        assert ("dynamic", "classifier") in rfc822.items()
+        assert ("dynamic", "requires-dist") in rfc822.items()
+        assert ("dynamic", "provides-extra") in rfc822.items()
+        assert ("dynamic", "license-file") in rfc822.items()
+        assert ("dynamic", "project-url") in rfc822.items()
+        assert ("dynamic", "import-name") in rfc822.items()
+        assert ("dynamic", "import-namespace") in rfc822.items()
+
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
     def test_disallowed_dynamic(self, field_name: str) -> None:
         meta = metadata.Metadata.from_raw({"dynamic": [field_name]}, validate=False)
