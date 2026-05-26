@@ -55,6 +55,12 @@ def __dir__() -> list[str]:
 #: The smallest possible PEP 440 version. No valid version is less than this.
 _MIN_VERSION: Final[Version] = Version("0.dev0")
 
+#: Sorts above any real post number or local label in an ordering key.
+_BOUNDARY_INF: Final[float] = float("inf")
+
+_BoundaryOrderSuffix = tuple[int, int, int, Union[int, float], int, int]
+_BoundaryOrderKey = tuple[int, tuple[int, ...], _BoundaryOrderSuffix, float]
+
 
 def _next_prefix_dev0(version: Version) -> Version:
     """Smallest version in the next prefix: ``1.2 -> 1.3.dev0``."""
@@ -96,9 +102,12 @@ class BoundaryVersion:
         "_cached_post",
         "_cached_pre",
         "_cached_trimmed_release",
+        "_order_key",
         "kind",
         "version",
     )
+
+    _order_key: _BoundaryOrderKey
 
     def __init__(self, version: Version, kind: BoundaryKind) -> None:
         self.version = version
@@ -108,6 +117,17 @@ class BoundaryVersion:
         self._cached_pre = version.pre
         self._cached_post = version.post
         self._cached_dev = version.dev
+
+        # Order key for boundary-vs-boundary comparison. Raw versions
+        # are wrong (1.0.post0 > 1.0, yet AFTER_LOCALS(1.0.post0) <
+        # AFTER_POSTS(1.0)); AFTER_POSTS lifts the post above any real
+        # post, and both lift the local dimension.
+        epoch = version._key[0]
+        release = version._key[1]
+        suffix: _BoundaryOrderSuffix = version._key[2]
+        if kind == BoundaryKind.AFTER_POSTS:
+            suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
+        self._order_key = (epoch, release, suffix, _BOUNDARY_INF)
 
     def _is_family(self, other: Version) -> bool:
         """Is ``other`` a version that this boundary sorts above?"""
@@ -141,9 +161,7 @@ class BoundaryVersion:
 
     def __lt__(self, other: BoundaryVersion | Version) -> bool:
         if isinstance(other, BoundaryVersion):
-            if self.version != other.version:
-                return self.version < other.version
-            return self.kind.value < other.kind.value  # pragma: no cover
+            return self._order_key < other._order_key
         # boundary < other_version iff V < other AND other not in family.
         # The cheap V >= other path short-circuits before the family check.
         if not (self.version < other):
@@ -154,9 +172,7 @@ class BoundaryVersion:
         # Defined directly to bypass functools.total_ordering's
         # NotImplemented round-trip on reflected ``Version < boundary``.
         if isinstance(other, BoundaryVersion):
-            if self.version != other.version:
-                return self.version > other.version
-            return self.kind.value > other.kind.value
+            return self._order_key > other._order_key
         if self.version >= other:
             return True
         return self._is_family(other)

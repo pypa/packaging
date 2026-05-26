@@ -605,6 +605,15 @@ class TestUnion:
         b = VersionRange.from_specifier(Specifier("<2"))
         assert a.union(b) == b
 
+    def test_disjoint_post_boundary_not_bridged(self) -> None:
+        # >1.0 excludes posts of 1.0, so 1.0.post1 is in neither operand.
+        a = VersionRange.from_specifier(Specifier("==1.0.post0"))
+        b = VersionRange.from_specifier(Specifier(">1.0"))
+        u = a.union(b)
+        assert Version("1.0.post0") in u
+        assert Version("1.0.post1") not in u
+        assert Version("1.1") in u
+
     def test_union_of_two_unbounded_upper_collapses(self) -> None:
         a = VersionRange.from_specifier(Specifier(">=1"))
         b = VersionRange.from_specifier(Specifier(">=2"))
