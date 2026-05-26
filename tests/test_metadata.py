@@ -197,7 +197,7 @@ class TestRawMetadata:
         assert len(unparsed) == 1  # "ThisIsNotReal" key
         assert unparsed["thisisnotreal"] == ["Hello!"]
         assert len(raw) == 28
-        assert raw["metadata_version"] == "2.5"
+        assert raw["metadata_version"] == "2.6"
         assert raw["name"] == "BeagleVote"
         assert raw["version"] == "1.0a2"
         assert raw["platforms"] == ["ObscureUnix", "RareDOS"]
@@ -274,7 +274,7 @@ class TestExceptionGroup:
 
 
 _RAW_EXAMPLE: RawMetadata = {
-    "metadata_version": "2.5",
+    "metadata_version": "2.6",
     "name": "packaging",
     "version": "2023.0.0",
 }
@@ -301,7 +301,7 @@ class TestMetadata:
             assert isinstance(exc.__cause__, cause)
 
     def test_from_email(self) -> None:
-        metadata_version = "2.5"
+        metadata_version = "2.6"
         meta = metadata.Metadata.from_email(
             f"Metadata-Version: {metadata_version}", validate=False
         )
@@ -311,7 +311,7 @@ class TestMetadata:
 
     def test_from_email_empty_import_name(self) -> None:
         meta = metadata.Metadata.from_email(
-            "Metadata-Version: 2.5\nImport-Name:\n", validate=False
+            "Metadata-Version: 2.6\nImport-Name:\n", validate=False
         )
         assert meta.import_names == []
 
@@ -447,7 +447,9 @@ class TestMetadata:
 
         assert getattr(meta, attribute) == values
 
-    @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3"])
+    @pytest.mark.parametrize(
+        "version", ["1.0", "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6"]
+    )
     def test_valid_metadata_version(self, version: str) -> None:
         meta = metadata.Metadata.from_raw({"metadata_version": version}, validate=False)
 
@@ -643,6 +645,65 @@ class TestMetadata:
 
         with pytest.raises(metadata.InvalidMetadata):
             meta.dynamic  # noqa: B018
+
+    def test_pep808_dynamic_with_static_values(self) -> None:
+        """PEP 808 allows list/table fields to have static values
+        while their key is also listed in ``Dynamic``."""
+        raw: RawMetadata = {
+            "metadata_version": "2.6",
+            "name": "packaging",
+            "version": "1.0.0",
+            "classifiers": ["Development Status :: 4 - Beta"],
+            "requires_dist": ["pytest"],
+            "provides_extra": ["test"],
+            "license_files": ["LICENSE"],
+            "project_urls": {"homepage": "example.com"},
+            "import_names": ["packaging"],
+            "import_namespaces": ["pkg.ns"],
+            "dynamic": [
+                "classifier",
+                "requires-dist",
+                "provides-extra",
+                "license-file",
+                "project-url",
+                "import-name",
+                "import-namespace",
+            ],
+        }
+
+        meta = metadata.Metadata.from_raw(raw, validate=True)
+        assert meta.classifiers == ["Development Status :: 4 - Beta"]
+        assert meta.requires_dist == [requirements.Requirement("pytest")]
+        assert meta.provides_extra == [utils.canonicalize_name("test")]
+        assert meta.license_files == ["LICENSE"]
+        assert meta.project_urls == {"homepage": "example.com"}
+        assert meta.import_names == ["packaging"]
+        assert meta.import_namespaces == ["pkg.ns"]
+        assert meta.dynamic == [
+            "classifier",
+            "requires-dist",
+            "provides-extra",
+            "license-file",
+            "project-url",
+            "import-name",
+            "import-namespace",
+        ]
+
+        rfc822 = meta.as_rfc822()
+        assert ("classifier", "Development Status :: 4 - Beta") in rfc822.items()
+        assert ("requires-dist", "pytest") in rfc822.items()
+        assert ("provides-extra", "test") in rfc822.items()
+        assert ("license-file", "LICENSE") in rfc822.items()
+        assert ("project-url", "homepage, example.com") in rfc822.items()
+        assert ("import-name", "packaging") in rfc822.items()
+        assert ("import-namespace", "pkg.ns") in rfc822.items()
+        assert ("dynamic", "classifier") in rfc822.items()
+        assert ("dynamic", "requires-dist") in rfc822.items()
+        assert ("dynamic", "provides-extra") in rfc822.items()
+        assert ("dynamic", "license-file") in rfc822.items()
+        assert ("dynamic", "project-url") in rfc822.items()
+        assert ("dynamic", "import-name") in rfc822.items()
+        assert ("dynamic", "import-namespace") in rfc822.items()
 
     @pytest.mark.parametrize("field_name", ["name", "version", "metadata-version"])
     def test_disallowed_dynamic(self, field_name: str) -> None:
@@ -855,7 +916,7 @@ class TestMetadataWriting:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
         written = meta.as_rfc822().as_string()
         assert (
-            written == "metadata-version: 2.5\nname: packaging\nversion: 2023.0.0\n\n"
+            written == "metadata-version: 2.6\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
     def test_write_metadata_with_description(self) -> None:
@@ -1005,7 +1066,7 @@ class TestMetadataWriting:
     def test__import_names(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
-                "metadata_version": "2.5",
+                "metadata_version": "2.6",
                 "name": "full_metadata",
                 "version": "3.2.1",
                 "import_names": ["one", "two"],
@@ -1015,7 +1076,7 @@ class TestMetadataWriting:
 
         core_metadata = meta.as_rfc822()
         assert core_metadata.items() == [
-            ("metadata-version", "2.5"),
+            ("metadata-version", "2.6"),
             ("name", "full_metadata"),
             ("version", "3.2.1"),
             ("import-name", "one"),
@@ -1028,7 +1089,7 @@ class TestMetadataWriting:
     def test_empty_import_names(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
-                "metadata_version": "2.5",
+                "metadata_version": "2.6",
                 "name": "full_metadata",
                 "version": "3.2.1",
                 "import_names": [],
@@ -1037,7 +1098,7 @@ class TestMetadataWriting:
 
         core_metadata = meta.as_rfc822()
         assert core_metadata.items() == [
-            ("metadata-version", "2.5"),
+            ("metadata-version", "2.6"),
             ("name", "full_metadata"),
             ("version", "3.2.1"),
             ("import-name", ""),
