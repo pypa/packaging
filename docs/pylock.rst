@@ -13,7 +13,7 @@ Usage
     import tomllib
     from pathlib import Path
 
-    from packaging.pylock import Package, PackageWheel, Pylock
+    from packaging.pylock import Package, PackageWheel, Pylock, is_valid_pylock_path
     from packaging.utils import NormalizedName
     from packaging.version import Version
 
