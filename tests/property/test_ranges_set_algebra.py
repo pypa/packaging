@@ -18,7 +18,13 @@ from hypothesis import given
 from packaging.ranges import VersionRange
 from packaging.specifiers import SpecifierSet
 
-from .strategies import SETTINGS, VERSION_POOL, pep440_versions, specifier_sets
+from .strategies import (
+    SETTINGS,
+    VERSION_POOL,
+    pep440_versions,
+    rich_specifier_sets,
+    specifier_sets,
+)
 
 if TYPE_CHECKING:
     from packaging.version import Version
@@ -245,3 +251,36 @@ def test_exact_equals_singleton_intersection(
         assert inter == e
     else:
         assert inter.is_empty
+
+
+@given(spec_set=rich_specifier_sets())
+@SETTINGS
+def test_full_range_is_identity_for_filter(spec_set: SpecifierSet) -> None:
+    """``full()`` is the identity for ``&`` w.r.t. filtering.
+
+    Pre-release eligibility rides on ``_prereleases``, which ``==`` and
+    ``__contains__`` ignore by design, so the structural laws above can't see
+    it; only ``filter`` does. Folding ``full() & r1 & r2 & ...`` must never
+    erase a range's tag.
+    """
+    r = spec_set.to_range()
+    full = VersionRange.full()
+    expected = list(r.filter(VERSION_POOL))
+    assert list((r & full).filter(VERSION_POOL)) == expected
+    assert list((full & r).filter(VERSION_POOL)) == expected
+
+
+@given(a=rich_specifier_sets(), b=rich_specifier_sets())
+@SETTINGS
+def test_intersection_filter_matches_merged_set(
+    a: SpecifierSet, b: SpecifierSet
+) -> None:
+    """``to_range`` is a homomorphism w.r.t. filtering.
+
+    ``(a.to_range() & b.to_range()).filter`` equals
+    ``(a & b).to_range().filter``, including pre-release eligibility (which
+    the structural ``==`` laws above cannot observe).
+    """
+    composed = list((a.to_range() & b.to_range()).filter(VERSION_POOL))
+    merged = list((a & b).to_range().filter(VERSION_POOL))
+    assert composed == merged

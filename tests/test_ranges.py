@@ -1299,3 +1299,72 @@ class TestArbitraryEdgeCases:
         admit_pre = VersionRange.from_specifier(Specifier("===1.0a1"))
         bounds_pre = VersionRange.from_specifier_set(SpecifierSet(">=1.0a1,<1.0"))
         assert admit_pre.union(bounds_pre).is_prerelease_only is True
+
+
+class TestPrereleaseComposition:
+    """Set algebra must carry pre-release eligibility, so a composed range
+    filters like the composed specifier. A single ``to_range`` conversion is
+    already faithful; ``&`` / ``|`` must not drop the tag (``~`` may reset it).
+    """
+
+    # A final release and a pre-release; both sit inside every range below.
+    SAMPLE_VERSIONS = (Version("1.0"), Version("2.0a1"))
+
+    @staticmethod
+    def _tagged_ranges() -> tuple[VersionRange, VersionRange, VersionRange]:
+        """Three ranges that contain both SAMPLE_VERSIONS, one per resolved
+        tag: auto-detected True, PEP 440 default None, and explicit False."""
+        true_tag = SpecifierSet(">=1.0a1").to_range()
+        none_tag = SpecifierSet("<3.0").to_range()
+        false_tag = SpecifierSet("<3.0", prereleases=False).to_range()
+        assert true_tag._prereleases is True
+        assert none_tag._prereleases is None
+        assert false_tag._prereleases is False
+        return true_tag, none_tag, false_tag
+
+    def test_full_range_is_identity_for_filtering(self) -> None:
+        full = VersionRange.full()
+        for r in self._tagged_ranges():
+            expected = list(r.filter(self.SAMPLE_VERSIONS))
+            assert list((r & full).filter(self.SAMPLE_VERSIONS)) == expected
+            assert list((full & r).filter(self.SAMPLE_VERSIONS)) == expected
+
+    def test_intersection_combines_true_then_false_then_none(self) -> None:
+        true_tag, none_tag, false_tag = self._tagged_ranges()
+        assert (true_tag & none_tag)._prereleases is True  # True dominates
+        assert (true_tag & false_tag)._prereleases is True
+        assert (false_tag & none_tag)._prereleases is False  # then False
+        assert (none_tag & none_tag)._prereleases is None  # else None
+        assert (true_tag & true_tag)._prereleases is True
+
+    def test_union_combines_true_then_false_then_none(self) -> None:
+        true_tag, none_tag, false_tag = self._tagged_ranges()
+        assert (true_tag | none_tag)._prereleases is True
+        assert (true_tag | false_tag)._prereleases is True
+        assert (false_tag | none_tag)._prereleases is False
+        assert (none_tag | none_tag)._prereleases is None
+
+    def test_complement_resets_tag_to_none(self) -> None:
+        for r in self._tagged_ranges():
+            assert r.complement()._prereleases is None
+
+    @pytest.mark.parametrize(
+        ("s1", "s2"),
+        [
+            (">=1.0a1", "<3.0"),
+            (">=1.0", "<3.0"),
+            (">=1.0a1", ">=1.0a1"),
+            (">=1.0a1,<3.0", ""),
+            ("", ">=1.0a1"),
+            (">=1.0", ">=1.0a1"),
+        ],
+    )
+    def test_intersection_is_a_homomorphism(self, s1: str, s2: str) -> None:
+        """``(a.to_range() & b.to_range()).filter`` equals
+        ``(a & b).to_range().filter``."""
+        a, b = SpecifierSet(s1), SpecifierSet(s2)
+        composed_ranges = list(
+            (a.to_range() & b.to_range()).filter(self.SAMPLE_VERSIONS)
+        )
+        composed_set = list((a & b).to_range().filter(self.SAMPLE_VERSIONS))
+        assert composed_ranges == composed_set

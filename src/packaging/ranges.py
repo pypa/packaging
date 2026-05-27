@@ -207,6 +207,24 @@ def _ranges_are_prerelease_only(ranges: Sequence[Interval]) -> bool:
     return True
 
 
+def _combine_prereleases(left: bool | None, right: bool | None) -> bool | None:
+    """Combine two ranges' pre-release tags for :meth:`intersection` /
+    :meth:`union`.
+
+    A ``True`` from either side wins, then an explicit ``False``, otherwise
+    ``None`` (the PEP 440 buffering default). ``None`` is the identity, so
+    ``r & VersionRange.full()`` keeps ``r``'s tag and composition stays
+    faithful to the originating specifiers. ``True`` against ``False`` (which
+    :meth:`SpecifierSet.__and__` rejects) resolves to ``True`` here, since
+    set algebra on ranges is total.
+    """
+    if left is True or right is True:
+        return True
+    if left is False or right is False:
+        return False
+    return None
+
+
 def _format_lower(bound: LowerBound) -> str:
     if bound.version is None:
         return "(-inf"
@@ -566,8 +584,10 @@ class VersionRange:
     #: ``from_*`` factories (see
     #: :func:`packaging._range_utils.resolve_prereleases`): ``True`` admits
     #: pre-releases, ``False`` excludes them, ``None`` uses the PEP 440
-    #: default. Set algebra leaves it ``None``. Read by :meth:`filter` only
-    #: when its ``prereleases`` argument is ``None``; not part of equality,
+    #: default. :meth:`intersection` / :meth:`union` combine the two tags
+    #: (``True`` wins, then ``False``, then ``None``); :meth:`complement`
+    #: resets to ``None``. Read by :meth:`filter` only when its
+    #: ``prereleases`` argument is ``None``; not part of equality,
     #: membership, or hashing.
     _prereleases: bool | None
 
@@ -679,9 +699,14 @@ class VersionRange:
         True
         """
         if not self._has_literals() and not other._has_literals():
-            return self._build(tuple(intersect_ranges(self._bounds, other._bounds)))
-        new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
-        return self._combine_literals(other, new_bounds, intersect=True)
+            result = self._build(tuple(intersect_ranges(self._bounds, other._bounds)))
+        else:
+            new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
+            result = self._combine_literals(other, new_bounds, intersect=True)
+        result._prereleases = _combine_prereleases(
+            self._prereleases, other._prereleases
+        )
+        return result
 
     def union(self, other: VersionRange) -> VersionRange:
         """Range containing every version in *self* or *other*.
@@ -694,9 +719,14 @@ class VersionRange:
         False
         """
         if not self._has_literals() and not other._has_literals():
-            return self._build(tuple(_union_ranges(self._bounds, other._bounds)))
-        new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
-        return self._combine_literals(other, new_bounds, intersect=False)
+            result = self._build(tuple(_union_ranges(self._bounds, other._bounds)))
+        else:
+            new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
+            result = self._combine_literals(other, new_bounds, intersect=False)
+        result._prereleases = _combine_prereleases(
+            self._prereleases, other._prereleases
+        )
+        return result
 
     def complement(self) -> VersionRange:
         """Range containing every version *not* in *self*.
