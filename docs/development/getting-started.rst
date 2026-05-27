@@ -36,8 +36,10 @@ each supported Python version and run the tests. For example:
     nox > * tests-3.12: success
     nox > * tests-3.13: success
     nox > * tests-3.14: success
+    nox > * tests-3.15: success
     nox > * tests-3.13t: success
     nox > * tests-3.14t: success
+    nox > * tests-3.15t: success
     nox > * tests-pypy3.9: skipped
     nox > * tests-pypy3.10: skipped
     nox > * tests-pypy3.11: skipped
