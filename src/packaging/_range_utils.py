@@ -475,20 +475,16 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
 
 
 def resolve_prereleases(
-    explicit: bool | None,
     configured: bool | None,
     autodetected: bool | None,
 ) -> bool | None:
-    """Resolve the effective pre-release policy for filtering / membership.
+    """Resolve a specifier's default pre-release policy.
 
-    Shared by specifier filtering and :class:`~packaging.ranges.VersionRange`
-    construction so both agree on the default. The caller's ``explicit``
-    argument wins; then the constructor ``configured`` value; otherwise an
-    autodetected ``True`` propagates, while an autodetected ``False`` / ``None``
-    falls back to the PEP 440 default (``None``).
+    The constructor ``configured`` value wins; otherwise an autodetected
+    ``True`` propagates, while an autodetected ``False`` / ``None`` falls back
+    to the PEP 440 default (``None``). Used to tag a
+    :class:`~packaging.ranges.VersionRange` so it filters like its specifier.
     """
-    if explicit is not None:
-        return explicit
     if configured is not None:
         return configured
     if autodetected:

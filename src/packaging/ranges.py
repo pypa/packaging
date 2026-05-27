@@ -928,7 +928,7 @@ class VersionRange:
         # excluded) to the same value, so the raw flag is needed and has no
         # public accessor.
         result._prereleases = resolve_prereleases(
-            None, specifier._prereleases, specifier.prereleases
+            specifier._prereleases, specifier.prereleases
         )
         return result
 

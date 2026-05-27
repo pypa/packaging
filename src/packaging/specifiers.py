@@ -749,8 +749,9 @@ class Specifier(BaseSpecifier):
         ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
         """
-        # Inlined ``resolve_prereleases`` (skips the ``self.prereleases``
-        # lookup unless it is needed).
+        # Resolve the default when no explicit value is given (the
+        # ``resolve_prereleases`` rule, inlined to skip the
+        # ``self.prereleases`` lookup unless it is needed).
         if prereleases is None:
             if self._prereleases is not None:
                 prereleases = self._prereleases
@@ -1305,8 +1306,9 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
         """
-        # Inlined ``resolve_prereleases``: ``self.prereleases`` scans every
-        # spec, so resolve it once and skip it when not needed.
+        # Resolve the default when no explicit value is given (the
+        # ``resolve_prereleases`` rule). ``self.prereleases`` scans every
+        # spec, so resolve it once and only when needed.
         if prereleases is None:
             resolved = self.prereleases
             if resolved is not None:
