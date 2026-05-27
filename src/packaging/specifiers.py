@@ -471,6 +471,9 @@ class Specifier(BaseSpecifier):
     @prereleases.setter
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
+        # The range carries the resolved prereleases value, so drop the
+        # cache; the bounds-only ``_ranges`` cache is unaffected.
+        self._range_cache = None
 
     def __getstate__(self) -> tuple[tuple[str, str], bool | None]:
         # Return state as a 2-item tuple for compactness:
@@ -747,7 +750,8 @@ class Specifier(BaseSpecifier):
         ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
         """
-        # Inlined ``_resolve_prereleases`` for hot-path performance.
+        # Inlined ``resolve_prereleases`` (skips the ``self.prereleases``
+        # lookup unless it is needed).
         if prereleases is None:
             if self._prereleases is not None:
                 prereleases = self._prereleases
@@ -767,22 +771,6 @@ class Specifier(BaseSpecifier):
             )
 
         return self.to_range().filter(iterable, key=key, prereleases=prereleases)
-
-    def _resolve_prereleases(self, prereleases: bool | None) -> bool | None:
-        """Resolve ``prereleases`` for :meth:`filter` / :meth:`contains`.
-
-        Explicit caller argument wins; otherwise the constructor value
-        ``self._prereleases``; otherwise auto-detected ``self.prereleases``
-        only when True (an auto-detected False does not propagate, so
-        non-pre specifiers keep PEP 440 default behaviour).
-        """
-        if prereleases is not None:
-            return prereleases
-        if self._prereleases is not None:
-            return self._prereleases
-        if self.prereleases:
-            return True
-        return None
 
 
 class SpecifierSet(BaseSpecifier):
@@ -1254,15 +1242,6 @@ class SpecifierSet(BaseSpecifier):
 
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
-    def _resolve_prereleases(self, prereleases: bool | None) -> bool | None:
-        """Resolve ``prereleases`` for :meth:`filter` / :meth:`contains`.
-
-        Explicit caller argument wins; otherwise ``self.prereleases``.
-        """
-        if prereleases is not None:
-            return prereleases
-        return self.prereleases
-
     @typing.overload
     def filter(
         self,
@@ -1327,8 +1306,8 @@ class SpecifierSet(BaseSpecifier):
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
         """
-        # Inlined ``_resolve_prereleases`` for hot-path performance.
-        # ``self.prereleases`` scans every spec, so resolve it once.
+        # Inlined ``resolve_prereleases``: ``self.prereleases`` scans every
+        # spec, so resolve it once and skip it when not needed.
         if prereleases is None:
             resolved = self.prereleases
             if resolved is not None:

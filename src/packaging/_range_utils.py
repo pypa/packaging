@@ -43,6 +43,7 @@ __all__ = [
     "intersect_ranges",
     "matches_bounds_only",
     "range_is_empty",
+    "resolve_prereleases",
     "standard_ranges",
     "wildcard_ranges",
 ]
@@ -471,6 +472,28 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
     if lower.version == upper.version:
         return not (lower.inclusive and upper.inclusive)
     return lower.version > upper.version
+
+
+def resolve_prereleases(
+    explicit: bool | None,
+    configured: bool | None,
+    autodetected: bool | None,
+) -> bool | None:
+    """Resolve the effective pre-release policy for filtering / membership.
+
+    Shared by specifier filtering and :class:`~packaging.ranges.VersionRange`
+    construction so both agree on the default. The caller's ``explicit``
+    argument wins; then the constructor ``configured`` value; otherwise an
+    autodetected ``True`` propagates, while an autodetected ``False`` / ``None``
+    falls back to the PEP 440 default (``None``).
+    """
+    if explicit is not None:
+        return explicit
+    if configured is not None:
+        return configured
+    if autodetected:
+        return True
+    return None
 
 
 def intersect_ranges(

@@ -44,6 +44,7 @@ from ._range_utils import (
     intersect_ranges,
     matches_bounds_only,
     range_is_empty,
+    resolve_prereleases,
 )
 from ._version_utils import coerce_version
 from .version import InvalidVersion, Version
@@ -259,6 +260,7 @@ def _restore_version_range(
     arbitrary: str | None = None,
     admit: tuple[str, ...] | None = None,
     reject: tuple[str, ...] | None = None,
+    prereleases: bool | None = None,
 ) -> VersionRange:
     """Pickle restorer; bypasses the ``__new__`` guard via ``_build``.
 
@@ -274,20 +276,22 @@ def _restore_version_range(
         for lower, upper in packed_bounds
     )
     if admit is not None or reject is not None:
-        return VersionRange._build(
-            bounds,
-            admit=frozenset(admit or ()),
-            reject=frozenset(reject or ()),
+        result = VersionRange._build(
+            bounds, admit=frozenset(admit or ()), reject=frozenset(reject or ())
         )
-    if arbitrary is None:
-        return VersionRange._build(bounds)
-    # Legacy ``arbitrary`` matched ``{arbitrary}`` if the literal was
-    # in bounds, empty otherwise.
-    literal_lower = arbitrary.lower()
-    legacy_range = VersionRange._build(bounds)
-    if literal_lower in legacy_range:
-        return VersionRange._build((), admit=frozenset({literal_lower}))
-    return VersionRange._build(())
+    elif arbitrary is None:
+        result = VersionRange._build(bounds)
+    else:
+        # Legacy ``arbitrary`` matched ``{arbitrary}`` if the literal was
+        # in bounds, empty otherwise.
+        literal_lower = arbitrary.lower()
+        if literal_lower in VersionRange._build(bounds):
+            result = VersionRange._build((), admit=frozenset({literal_lower}))
+        else:
+            result = VersionRange._build(())
+
+    result._prereleases = prereleases
+    return result
 
 
 # VersionRange to SpecifierSet conversion is partial: not every range
@@ -546,7 +550,7 @@ class VersionRange:
     version-ordering rule.
     """
 
-    __slots__ = ("_admit", "_bounds", "_is_simple", "_reject")
+    __slots__ = ("_admit", "_bounds", "_is_simple", "_prereleases", "_reject")
     _bounds: tuple[Interval, ...]
     #: Whether :meth:`filter` can dispatch straight to the bounds-only
     #: filter: no admit/reject literals and bounds aren't the full range.
@@ -558,6 +562,14 @@ class VersionRange:
     #: ``_bounds``. Populated by :meth:`complement` of a range whose
     #: ``_admit`` was non-empty.
     _reject: frozenset[str]
+    #: Pre-release policy stamped from the originating specifier by the
+    #: ``from_*`` factories (see
+    #: :func:`packaging._range_utils.resolve_prereleases`): ``True`` admits
+    #: pre-releases, ``False`` excludes them, ``None`` uses the PEP 440
+    #: default. Set algebra leaves it ``None``. Read by :meth:`filter` only
+    #: when its ``prereleases`` argument is ``None``; not part of equality,
+    #: membership, or hashing.
+    _prereleases: bool | None
 
     def __new__(cls, *args: object, **kwargs: object) -> VersionRange:  # noqa: PYI034
         raise TypeError(
@@ -578,7 +590,8 @@ class VersionRange:
 
         Drops admit literals already covered by bounds and reject
         literals already outside bounds. Reject wins over admit on
-        overlap.
+        overlap. ``_prereleases`` defaults to ``None``; the ``from_*``
+        factories stamp the spec's resolved value.
         """
         if admit and reject:
             admit = admit - reject
@@ -590,6 +603,7 @@ class VersionRange:
         instance._bounds = bounds
         instance._admit = admit
         instance._reject = reject
+        instance._prereleases = None
         # Pure-bound range: filter can skip the admission dispatch.
         instance._is_simple = not admit and not reject and bounds != FULL_RANGE
         return instance
@@ -606,6 +620,7 @@ class VersionRange:
         instance._bounds = bounds
         instance._admit = _EMPTY_FROZENSET
         instance._reject = _EMPTY_FROZENSET
+        instance._prereleases = None
         instance._is_simple = bounds != FULL_RANGE
         return instance
 
@@ -781,6 +796,8 @@ class VersionRange:
         >>> list(r.filter(["0.9", "1.5", "2.0"]))
         ['1.5']
         """
+        if prereleases is None:
+            prereleases = self._prereleases
         if self._is_simple:
             return filter_by_ranges(self._bounds, iterable, key, prereleases)
         return self._filter_with_admission(iterable, key, prereleases)
@@ -870,9 +887,20 @@ class VersionRange:
         op = specifier.operator
         ver = specifier.version
         if op == "===":
-            return cls._build(bounds=(), admit=frozenset({ver.lower()}))
-
-        return cls._build_simple(bounds=bounds_for_spec(op, ver))
+            result = cls._build(bounds=(), admit=frozenset({ver.lower()}))
+        else:
+            result = cls._build_simple(bounds=bounds_for_spec(op, ver))
+        # Tag the range with the pre-release policy filter() uses by
+        # default, so it mirrors the specifier. ``_prereleases`` is the one
+        # specifier private we read: the public ``prereleases`` property
+        # collapses an auto-detected ``False`` (``>=1.0``, the PEP 440
+        # default) and an explicit ``prereleases=False`` (pre-releases
+        # excluded) to the same value, so the raw flag is needed and has no
+        # public accessor.
+        result._prereleases = resolve_prereleases(
+            None, specifier._prereleases, specifier.prereleases
+        )
+        return result
 
     @classmethod
     def from_specifier_set(cls, specifier_set: SpecifierSet) -> VersionRange:
@@ -900,6 +928,12 @@ class VersionRange:
         result = cls.full()
         for spec in specifier_set:
             result = result.intersection(cls.from_specifier(spec))
+
+        # Tag the range with the set's pre-release policy. Unlike a single
+        # specifier, a set's public ``prereleases`` never reports an
+        # auto-detected ``False``, so it already equals the resolved value
+        # and no private access is needed here.
+        result._prereleases = specifier_set.prereleases
         return result
 
     def to_specifier_set(self) -> SpecifierSet | None:
@@ -1017,6 +1051,7 @@ class VersionRange:
                 None,
                 tuple(sorted(self._admit)),
                 tuple(sorted(self._reject)),
+                self._prereleases,
             ),
         )
 
