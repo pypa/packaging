@@ -4,7 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Behavior adaptations:
+
+* Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
+  tags on Linux. (:issue:`160`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~

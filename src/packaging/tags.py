@@ -773,10 +773,10 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
             linux = "linux_armv8l"
     _, arch = linux.split("_", 1)
     archs = {"armv8l": ["armv8l", "armv7l"]}.get(arch, [arch])
-    yield from _manylinux.platform_tags(archs)
-    yield from _musllinux.platform_tags(archs)
     for arch in archs:
         yield f"linux_{arch}"
+    yield from _manylinux.platform_tags(archs)
+    yield from _musllinux.platform_tags(archs)
 
 
 def _emscripten_platforms() -> Iterator[str]:
