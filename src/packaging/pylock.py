@@ -50,6 +50,7 @@ __all__ = [
     "PackageVcs",
     "PackageWheel",
     "Pylock",
+    "PylockSelectError",
     "PylockUnsupportedVersionError",
     "PylockValidationError",
     "is_valid_pylock_path",
