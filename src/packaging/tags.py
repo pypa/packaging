@@ -864,7 +864,7 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
 
     .. versionchanged:: 21.3
         Added the `pp3-none-any` tag (:issue:`311`).
-    .. versionchanged:: 27.0
+    .. versionchanged:: 26.1
         Added the `abi3t` tag (:issue:`1099`).
     """
 
