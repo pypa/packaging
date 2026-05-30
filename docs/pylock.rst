@@ -10,12 +10,16 @@ Usage
 
 .. code-block:: python
 
-    import tomllib
     from pathlib import Path
 
     from packaging.pylock import Package, PackageWheel, Pylock, is_valid_pylock_path
     from packaging.utils import NormalizedName
     from packaging.version import Version
+
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
 
     # validate a pylock file name
     assert is_valid_pylock_path(Path("pylock.example.toml"))

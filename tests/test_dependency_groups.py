@@ -210,7 +210,7 @@ def test_single_include_group() -> None:
     assert set(resolve_dependency_groups(groups, "test")) == {"pytest", "sqlalchemy"}
 
 
-def test_sdual_include_group() -> None:
+def test_dual_include_group() -> None:
     groups: GroupsTable = {
         "test": [
             "pytest",
@@ -422,6 +422,20 @@ def test_unknown_object_shape(item: dict[str, str] | object) -> None:
 
     assert _group_contains(
         excinfo, InvalidDependencyGroupObject, match="Invalid dependency group item:"
+    )
+
+
+def test_include_group_value_must_be_string() -> None:
+    groups: Any = {"test": [{"include-group": 123}]}
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "test")
+
+    assert _group_contains(
+        excinfo,
+        InvalidDependencyGroupObject,
+        match="'include-group' must be a string",
     )
 
 

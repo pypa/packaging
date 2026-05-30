@@ -36,7 +36,7 @@ Usage
     )
 
     # A local editable direct URL
-    archive_direct_url = DirectUrl(
+    dir_direct_url = DirectUrl(
         url="file:///home/project/example",
         dir_info=DirInfo(
             editable=True,

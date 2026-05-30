@@ -239,7 +239,17 @@ class DependencyGroupResolver:
                     )
                 else:
                     include_group = item["include-group"]
-                    elements.append(DependencyGroupInclude(include_group=include_group))
+                    if not isinstance(include_group, str):
+                        errors.error(
+                            InvalidDependencyGroupObject(
+                                "Invalid dependency group item: "
+                                f"{item!r}. 'include-group' must be a string."
+                            )
+                        )
+                    else:
+                        elements.append(
+                            DependencyGroupInclude(include_group=include_group)
+                        )
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
