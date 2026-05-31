@@ -34,7 +34,6 @@ __all__ = [
     "POS_INF",
     "BoundaryKind",
     "BoundaryVersion",
-    "Interval",
     "LowerBound",
     "UpperBound",
     "bounds_for_spec",

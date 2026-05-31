@@ -75,16 +75,14 @@ operation returns a new range; operands are not mutated.
     >>> # Double-complement is the original range.
     >>> ~~ge1 == ge1
     True
-    >>> # Within the PEP 440 universe, a range and its complement are disjoint.
+    >>> # A range and its complement are disjoint.
     >>> bool(ge1 & ~ge1)
     False
 
-Ranges built from :meth:`VersionRange.full`, ``SpecifierSet("")``, or
-``===`` literals sit outside the PEP 440 universe (the universal range
-also admits non-version strings; ``===`` matches a literal verbatim).
-For them :meth:`~VersionRange.complement` is one-way and the disjoint
-identity above does not hold; see the :class:`VersionRange` class
-reference for details.
+:meth:`~VersionRange.complement` is one-way for ``===`` literals that
+do not parse as PEP 440 versions: the literal drops out of the first
+complement, so ``~~(===wat)`` is empty. See the :class:`VersionRange`
+class reference for details.
 
 Set operations answer overlap and subset questions directly:
 
