@@ -18,7 +18,12 @@ from hypothesis import given
 
 from packaging.ranges import VersionRange
 
-from .strategies import SETTINGS, VERSION_POOL, rich_specifier_sets
+from .strategies import (
+    SETTINGS,
+    VERSION_POOL,
+    eq_versions_only,
+    rich_specifier_sets,
+)
 
 if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
@@ -30,6 +35,8 @@ pytestmark = pytest.mark.property
 @SETTINGS
 def test_double_complement_identity_rich(spec_set: SpecifierSet) -> None:
     r = VersionRange.from_specifier_set(spec_set)
+    # Complement preserves every membership slot, so involution holds
+    # structurally for any rangelike input.
     assert r.complement().complement() == r
 
 
@@ -39,7 +46,7 @@ def test_complement_partitions_rich(spec_set: SpecifierSet) -> None:
     r = VersionRange.from_specifier_set(spec_set)
     c = r.complement()
     assert r.intersection(c).is_empty
-    assert r.union(c) == VersionRange.full()
+    assert eq_versions_only(r.union(c), VersionRange.full())
 
 
 @given(a=rich_specifier_sets(), b=rich_specifier_sets())
@@ -47,6 +54,8 @@ def test_complement_partitions_rich(spec_set: SpecifierSet) -> None:
 def test_de_morgan_intersect_rich(a: SpecifierSet, b: SpecifierSet) -> None:
     ra = VersionRange.from_specifier_set(a)
     rb = VersionRange.from_specifier_set(b)
+    # ``rich_specifier_sets`` (without ``include_arbitrary``) stays in
+    # the PEP 440 universe, so De Morgan holds structurally.
     assert ra.intersection(rb).complement() == ra.complement().union(rb.complement())
 
 
@@ -167,6 +176,9 @@ def test_membership_consistent_with_union_rich(
 @SETTINGS
 def test_double_complement_with_arbitrary(spec_set: SpecifierSet) -> None:
     r = VersionRange.from_specifier_set(spec_set)
+    # Involution holds structurally now: complement preserves every
+    # membership slot, and parseable ``===L`` literals round-trip
+    # through the swap (their bounds-membership keeps the reject alive).
     assert r.complement().complement() == r
 
 
@@ -176,7 +188,7 @@ def test_complement_partitions_with_arbitrary(spec_set: SpecifierSet) -> None:
     r = VersionRange.from_specifier_set(spec_set)
     c = r.complement()
     assert r.intersection(c).is_empty
-    assert r.union(c) == VersionRange.full()
+    assert eq_versions_only(r.union(c), VersionRange.full())
 
 
 @given(
@@ -187,6 +199,8 @@ def test_complement_partitions_with_arbitrary(spec_set: SpecifierSet) -> None:
 def test_de_morgan_intersect_with_arbitrary(a: SpecifierSet, b: SpecifierSet) -> None:
     ra = VersionRange.from_specifier_set(a)
     rb = VersionRange.from_specifier_set(b)
+    # All operands stay in the PEP 440 universe (no universal set in
+    # the strategy), so De Morgan holds structurally.
     assert ra.intersection(rb).complement() == ra.complement().union(rb.complement())
 
 

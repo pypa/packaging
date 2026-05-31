@@ -120,3 +120,11 @@ class TimeSpecSuite:
     @add_attributes(pretty_name="SpecifierSet filter (compatible, warm)")
     def time_filter_compatible_warm(self) -> None:
         list(self._warm_compatible.filter(self.complex_versions))
+
+    @add_attributes(pretty_name="SpecifierSet filter (empty, prereleases=True)")
+    def time_filter_empty_pre_true(self) -> None:
+        # Exercises the ``iter()`` shortcut at the head of
+        # ``SpecifierSet.filter`` for the empty set with the prereleases
+        # override.
+        empty = SpecifierSet("")
+        list(empty.filter(self.complex_versions, prereleases=True))

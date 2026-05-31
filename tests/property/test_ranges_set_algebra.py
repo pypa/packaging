@@ -21,6 +21,7 @@ from packaging.specifiers import SpecifierSet
 from .strategies import (
     SETTINGS,
     VERSION_POOL,
+    eq_versions_only,
     pep440_versions,
     rich_specifier_sets,
     specifier_sets,
@@ -115,6 +116,8 @@ def test_intersect_associative(
 @SETTINGS
 def test_double_complement_identity(spec_set: SpecifierSet) -> None:
     r = _to_range(spec_set)
+    # Complement preserves every membership slot, so involution holds
+    # structurally.
     assert r.complement().complement() == r
 
 
@@ -123,15 +126,20 @@ def test_double_complement_identity(spec_set: SpecifierSet) -> None:
 def test_complement_partitions(spec_set: SpecifierSet) -> None:
     r = _to_range(spec_set)
     c = r.complement()
-    # r and ~r are disjoint and together cover the universe.
+    # r and ~r are disjoint and together cover every version. Compare on
+    # the version subset: ``_admit_arbitrary`` only attaches to the
+    # genuine universal range, so ``r | ~r`` never carries it when
+    # neither side is empty.
     assert r.intersection(c).is_empty
-    assert r.union(c) == VersionRange.full()
+    assert eq_versions_only(r.union(c), VersionRange.full())
 
 
 @given(a=specifier_sets(), b=specifier_sets())
 @SETTINGS
 def test_de_morgan_intersect(a: SpecifierSet, b: SpecifierSet) -> None:
     ra, rb = _to_range(a), _to_range(b)
+    # ``specifier_sets`` never produces the universal set, so both sides
+    # stay in the PEP 440 universe and De Morgan holds structurally.
     assert (ra.intersection(rb)).complement() == ra.complement().union(rb.complement())
 
 
@@ -230,11 +238,17 @@ def test_hash_equality_consistency(spec_set: SpecifierSet) -> None:
 @given(spec_set=specifier_sets())
 @SETTINGS
 def test_complement_is_empty_iff_unbounded(spec_set: SpecifierSet) -> None:
-    """``~r`` is empty exactly when ``r`` covers everything."""
+    """``~r`` is empty exactly when ``r`` covers every version.
+
+    Compares on the version subset only: a ``>=0.dev0``-derived range
+    reaches FULL_RANGE bounds but does not admit arbitrary strings, so its
+    complement is empty even though it is not structurally equal to
+    ``VersionRange.full()``.
+    """
     r = _to_range(spec_set)
     if r.complement().is_empty:
-        assert r == VersionRange.full()
-    if r == VersionRange.full():
+        assert eq_versions_only(r, VersionRange.full())
+    if eq_versions_only(r, VersionRange.full()):
         assert r.complement().is_empty
 
 
@@ -284,3 +298,84 @@ def test_intersection_filter_matches_merged_set(
     composed = list((a.to_range() & b.to_range()).filter(VERSION_POOL))
     merged = list((a & b).to_range().filter(VERSION_POOL))
     assert composed == merged
+
+
+@given(spec_set=rich_specifier_sets(include_arbitrary=True))
+@SETTINGS
+def test_to_range_filter_and_contains_mirror_specifier_set(
+    spec_set: SpecifierSet,
+) -> None:
+    """``filter`` and ``__contains__`` on the range mirror the originating set.
+
+    Closes the gap that the bounds-only fast path in ``SpecifierSet.filter``
+    might diverge from ``VersionRange.filter`` on the ``prereleases=None``
+    default, or that ``v in to_range()`` might drift from ``v in spec_set``.
+    """
+    r = spec_set.to_range()
+    pool = [str(v) for v in VERSION_POOL] + ["unparsable", "garbage"]
+    for prereleases in (None, True, False):
+        assert list(r.filter(pool, prereleases=prereleases)) == list(
+            spec_set.filter(pool, prereleases=prereleases)
+        )
+    for item in pool:
+        assert (item in r) == (item in spec_set)
+
+
+@given(spec_set=rich_specifier_sets(include_arbitrary=True))
+@SETTINGS
+def test_unsatisfiable_implies_no_pool_match(spec_set: SpecifierSet) -> None:
+    """A set flagged unsatisfiable can satisfy nothing under the same policy.
+
+    Pinned to ``prereleases=False`` to exercise the prerelease-only branch
+    that ``is_unsatisfiable`` consults; the implication is sound for any
+    policy.
+    """
+    pinned = SpecifierSet(str(spec_set), prereleases=False)
+    if pinned.is_unsatisfiable():
+        assert not any(pinned.contains(v) for v in VERSION_POOL)
+
+
+@given(spec_set=rich_specifier_sets(include_arbitrary=True))
+@SETTINGS
+def test_prerelease_only_implies_all_matches_are_prereleases(
+    spec_set: SpecifierSet,
+) -> None:
+    """A non-empty prerelease-only range contains no final release.
+
+    Membership ignores the prerelease policy, so any pooled version inside
+    the range must itself be a pre-release.
+    """
+    r = spec_set.to_range()
+    if r.is_prerelease_only and not r.is_empty:
+        for v in VERSION_POOL:
+            if v in r:
+                assert v.is_prerelease
+
+
+@given(spec_set=specifier_sets(vary_prereleases=True))
+@SETTINGS
+def test_identity_laws_under_each_policy(spec_set: SpecifierSet) -> None:
+    """``full``/``empty`` stamped with the same policy obey the four identities.
+
+    Stamps ``full()``/``empty()`` with the same configured policy as the
+    drawn range so ``_check_policy_compat`` accepts the pair, then asserts
+    the four lattice identities under the version-only oracle (the
+    universal-range arbitrary-string slot does not survive intersection).
+    """
+    r = spec_set.to_range()
+    p = r._prereleases_configured
+    full = VersionRange.full(prereleases=p)
+    empty = VersionRange.empty(prereleases=p)
+    assert eq_versions_only(r & full, r)
+    assert eq_versions_only(r | empty, r)
+    assert r & empty == empty
+    assert eq_versions_only(r | full, full)
+
+
+@given(spec_set=specifier_sets(vary_prereleases=True))
+@SETTINGS
+def test_idempotence_under_each_policy(spec_set: SpecifierSet) -> None:
+    """``r & r == r`` and ``r | r == r`` for every configured policy."""
+    r = spec_set.to_range()
+    assert r & r == r
+    assert r | r == r

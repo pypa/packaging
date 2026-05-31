@@ -19,7 +19,8 @@ Constructing a range
 
 Build a range from a :class:`~packaging.specifiers.Specifier` or
 :class:`~packaging.specifiers.SpecifierSet` using
-:meth:`~packaging.specifiers.Specifier.to_range`:
+:meth:`~packaging.specifiers.Specifier.to_range` or
+:meth:`~packaging.specifiers.SpecifierSet.to_range`:
 
 .. doctest::
 
@@ -46,6 +47,11 @@ Three factories return common identity ranges:
     >>> "1.0" in VersionRange.singleton("1.0")
     True
 
+Each accepts a keyword-only ``prereleases=True``/``False`` to stamp the
+configured pre-release policy so the result combines cleanly with ranges
+built from a :class:`~packaging.specifiers.SpecifierSet` carrying the
+same policy.
+
 Calling ``VersionRange()`` directly raises :exc:`TypeError`; use one
 of the factories above.
 
@@ -69,9 +75,16 @@ operation returns a new range; operands are not mutated.
     >>> # Double-complement is the original range.
     >>> ~~ge1 == ge1
     True
-    >>> # A range and its complement are always disjoint.
+    >>> # Within the PEP 440 universe, a range and its complement are disjoint.
     >>> bool(ge1 & ~ge1)
     False
+
+Ranges built from :meth:`VersionRange.full`, ``SpecifierSet("")``, or
+``===`` literals sit outside the PEP 440 universe (the universal range
+also admits non-version strings; ``===`` matches a literal verbatim).
+For them :meth:`~VersionRange.complement` is one-way and the disjoint
+identity above does not hold; see the :class:`VersionRange` class
+reference for details.
 
 Set operations answer overlap and subset questions directly:
 
@@ -90,16 +103,19 @@ Set operations answer overlap and subset questions directly:
     >>> (narrow & wide) == narrow
     True
 
+Intersection and union require both operands to share the same
+configured pre-release policy (``None``, ``True``, or ``False``); a
+mismatch raises :exc:`ValueError`. The shared policy carries onto the
+result. Complement preserves the policy of its single operand.
+
 Membership and filtering
 ------------------------
 
-``in`` and :meth:`~VersionRange.filter` mirror
-:class:`~packaging.specifiers.SpecifierSet`'s
-:meth:`~packaging.specifiers.SpecifierSet.__contains__` and
-:meth:`~packaging.specifiers.SpecifierSet.filter`,
-including the PEP 440 pre-release behaviour: with
-``prereleases=None`` (the default), pre-releases are buffered and
-emitted only when the iterable contains no in-range final release.
+:meth:`~VersionRange.filter` mirrors
+:meth:`~packaging.specifiers.SpecifierSet.filter`, including the PEP 440
+pre-release behaviour: with ``prereleases=None`` (the default),
+pre-releases are buffered and emitted only when the iterable contains no
+in-range final release.
 
 .. doctest::
 
@@ -112,15 +128,53 @@ emitted only when the iterable contains no in-range final release.
     >>> list(r.filter(["0.9", "1.5", "2.0"]))
     ['1.5']
 
+Membership (``in``) mirrors
+:meth:`~packaging.specifiers.SpecifierSet.__contains__`: a configured
+``prereleases=False`` excludes pre-releases from both ``in`` and
+:meth:`~VersionRange.filter`. Autodetect alone does not exclude them
+(PEP 440's "match pre-releases when there are no other versions" default
+still applies).
+
+.. doctest::
+
+    >>> excludes_pre = SpecifierSet(">=1.0", prereleases=False).to_range()
+    >>> "2.0a1" in excludes_pre
+    False
+    >>> list(excludes_pre.filter(["1.5", "2.0a1"]))
+    ['1.5']
+
+Equality and hashing compare the configured pre-release policy along
+with the bounds and any ``===`` literals: two ranges built with
+different ``prereleases=`` values are not equal, because the explicit-
+False policy rejects items under ``in`` that the autodetect policy
+admits.
+
+.. doctest::
+
+    >>> r_default = SpecifierSet(">=1.0,<2.0").to_range()
+    >>> r_no_pre = SpecifierSet(">=1.0,<2.0", prereleases=False).to_range()
+    >>> r_default == r_no_pre
+    False
+    >>> "1.5a1" in r_default
+    True
+    >>> "1.5a1" in r_no_pre
+    False
+
+:class:`VersionRange` accepts ``===L`` arbitrary-equality literals
+from a :class:`~packaging.specifiers.Specifier` or
+:class:`~packaging.specifiers.SpecifierSet`. Set algebra over literals
+is best effort, and structural equality may differ from
+:class:`~packaging.specifiers.SpecifierSet` (literals are case-folded).
+Prefer the standard comparison operators where possible.
+
 Converting back to a SpecifierSet
 ---------------------------------
 
 :meth:`~VersionRange.to_specifier_set` returns a single
-:class:`~packaging.specifiers.SpecifierSet` whose
-:meth:`~packaging.specifiers.SpecifierSet.to_range` yields the
-same range, or ``None`` if no such single set exists. Redundant
-specifiers are dropped, which makes the round-trip a useful
-normalisation step:
+:class:`~packaging.specifiers.SpecifierSet` that matches the same
+versions as the range, or ``None`` when no such single set exists.
+Redundant specifiers are dropped along the way, so the round trip
+doubles as a normalisation step:
 
 .. doctest::
 
@@ -147,17 +201,14 @@ union of two intervals returns ``None``;
     >>> [str(s) for s in r.to_specifier_sets()]
     ['<2.0,>=1.0', '<4.0,>=3.0']
 
-The empty range round-trips through ``SpecifierSet("<0")`` (``<0``
-excludes the smallest possible PEP 440 version, ``0.dev0``):
-
-.. doctest::
-
-    >>> VersionRange.empty().to_specifier_set() == SpecifierSet("<0")
-    True
+See the :meth:`~VersionRange.to_specifier_set` and
+:meth:`~VersionRange.to_specifier_sets` reference below for the precise
+round-trip contract and the handling of the empty and full ranges.
 
 Reference
 ---------
 
 .. autoclass:: packaging.ranges.VersionRange
     :members:
-    :special-members: __contains__, __bool__, __eq__, __hash__, __repr__
+    :special-members: __contains__, __bool__, __eq__, __hash__, __repr__, __and__, __or__, __invert__
+    :exclude-members: __new__

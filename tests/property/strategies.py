@@ -4,11 +4,31 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hypothesis import settings
 from hypothesis import strategies as st
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+
+if TYPE_CHECKING:
+    from packaging.ranges import VersionRange
+
+
+def eq_versions_only(a: VersionRange, b: VersionRange) -> bool:
+    """Compare two ranges ignoring the arbitrary-string and pre-release
+    policy slots.
+
+    Complement preserves ``_admit_arbitrary`` (only the universal range
+    admits non-version strings, never algebra), so ``r | ~r`` is never
+    structurally equal to ``VersionRange.full()`` when neither ``r`` nor
+    ``~r`` is empty. The pre-release configured override mirrors
+    ``SpecifierSet.__and__`` rather than pure Boolean algebra. Use this
+    helper when the property is "same set of versions accepted".
+    """
+    return a._bounds == b._bounds and a._admit == b._admit and a._reject == b._reject
+
 
 SETTINGS = settings(max_examples=300, deadline=None)
 
@@ -65,7 +85,7 @@ def pep440_versions(
     min_segments: int = 1,
 ) -> Version:
     """Generate a random PEP 440 version."""
-    epoch = draw(st.sampled_from([None, 0, 1]))
+    epoch = draw(st.sampled_from([None, 0, 1, 2, 3]))
     num_segments = draw(st.integers(min_value=min_segments, max_value=4))
     release = tuple(draw(small_ints) for _ in range(num_segments))
 
@@ -132,11 +152,19 @@ def versions_with_local(draw: st.DrawFn) -> Version:
 
 
 @st.composite
-def specifier_sets(draw: st.DrawFn) -> SpecifierSet:
+def specifier_sets(
+    draw: st.DrawFn,
+    *,
+    vary_prereleases: bool = False,
+) -> SpecifierSet:
     """Random SpecifierSet over ``>= <= > < == !=`` and ``major.minor``.
 
     Narrow on purpose. Tests that need wildcards, locals, pre/post/dev
     on the RHS, epochs, or ``===`` should use :func:`rich_specifier_sets`.
+
+    With ``vary_prereleases=True`` the configured pre-release policy is
+    drawn from ``(None, True, False)``; otherwise it is left as ``None``
+    (autodetect).
     """
     num = draw(st.integers(min_value=1, max_value=3))
     parts: list[str] = []
@@ -145,7 +173,10 @@ def specifier_sets(draw: st.DrawFn) -> SpecifierSet:
         major = draw(small_ints)
         minor = draw(small_ints)
         parts.append(f"{op}{major}.{minor}")
-    return SpecifierSet(",".join(parts))
+    prereleases = (
+        draw(st.sampled_from([None, True, False])) if vary_prereleases else None
+    )
+    return SpecifierSet(",".join(parts), prereleases=prereleases)
 
 
 _ordered_ops = st.sampled_from([">=", "<=", ">", "<"])

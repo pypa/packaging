@@ -368,7 +368,7 @@ class TestQuoteSetSatisfiesIncompatibility:
             rs, r2.complement()
         )
         assert cont_existential == cont_existential_alt
-        # Incompatibility is a *set* of terms, so the disjunction is
+        # Incompatibility is a set of terms, so the disjunction is
         # order-free.
         cont_reversed = _is_disjoint(rs, r2) or _is_disjoint(rs, r1)
         assert cont_existential == cont_reversed

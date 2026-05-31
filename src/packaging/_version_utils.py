@@ -4,18 +4,20 @@
 """Version helpers shared between :mod:`packaging.ranges` and
 :mod:`packaging.specifiers`.
 
-This module is private to :mod:`packaging`; the names in ``__all__``
-form the public contract for the in-package callers.
+Private to :mod:`packaging`; the names in ``__all__`` form the contract
+for in-package callers.
 """
 
 from __future__ import annotations
 
-from .version import InvalidVersion, Version
+from .version import CmpSuffix, InvalidVersion, Version
 
 __all__ = ["coerce_version", "trim_release", "version_cmpkey"]
 
-_VersionCmpSuffix = tuple[int, int, int, int, int, int]
-_VersionCmpKey = tuple[int, tuple[int, ...], _VersionCmpSuffix]
+# Shape returned by :func:`version_cmpkey`; the non-local arm of
+# :data:`~packaging.version.CmpKey`. ``CmpSuffix`` is reused from
+# :mod:`packaging.version` so the suffix layout has a single source of truth.
+_VersionCmpKey = tuple[int, tuple[int, ...], CmpSuffix]
 
 
 def __dir__() -> list[str]:
@@ -23,28 +25,32 @@ def __dir__() -> list[str]:
 
 
 def trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
-    """Strip trailing zeros from a release tuple."""
+    """Strip all trailing zeros from a release tuple.
+
+    Matches :meth:`Version._cmpkey`'s release form, so ``(0,)`` /
+    ``(0, 0)`` collapse to ``()``.
+    """
     end = len(release)
-    while end > 1 and release[end - 1] == 0:
+    while end and release[end - 1] == 0:
         end -= 1
     return release if end == len(release) else release[:end]
 
 
-def version_cmpkey(
-    version: Version,
-) -> _VersionCmpKey:
-    """Return the leading comparison key tuple used by Version._key."""
+def version_cmpkey(version: Version) -> _VersionCmpKey:
+    """Build the first three components of :meth:`Version._cmpkey` from
+    public attributes.
+    """
     release = trim_release(version.release)
+    suffix: CmpSuffix
 
     if version.pre is None and version.post is None and version.dev is None:
-        # 3 = no pre-release, 0/0/0 = no post/dev, 1 = no-dev sorts after dev.
+        # No pre/post/dev: 3 sorts after a/b/rc, final 1 sorts after dev.
         suffix = (3, 0, 0, 0, 1, 0)
-    elif version.pre is None and version.post is None and version.dev is not None:
-        # -1 = dev-only, so it sorts before a/b/rc; the trailing 0s are
-        # the missing post/dev counters.
-        suffix = (-1, 0, 0, 0, 0, version.dev)
+    elif version.pre is None and version.post is None:
+        # Dev-only: -1 sorts before a/b/rc.
+        suffix = (-1, 0, 0, 0, 0, version.dev or 0)
     elif version.pre is None:
-        # 3 = no pre-release; post/dev are encoded in the last four slots.
+        # No pre-release; post/dev fill the trailing slots.
         suffix = (
             3,
             0,
@@ -54,7 +60,7 @@ def version_cmpkey(
             version.dev or 0,
         )
     else:
-        # 0/1/2 = a/b/rc, 1 = no post-release, 0 = has dev, 1/0 = dev counter.
+        # Pre-release: 0/1/2 for a/b/rc, then post/dev.
         pre_rank = {"a": 0, "b": 1, "rc": 2}[version.pre[0]]
         suffix = (
             pre_rank,
@@ -69,10 +75,16 @@ def version_cmpkey(
 
 
 def coerce_version(version: Version | str) -> Version | None:
-    """Parse *version*; ``None`` if invalid."""
-    if not isinstance(version, Version):
-        try:
-            version = Version(version)
-        except InvalidVersion:
-            return None
-    return version
+    """Parse version into a :class:`Version`, or return ``None``.
+
+    Returns ``None`` for any input that is not a :class:`Version` or
+    valid version string, including ``None`` and other unexpected types.
+    """
+    if isinstance(version, Version):
+        return version
+    if not isinstance(version, str):
+        return None
+    try:
+        return Version(version)
+    except InvalidVersion:
+        return None

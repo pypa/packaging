@@ -3,15 +3,13 @@
 # for complete details.
 """Public :class:`VersionRange` API.
 
-The :class:`VersionRange` class exposes a set-algebra view of the
-versions accepted by a :class:`~packaging.specifiers.Specifier` or
-:class:`~packaging.specifiers.SpecifierSet`. Bound primitives, range
-algebra, and the spec-to-bounds dispatch live in
-:mod:`packaging._range_utils`; this module composes them into the
-public class plus the
-:meth:`~packaging.ranges.VersionRange.to_specifier_set` encoders,
-``__repr__``, and pickle helpers that only :class:`VersionRange`
-itself uses.
+A set-algebra view of the versions accepted by a
+:class:`~packaging.specifiers.Specifier` or
+:class:`~packaging.specifiers.SpecifierSet`. Ranges support intersection,
+union, and complement; membership and filtering match the originating
+specifier; and conversion back to a
+:class:`~packaging.specifiers.SpecifierSet` is available where a PEP 440
+form exists.
 
 .. testsetup::
 
@@ -27,6 +25,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Final,
+    TypeVar,
     Union,
 )
 
@@ -38,15 +37,16 @@ from ._range_utils import (
     BoundaryVersion,
     LowerBound,
     UpperBound,
-    bound_match_string,
     bounds_for_spec,
+    canonical_lower,
     filter_by_ranges,
     intersect_ranges,
+    intersect_specifier_bounds,
     matches_bounds_only,
     range_is_empty,
-    resolve_prereleases,
+    ranges_are_prerelease_only,
 )
-from ._version_utils import coerce_version
+from ._version_utils import coerce_version, trim_release
 from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
@@ -58,20 +58,51 @@ if TYPE_CHECKING:
 
 __all__ = ["VersionRange"]
 
+# Defined locally to avoid importing from ``packaging.specifiers``, which
+# imports this module. Mirrors the names of the same shape in
+# :mod:`packaging.specifiers`.
+T = TypeVar("T")
+UnparsedVersion = Union[Version, str]
+UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
 
 def __dir__() -> list[str]:
     return __all__
 
 
 #: Packed pickle form of a single bound: ``(version_str_or_None,
-#: inclusive, kind_or_None)``. Uses only strings, bools, and ``None``
-#: so the format stays stable across packaging releases.
-_PackedBound = tuple[Union[str, None], bool, Union[str, None]]
+#: inclusive, kind_code_or_None)``. ``kind_code`` is the stable
+#: integer code from :data:`_KIND_TO_CODE` rather than the
+#: :class:`BoundaryKind` enum member's ``.name``, so renaming the enum
+#: in :mod:`_range_utils` does not break cross-release pickle restore.
+#: Uses only ints, strings, bools, and ``None`` so the format stays
+#: stable across packaging releases.
+_PackedBound = tuple[Union[str, None], bool, Union[int, None]]
 
-#: Cached empty frozenset for :meth:`VersionRange._build_simple` to
-#: assign to ``_admit`` / ``_reject``; saves a frozenset construction
-#: on every cold-path range build.
-_EMPTY_FROZENSET: Final[frozenset[str]] = frozenset()
+#: Stable integer codes for :class:`BoundaryKind` members. ``ranges.py``
+#: owns this map so the pickle format is decoupled from the enum
+#: member names; never reuse a retired code, only allocate new ones.
+_KIND_TO_CODE: Final[dict[BoundaryKind, int]] = {
+    BoundaryKind.AFTER_LOCALS: 1,
+    BoundaryKind.AFTER_POSTS: 2,
+}
+_CODE_TO_KIND: Final[dict[int, BoundaryKind]] = {
+    code: kind for kind, code in _KIND_TO_CODE.items()
+}
+
+#: Packed pickle form of a :class:`VersionRange`: a 6-tuple of
+#: ``(packed_bounds, admit, reject, admit_arbitrary, prereleases,
+#: prereleases_configured)``. Built from primitives only so the format
+#: stays stable across packaging releases. See
+#: :meth:`VersionRange.__getstate__` and :meth:`VersionRange.__setstate__`.
+_VersionRangeState = tuple[
+    tuple[tuple[_PackedBound, _PackedBound], ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    bool,
+    Union[bool, None],
+    Union[bool, None],
+]
 
 
 def _union_ranges(
@@ -112,13 +143,21 @@ def _union_ranges(
         if prev_upper.version is None:
             overlaps = True
         elif lower.version is None:
-            overlaps = True  # pragma: no cover (merged_input sorted by lower)
+            # Two ``-inf`` lowers reach here when merging two ``<V`` ranges.
+            overlaps = True
         elif prev_upper.version > lower.version:
             overlaps = True
         elif prev_upper.version == lower.version:
             overlaps = prev_upper.inclusive or lower.inclusive
         else:
-            overlaps = False
+            # Ordering leaves a gap, but it holds no version when the two
+            # bounds straddle a synthetic boundary (e.g. AFTER_LOCALS(V) up
+            # to V.post0.dev0). Merge across an empty gap to stay canonical.
+            gap_lower = canonical_lower(
+                LowerBound(prev_upper.version, inclusive=not prev_upper.inclusive)
+            )
+            gap_upper = UpperBound(lower.version, inclusive=not lower.inclusive)
+            overlaps = range_is_empty(gap_lower, gap_upper)
 
         if overlaps:
             new_upper = max(prev_upper, upper)
@@ -151,8 +190,8 @@ def _complement_ranges(
                 gap_upper = UpperBound(lower.version, inclusive=not lower.inclusive)
                 result.append((NEG_INF, gap_upper))
         else:
-            gap_lower = LowerBound(
-                prev_upper.version, inclusive=not prev_upper.inclusive
+            gap_lower = canonical_lower(
+                LowerBound(prev_upper.version, inclusive=not prev_upper.inclusive)
             )
             gap_upper = UpperBound(lower.version, inclusive=not lower.inclusive)
             # Adjacent ranges in the input are non-touching by
@@ -161,92 +200,43 @@ def _complement_ranges(
                 result.append((gap_lower, gap_upper))
         prev_upper = upper
 
-    # Trailing gap from the final range's upper to +inf.
-    if prev_upper is not None and prev_upper.version is not None:
-        gap_lower = LowerBound(prev_upper.version, inclusive=not prev_upper.inclusive)
+    # Trailing gap from the final range's upper to +inf. The empty-input
+    # early return above guarantees the loop ran, so ``prev_upper`` is set.
+    assert prev_upper is not None
+    if prev_upper.version is not None:
+        gap_lower = canonical_lower(
+            LowerBound(prev_upper.version, inclusive=not prev_upper.inclusive)
+        )
         result.append((gap_lower, POS_INF))
 
     return result
 
 
-def _lowest_release_at_or_above(
-    value: Version | BoundaryVersion | None,
-) -> Version | None:
-    """Smallest non-pre-release version at or above *value*, or None."""
-    if value is None:
-        return None
+def _bound_version_str(value: BoundaryVersion | Version) -> str:
+    """Printout for a bound's inner value, kind-tagged for boundaries.
+
+    A bare :class:`Version` renders as itself. A :class:`BoundaryVersion`
+    renders as ``V[KIND]`` so ``==1.0`` (upper is ``AFTER_LOCALS``) and
+    ``singleton('1.0')`` (upper is bare ``Version``) are distinguishable
+    in repr even though their inner versions match.
+    """
     if isinstance(value, BoundaryVersion):
-        inner_version = value.version
-        if inner_version.is_prerelease:
-            # AFTER_LOCALS(1.0a1) -> nearest non-pre is 1.0
-            return inner_version.__replace__(pre=None, dev=None, local=None)
-        # AFTER_LOCALS(1.0) -> nearest non-pre is 1.0.post0
-        # AFTER_LOCALS(1.0.post0) -> nearest non-pre is 1.0.post1
-        next_post = (inner_version.post + 1) if inner_version.post is not None else 0
-        return inner_version.__replace__(post=next_post, local=None)
-    if not value.is_prerelease:
-        return value
-    # Strip pre/dev to get the final or post-release form.
-    return value.__replace__(pre=None, dev=None, local=None)
-
-
-def _ranges_are_prerelease_only(ranges: Sequence[Interval]) -> bool:
-    """``True`` when every range in *ranges* contains only pre-releases.
-
-    Used to detect unsatisfiable specifier sets when ``prereleases=False``:
-    if every range is pre-release-only, every contained version is excluded.
-    """
-    for lower, upper in ranges:
-        nearest = _lowest_release_at_or_above(lower.version)
-        if nearest is None:
-            return False
-        if upper.version is None or nearest < upper.version:
-            return False
-        if nearest == upper.version and upper.inclusive:
-            return False
-    return True
-
-
-def _combine_prereleases(left: bool | None, right: bool | None) -> bool | None:
-    """Combine two ranges' pre-release tags for :meth:`intersection` /
-    :meth:`union`.
-
-    A ``True`` from either side wins, then an explicit ``False``, otherwise
-    ``None`` (the PEP 440 buffering default). ``None`` is the identity, so
-    ``r & VersionRange.full()`` keeps ``r``'s tag and composition stays
-    faithful to the originating specifiers. ``True`` against ``False`` (which
-    :meth:`SpecifierSet.__and__` rejects) resolves to ``True`` here, since
-    set algebra on ranges is total.
-    """
-    if left is True or right is True:
-        return True
-    if left is False or right is False:
-        return False
-    return None
+        return f"{value.version}[{value.kind.name}]"
+    return str(value)
 
 
 def _format_lower(bound: LowerBound) -> str:
     if bound.version is None:
         return "(-inf"
     bracket = "[" if bound.inclusive else "("
-    inner = (
-        bound.version.version
-        if isinstance(bound.version, BoundaryVersion)
-        else bound.version
-    )
-    return f"{bracket}{inner}"
+    return f"{bracket}{_bound_version_str(bound.version)}"
 
 
 def _format_upper(bound: UpperBound) -> str:
     if bound.version is None:
         return "+inf)"
     bracket = "]" if bound.inclusive else ")"
-    inner = (
-        bound.version.version
-        if isinstance(bound.version, BoundaryVersion)
-        else bound.version
-    )
-    return f"{inner}{bracket}"
+    return f"{_bound_version_str(bound.version)}{bracket}"
 
 
 def _pack_bound(bound: LowerBound | UpperBound) -> _PackedBound:
@@ -255,95 +245,60 @@ def _pack_bound(bound: LowerBound | UpperBound) -> _PackedBound:
     if bound_version is None:
         return (None, bound.inclusive, None)
     if isinstance(bound_version, BoundaryVersion):
-        return (str(bound_version.version), bound.inclusive, bound_version.kind.name)
+        return (
+            str(bound_version.version),
+            bound.inclusive,
+            _KIND_TO_CODE[bound_version.kind],
+        )
     return (str(bound_version), bound.inclusive, None)
 
 
-def _unpack_bound(
-    cls: type[LowerBound | UpperBound],
+def _unpack_inner(
     packed: _PackedBound,
-) -> LowerBound | UpperBound:
-    """Reverse of _pack_bound."""
-    version_str, inclusive, kind_name = packed
+) -> tuple[BoundaryVersion | Version | None, bool]:
+    """Decode the (version-or-boundary, inclusive) pair from a packed bound."""
+    version_str, inclusive, kind_code = packed
     if version_str is None:
-        return cls(None, inclusive)
+        return None, inclusive
     base = Version(version_str)
-    if kind_name is not None:
-        return cls(BoundaryVersion(base, BoundaryKind[kind_name]), inclusive)
-    return cls(base, inclusive)
+    if kind_code is not None:
+        kind = _CODE_TO_KIND.get(kind_code)
+        if kind is None:
+            raise ValueError(
+                f"Unknown BoundaryKind code {kind_code!r} in packaging "
+                f"VersionRange pickle state; expected one of "
+                f"{sorted(_CODE_TO_KIND)}"
+            )
+        return BoundaryVersion(base, kind), inclusive
+    return base, inclusive
 
 
-def _restore_version_range(
-    packed_bounds: tuple[tuple[_PackedBound, _PackedBound], ...],
-    arbitrary: str | None = None,
-    admit: tuple[str, ...] | None = None,
-    reject: tuple[str, ...] | None = None,
-    prereleases: bool | None = None,
-) -> VersionRange:
-    """Pickle restorer; bypasses the ``__new__`` guard via ``_build``.
+def _new_version_range(cls: type[VersionRange]) -> VersionRange:
+    """Pickle/copy reconstructor; bypasses the :meth:`VersionRange.__new__` guard.
 
-    The ``arbitrary`` arg is the pre-admit/reject slot from earlier
-    betas. New pickles pass ``admit`` and ``reject`` instead. The
-    matched set is preserved either way.
+    Preserves ``cls`` so subclasses round-trip with their own type. Pairs
+    with :meth:`VersionRange.__setstate__` to populate the slots.
     """
-    bounds = tuple(
-        (
-            typing.cast("LowerBound", _unpack_bound(LowerBound, lower)),
-            typing.cast("UpperBound", _unpack_bound(UpperBound, upper)),
-        )
-        for lower, upper in packed_bounds
+    return object.__new__(cls)
+
+
+def _is_dev0_version(version: Version) -> bool:
+    """``True`` when version is exactly ``X[.Y]*.dev0`` (the form ``<X`` produces)."""
+    return (
+        version.dev == 0
+        and version.pre is None
+        and version.post is None
+        and version.local is None
     )
-    if admit is not None or reject is not None:
-        result = VersionRange._build(
-            bounds, admit=frozenset(admit or ()), reject=frozenset(reject or ())
-        )
-    elif arbitrary is None:
-        result = VersionRange._build(bounds)
-    else:
-        # Legacy ``arbitrary`` matched ``{arbitrary}`` if the literal was
-        # in bounds, empty otherwise.
-        literal_lower = arbitrary.lower()
-        if literal_lower in VersionRange._build(bounds):
-            result = VersionRange._build((), admit=frozenset({literal_lower}))
-        else:
-            result = VersionRange._build(())
-
-    result._prereleases = prereleases
-    return result
 
 
-# VersionRange to SpecifierSet conversion is partial: not every range
-# has a SpecifierSet form. Examples that have no single specifier:
-# - PEP 440 ``<V`` excludes pre-releases of V, so the mathematical
-#   complement of ``>=V`` (which keeps those pre-releases) has no
-#   single specifier.
-# - PEP 440 ``==V`` matches ``V+local`` too, so the strict singleton
-#   ``[V, V]`` produced by :meth:`VersionRange.singleton` has none.
-# - Disjoint unions whose gap is not a complete ``==V.*`` family or a
-#   ``==V`` family cannot be expressed as ``base & !=...``.
-
-
-def _is_dev0_version(v: Version) -> bool:
-    """``True`` when *v* is exactly ``X[.Y]*.dev0``: the form ``<X`` produces."""
-    return v.dev == 0 and v.pre is None and v.post is None and v.local is None
-
-
-class _NotEncodable:
-    """Sentinel for "this bound has no PEP 440 specifier representation"."""
-
-    __slots__ = ()
-
-
-_NOT_ENCODABLE: Final = _NotEncodable()
-
-
-def _encode_lower(lower: LowerBound) -> list[str] | _NotEncodable:
+def _encode_lower(lower: LowerBound) -> list[str] | None:
     """Encode a lower bound as a list of specifier fragments.
 
-    ``[]`` for ``-inf``, one or more fragments otherwise, or
-    ``_NOT_ENCODABLE`` when the shape has no specifier form.
-    AFTER_LOCALS lower bounds emit two fragments (``>=V`` plus
-    ``!=V``) since the boundary excludes V and every V+local.
+    ``[]`` for ``-inf``, one or more fragments otherwise, or ``None`` when
+    the shape has no specifier form. AFTER_LOCALS lower bounds emit two
+    fragments (``>=V`` plus ``!=V``) since the boundary excludes V and
+    every V+local.
     """
     lower_version = lower.version
     if lower_version is None:
@@ -352,23 +307,29 @@ def _encode_lower(lower: LowerBound) -> list[str] | _NotEncodable:
         if lower_version.kind == BoundaryKind.AFTER_POSTS and not lower.inclusive:
             return [f">{lower_version.version}"]
         if lower_version.kind == BoundaryKind.AFTER_LOCALS:
+            inner = lower_version.version
+            if inner.post is not None or inner.dev is not None:
+                # ``>V`` already excludes only V's local family when V
+                # carries post or dev (PEP 440's post-release rule does
+                # not fire); a single ``>V`` fragment matches the bound.
+                return [f">{inner}"]
             # Strictly above V's local family. ``>=V,!=V`` produces
             # ``[V, +inf)`` minus ``[V, AFTER_LOCALS(V)]``, leaving
             # ``(AFTER_LOCALS(V), +inf)``.
-            return [f">={lower_version.version}", f"!={lower_version.version}"]
-        # AFTER_POSTS lower with inclusive=True is unreachable from
-        # any specifier or set-algebra operation; defensive guard.
-        return _NOT_ENCODABLE  # pragma: no cover
+            return [f">={inner}", f"!={inner}"]
+        # AFTER_POSTS lower with inclusive=True does not arise from any
+        # specifier or set-algebra operation.
+        return None  # pragma: no cover
     if lower.inclusive:
         return [f">={lower_version}"]
-    return _NOT_ENCODABLE
+    return None
 
 
-def _encode_upper(upper: UpperBound) -> list[str] | _NotEncodable:
+def _encode_upper(upper: UpperBound) -> list[str] | None:
     """Encode an upper bound as a list of specifier fragments.
 
-    ``[]`` for ``+inf``, one or more fragments otherwise, or
-    ``_NOT_ENCODABLE`` when the shape has no specifier form.
+    ``[]`` for ``+inf``, one or more fragments otherwise, or ``None`` when
+    the shape has no specifier form.
     """
     upper_version = upper.version
     if upper_version is None:
@@ -376,17 +337,64 @@ def _encode_upper(upper: UpperBound) -> list[str] | _NotEncodable:
     if isinstance(upper_version, BoundaryVersion):
         if upper_version.kind == BoundaryKind.AFTER_LOCALS and upper.inclusive:
             return [f"<={upper_version.version}"]
-        return _NOT_ENCODABLE
+        return None
     if not upper.inclusive:
         if _is_dev0_version(upper_version):
             # <V produces upper = V.dev0 (excl); strip the synthetic
             # dev0 to recover the original V.
             return [f"<{upper_version.__replace__(dev=None)}"]
+
         # V (excl) upper: strictly less than V cmpkey-wise, including
         # V's pre-releases. <=V,!=V produces (-inf, AFTER_LOCALS(V)]
         # minus [V, AFTER_LOCALS(V)], leaving (-inf, V (excl)).
         return [f"<={upper_version}", f"!={upper_version}"]
-    return _NOT_ENCODABLE
+    return None
+
+
+def _detect_equal_wildcard(
+    lower: LowerBound,
+    upper: UpperBound,
+) -> Version | None:
+    """If ``[lower, upper)`` is the ``==V.*`` shape, return ``V``.
+
+    Shape: inclusive ``V.dev0`` lower, exclusive ``NextV.dev0`` upper,
+    same epoch, where ``NextV`` shares ``V``'s release prefix with the
+    last segment incremented by one.
+    """
+    # Reject any shape that is not two real versions with matching
+    # ``[V.dev0, W.dev0)`` brackets.
+    if isinstance(lower.version, BoundaryVersion) or isinstance(
+        upper.version, BoundaryVersion
+    ):
+        return None
+    if lower.version is None or upper.version is None:
+        return None
+    if not lower.inclusive or upper.inclusive:
+        return None
+    if not (_is_dev0_version(lower.version) and _is_dev0_version(upper.version)):
+        return None
+    if lower.version.epoch != upper.version.epoch:
+        return None
+
+    # Normalize trailing zeros so equal versions with different release
+    # tuple lengths (``Version("1")`` vs ``Version("1.0")``) compare on
+    # the same footing; pad the shorter side to match the longer.
+    lower_release = trim_release(lower.version.release)
+    upper_release = trim_release(upper.version.release)
+    padded_length = max(len(lower_release), len(upper_release))
+    # ``trim_release`` always leaves at least one segment.
+    assert padded_length > 0
+    lower_release += (0,) * (padded_length - len(lower_release))
+    upper_release += (0,) * (padded_length - len(upper_release))
+
+    # Releases must share a prefix and differ by exactly +1 in the last
+    # segment, so the upper is the next wildcard sibling of the lower.
+    if lower_release[:-1] != upper_release[:-1]:
+        return None
+    if upper_release[-1] != lower_release[-1] + 1:
+        return None
+
+    return lower.version.__replace__(release=lower_release, dev=None)
 
 
 def _encode_interval(
@@ -399,6 +407,10 @@ def _encode_interval(
     local segment: ``==V+local`` matches only that literal, so the
     interval round-trips. Without a local, no specifier form exists
     (``==V`` is wider since it also matches ``V+local``).
+
+    Detects the ``==V.*`` shape so the encoded fragment carries no
+    synthetic ``.dev0`` literal, keeping
+    :attr:`SpecifierSet.prereleases` auto-detect aligned with the source.
     """
     if (
         lower.version is not None
@@ -411,11 +423,14 @@ def _encode_interval(
         and lower.version.local is not None
     ):
         return [f"=={lower.version}"]
+    wildcard = _detect_equal_wildcard(lower, upper)
+    if wildcard is not None:
+        return [f"=={wildcard}.*"]
     lower_parts = _encode_lower(lower)
-    if isinstance(lower_parts, _NotEncodable):
+    if lower_parts is None:
         return None
     upper_parts = _encode_upper(upper)
-    if isinstance(upper_parts, _NotEncodable):
+    if upper_parts is None:
         return None
     return lower_parts + upper_parts
 
@@ -428,22 +443,24 @@ def _detect_not_equal(
 
     Two gap shapes encode as ``!=V``:
 
-    - ``[..., V (excl)] [AFTER_LOCALS(V) (excl), ...]`` -- ``!=V`` for a
-      *V* with no local segment; the gap spans V and its whole local
+    - ``[..., V (excl)] [AFTER_LOCALS(V) (excl), ...]``: ``!=V`` for a
+      V with no local segment. The gap spans V and its whole local
       family, exactly what ``==V`` (and thus ``!=V``) covers.
-    - ``[..., V+local (excl)] [V+local (excl), ...]`` -- ``!=V+local``;
-      the gap is the single point ``V+local``, which ``==V+local``
+    - ``[..., V+local (excl)] [V+local (excl), ...]``: ``!=V+local``.
+      The gap is the single point ``V+local``, which ``==V+local``
       matches verbatim. A no-local single point (a strict singleton's
-      complement) has no ``!=`` form, so *V* must carry a local segment.
+      complement) has no ``!=`` form, so V must carry a local segment.
     """
+    # Left upper must be an exclusive real-version bound.
     if isinstance(left_upper.version, BoundaryVersion):
         return None
     if left_upper.version is None or left_upper.inclusive:
         return None
+
+    # Single-point ``!=V+local`` gap: same exclusive bound on both sides,
+    # and V carries a local. An inclusive right lower would leave no gap;
+    # a no-local point has no ``!=`` form.
     if not isinstance(right_lower.version, BoundaryVersion):
-        # Single-point ``!=V+local`` gap: same exclusive bound on both
-        # sides, and V carries a local. An inclusive right lower would
-        # leave no gap; a no-local point has no ``!=`` form.
         if (
             right_lower.version is not None
             and not right_lower.inclusive
@@ -452,29 +469,145 @@ def _detect_not_equal(
         ):
             return left_upper.version
         return None
+
+    # ``!=V`` gap: AFTER_LOCALS(V) on the right, V on the left.
     if right_lower.version.kind != BoundaryKind.AFTER_LOCALS:
         return None
     if right_lower.inclusive:
-        # AFTER_LOCALS lower with inclusive=True does not arise from
-        # any specifier or set-algebra operation; defensive guard.
         return None  # pragma: no cover
     if right_lower.version.version != left_upper.version:
-        # The ``!=V`` pattern is contiguous; mismatched V means a union
-        # of unrelated ranges. Defensive.
         return None  # pragma: no cover
+
     return left_upper.version
 
 
-def _detect_not_equal_wildcard(
+def _filter_universal(
+    iterable: Iterable[Any],
+    key: Callable[[Any], Version | str] | None,
+    prereleases: bool | None,
+) -> Iterator[Any]:
+    """Filter for the universal range (admits every item).
+
+    Fast path for :meth:`VersionRange.filter` on ``VersionRange.full()`` and
+    equivalents. Parses each item only as far as needed for the pre-release
+    decision, mirroring :meth:`SpecifierSet.filter` on ``SpecifierSet("")``.
+    """
+    if prereleases is True:
+        yield from iterable
+        return
+
+    if prereleases is False:
+        for item in iterable:
+            parsed = coerce_version(item if key is None else key(item))
+            if parsed is None or not parsed.is_prerelease:
+                yield item
+        return
+
+    # PEP 440 default: yield finals immediately. Until the first final
+    # arrives, ``unparseable`` and ``nonfinal_tail`` together hold every
+    # item seen so far. On the first final we release unparseables (they
+    # belong before the final like SpecifierSet("") does); the pre-release
+    # tail stays buffered and only comes out if no final ever arrives.
+    nonfinal_tail: list[Any] = []
+    unparseable: list[Any] = []
+    found_final = False
+    for item in iterable:
+        parsed = coerce_version(item if key is None else key(item))
+        if parsed is None:
+            if found_final:
+                yield item
+            else:
+                unparseable.append(item)
+                nonfinal_tail.append(item)
+            continue
+        if not parsed.is_prerelease:
+            if not found_final:
+                yield from unparseable
+                unparseable.clear()
+                found_final = True
+            yield item
+            continue
+        if not found_final:
+            nonfinal_tail.append(item)
+    if not found_final:
+        yield from nonfinal_tail
+
+
+def _struct_admits(
+    bounds: tuple[Interval, ...], admit_arbitrary: bool, literal: str
+) -> bool:
+    """True when the bounds (plus arbitrary admission) admit literal.
+
+    Skips the explicit admit/reject sets, which the caller layers on top.
+    Non-version strings match via ``admit_arbitrary`` only when bounds
+    are ``FULL_RANGE``; on narrower bounds the flag is metadata only.
+    """
+    parsed = coerce_version(literal)
+    if parsed is None:
+        return admit_arbitrary and bounds == FULL_RANGE
+    return matches_bounds_only(bounds, parsed)
+
+
+def _decompose_dev0_gap(
+    lower_trim: tuple[int, ...],
+    upper_trim: tuple[int, ...],
+    epoch: int,
+) -> list[Version] | None:
+    """Recursively decompose the gap ``[L.dev0, U.dev0)`` into wildcard prefixes.
+
+    lower_trim and upper_trim are the trimmed release tuples (no trailing
+    zeros) of L and U, with ``lower_trim < upper_trim`` lexicographically. The
+    chain reaches U by sweeping at the diff level: emit ``==(C, c).*`` for c
+    from ``lower_val`` up to ``upper_val - 1``, then recurse into the
+    ``upper_val`` subtree when U has more depth. The gap is undecomposable
+    when L has trailing components below the diff level: the chain can only
+    increment, never escape L's subtree.
+    """
+    diff = 0
+    while (
+        diff < len(lower_trim)
+        and diff < len(upper_trim)
+        and lower_trim[diff] == upper_trim[diff]
+    ):
+        diff += 1
+
+    # L has non-zero components past the diff level, so the chain is trapped
+    # in L's subtree and cannot reach U.
+    if len(lower_trim) > diff + 1:
+        return None
+
+    common = lower_trim[:diff]
+
+    # When L_trim ends at the diff level, treat the missing position as zero:
+    # L sits at the base of the (common)-subtree.
+    lower_val = lower_trim[diff] if len(lower_trim) > diff else 0
+    upper_val = upper_trim[diff]
+
+    fragments = [
+        Version.from_parts(epoch=epoch, release=(*common, segment))
+        for segment in range(lower_val, upper_val)
+    ]
+
+    # The chain has reached (common + upper_val).dev0. If that is U, done.
+    if len(upper_trim) == diff + 1:
+        return fragments
+
+    # Descend into the upper_val subtree. The recursive head has no trailing
+    # components below its diff level, so decomposition always succeeds.
+    tail = _decompose_dev0_gap((*common, upper_val), upper_trim, epoch)
+    assert tail is not None
+    return fragments + tail
+
+
+def _detect_not_equal_wildcards(
     left_upper: UpperBound,
     right_lower: LowerBound,
-) -> Version | None:
-    """If ``[..., V.dev0 (excl)] [V_next.dev0 (incl), ...]`` matches, return V.
+) -> list[Version] | None:
+    """Decompose a ``[L.dev0, U.dev0)`` gap into a chain of ``!=P.*`` prefixes.
 
-    The gap shape ``!=V.*`` produces. ``V`` and ``V_next`` share an
-    epoch and a release prefix differing only in the final component
-    being incremented by one. Returns the prefix version (without the
-    synthetic ``.dev0``) so the caller can write ``!=V.*``.
+    Returns the prefix list, or ``None`` when the gap shape is not
+    wildcard-decomposable (mixed epochs, non-``.dev0`` endpoint, or L has
+    trailing non-zero components below its diff level with U).
     """
     left_upper_v = left_upper.version
     right_lower_v = right_lower.version
@@ -482,30 +615,218 @@ def _detect_not_equal_wildcard(
         right_lower_v, BoundaryVersion
     ):
         return None
+
     if left_upper_v is None or right_lower_v is None:
-        # First-interval upper or last-interval lower at infinity means
-        # the interval is the universe and no second interval exists.
+        # First-interval upper or last-interval lower at infinity means the
+        # interval is the universe and no second interval exists.
         return None  # pragma: no cover
+
     if left_upper.inclusive or not right_lower.inclusive:
         return None
+
     if not (_is_dev0_version(left_upper_v) and _is_dev0_version(right_lower_v)):
         return None
+
     if left_upper_v.epoch != right_lower_v.epoch:
         return None
-    left_release = left_upper_v.release
-    right_release = right_lower_v.release
-    if len(left_release) != len(right_release) or not left_release:
+
+    return _decompose_dev0_gap(
+        trim_release(left_upper_v.release),
+        trim_release(right_lower_v.release),
+        left_upper_v.epoch,
+    )
+
+
+def _detect_equal_wildcards(
+    lower: LowerBound,
+    upper: UpperBound,
+) -> list[Version] | None:
+    """Decompose ``[V.dev0, W.dev0)`` into a chain of ``==P.*`` prefixes.
+
+    Returns the prefix list (one entry per kept wildcard family), or ``None``
+    when the interval's shape does not span a clean chain of ``==P.*``
+    families (mixed epochs, non-``.dev0`` endpoint, or V has trailing
+    non-zero components below its diff level with W). Reuses
+    ``_decompose_dev0_gap``: an interval ``[V.dev0, W.dev0)`` is the
+    set-theoretic gap a chain of ``!=P.*`` exclusions would carve out, with
+    the chain reading instead as the kept families inside the interval.
+    """
+    if isinstance(lower.version, BoundaryVersion) or isinstance(
+        upper.version, BoundaryVersion
+    ):
         return None
-    # All components except the last must match; the last increments by 1.
-    if left_release[:-1] != right_release[:-1]:
+    if lower.version is None or upper.version is None:
         return None
-    if right_release[-1] != left_release[-1] + 1:
+    if not lower.inclusive or upper.inclusive:
         return None
-    return left_upper_v.__replace__(dev=None)
+    if not (_is_dev0_version(lower.version) and _is_dev0_version(upper.version)):
+        return None
+    if lower.version.epoch != upper.version.epoch:
+        return None
+
+    return _decompose_dev0_gap(
+        trim_release(lower.version.release),
+        trim_release(upper.version.release),
+        lower.version.epoch,
+    )
+
+
+def _wildcard_contains(prefix: Version, version: Version) -> bool:
+    """Whether version matches ``=={prefix}.*``."""
+    # Cross-epoch never arises under the canonical bounds invariant: gap
+    # exclusions inherit the multi-wildcard outer's single epoch.
+    if version.epoch != prefix.epoch:
+        return False  # pragma: no cover
+    prefix_length = len(prefix.release)
+    return version.release[:prefix_length] == prefix.release
+
+
+def _close_group(
+    group_lower: LowerBound,
+    group_upper: UpperBound,
+    exclusions: list[str],
+) -> list[list[str]] | None:
+    """Encode one accumulated group, splitting multi-wildcard outers.
+
+    A multi-wildcard ``[V.dev0, W.dev0)`` outer (W not V+1 in the last
+    segment) becomes one ``==P.*`` group per kept family, each clean of
+    the ``>=V.dev0,<W`` artifact that flips the recovered SpecifierSet's
+    prereleases auto-detect. Accumulated ``!=V`` exclusions distribute
+    to the family that contains them (``=={prefix}.*`` matches every
+    version whose release shares ``prefix``'s release prefix); any other
+    exclusion shape blocks the split. Anything outside the multi-family
+    decomposition encodes as a single group via ``_encode_interval``.
+    """
+    wildcards = _detect_equal_wildcards(group_lower, group_upper)
+    if wildcards is not None and len(wildcards) > 1:
+        return _close_multi_wildcard(wildcards, exclusions)
+    outer = _encode_interval(group_lower, group_upper)
+    if outer is None:
+        return None
+    return [outer + exclusions]
+
+
+def _close_multi_wildcard(
+    wildcards: list[Version],
+    exclusions: list[str],
+) -> list[list[str]] | None:
+    """Distribute ``!=V`` exclusions across the wildcards they fall into.
+
+    Returns one group per wildcard, or ``None`` when an exclusion is not
+    a plain ``!=V`` (the only shape that survives the gap-merging
+    discipline once both sides are wildcard-decomposable) or its version
+    falls outside every wildcard in the chain.
+    """
+    parsed: list[Version] = []
+    for excl in exclusions:
+        # ``!=V.*`` exclusions only accumulate when ``wildcard_split`` is
+        # already False (i.e., one side is not wildcard-decomposable), and
+        # the outer is therefore single-wildcard or non-wildcard, so this
+        # branch is unreachable when the caller hit the multi-wildcard
+        # path. ``InvalidVersion`` is likewise unreachable because every
+        # exclusion comes from ``_detect_not_equal`` or
+        # ``_detect_not_equal_wildcards``, both of which emit parseable
+        # version strings. Defensive.
+        if not excl.startswith("!=") or excl.endswith(".*"):
+            return None  # pragma: no cover
+        try:
+            parsed.append(Version(excl[2:]))
+        except InvalidVersion:  # pragma: no cover
+            return None
+
+    groups: list[list[str]] = []
+    for prefix in wildcards:
+        fragments = [f"=={prefix}.*"]
+        for excl, version in zip(exclusions, parsed):
+            if _wildcard_contains(prefix, version):
+                fragments.append(excl)
+        groups.append(fragments)
+
+    # Every parsed exclusion must land inside some kept family.
+    placed = {
+        version
+        for version in parsed
+        if any(_wildcard_contains(prefix, version) for prefix in wildcards)
+    }
+    if len(placed) != len(set(parsed)):
+        return None  # pragma: no cover
+
+    return groups
+
+
+def _strip_dev0_lower(fragment: str) -> str | None:
+    """Strip ``>=V.dev0`` to ``>=V``, or return ``None`` if not the shape.
+
+    Matches ``>=X[.Y]*[.postN].dev0`` (no pre, no local).
+    """
+    if not fragment.startswith(">="):
+        return None
+    try:
+        version = Version(fragment[2:])
+    except InvalidVersion:  # pragma: no cover
+        return None
+    if version.dev != 0 or version.pre is not None or version.local is not None:
+        return None
+    return f">={version.__replace__(dev=None)}"
+
+
+def _strip_dev0_upper_pair(fragments: list[str]) -> list[str] | None:
+    """Strip a ``<=V.postN.dev0,!=V.postN.dev0`` pair to its dev-less form.
+
+    Returns ``None`` if no such pair is present. Unrelated ``!=`` exclusions
+    in the same group are left in place.
+    """
+    upper_version: Version | None = None
+    le_idx = -1
+    for index, fragment in enumerate(fragments):
+        if not fragment.startswith("<="):
+            continue
+        try:
+            parsed = Version(fragment[2:])
+        except InvalidVersion:  # pragma: no cover
+            return None
+        if (
+            parsed.dev == 0
+            and parsed.pre is None
+            and parsed.post is not None
+            and parsed.local is None
+        ):
+            le_idx = index
+            upper_version = parsed
+            break
+    if upper_version is None:
+        return None
+
+    # ``_encode_upper`` always emits the ``<=V.postN.dev0`` /
+    # ``!=V.postN.dev0`` pair together.
+    ne_target = f"!={upper_version}"
+    assert ne_target in fragments
+    ne_idx = fragments.index(ne_target)
+
+    stripped = upper_version.__replace__(dev=None)
+    rewritten = list(fragments)
+    rewritten[le_idx] = f"<={stripped}"
+    rewritten[ne_idx] = f"!={stripped}"
+    return rewritten
+
+
+def _strip_synthetic_dev0(fragments: list[str]) -> list[str]:
+    """Rewrite a group's fragment list to drop synthetic ``.dev0`` markers.
+
+    Caller has already verified ``prereleases_configured is False``. Under
+    that clamp the recovered SpecifierSet rejects every pre-release, so
+    ``>=V`` and ``>=V.dev0`` (and the ``<=V,!=V`` pair vs its dev0 twin)
+    accept the same versions. The cleaner spelling is what a maintainer
+    would write for the same intent.
+    """
+    upper_pair = _strip_dev0_upper_pair(fragments)
+    if upper_pair is not None:
+        fragments = upper_pair
+    return [_strip_dev0_lower(fragment) or fragment for fragment in fragments]
 
 
 def _encode_grouped(bounds: list[Interval]) -> list[list[str]] | None:
-    """Split *bounds* into disjoint groups, encoding each as fragments.
+    """Split bounds into disjoint groups, encoding each as fragments.
 
     Consecutive intervals whose gap is an ``!=V`` / ``!=V+local`` /
     ``!=V.*`` exclusion stay in one group, with that exclusion recorded
@@ -513,42 +834,67 @@ def _encode_grouped(bounds: list[Interval]) -> list[list[str]] | None:
     encodes as ``_encode_interval`` of its outer bounds plus its ``!=``
     fragments. Returns one fragment list per group, or ``None`` if any
     group's outer interval has no PEP 440 form.
+
+    Adjacent ``==V.*`` wildcards joined by a ``!=X.*`` gap stay separate
+    rather than merging through ``>=V.dev0,<W,!=X.*``: the synthetic
+    ``.dev0`` would drift the recovered SpecifierSet's prereleases
+    auto-detect, while each wildcard standalone encodes cleanly.
     """
     groups: list[list[str]] = []
     group_lower, group_upper = bounds[0]
     exclusions: list[str] = []
     for next_lower, next_upper in bounds[1:]:
         not_equal = _detect_not_equal(group_upper, next_lower)
-        not_equal_wildcard = _detect_not_equal_wildcard(group_upper, next_lower)
+        not_equal_wildcards = _detect_not_equal_wildcards(group_upper, next_lower)
+
+        # Both sides decompose into ``==P.*`` chains, so merging through
+        # the gap would force a ``>=V.dev0,<W,!=X.*`` outer with a
+        # dev0-tainted lower; the standalone encodings (``==V.*`` or a
+        # ``==V.*`` carrying any accumulated ``!=`` exclusions) stay clean.
+        wildcard_split = (
+            not_equal_wildcards is not None
+            and _detect_equal_wildcards(group_lower, group_upper) is not None
+            and _detect_equal_wildcards(next_lower, next_upper) is not None
+        )
         if not_equal is not None:
             exclusions.append(f"!={not_equal}")
-        elif not_equal_wildcard is not None:
-            exclusions.append(f"!={not_equal_wildcard}.*")
+        elif not_equal_wildcards is not None and not wildcard_split:
+            exclusions.extend(f"!={prefix}.*" for prefix in not_equal_wildcards)
         else:
-            # A non-``!=`` gap closes the current group and opens a new one.
-            outer = _encode_interval(group_lower, group_upper)
-            if outer is None:
+            closed = _close_group(group_lower, group_upper, exclusions)
+            if closed is None:
                 return None
-            groups.append(outer + exclusions)
+            groups.extend(closed)
             group_lower, exclusions = next_lower, []
         group_upper = next_upper
 
-    outer = _encode_interval(group_lower, group_upper)
-    if outer is None:
+    closed = _close_group(group_lower, group_upper, exclusions)
+    if closed is None:
         return None
-    groups.append(outer + exclusions)
+    groups.extend(closed)
     return groups
 
 
 class VersionRange:
-    """A set of :class:`~packaging.version.Version` values, expressed as
-    a union of disjoint intervals on the PEP 440 version ordering.
+    """A set of :class:`~packaging.version.Version` values accepted by a
+    :class:`~packaging.specifiers.Specifier` or
+    :class:`~packaging.specifiers.SpecifierSet`.
 
     Construct with :meth:`from_specifier` / :meth:`from_specifier_set`,
     or via :meth:`~packaging.specifiers.Specifier.to_range` /
-    :meth:`~packaging.specifiers.SpecifierSet.to_range`.
-    Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`
-    (and the ``&`` / ``|`` / ``~`` operator aliases).
+    :meth:`~packaging.specifiers.SpecifierSet.to_range`. Compose with
+    :meth:`intersection`, :meth:`union`, and :meth:`complement` (or the
+    ``&`` / ``|`` / ``~`` operator aliases). Test membership with the
+    ``in`` operator or :meth:`contains`, and convert back to a
+    :class:`~packaging.specifiers.SpecifierSet` with
+    :meth:`to_specifier_set` or :meth:`to_specifier_sets`.
+
+    The configured pre-release policy of the originating specifier
+    (``None``, ``True``, or ``False``) carries onto the range. It
+    controls whether pre-releases are admitted under ``in``,
+    :meth:`contains`, and :meth:`filter`. :meth:`intersection` and
+    :meth:`union` require both operands to share the same policy;
+    :meth:`complement` preserves the policy of its operand.
 
     >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
     >>> "1.5" in r
@@ -560,36 +906,71 @@ class VersionRange:
 
     PEP 440's ``===`` operator matches a candidate string verbatim
     (case-insensitive) rather than a set of
-    :class:`~packaging.version.Version` values.
-    Ranges built from ``===`` specifiers still support membership,
-    set operations, and conversion back to a
-    :class:`~packaging.specifiers.SpecifierSet`;
+    :class:`~packaging.version.Version` values. Ranges built from
+    ``===`` specifiers still support membership, set operations, and
+    conversion back to a :class:`~packaging.specifiers.SpecifierSet`;
     matching follows the literal-equality rule instead of the
     version-ordering rule.
+
+    Within the PEP 440 universe (no ``===`` literals and no arbitrary-
+    string admission), De Morgan and double negation hold and ``r | ~r``
+    admits every PEP 440 version. ``===`` ranges sit outside that
+    universe and :meth:`complement` is one-way for them (``~~(===wat)``
+    is the empty range, since the non-version literal drops out of the
+    first complement). The arbitrary-admission flag on :meth:`full` /
+    ``SpecifierSet("")`` is preserved by :meth:`complement` as metadata,
+    so ``~~full() == full()`` even though ``~full()`` matches nothing.
+    Use ``full(admit_arbitrary=False)`` to stay inside the PEP 440
+    universe on both sides of the complement.
     """
 
-    __slots__ = ("_admit", "_bounds", "_is_simple", "_prereleases", "_reject")
+    __slots__ = (
+        "_admit",
+        "_admit_arbitrary",
+        "_bounds",
+        "_prereleases",
+        "_prereleases_configured",
+        "_reject",
+    )
     _bounds: tuple[Interval, ...]
-    #: Whether :meth:`filter` can dispatch straight to the bounds-only
-    #: filter: no admit/reject literals and bounds aren't the full range.
-    _is_simple: bool
+
+    #: Whether this range matches non-version strings as well as versions.
+    #: True only by construction, on the universal set from
+    #: ``SpecifierSet("")`` (and :meth:`full`). Set algebra never invents
+    #: arbitrary-string admission: intersection ANDs, union ORs, complement
+    #: preserves. Decoupled from ``_bounds == FULL_RANGE`` so a canonicalized
+    #: ``>=0.dev0`` (full bounds, but a real version specifier) does not
+    #: admit arbitrary strings. Part of equality and hashing, since
+    #: membership reads it.
+    _admit_arbitrary: bool
+
     #: Case-folded strings the range admits in addition to its bounds.
     #: ``===wat`` produces ``_admit = {"wat"}``.
     _admit: frozenset[str]
+
     #: Case-folded strings the range rejects. Overrides ``_admit`` and
     #: ``_bounds``. Populated by :meth:`complement` of a range whose
     #: ``_admit`` was non-empty.
     _reject: frozenset[str]
-    #: Pre-release policy stamped from the originating specifier by the
-    #: ``from_*`` factories (see
-    #: :func:`packaging._range_utils.resolve_prereleases`): ``True`` admits
-    #: pre-releases, ``False`` excludes them, ``None`` uses the PEP 440
-    #: default. :meth:`intersection` / :meth:`union` combine the two tags
-    #: (``True`` wins, then ``False``, then ``None``); :meth:`complement`
-    #: resets to ``None``. Read by :meth:`filter` only when its
-    #: ``prereleases`` argument is ``None``; not part of equality,
-    #: membership, or hashing.
+
+    #: Resolved pre-release policy: ``True`` admits pre-releases, ``False``
+    #: excludes them, ``None`` uses the PEP 440 default. Stamped from the
+    #: originating specifier by the ``from_*`` factories. Carried through
+    #: set algebra by :meth:`_propagate_prereleases`: under autodetect
+    #: (``_prereleases_configured`` is ``None``), an autodetected ``True``
+    #: on either operand wins; an explicit configured tag always wins.
+    #: :meth:`complement` preserves the resolved tag. Read by :meth:`filter`
+    #: only when its ``prereleases`` argument is ``None``; not part of
+    #: equality, membership, or hashing.
     _prereleases: bool | None
+
+    #: The raw configured pre-release override of the originating
+    #: specifier (set): ``None`` when unset or unknown, ``True`` / ``False``
+    #: when explicit. Unlike ``_prereleases`` (the resolved tag), this keeps
+    #: autodetect-True and explicit-True distinct. :meth:`intersection` and
+    #: :meth:`union` require this slot to match on both operands. Part of
+    #: equality and hashing, since membership reads it.
+    _prereleases_configured: bool | None
 
     def __new__(cls, *args: object, **kwargs: object) -> VersionRange:  # noqa: PYI034
         raise TypeError(
@@ -605,74 +986,189 @@ class VersionRange:
         bounds: tuple[Interval, ...],
         admit: frozenset[str] = frozenset(),
         reject: frozenset[str] = frozenset(),
+        admit_arbitrary: bool = False,
     ) -> VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
 
-        Drops admit literals already covered by bounds and reject
-        literals already outside bounds. Reject wins over admit on
-        overlap. ``_prereleases`` defaults to ``None``; the ``from_*``
-        factories stamp the spec's resolved value.
+        Drops admit literals the structural part already admits, and reject
+        literals it does not match anyway. Reject wins over admit on overlap.
         """
         if admit and reject:
             admit = admit - reject
         if admit:
-            admit = frozenset(s for s in admit if not bound_match_string(bounds, s))
+            admit = frozenset(
+                literal
+                for literal in admit
+                if not _struct_admits(bounds, admit_arbitrary, literal)
+            )
         if reject:
-            reject = frozenset(s for s in reject if bound_match_string(bounds, s))
+            reject = frozenset(
+                literal
+                for literal in reject
+                if _struct_admits(bounds, admit_arbitrary, literal)
+            )
         instance = object.__new__(cls)
         instance._bounds = bounds
         instance._admit = admit
         instance._reject = reject
+        instance._admit_arbitrary = admit_arbitrary
         instance._prereleases = None
-        # Pure-bound range: filter can skip the admission dispatch.
-        instance._is_simple = not admit and not reject and bounds != FULL_RANGE
-        return instance
-
-    @classmethod
-    def _build_simple(cls, bounds: tuple[Interval, ...]) -> VersionRange:
-        """Internal fast factory for ranges with no admit/reject literals.
-
-        Equivalent to ``cls._build(bounds)`` when both literal sets are
-        empty; skips the (empty) literal-handling branches that dominate
-        cold-path overhead for specifiers built from PEP 440 operators.
-        """
-        instance = object.__new__(cls)
-        instance._bounds = bounds
-        instance._admit = _EMPTY_FROZENSET
-        instance._reject = _EMPTY_FROZENSET
-        instance._prereleases = None
-        instance._is_simple = bounds != FULL_RANGE
+        instance._prereleases_configured = None
         return instance
 
     def _has_literals(self) -> bool:
         """``True`` when ``_admit`` or ``_reject`` is non-empty."""
         return bool(self._admit) or bool(self._reject)
 
+    def _arbitrary_active(self) -> bool:
+        """``True`` when ``_admit_arbitrary`` actually admits anything.
+
+        The flag propagates through set algebra (AND on intersection, OR
+        on union, preserved by complement) but fires admission only when
+        bounds are ``FULL_RANGE``; on narrower bounds it is metadata that
+        rides along until a later widening reactivates it.
+        """
+        return self._admit_arbitrary and self._bounds == FULL_RANGE
+
+    def _check_policy_compat(self, other: VersionRange) -> None:
+        """Refuse combining ranges with different pre-release policies.
+
+        Also validates the operand type so the public set-algebra methods
+        raise :exc:`TypeError` on a wrong-type argument instead of leaking
+        an :exc:`AttributeError` from the private slot access below.
+        """
+        if not isinstance(other, VersionRange):
+            raise TypeError(f"expected VersionRange, got {type(other).__name__}")
+
+        if self._prereleases_configured != other._prereleases_configured:
+            raise ValueError(
+                "Cannot combine VersionRange operands with different "
+                f"pre-release policies: {self._prereleases_configured!r} "
+                f"and {other._prereleases_configured!r}"
+            )
+
+    def _propagate_prereleases(self, other: VersionRange, result: VersionRange) -> None:
+        """Carry the shared pre-release policy onto a freshly built ``result``.
+
+        ``self`` and ``other`` must already have been confirmed compatible
+        via :meth:`_check_policy_compat`. When the configured tag is
+        ``None`` (autodetect), an autodetected ``True`` on either operand
+        wins so a pre-release seen on one side carries through the
+        combination; otherwise the autodetected tag resolves to ``None``
+        because :func:`resolve_prereleases` never returns ``False`` when
+        no explicit policy is configured.
+        """
+        result._prereleases_configured = self._prereleases_configured
+        if self._prereleases_configured is not None:
+            result._prereleases = self._prereleases_configured
+        elif self._prereleases is True or other._prereleases is True:
+            result._prereleases = True
+        else:
+            result._prereleases = None
+
+    def _restamp(self, *, resolved: bool | None, configured: bool | None) -> None:
+        """Set the pre-release policy slots on a range built by an external
+        factory.
+
+        Friend API for :class:`packaging.specifiers.Specifier` /
+        :class:`packaging.specifiers.SpecifierSet` so the ``ranges`` <->
+        ``specifiers`` coupling lives in one place. Set algebra carries
+        policy through :meth:`_propagate_prereleases`; this is the
+        cache-refresh path.
+        """
+        self._prereleases = resolved
+        self._prereleases_configured = configured
+
     @classmethod
-    def empty(cls) -> VersionRange:
+    def empty(
+        cls,
+        *,
+        admit_arbitrary: bool = False,
+        prereleases: bool | None = None,
+    ) -> VersionRange:
         """Return the empty range. No version satisfies it.
+
+        ``prereleases`` stamps the configured policy so the result can
+        combine with ranges built from a
+        :class:`~packaging.specifiers.SpecifierSet` carrying the same
+        policy.
+
+        ``admit_arbitrary=True`` carries the arbitrary-string flag as
+        metadata. The range still admits nothing under ``in`` /
+        :meth:`contains` / :meth:`filter`; the flag rides along through
+        complement and union so a later widening to ``FULL_RANGE`` bounds
+        reactivates it. Intersection with a False operand strips it.
+        Default is ``False`` so that ``r | empty()`` preserves
+        ``r._admit_arbitrary`` structurally.
 
         >>> VersionRange.empty().is_empty
         True
         >>> "1.0" in VersionRange.empty()
         False
+        >>> e = VersionRange.empty(admit_arbitrary=True)
+        >>> e.is_empty
+        True
+        >>> "garbage" in e
+        False
+        >>> e == ~VersionRange.full()
+        True
+        >>> "garbage" in (e | VersionRange.full())
+        True
         """
-        return cls._build(())
+        result = cls._build((), admit_arbitrary=admit_arbitrary)
+        if prereleases is not None:
+            result._restamp(resolved=prereleases, configured=prereleases)
+        return result
 
     @classmethod
-    def full(cls) -> VersionRange:
+    def full(
+        cls,
+        *,
+        admit_arbitrary: bool = True,
+        prereleases: bool | None = None,
+    ) -> VersionRange:
         """Return the full range. Every PEP 440 version satisfies it.
+
+        ``prereleases`` stamps the configured policy so the result can
+        combine with ranges built from a
+        :class:`~packaging.specifiers.SpecifierSet` carrying the same
+        policy.
+
+        ``admit_arbitrary=False`` restricts the range to PEP 440 versions
+        only (the same shape as ``SpecifierSet(">=0.dev0").to_range()``);
+        its complement is :meth:`empty`. ``admit_arbitrary`` propagates
+        through set algebra: intersection ANDs, union ORs, complement
+        preserves. Default is ``True`` so that ``r & full()`` preserves
+        ``r._admit_arbitrary`` structurally.
 
         >>> "1.0" in VersionRange.full()
         True
-        >>> VersionRange.full().is_empty
+        >>> "garbage" in VersionRange.full()
+        True
+        >>> "garbage" in VersionRange.full(admit_arbitrary=False)
         False
+        >>> ~VersionRange.full(admit_arbitrary=False) == VersionRange.empty()
+        True
         """
-        return cls._build(FULL_RANGE)
+        result = cls._build(FULL_RANGE, admit_arbitrary=admit_arbitrary)
+        if prereleases is not None:
+            result._restamp(resolved=prereleases, configured=prereleases)
+        return result
 
     @classmethod
-    def singleton(cls, version: Version | str) -> VersionRange:
-        """Return the range that contains only *version*.
+    def singleton(
+        cls, version: Version | str, *, prereleases: bool | None = None
+    ) -> VersionRange:
+        """Return the strict singleton range ``{version}``.
+
+        Built as the closed interval ``[version, version]`` with strict
+        equality, intended for users implementing algorithms that need a
+        singleton from set theory.
+
+        Pass ``prereleases=True``/``False`` to stamp the configured
+        policy so the result can combine with ranges built from a
+        :class:`~packaging.specifiers.SpecifierSet` carrying the same
+        policy.
 
         >>> r = VersionRange.singleton("1.2.3")
         >>> "1.2.3" in r
@@ -680,17 +1176,40 @@ class VersionRange:
         >>> "1.2.4" in r
         False
 
-        :raises packaging.version.InvalidVersion: if *version* is a
+        ``Specifier("==V")`` matches ``V+local`` too (PEP 440), so the
+        strict singleton is narrower:
+
+        >>> "1.0+local" in VersionRange.singleton("1.0")
+        False
+        >>> "1.0+local" in Specifier("==1.0")
+        True
+
+        For the wider ``==V`` semantics use :meth:`from_specifier` with
+        ``Specifier("==V")`` or :meth:`from_specifier_set` with
+        ``SpecifierSet("==V")``:
+
+        >>> r = VersionRange.from_specifier(Specifier("==1.0"))
+        >>> "1.0+local" in r
+        True
+
+        :raises packaging.version.InvalidVersion: if version is a
             string that does not parse as a PEP 440 version.
         """
         if not isinstance(version, Version):
             version = Version(version)
         lower = LowerBound(version, inclusive=True)
         upper = UpperBound(version, inclusive=True)
-        return cls._build(((lower, upper),))
+        result = cls._build(((lower, upper),))
+        if prereleases is not None:
+            result._restamp(resolved=prereleases, configured=prereleases)
+        return result
 
     def intersection(self, other: VersionRange) -> VersionRange:
-        """Range containing exactly the versions in both *self* and *other*.
+        """Range containing exactly the versions in both self and other.
+
+        Both operands must share the same configured pre-release policy
+        (``None``, ``True``, or ``False``); otherwise :exc:`ValueError` is
+        raised. The shared policy is carried onto the result.
 
         >>> a = VersionRange.from_specifier_set(SpecifierSet(">=1.0"))
         >>> b = VersionRange.from_specifier_set(SpecifierSet("<2.0"))
@@ -698,18 +1217,28 @@ class VersionRange:
         >>> a.intersection(b) == ab
         True
         """
+        self._check_policy_compat(other)
+
+        new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
+
+        # Arbitrary-string admission survives only when both sides admit.
+        combined_arb = self._admit_arbitrary and other._admit_arbitrary
         if not self._has_literals() and not other._has_literals():
-            result = self._build(tuple(intersect_ranges(self._bounds, other._bounds)))
+            result = self._build(new_bounds, admit_arbitrary=combined_arb)
         else:
-            new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
-            result = self._combine_literals(other, new_bounds, intersect=True)
-        result._prereleases = _combine_prereleases(
-            self._prereleases, other._prereleases
-        )
+            result = self._combine_literals(
+                other, new_bounds, intersect=True, admit_arbitrary=combined_arb
+            )
+
+        self._propagate_prereleases(other, result)
         return result
 
     def union(self, other: VersionRange) -> VersionRange:
-        """Range containing every version in *self* or *other*.
+        """Range containing every version in self or other.
+
+        Both operands must share the same configured pre-release policy
+        (``None``, ``True``, or ``False``); otherwise :exc:`ValueError` is
+        raised. The shared policy is carried onto the result.
 
         >>> a = VersionRange.singleton("1.0")
         >>> b = VersionRange.singleton("2.0")
@@ -718,18 +1247,46 @@ class VersionRange:
         >>> "1.5" in a.union(b)
         False
         """
+        self._check_policy_compat(other)
+
+        new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
+
+        # Either universal side makes the union admit arbitrary strings.
+        combined_arb = self._admit_arbitrary or other._admit_arbitrary
         if not self._has_literals() and not other._has_literals():
-            result = self._build(tuple(_union_ranges(self._bounds, other._bounds)))
+            result = self._build(new_bounds, admit_arbitrary=combined_arb)
         else:
-            new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
-            result = self._combine_literals(other, new_bounds, intersect=False)
-        result._prereleases = _combine_prereleases(
-            self._prereleases, other._prereleases
-        )
+            result = self._combine_literals(
+                other, new_bounds, intersect=False, admit_arbitrary=combined_arb
+            )
+
+        # ``r | full()`` collapses to the canonical universal range when
+        # both sides carry the autodetect default. An explicit policy
+        # (``SpecifierSet("", prereleases=True).to_range() | r``) must
+        # survive the union, so only the autodetect-only case collapses;
+        # ``_check_policy_compat`` already required the configured tags
+        # to match, so checking ``self`` covers both operands.
+        if (
+            result._bounds == FULL_RANGE
+            and result._admit_arbitrary
+            and not result._has_literals()
+            and self._prereleases_configured is None
+        ):
+            result._prereleases_configured = None
+            result._prereleases = None
+            return result
+
+        self._propagate_prereleases(other, result)
         return result
 
     def complement(self) -> VersionRange:
-        """Range containing every version *not* in *self*.
+        """Range containing every version not in self.
+
+        Preserves the configured pre-release policy of self. The
+        arbitrary-string flag is preserved as metadata, so
+        ``~~full() == full()`` holds even though ``~full()`` matches
+        nothing under membership (it equals
+        ``empty(admit_arbitrary=True)``).
 
         >>> r = VersionRange.from_specifier(Specifier(">=1.0"))
         >>> "0.5" in r.complement()
@@ -740,14 +1297,22 @@ class VersionRange:
         True
         """
         if not self._has_literals():
-            return self._build(tuple(_complement_ranges(self._bounds)))
-        # Swap the admit and reject sets, complement the bounds.
-        # ``_build`` drops anything now redundant against the new bounds.
-        return self._build(
-            tuple(_complement_ranges(self._bounds)),
-            admit=self._reject,
-            reject=self._admit,
-        )
+            result = self._build(
+                tuple(_complement_ranges(self._bounds)),
+                admit_arbitrary=self._admit_arbitrary,
+            )
+        else:
+            # Swap the admit and reject sets, complement the bounds.
+            # ``_build`` drops anything now redundant against the new bounds.
+            result = self._build(
+                tuple(_complement_ranges(self._bounds)),
+                admit=self._reject,
+                reject=self._admit,
+                admit_arbitrary=self._admit_arbitrary,
+            )
+        result._prereleases = self._prereleases
+        result._prereleases_configured = self._prereleases_configured
+        return result
 
     def _combine_literals(
         self,
@@ -755,14 +1320,14 @@ class VersionRange:
         new_bounds: tuple[Interval, ...],
         *,
         intersect: bool,
+        admit_arbitrary: bool,
     ) -> VersionRange:
         """Resolve admit/reject for ``self & other`` or ``self | other``.
 
-        The bound-only result is already in *new_bounds*. For each
-        literal seen on either side, decide whether the combined
-        predicate (AND for intersection, OR for union) admits it, then
-        record an explicit admit or reject when the new bounds would
-        give the wrong answer on their own.
+        For each literal seen on either side, decide whether the combined
+        predicate (AND for intersection, OR for union) admits or excludes
+        it. ``_build`` drops admits the structural part already covers and
+        rejects the structural part already excludes.
         """
         admits: set[str] = set()
         rejects: set[str] = set()
@@ -770,22 +1335,34 @@ class VersionRange:
             self_in = self._matches_literal(literal)
             other_in = other._matches_literal(literal)
             want = (self_in and other_in) if intersect else (self_in or other_in)
-            bound_in = bound_match_string(new_bounds, literal)
-            if want and not bound_in:
+            if want:
+                # ``_build`` drops admits the new bounds already cover, so
+                # no need to pre-filter via ``_struct_admits`` here.
                 admits.add(literal)
-            elif not want and bound_in:
+            else:
                 rejects.add(literal)
         return self._build(
-            new_bounds, admit=frozenset(admits), reject=frozenset(rejects)
+            new_bounds,
+            admit=frozenset(admits),
+            reject=frozenset(rejects),
+            admit_arbitrary=admit_arbitrary,
         )
 
     def _matches_literal(self, literal: str) -> bool:
-        """Whether *literal* (case-folded) matches this range's predicate."""
+        """Whether literal (case-folded) matches this range's predicate.
+
+        Mirrors :meth:`__contains__`: reject then admit win, then a
+        parseable version is tested against the bounds. A non-version
+        string matches only via admit or live arbitrary admission.
+        """
         if literal in self._reject:
             return False
         if literal in self._admit:
             return True
-        return bound_match_string(self._bounds, literal)
+        parsed = coerce_version(literal)
+        if parsed is None:
+            return self._arbitrary_active()
+        return self._matches_bounds(parsed)
 
     def __and__(self, other: object) -> VersionRange:
         """Operator alias for :meth:`intersection`."""
@@ -803,23 +1380,37 @@ class VersionRange:
         """Operator alias for :meth:`complement`."""
         return self.complement()
 
+    @typing.overload
+    def filter(
+        self,
+        iterable: Iterable[UnparsedVersionVar],
+        prereleases: bool | None = None,
+        key: None = ...,
+    ) -> Iterator[UnparsedVersionVar]: ...
+
+    @typing.overload
+    def filter(
+        self,
+        iterable: Iterable[T],
+        prereleases: bool | None = None,
+        key: Callable[[T], UnparsedVersion] = ...,
+    ) -> Iterator[T]: ...
+
     def filter(
         self,
         iterable: Iterable[Any],
-        key: Callable[[Any], Version | str] | None = None,
         prereleases: bool | None = None,
+        key: Callable[[Any], Version | str] | None = None,
     ) -> Iterator[Any]:
-        """Yield items from *iterable* whose version falls inside the range.
+        """Yield items from iterable whose version falls inside the range.
 
-        With *prereleases* ``None`` the PEP 440 default applies:
+        With prereleases ``None`` the PEP 440 default applies:
         pre-releases are buffered and only emitted if no final release
-        in *iterable* is in range.
+        in iterable is in range.
 
-        Filtering matches
-        :meth:`~packaging.specifiers.SpecifierSet.filter` for the same
-        :class:`~packaging.specifiers.Specifier` /
-        :class:`~packaging.specifiers.SpecifierSet`, including the
-        admission of unparsable strings for the empty ``SpecifierSet("")``
+        The signature mirrors
+        :meth:`~packaging.specifiers.SpecifierSet.filter` exactly, including
+        the admission of unparsable strings for the empty ``SpecifierSet("")``
         and the case-insensitive literal match for ``===``.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -828,8 +1419,15 @@ class VersionRange:
         """
         if prereleases is None:
             prereleases = self._prereleases
-        if self._is_simple:
+        # A bounds-only range (no admit/reject literals, no live
+        # arbitrary admission) skips the admission dispatch entirely.
+        arbitrary_active = self._arbitrary_active()
+        if not self._admit and not self._reject and not arbitrary_active:
             return filter_by_ranges(self._bounds, iterable, key, prereleases)
+        # Universal range: every item is admitted, so parse only enough to
+        # decide pre-release buffering. Matches ``SpecifierSet("").filter``.
+        if arbitrary_active and not self._admit and not self._reject:
+            return _filter_universal(iterable, key, prereleases)
         return self._filter_with_admission(iterable, key, prereleases)
 
     def _filter_with_admission(
@@ -846,7 +1444,7 @@ class VersionRange:
         """
         admit_set = self._admit
         reject_set = self._reject
-        full_bounds = self._bounds == FULL_RANGE
+        arbitrary_active = self._arbitrary_active()
 
         def admit(item: Any) -> tuple[bool, Version | None]:  # noqa: ANN401
             raw: Version | str = item if key is None else key(item)
@@ -857,8 +1455,10 @@ class VersionRange:
                 return True, coerce_version(raw)
             parsed = coerce_version(raw)
             if parsed is None:
-                return full_bounds, None
-            if not full_bounds and not self._matches_bounds(parsed):
+                # Non-parseable strings match only when arbitrary
+                # admission is live.
+                return arbitrary_active, None
+            if not self._matches_bounds(parsed):
                 return False, None
             return True, parsed
 
@@ -909,32 +1509,37 @@ class VersionRange:
 
     @classmethod
     def from_specifier(cls, specifier: Specifier) -> VersionRange:
-        """Return the :class:`VersionRange` accepted by *specifier*.
+        """Return the :class:`VersionRange` accepted by specifier.
 
         >>> isinstance(VersionRange.from_specifier(Specifier(">=1.0")), VersionRange)
         True
+
+        ``===L`` literals are case-folded at construction
+        (``Specifier("===WAT")`` and ``Specifier("===wat")`` produce
+        equal ranges), even though
+        :class:`~packaging.specifiers.Specifier` and
+        :class:`~packaging.specifiers.SpecifierSet` treat the literal
+        case-sensitively under their own ``==``. Both layers match
+        candidates case-insensitively at runtime (the PEP 440 rule), so
+        this only affects structural equality. A dict keyed by
+        :class:`VersionRange` will treat ``===WAT`` and ``===wat`` as
+        the same key; a dict keyed by
+        :class:`~packaging.specifiers.SpecifierSet` keeps them distinct.
         """
-        op = specifier.operator
-        ver = specifier.version
-        if op == "===":
-            result = cls._build(bounds=(), admit=frozenset({ver.lower()}))
+        operator = specifier.operator
+        version = specifier.version
+        if operator == "===":
+            result = cls._build(bounds=(), admit=frozenset({version.lower()}))
         else:
-            result = cls._build_simple(bounds=bounds_for_spec(op, ver))
-        # Tag the range with the pre-release policy filter() uses by
-        # default, so it mirrors the specifier. ``_prereleases`` is the one
-        # specifier private we read: the public ``prereleases`` property
-        # collapses an auto-detected ``False`` (``>=1.0``, the PEP 440
-        # default) and an explicit ``prereleases=False`` (pre-releases
-        # excluded) to the same value, so the raw flag is needed and has no
-        # public accessor.
-        result._prereleases = resolve_prereleases(
-            specifier._prereleases, specifier.prereleases
+            result = cls._build(bounds=bounds_for_spec(operator, version))
+        result._prereleases, result._prereleases_configured = (
+            specifier._range_prereleases()
         )
         return result
 
     @classmethod
     def from_specifier_set(cls, specifier_set: SpecifierSet) -> VersionRange:
-        """Return the :class:`VersionRange` accepted by *specifier_set*.
+        """Return the :class:`VersionRange` accepted by specifier_set.
 
         The intersection of every specifier in the set. An empty
         :class:`~packaging.specifiers.SpecifierSet` yields the
@@ -951,36 +1556,81 @@ class VersionRange:
         >>> VersionRange.from_specifier_set(SpecifierSet(">=2.0,<1.0")).is_empty
         True
         """
-        # Intersect every specifier through the public API. ``&`` and
-        # :meth:`from_specifier` already handle ``===`` literals via the
-        # admit set, so the fold needs no operator-specific special
-        # cases. An empty set leaves the unbounded ``full()``.
-        result = cls.full()
-        for spec in specifier_set:
-            result = result.intersection(cls.from_specifier(spec))
+        # Fast path: a rangelike-only set folds per-specifier bounds via the
+        # shared helper, going through each Specifier's cached ``_to_ranges``
+        # so a later ``filter`` / ``contains`` reuses the parse.  ``===``
+        # introduces literal-string admission that bare bounds cannot carry,
+        # so those fall back to the per-specifier fold which routes literals
+        # through ``_combine_literals``.
+        if not specifier_set:
+            result = cls.full()
+        elif not specifier_set._has_arbitrary:
+            result = cls._build(
+                bounds=intersect_specifier_bounds(
+                    spec._to_ranges() for spec in specifier_set
+                )
+            )
+        else:
+            result = cls.full()
+            for spec in specifier_set:
+                # ``intersection`` rejects any mismatched configured policy.
+                # Inside the set the per-spec configured tag is an
+                # implementation detail (the set-level tag is what survives
+                # below), so neutralize it here to keep the fold from
+                # raising on construction.
+                operand = cls.from_specifier(spec)
+                operand._prereleases_configured = None
+                result = result.intersection(operand)
 
-        # Tag the range with the set's pre-release policy. Unlike a single
-        # specifier, a set's public ``prereleases`` never reports an
-        # auto-detected ``False``, so it already equals the resolved value
-        # and no private access is needed here.
-        result._prereleases = specifier_set.prereleases
+        result._prereleases, result._prereleases_configured = (
+            specifier_set._range_prereleases()
+        )
         return result
 
     def to_specifier_set(self) -> SpecifierSet | None:
         """Return a single
-        :class:`~packaging.specifiers.SpecifierSet` whose
-        :meth:`from_specifier_set` yields *self*, or ``None`` if no
-        such set exists.
+        :class:`~packaging.specifiers.SpecifierSet` that matches the
+        same versions as self under ``in`` and
+        :meth:`~packaging.specifiers.SpecifierSet.filter`, or ``None`` if
+        no such set exists.
 
         :class:`~packaging.specifiers.SpecifierSet` cannot express every
-        range. PEP 440's
-        operator set has no syntax for the strict singleton ``{V}`` or
-        for the bounds produced by complementing ``>V``; for those
-        ranges the result is ``None``. Use :meth:`to_specifier_sets`
-        when a tuple of specifier sets is acceptable. The empty range
-        maps to the range ``SpecifierSet("<0")`` (``<0`` excludes
-        ``0.dev0``, the smallest PEP 440 version); the full range maps
-        to the empty ``SpecifierSet("")``.
+        range. PEP 440's operator set has no syntax for the strict
+        singleton ``{V}`` or for the bounds produced by complementing
+        ``>V``; for those ranges the result is ``None``. Disjoint unions
+        of two or more ``==V.*`` families (e.g. ``==1.* | ==3.*``) also
+        return ``None``, since the only single-set spelling would shift
+        the recovered set's pre-release behaviour. Use
+        :meth:`to_specifier_sets` when a tuple of specifier sets is
+        acceptable. The empty range maps to ``SpecifierSet("<0")``
+        (``<0`` excludes ``0.dev0``, the smallest PEP 440 version); the
+        full range maps to the empty ``SpecifierSet("")``.
+
+        Version membership round-trips through this method. An all-
+        versions range that did not come from ``SpecifierSet("")`` (for
+        example ``Specifier(">=0.dev0")`` after min-version
+        canonicalization) maps to ``SpecifierSet(">=0.dev0")`` rather
+        than the empty set, so the ``SpecifierSet("")`` quirk of also
+        matching non-version strings is not introduced.
+
+        Under ``prereleases=None`` (autodetect) or ``prereleases=True``,
+        feeding the result back through :meth:`from_specifier_set`
+        returns a range structurally equal to self. Under explicit
+        ``prereleases=False``, two ranges that match the same versions
+        can have different bound shapes (for example ``>=1.5.dev0`` and
+        ``>=1.5`` both reject every pre-release under that policy); the
+        recovered range matches the same versions as self but may not
+        be structurally equal to it.
+
+        Filter equivalence is at the configured policy: an explicit
+        ``prereleases=True`` override on the returned set can admit
+        versions self would reject. For example
+        ``SpecifierSet(">=1.0.dev0", prereleases=False).to_range()`` is
+        encoded as ``>=1.0`` (the ``.dev0`` marker is stripped because
+        ``False`` clamps pre-releases at filter time), so the recovered
+        set's ``filter(items, prereleases=True)`` admits ``1.0`` only,
+        while the source range under the same override admits ``1.0.dev0``,
+        ``1.0a1``, and ``1.0``.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         >>> str(r.to_specifier_set())
@@ -988,41 +1638,57 @@ class VersionRange:
         >>> VersionRange.singleton("1.5").to_specifier_set() is None
         True
         """
-        # Local import avoids the circular .specifiers <-> .ranges load.
-        from .specifiers import SpecifierSet  # noqa: PLC0415
-
-        if self._reject:
-            # No PEP 440 operator excludes a literal string while
-            # admitting other versions.
+        sets = self.to_specifier_sets()
+        if sets is None or len(sets) != 1:
             return None
-        if self._admit:
-            return self._admit_to_specifier_set()
-        if self.is_empty:
-            # ``<0`` parses to upper = 0.dev0 (excl), the smallest
-            # possible PEP 440 version, so the range contains nothing.
-            return SpecifierSet("<0")
-        if self._bounds == FULL_RANGE:
-            return SpecifierSet("")
+        result = sets[0]
 
-        # A single SpecifierSet exists only when every interval joins
-        # into one ``!=``-connected group; a genuine disjoint gap (more
-        # than one group) has no single-set form.
-        groups = _encode_grouped(list(self._bounds))
-        if groups is None or len(groups) != 1:
-            return None
-        return SpecifierSet(",".join(groups[0]))
+        # SpecifierSet has no way to say ">=V.dev0 but do NOT imply
+        # pre-releases": a synthetic ``.dev0`` literal flips the
+        # recovered set's prereleases auto-detect, and a stripped form
+        # would lose it. Under cfg=None the source has no explicit
+        # clamp, so any mismatch between source and recovered
+        # auto-detect is silent filter drift; report as ``None``. The
+        # empty range filters nothing regardless of its tag, so the
+        # check is skipped there.
+        # ``_drift_guarded_pieces`` runs this same check on the
+        # pieces; a drifted single piece returns ``None`` above. Assert
+        # to surface any regression in the helper.
+        assert not (
+            self._prereleases_configured is None
+            and not self.is_empty
+            and result.prereleases != self._prereleases
+        )
+        return result
 
     def to_specifier_sets(self) -> tuple[SpecifierSet, ...] | None:
         """Return a tuple of
-        :class:`~packaging.specifiers.SpecifierSet` whose union equals
-        *self*, or ``None`` if no such tuple exists.
+        :class:`~packaging.specifiers.SpecifierSet` whose union, fed
+        back through :meth:`from_specifier_set`, reproduces self, or
+        ``None`` if no such tuple exists.
 
         Looser than :meth:`to_specifier_set`: each maximal run of
         intervals joined by ``!=V`` / ``!=V.*`` gaps becomes one
         :class:`~packaging.specifiers.SpecifierSet`, and genuinely
-        disjoint runs become separate ones. ``None`` only when some
-        run's outer interval has no PEP 440 form (for example the
-        strict singleton produced by :meth:`singleton`).
+        disjoint runs become separate ones. Admit literals (from
+        ``===L``) become their own ``===L`` pieces alongside the bound
+        groups. ``None`` when some piece has no PEP 440 form (a reject
+        literal, the strict singleton produced by :meth:`singleton`, or
+        arbitrary-string admission combined with narrowed bounds), or
+        when the recovered pieces would silently change the source's
+        pre-release autodetect on round-trip (see below).
+
+        Under ``prereleases=None`` (autodetect) or ``prereleases=True``,
+        feeding the returned sets back through :meth:`from_specifier_set`
+        and unioning the results yields a range structurally equal to
+        self. Under explicit ``prereleases=False``, two ranges that match
+        the same versions can have different bound shapes (for example
+        ``>=1.5.dev0`` and ``>=1.5`` both reject every pre-release under
+        that policy); the recovered range matches the same versions as
+        self but may not be structurally equal to it.
+
+        Use :meth:`to_specifier_set` when a single filter-equivalent
+        set is required.
 
         >>> r = (
         ...     VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -1032,67 +1698,168 @@ class VersionRange:
         ['<2.0,>=1.0', '<4.0,>=3.0']
         >>> VersionRange.singleton("1.5").to_specifier_sets() is None
         True
+
+        Drift example: the bounds of ``>=1.0a1 & >=2.0`` canonicalize to
+        ``[2.0, +inf)``, which the encoder would spell ``>=2.0``.
+        ``SpecifierSet(">=2.0")`` autodetects ``prereleases=None``, but
+        the source autodetected :data:`True` from ``>=1.0a1``. Round-tripping
+        through ``>=2.0`` would reject ``2.5a1`` while the source admits
+        it, so ``None`` is returned instead.
         """
         from .specifiers import SpecifierSet  # noqa: PLC0415
 
         if self._reject:
             return None
-        if self._admit:
-            single = self._admit_to_specifier_set()
-            if single is None:
-                return None
-            return (single,)
+        # ``_admit_arbitrary=True`` only encodes at ``FULL_RANGE`` bounds
+        # (as ``SpecifierSet("")``); on narrower bounds the flag has no
+        # PEP 440 form. Checked before :meth:`is_empty` so an empty
+        # range carrying the flag is not silently encoded as ``<0`` and
+        # stripped of the flag on round-trip.
+        if self._admit_arbitrary and self._bounds != FULL_RANGE:
+            return None
         if self.is_empty:
-            return (SpecifierSet("<0"),)
+            return (SpecifierSet("<0", prereleases=self._prereleases_configured),)
+
+        admit_pieces = tuple(
+            SpecifierSet(f"==={literal}", prereleases=self._prereleases_configured)
+            for literal in sorted(self._admit)
+        )
+
+        if not self._bounds:
+            return self._drift_guarded_pieces(admit_pieces) if admit_pieces else None
         if self._bounds == FULL_RANGE:
-            return (SpecifierSet(""),)
+            if self._admit_arbitrary:
+                full_spec = ""
+            elif self._prereleases_configured is False:
+                # Explicit False clamps pre-releases at filter time, so
+                # ``>=0`` and ``>=0.dev0`` admit the same versions; emit
+                # the cleaner spelling. ``SpecifierSet("")`` would also
+                # admit arbitrary strings, which this branch does not.
+                full_spec = ">=0"
+            else:
+                full_spec = ">=0.dev0"
+            full_piece = SpecifierSet(
+                full_spec, prereleases=self._prereleases_configured
+            )
+            return self._drift_guarded_pieces((*admit_pieces, full_piece))
 
         # One SpecifierSet per disjoint group; ``!=`` gaps stay merged
         # inside their group.
         groups = _encode_grouped(list(self._bounds))
         if groups is None:
             return None
-        return tuple(SpecifierSet(",".join(group)) for group in groups)
 
-    def _admit_to_specifier_set(self) -> SpecifierSet | None:
-        """Encode a single ``===L`` range as ``SpecifierSet("===L")``.
+        # Under explicit ``prereleases=False`` the recovered set clamps
+        # pre-releases at filter time regardless of the bound shape, so
+        # the synthetic ``.dev0`` markers some shapes carry are filter-
+        # equivalent to the dev-stripped spelling. Rewrite to the
+        # cleaner form.
+        if self._prereleases_configured is False:
+            groups = [_strip_synthetic_dev0(group) for group in groups]
+        bound_pieces = tuple(
+            SpecifierSet(",".join(group), prereleases=self._prereleases_configured)
+            for group in groups
+        )
+        return self._drift_guarded_pieces(admit_pieces + bound_pieces)
 
-        Returns ``None`` for shapes PEP 440 cannot express: multiple
-        admit literals (no ``=== A or === B`` syntax), or admit
-        combined with a non-empty bound set.
+    def _drift_guarded_pieces(
+        self, pieces: tuple[SpecifierSet, ...]
+    ) -> tuple[SpecifierSet, ...] | None:
+        """Return ``pieces`` if their union round-trips without filter drift.
+
+        Mirrors the single-set drift guard in :meth:`to_specifier_set`.
+        Under ``_prereleases_configured=None`` the source has no explicit
+        clamp, so any mismatch between source and recovered auto-detect
+        is silent filter drift; report as ``None``. The empty range
+        filters nothing regardless of its tag, so the check is skipped
+        there.
         """
-        from .specifiers import SpecifierSet  # noqa: PLC0415
-
-        if len(self._admit) != 1 or self._bounds:
+        if self._prereleases_configured is not None:
+            return pieces
+        # ``to_specifier_sets`` returns ``(SpecifierSet("<0"),)`` for an
+        # empty range before reaching this helper.
+        assert not self.is_empty
+        recovered = True if any(piece.prereleases for piece in pieces) else None
+        if recovered != self._prereleases:
             return None
-        (literal,) = self._admit
-        return SpecifierSet(f"==={literal}")
+        return pieces
 
     def __reduce__(self) -> tuple[object, ...]:
-        # Pickle to a primitive form (see ``_PackedBound``). The legacy
-        # ``arbitrary`` slot is kept for older restorer signatures.
+        # Pickle and ``copy`` reconstruct via :func:`_new_version_range`,
+        # which bypasses the :meth:`__new__` guard while preserving
+        # ``type(self)`` so subclasses survive the round-trip. State is the
+        # primitive 6-tuple from :meth:`__getstate__`; pickle then calls
+        # :meth:`__setstate__` on the new instance.
+        return (_new_version_range, (type(self),), self.__getstate__())
+
+    def __getstate__(self) -> _VersionRangeState:
+        # Primitive 6-tuple (see ``_VersionRangeState``) so the format
+        # stays stable across packaging releases. Covers every slot read
+        # by :meth:`__eq__`, :meth:`__hash__`, :meth:`__repr__`, and
+        # :meth:`contains`.
         return (
-            _restore_version_range,
-            (
-                tuple(
-                    (_pack_bound(lower), _pack_bound(upper))
-                    for lower, upper in self._bounds
-                ),
-                None,
-                tuple(sorted(self._admit)),
-                tuple(sorted(self._reject)),
-                self._prereleases,
+            tuple(
+                (_pack_bound(lower), _pack_bound(upper))
+                for lower, upper in self._bounds
             ),
+            tuple(sorted(self._admit)),
+            tuple(sorted(self._reject)),
+            self._admit_arbitrary,
+            self._prereleases,
+            self._prereleases_configured,
         )
+
+    def __setstate__(self, state: object) -> None:
+        # Stable 6-tuple ``_VersionRangeState`` format. Validates shape so a
+        # future-format pickle (extra slots) or a bytes blob from an
+        # unrelated source raises a clear :exc:`TypeError`. An unknown
+        # :data:`BoundaryKind` code surfaces as :exc:`ValueError` from
+        # :func:`_unpack_inner` instead of a bare :exc:`KeyError`.
+        if isinstance(state, tuple) and len(state) == 6:
+            packed_bounds, admit, reject, admit_arbitrary, pre, pre_cfg = state
+            if (
+                isinstance(packed_bounds, tuple)
+                and isinstance(admit, tuple)
+                and isinstance(reject, tuple)
+                and isinstance(admit_arbitrary, bool)
+                and (pre is None or isinstance(pre, bool))
+                and (pre_cfg is None or isinstance(pre_cfg, bool))
+            ):
+                try:
+                    bounds = tuple(
+                        (
+                            LowerBound(*_unpack_inner(lower)),
+                            UpperBound(*_unpack_inner(upper)),
+                        )
+                        for lower, upper in packed_bounds
+                    )
+                except (KeyError, TypeError, ValueError, InvalidVersion) as exc:
+                    raise TypeError(
+                        f"Cannot restore VersionRange from {state!r}"
+                    ) from exc
+                self._bounds = bounds
+                self._admit = frozenset(admit)
+                self._reject = frozenset(reject)
+                self._admit_arbitrary = admit_arbitrary
+                self._prereleases = pre
+                self._prereleases_configured = pre_cfg
+                return
+
+        raise TypeError(f"Cannot restore VersionRange from {state!r}")
 
     @property
     def is_empty(self) -> bool:
         """``True`` if no version or string satisfies this range.
 
+        ``_admit_arbitrary`` on empty bounds is metadata only (it admits
+        nothing), so ``empty(admit_arbitrary=True)`` reads as empty here.
+
         >>> VersionRange.from_specifier_set(SpecifierSet(">=2,<1")).is_empty
         True
         >>> VersionRange.from_specifier_set(SpecifierSet(">=1,<2")).is_empty
         False
+        >>> VersionRange.empty(admit_arbitrary=True).is_empty
+        True
         """
         return not self._bounds and not self._admit
 
@@ -1116,12 +1883,15 @@ class VersionRange:
             return False
         if self._reject:
             return False
+        if self._arbitrary_active():
+            # Live arbitrary matches are non-version strings, not pre-releases.
+            return False
         for literal in self._admit:
             parsed = coerce_version(literal)
             if parsed is None or not parsed.is_prerelease:
                 return False
         if self._bounds:
-            return _ranges_are_prerelease_only(self._bounds)
+            return ranges_are_prerelease_only(self._bounds)
         return True
 
     def __bool__(self) -> bool:
@@ -1134,13 +1904,106 @@ class VersionRange:
         """
         return bool(self._bounds) or bool(self._admit)
 
-    def __contains__(self, item: Version | str) -> bool:
-        """Return whether *item* is contained in this range.
+    def contains(
+        self,
+        item: Version | str,
+        prereleases: bool | None = None,
+        installed: bool | None = None,
+    ) -> bool:
+        """Return whether item is contained in this range.
+
+        :param item:
+            The item to check for, which can be a version string or a
+            :class:`~packaging.version.Version` instance.
+        :param prereleases:
+            Whether or not to match prereleases against this range. If set
+            to ``None`` (the default), the range's own pre-release policy
+            is used; ranges built from specifiers that did not explicitly
+            request a policy follow the recommendation from :pep:`440` and
+            match prereleases when there are no other versions.
+        :param installed:
+            Whether or not the item is installed. If set to ``True``, it
+            will accept prerelease versions even if the range does not
+            otherwise allow them.
 
         Unparsable strings do not match, except where the full
         ``SpecifierSet`` would also match: the full range admits any
-        string, and a ``===`` range admits items whose string equals
-        the literal case-insensitively.
+        string, and a ``===`` range admits items whose string equals the
+        literal case-insensitively.
+
+        >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
+        >>> r.contains("1.5")
+        True
+        >>> r.contains("2.0")
+        False
+        >>> r2 = SpecifierSet(">=1.0", prereleases=False).to_range()
+        >>> r2.contains("1.5a1")
+        False
+        >>> r2.contains("1.5a1", prereleases=True)
+        True
+        >>> r2.contains("1.5a1", installed=True)
+        True
+        >>> r2.contains("1.5", installed=True)
+        True
+
+        :raises TypeError: if ``item`` is not a :class:`str` or
+            :class:`~packaging.version.Version`.
+
+        .. versionadded:: 26.3
+        """
+        if not isinstance(item, (str, Version)):
+            raise TypeError(
+                f"VersionRange.contains() expected str or Version, "
+                f"got {type(item).__name__}"
+            )
+        # Mirror SpecifierSet.contains: when ``installed`` is truthy and the
+        # item parses to a pre-release Version, force ``prereleases=True``
+        # regardless of any explicit ``prereleases=False`` or the range's
+        # own configured policy.
+        parsed: Version | None = item if isinstance(item, Version) else None
+        if installed and parsed is None:
+            parsed = coerce_version(item)
+        if installed and parsed is not None and parsed.is_prerelease:
+            prereleases = True
+
+        effective_pre = (
+            self._prereleases_configured if prereleases is None else prereleases
+        )
+
+        if self._admit or self._reject:
+            item_str = str(item).lower()
+            if item_str in self._reject:
+                return False
+            if item_str in self._admit:
+                # Mirror SpecifierSet.contains: an explicit
+                # ``prereleases=False`` excludes a literal that parses to a
+                # pre-release version. Autodetect-False (configured=None) does
+                # not, matching PEP 440's "match prereleases when there are
+                # no other versions" default.
+                if effective_pre is False:
+                    literal_parsed = coerce_version(item_str)
+                    if literal_parsed is not None and literal_parsed.is_prerelease:
+                        return False
+                return True
+        if not isinstance(item, Version):
+            if parsed is None:
+                parsed = coerce_version(item)
+            if parsed is None:
+                # Mirror SpecifierSet.contains: anything that doesn't parse
+                # to a Version falls through to arbitrary admission, which
+                # fires only when the flag is live (bounds at ``FULL_RANGE``).
+                return self._arbitrary_active()
+            item = parsed
+        if effective_pre is False and item.is_prerelease:
+            return False
+        return self._matches_bounds(item)
+
+    def __contains__(self, item: Version | str) -> bool:
+        """Return whether item is contained in this range.
+
+        Forwards to :meth:`contains` with default arguments, so the ``in``
+        operator follows the range's own pre-release policy and does not
+        apply the ``installed`` override.
 
         >>> r = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         >>> "1.5" in r
@@ -1148,29 +2011,31 @@ class VersionRange:
         >>> "2.0" in r
         False
         """
-        if self._admit or self._reject:
-            item_str = str(item).lower()
-            if item_str in self._reject:
-                return False
-            if item_str in self._admit:
-                return True
-        if self._bounds == FULL_RANGE:
-            # ``SpecifierSet("")`` admits any string. Match that.
-            return True
-        if not isinstance(item, Version):
-            try:
-                item = Version(item)
-            except InvalidVersion:
-                return False
-        return self._matches_bounds(item)
+        return self.contains(item)
 
     def _matches_bounds(self, item: Version) -> bool:
         """Bound-only membership check; ignores admit/reject."""
         return matches_bounds_only(self._bounds, item)
 
     def __eq__(self, other: object) -> bool:
-        """Structural equality. Two ranges are equal when they admit
-        exactly the same set of versions and strings.
+        """Structural equality.
+
+        Two ranges compare equal when every input to :meth:`contains`
+        and :meth:`__contains__` agrees: the bounds, the ``===`` admit
+        literals, any reject literals, the arbitrary-string admission
+        flag, and the configured pre-release policy. Ranges that agree
+        on these accept the same items under ``in``. The converse does
+        not always hold: two ranges that admit the same set of versions
+        may still differ structurally, since ``===L`` admit literals are
+        case-folded and some bound shapes that admit the same versions
+        differ in spelling.
+
+        Case-folding under ``===L`` means ``===WAT`` and ``===wat``
+        produce equal ranges here, while
+        :class:`~packaging.specifiers.SpecifierSet` keeps them distinct
+        under its own ``==``. Users who need case-distinct keys should
+        key by :class:`~packaging.specifiers.SpecifierSet`, not by
+        :class:`VersionRange`.
 
         >>> a = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         >>> b = VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
@@ -1183,38 +2048,65 @@ class VersionRange:
             self._bounds == other._bounds
             and self._admit == other._admit
             and self._reject == other._reject
+            and self._admit_arbitrary == other._admit_arbitrary
+            and self._prereleases_configured == other._prereleases_configured
         )
 
     def __hash__(self) -> int:
-        if not self._admit and not self._reject:
-            return hash(self._bounds)
-        return hash((self._bounds, self._admit, self._reject))
+        return hash(
+            (
+                self._bounds,
+                self._admit,
+                self._reject,
+                self._admit_arbitrary,
+                self._prereleases_configured,
+            )
+        )
 
     def __repr__(self) -> str:
-        """Human-readable representation. Internal layout, debugging only.
+        """Human-readable representation for debugging.
+
+        Shows the interval form, the ``===`` admit literals, the
+        ``arbitrary`` marker when the range admits non-version strings,
+        and the ``pre=`` marker when the range has an explicit
+        pre-release policy. Some bounds carry a ``[KIND]`` suffix to
+        disambiguate ranges that differ structurally but share a printed
+        version (for example, ``==1.0`` and the strict singleton
+        ``singleton("1.0")``).
 
         >>> VersionRange.from_specifier_set(SpecifierSet(">=1.0,<2.0"))
         <VersionRange '[1.0, 2.0.dev0)'>
         >>> VersionRange.from_specifier_set(SpecifierSet(""))
-        <VersionRange '(-inf, +inf)'>
+        <VersionRange '(-inf, +inf)' arbitrary>
         >>> VersionRange.from_specifier_set(SpecifierSet(">=2.0,<1.0"))
         <VersionRange '(empty)'>
         >>> VersionRange.from_specifier(Specifier("===wat"))
         <VersionRange '{wat}'>
+        >>> VersionRange.from_specifier_set(SpecifierSet(">=1.0", prereleases=False))
+        <VersionRange '[1.0, +inf)' pre=False>
+        >>> VersionRange.from_specifier(Specifier("==1.0"))
+        <VersionRange '[1.0, 1.0[AFTER_LOCALS]]'>
+        >>> VersionRange.from_specifier(Specifier(">1.0"))
+        <VersionRange '(1.0[AFTER_POSTS], +inf)'>
         """
-        if self._bounds:
-            bound_body = " | ".join(
-                f"{_format_lower(lower)}, {_format_upper(upper)}"
-                for lower, upper in self._bounds
-            )
-        else:
-            bound_body = "(empty)" if not self._admit else ""
         parts: list[str] = []
-        if bound_body:
-            parts.append(bound_body)
+        if self._bounds:
+            parts.append(
+                " | ".join(
+                    f"{_format_lower(lower)}, {_format_upper(upper)}"
+                    for lower, upper in self._bounds
+                )
+            )
         if self._admit:
             parts.append("{" + ", ".join(sorted(self._admit)) + "}")
+
         body = " | ".join(parts) if parts else "(empty)"
         if self._reject:
             body = f"{body} \\ {{{', '.join(sorted(self._reject))}}}"
-        return f"<{self.__class__.__name__} {body!r}>"
+
+        tail = ""
+        if self._admit_arbitrary:
+            tail += " arbitrary"
+        if self._prereleases_configured is not None:
+            tail += f" pre={self._prereleases_configured}"
+        return f"<{self.__class__.__name__} {body!r}{tail}>"
