@@ -79,6 +79,8 @@ _32_BIT_INTERPRETER = _compute_32_bit_interpreter()
 class UnsortedTagsError(ValueError):
     """
     Raised when a tag component is not in sorted order per PEP 425.
+
+    .. versionadded:: 26.1
     """
 
 
