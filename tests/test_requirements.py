@@ -729,6 +729,18 @@ def test_pickle_requirement_roundtrip(req_str: str) -> None:
     assert str(loaded) == str(r)
 
 
+@pytest.mark.parametrize("prereleases", [None, True, False])
+def test_pickle_requirement_preserves_prereleases(prereleases: bool | None) -> None:
+    # The specifier's explicit prereleases override is not captured by the
+    # requirement string, so it must be preserved separately across a pickle
+    # round trip.  See https://github.com/pypa/packaging/issues/1204.
+    r = Requirement("foo>=1.0")
+    r.specifier.prereleases = prereleases
+    loaded = pickle.loads(pickle.dumps(r))
+    assert loaded.specifier._prereleases == prereleases
+    assert loaded == r
+
+
 def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
     # Cover the TypeError branches in __setstate__ for invalid input.
     r = Requirement.__new__(Requirement)
@@ -799,6 +811,73 @@ _PACKAGING_25_0_PICKLE_REQUESTS_GE_2_0 = (
     b"\x00\x002.0q\x17\x86q\x18X\x0c\x00\x00\x00_prereleasesq\x19Nuba\x85q\x1a"
     b"Rq\x1bh\x19NubX\x06\x00\x00\x00markerq\x1cNub."
 )
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: plain __dict__ (no __getstate__),
+# with the override stored on the nested SpecifierSet.
+_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01}q\x02("
+    b"X\x04\x00\x00\x00nameq\x03X\x08\x00\x00\x00requestsq\x04X\x03\x00\x00\x00"
+    b"urlq\x05NX\x06\x00\x00\x00extrasq\x06c__builtin__\nset\nq\x07]q\x08\x85q"
+    b"\tRq\nX\t\x00\x00\x00specifierq\x0bcpackaging.specifiers\nSpecifierSet\n"
+    b"q\x0c)\x81q\rN}q\x0e(X\x0e\x00\x00\x00_canonicalizedq\x0f\x88X\x0e\x00"
+    b"\x00\x00_has_arbitraryq\x10\x89X\x11\x00\x00\x00_is_unsatisfiableq\x11N"
+    b"X\x0c\x00\x00\x00_prereleasesq\x12\x88X\r\x00\x00\x00_resolved_opsq\x13N"
+    b"X\x06\x00\x00\x00_specsq\x14cpackaging.specifiers\nSpecifier\nq\x15)\x81"
+    b"q\x16N}q\x17(h\x12NX\x07\x00\x00\x00_rangesq\x18NX\x05\x00\x00\x00_specq"
+    b"\x19X\x02\x00\x00\x00>=q\x1aX\x03\x00\x00\x002.0q\x1b\x86q\x1cX\r\x00\x00"
+    b"\x00_spec_versionq\x1dNX\x0f\x00\x00\x00_wildcard_splitq\x1eNu\x86q\x1f"
+    b'b\x85q u\x86q!bX\x06\x00\x00\x00markerq"Nub.'
+)
+
+
+# Pickle bytes generated with packaging==26.2, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: just the requirement string, so
+# the override was already dropped at pickle time (the bug fixed in 26.3).
+_PACKAGING_26_2_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\r\x00\x00"
+    b"\x00requests>=2.0q\x02b."
+)
+
+
+# Pickle bytes generated with packaging==26.3, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: (requirement string, prereleases).
+_PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\r\x00\x00"
+    b"\x00requests>=2.0q\x02\x88\x86q\x03b."
+)
+
+
+def test_pickle_requirement_old_format_preserves_prereleases() -> None:
+    # A specifier prereleases override stored in a packaging <= 26.1 pickle
+    # (plain __dict__) is preserved on load.
+    r = pickle.loads(_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is True
+
+
+def test_pickle_requirement_26_2_format_loads() -> None:
+    # A packaging 26.2 pickle uses the string-only format, which never stored
+    # the prereleases override (the bug fixed in 26.3).  It must still load,
+    # with prereleases defaulting back to None.
+    r = pickle.loads(_PACKAGING_26_2_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is None
+
+
+def test_pickle_requirement_new_format_preserves_prereleases() -> None:
+    # A specifier prereleases override stored in a packaging 26.3+ pickle
+    # ((requirement string, prereleases) tuple) is preserved on load.
+    r = pickle.loads(_PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is True
 
 
 def test_pickle_requirement_old_format_loads() -> None:
