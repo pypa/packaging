@@ -25,7 +25,7 @@ from packaging._range_utils import (
     canonical_lower,
     range_is_empty,
 )
-from packaging._version_utils import version_cmpkey
+from packaging._version_utils import coerce_version, version_cmpkey
 from packaging.ranges import VersionRange, _detect_equal_wildcard
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import Version
@@ -353,7 +353,7 @@ class TestContainsMethod:
         assert r.contains("0.9") == ("0.9" in r) is False
         assert r.contains("2.0") == ("2.0" in r) is False
 
-    def test_default_matches_in_operator_unparseable(self) -> None:
+    def test_default_matches_in_operator_unparsable(self) -> None:
         r = SpecifierSet(">=1.0").to_range()
         assert r.contains("not-a-version") == ("not-a-version" in r) is False
 
@@ -387,7 +387,7 @@ class TestContainsMethod:
         r = SpecifierSet(">=1.0", prereleases=False).to_range()
         assert r.contains("1.5", installed=True) == r.contains("1.5") is True
 
-    def test_installed_true_noop_for_unparseable_string(self) -> None:
+    def test_installed_true_noop_for_unparsable_string(self) -> None:
         r = SpecifierSet(">=1.0").to_range()
         assert r.contains("not-a-version", installed=True) is False
 
@@ -454,13 +454,13 @@ class TestContainsMethod:
         ss = SpecifierSet(spec_str)
         r = ss.to_range()
         with pytest.raises(TypeError, match="expected str or Version"):
-            r.contains(item)
+            r.contains(item)  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected str or Version"):
-            ss.contains(item)
+            ss.contains(item)  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected str or Version"):
-            item in r  # noqa: B015
+            item in r  # type: ignore[operator]  # noqa: B015
         with pytest.raises(TypeError, match="expected str or Version"):
-            item in ss  # noqa: B015
+            item in ss  # type: ignore[operator]  # noqa: B015
 
     @pytest.mark.parametrize(
         "spec_str",
@@ -1424,7 +1424,7 @@ class TestAdmitArbitraryFactory:
             admit_arbitrary=admit_arbitrary
         ) == VersionRange.full(admit_arbitrary=admit_arbitrary)
 
-    def test_intersection_ands_admit_arbitrary(self) -> None:
+    def test_intersection_and_admit_arbitrary(self) -> None:
         true_full = VersionRange.full(admit_arbitrary=True)
         false_full = VersionRange.full(admit_arbitrary=False)
         combined = true_full & false_full
@@ -1536,7 +1536,7 @@ class TestAdmitArbitraryFactory:
         assert isinstance(r, Sub)
         assert r._admit_arbitrary is True
 
-    def test_filter_no_arbitrary_excludes_unparseable(self) -> None:
+    def test_filter_no_arbitrary_excludes_unparsable(self) -> None:
         r = VersionRange.full(admit_arbitrary=False)
         assert list(r.filter(["1.0", "garbage", "2.0"])) == ["1.0", "2.0"]
 
@@ -1566,7 +1566,7 @@ class TestCoverageCorners:
         )
         assert list(r.filter(["wat", "1.0"])) == ["1.0"]
 
-    def test_filter_yields_unparseable_after_final(self) -> None:
+    def test_filter_yields_unparsable_after_final(self) -> None:
         r = SpecifierSet(">=1.0").to_range() | Specifier("===wat").to_range()
         assert list(r.filter(["1.0", "wat"])) == ["1.0", "wat"]
 
@@ -1595,6 +1595,9 @@ class TestCoverageCorners:
     def test_is_prerelease_only_true_for_prerelease_bounds(self) -> None:
         r = SpecifierSet(">=1.0a1,<1.0rc1").to_range()
         assert r.is_prerelease_only is True
+
+    def test_coerce_version_non_str_non_version_returns_none(self) -> None:
+        assert coerce_version(42) is None  # type: ignore[arg-type]
 
 
 class TestUnion:
@@ -2095,6 +2098,7 @@ class TestToSpecifierSet:
         # specs would auto-detect True (synthetic ``.dev0`` literals).
         ss = SpecifierSet("==1.*")
         rt = ss.to_range().to_specifier_set()
+        assert rt is not None
         assert rt._prereleases is None
         assert rt.prereleases is None
         assert list(ss.filter(["1.0a1", "1.0"])) == list(rt.filter(["1.0a1", "1.0"]))

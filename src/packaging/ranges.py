@@ -504,12 +504,12 @@ def _filter_universal(
         return
 
     # PEP 440 default: yield finals immediately. Until the first final
-    # arrives, ``unparseable`` and ``nonfinal_tail`` together hold every
-    # item seen so far. On the first final we release unparseables (they
+    # arrives, ``unparsable`` and ``nonfinal_tail`` together hold every
+    # item seen so far. On the first final we release unparsables (they
     # belong before the final like SpecifierSet("") does); the pre-release
     # tail stays buffered and only comes out if no final ever arrives.
     nonfinal_tail: list[Any] = []
-    unparseable: list[Any] = []
+    unparsable: list[Any] = []
     found_final = False
     for item in iterable:
         parsed = coerce_version(item if key is None else key(item))
@@ -517,13 +517,13 @@ def _filter_universal(
             if found_final:
                 yield item
             else:
-                unparseable.append(item)
+                unparsable.append(item)
                 nonfinal_tail.append(item)
             continue
         if not parsed.is_prerelease:
             if not found_final:
-                yield from unparseable
-                unparseable.clear()
+                yield from unparsable
+                unparsable.clear()
                 found_final = True
             yield item
             continue

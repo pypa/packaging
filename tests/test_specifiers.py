@@ -2400,9 +2400,9 @@ class TestSpecifierSet:
         """``Specifier.contains`` and ``in`` reject non-str/non-Version inputs."""
         spec = Specifier(spec_str)
         with pytest.raises(TypeError, match="expected str or Version"):
-            spec.contains(bad_item)
+            spec.contains(bad_item)  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected str or Version"):
-            bad_item in spec  # noqa: B015
+            bad_item in spec  # type: ignore[operator]  # noqa: B015
 
     @pytest.mark.parametrize("spec_str", [">=1.0", "===1", "==1.*", "!=1.0", ""])
     @pytest.mark.parametrize("bad_item", [1, 1.5, None, True, b"1.0", []])
@@ -2412,9 +2412,9 @@ class TestSpecifierSet:
         """``SpecifierSet.contains`` and ``in`` reject non-str/non-Version inputs."""
         ss = SpecifierSet(spec_str)
         with pytest.raises(TypeError, match="expected str or Version"):
-            ss.contains(bad_item)
+            ss.contains(bad_item)  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected str or Version"):
-            bad_item in ss  # noqa: B015
+            bad_item in ss  # type: ignore[operator]  # noqa: B015
 
     @pytest.mark.skipif(
         not hasattr(sys, "get_int_max_str_digits"),
@@ -3171,6 +3171,13 @@ class TestIsUnsatisfiable:
         assert ss.is_unsatisfiable()
         assert ss._is_unsatisfiable is True
         assert ss.is_unsatisfiable()  # second call uses cache
+
+    def test_reuses_ranges_populated_by_filter(self) -> None:
+        ss = SpecifierSet(">=1.0,<2.0")
+        list(ss.filter([Version("1.5")]))
+        assert ss._ranges is not None
+        assert ss._is_unsatisfiable is None
+        assert not ss.is_unsatisfiable()
 
     def test_cache_reset_on_prereleases_change(self) -> None:
         ss = SpecifierSet(">=1.0,<2.0")

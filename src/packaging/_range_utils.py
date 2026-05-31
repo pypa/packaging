@@ -107,24 +107,24 @@ class BoundaryVersion:
     __slots__ = (
         "_cached_dev",
         "_cached_epoch",
+        "_cached_order_key",
         "_cached_post",
         "_cached_pre",
         "_cached_trimmed_release",
-        "_order_key",
         "kind",
         "version",
     )
 
-    _order_key: _BoundaryOrderKey
+    _cached_order_key: _BoundaryOrderKey | None
 
     def __init__(self, version: Version, kind: BoundaryKind) -> None:
-        # AFTER_POSTS absorbs V's post and dev into a synthetic suffix, so
-        # carrying any of those on V would silently collide with the bare-V
-        # boundary under _order_key while __eq__ still reported inequality,
-        # violating functools.total_ordering. Local is also forbidden because
-        # version_cmpkey drops it. Standard callers only build AFTER_POSTS
-        # from >V (PEP 440 forbids local on > and disallows the dev/post
-        # cases at this site), so this is a caller invariant.
+        # AFTER_POSTS absorbs V's post and dev into the synthetic suffix,
+        # so a base V carrying either would silently equal the bare-V
+        # boundary under the sort order while __eq__ still distinguished
+        # them, violating functools.total_ordering. Local is forbidden
+        # because version_cmpkey drops it. Standard callers only build
+        # AFTER_POSTS from >V (PEP 440 forbids local on > and disallows
+        # the dev/post cases at this site), so this is a caller invariant.
         if kind == BoundaryKind.AFTER_POSTS:
             assert version.post is None
             assert version.dev is None
@@ -132,9 +132,9 @@ class BoundaryVersion:
 
         # AFTER_LOCALS absorbs V's local family, and version_cmpkey discards
         # the local segment, so two AFTER_LOCALS with the same base but
-        # different locals would share an _order_key while __eq__ reported
-        # them unequal. Standard callers only build AFTER_LOCALS from <=V,
-        # ==V, or !=V with no local segment in the spec.
+        # different locals would compare equal under sort while __eq__
+        # reported them unequal. Standard callers only build AFTER_LOCALS
+        # from <=V, ==V, or !=V with no local segment in the spec.
         if kind == BoundaryKind.AFTER_LOCALS:
             assert version.local is None
 
@@ -145,13 +145,31 @@ class BoundaryVersion:
         self._cached_pre = version.pre
         self._cached_post = version.post
         self._cached_dev = version.dev
+        # Lazy: only boundary-vs-boundary sort comparisons need it, and
+        # those are exclusive to set algebra (union, intersection,
+        # complement). Membership-only paths (Specifier.filter / contains)
+        # never touch it.
+        self._cached_order_key = None
 
-        # Distinguish AFTER_LOCALS from AFTER_POSTS.
-        epoch, release, raw_suffix = version_cmpkey(version)
+    def _order_key(self) -> _BoundaryOrderKey:
+        """Sort key handling cross-base AFTER_LOCALS / AFTER_POSTS pairs.
+
+        Inline base-version comparison is insufficient when one operand
+        is ``AFTER_POSTS(V)`` and the other is ``AFTER_LOCALS(V.postN)``:
+        the latter sits between ``V.postN+local`` and ``V.postN+1`` while
+        the former sits above every post of ``V``. Encoding the post slot
+        as ``+inf`` for AFTER_POSTS makes the comparison fall out.
+        """
+        key = self._cached_order_key
+        if key is not None:
+            return key
+        epoch, release, raw_suffix = version_cmpkey(self.version)
         suffix: _BoundaryOrderSuffix = raw_suffix
-        if kind == BoundaryKind.AFTER_POSTS:
+        if self.kind == BoundaryKind.AFTER_POSTS:
             suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
-        self._order_key = (epoch, release, suffix, _BOUNDARY_INF)
+        key = (epoch, release, suffix, _BOUNDARY_INF)
+        self._cached_order_key = key
+        return key
 
     def _is_family(self, other: Version) -> bool:
         """Is ``other`` a version that this boundary sorts above?"""
@@ -184,7 +202,7 @@ class BoundaryVersion:
 
     def __lt__(self, other: BoundaryVersion | Version) -> bool:
         if isinstance(other, BoundaryVersion):
-            return self._order_key < other._order_key
+            return self._order_key() < other._order_key()
         # boundary < other_version iff V < other AND other not in family.
         # The cheap V >= other path short-circuits before the family check.
         if not (self.version < other):
@@ -195,7 +213,7 @@ class BoundaryVersion:
         # Defined directly to bypass functools.total_ordering's
         # NotImplemented round-trip on reflected ``Version < boundary``.
         if isinstance(other, BoundaryVersion):
-            return self._order_key > other._order_key
+            return self._order_key() > other._order_key()
         if self.version >= other:
             return True
         return self._is_family(other)
@@ -924,10 +942,38 @@ def bounds_for_spec(
         assert version is not None  # the specifier regex guarantees a valid version
         ranges = _standard_ranges(operator, version, has_local="+" in version_str)
 
-    canonical = ((canonical_lower(lower), upper) for lower, upper in ranges)
-    return tuple(
-        (lower, upper) for lower, upper in canonical if not range_is_empty(lower, upper)
-    )
+    # Fast path: skip the canonicalize-and-prune walk for the common
+    # case where every interval is already canonical (no inclusive lower
+    # collapsible to ``-inf``, no exclusive upper at or below the global
+    # minimum that would empty the interval). One bound check per
+    # interval beats the generic ``canonical_lower`` + ``range_is_empty``
+    # function-call pair on every cold ``_to_ranges`` build.
+    for lower, upper in ranges:
+        lv = lower.version
+        if (
+            lv is not None
+            and lower.inclusive
+            and not isinstance(lv, BoundaryVersion)
+            and lv <= _MIN_VERSION
+        ):
+            break
+        uv = upper.version
+        if (
+            uv is not None
+            and not upper.inclusive
+            and not isinstance(uv, BoundaryVersion)
+            and uv <= _MIN_VERSION
+        ):
+            break
+    else:
+        return ranges
+
+    result: list[Interval] = []
+    for lower, upper in ranges:
+        canonical = canonical_lower(lower)
+        if not range_is_empty(canonical, upper):
+            result.append((canonical, upper))
+    return tuple(result)
 
 
 def intersect_specifier_bounds(
