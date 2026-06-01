@@ -312,7 +312,10 @@ class PylockUnsupportedVersionError(PylockValidationError):
 
 
 class PylockSelectError(Exception):
-    """Base exception for errors raised by :meth:`Pylock.select`."""
+    """Base exception for errors raised by :meth:`Pylock.select`.
+
+    .. versionadded:: 26.1
+    """
 
 
 @dataclass(frozen=True, init=False)
@@ -767,6 +770,8 @@ class Pylock:
         This method must be used on valid Pylock instances (i.e. one obtained
         from :meth:`Pylock.from_dict` or if constructed manually, after calling
         :meth:`Pylock.validate`).
+
+        .. versionadded:: 26.1
         """
         compatible_tags_selector = create_compatible_tags_selector(tags or sys_tags())
 
