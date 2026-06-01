@@ -1079,6 +1079,8 @@ class SpecifierSet(BaseSpecifier):
         False
         >>> SpecifierSet("==1.0,!=1.0").is_unsatisfiable()
         True
+
+        .. versionadded:: 26.1
         """
         cached = self._is_unsatisfiable
         if cached is not None:
