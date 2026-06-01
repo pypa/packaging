@@ -46,6 +46,11 @@ class Requirement:
         be unpickled with future releases.  Backward compatibility with pickles
         from packaging < 26.2 is supported but may be removed in a future
         release.
+
+    .. versionchanged:: 26.3
+
+        The specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
+        override is now preserved across a pickle round trip.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
@@ -86,29 +91,43 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
-    def __getstate__(self) -> str:
-        # Return the requirement string for compactness and stability.
-        # Re-parsed on load to reconstruct all fields.
-        return str(self)
+    def __getstate__(self) -> tuple[str, bool | None]:
+        # Return the requirement string for compactness and stability, paired
+        # with the specifier's explicit prereleases override, which is not
+        # captured by the string form. Re-parsed on load to reconstruct all
+        # other fields.
+        return (str(self), self.specifier._prereleases)
 
     def __setstate__(self, state: object) -> None:
         if isinstance(state, str):
-            # New format (26.2+): just the requirement string.
-            try:
-                tmp = Requirement(state)
-            except InvalidRequirement as exc:
-                raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
-            self.name = tmp.name
-            self.url = tmp.url
-            self.extras = tmp.extras
-            self.specifier = tmp.specifier
-            self.marker = tmp.marker
-            return
-        if isinstance(state, dict):
+            # Format (26.2): just the requirement string.
+            requirement_string: str = state
+            prereleases: bool | None = None
+        elif (
+            isinstance(state, tuple)
+            and len(state) == 2
+            and isinstance(state[0], str)
+            and (state[1] is None or isinstance(state[1], bool))
+        ):
+            # New format (26.3+): (requirement string, specifier prereleases).
+            requirement_string, prereleases = state
+        elif isinstance(state, dict):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
             self.__dict__.update(state)
             return
-        raise TypeError(f"Cannot restore Requirement from {state!r}")
+        else:
+            raise TypeError(f"Cannot restore Requirement from {state!r}")
+
+        try:
+            tmp = Requirement(requirement_string)
+        except InvalidRequirement as exc:
+            raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
+        self.name = tmp.name
+        self.url = tmp.url
+        self.extras = tmp.extras
+        self.specifier = tmp.specifier
+        self.specifier._prereleases = prereleases
+        self.marker = tmp.marker
 
     def __str__(self) -> str:
         return "".join(self._iter_parts(self.name))

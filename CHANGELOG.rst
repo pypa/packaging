@@ -9,6 +9,11 @@ Behavior adaptations:
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
   tags on Linux. (:issue:`160`)
 
+Fixes:
+
+* Preserve a ``Requirement``'s specifier ``prereleases`` override across a
+  pickle round trip. (:issue:`1204`)
+
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~
 
