@@ -83,6 +83,11 @@ Reference
         from packaging < 26.2 is supported but may be removed in a future
         release.
 
+    .. versionchanged:: 26.3
+
+        The specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
+        override is now preserved across a pickle round trip.
+
     :param str requirement: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement`` is not parseable,
                                 then this exception will be raised.
