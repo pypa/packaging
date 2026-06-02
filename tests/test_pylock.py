@@ -282,6 +282,83 @@ def test_pylock_invalid_vcs() -> None:
 
 
 @pytest.mark.parametrize(
+    ("package_data", "expected_context"),
+    [
+        (
+            {
+                "name": "example",
+                "index": "not-a-url",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "url": "https://example.com/example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            },
+            "packages[0].index",
+        ),
+        (
+            {
+                "name": "example",
+                "vcs": {
+                    "type": "git",
+                    "url": "not-a-url",
+                    "commit-id": "f" * 40,
+                },
+            },
+            "packages[0].vcs.url",
+        ),
+        (
+            {
+                "name": "example",
+                "archive": {
+                    "url": "not-a-url",
+                    "hashes": {"sha256": "f" * 40},
+                },
+            },
+            "packages[0].archive.url",
+        ),
+        (
+            {
+                "name": "example",
+                "sdist": {
+                    "url": "not-a-url",
+                    "hashes": {"sha256": "f" * 40},
+                },
+            },
+            "packages[0].sdist.url",
+        ),
+        (
+            {
+                "name": "example",
+                "wheels": [
+                    {
+                        "url": "not-a-url",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            },
+            "packages[0].wheels[0].url",
+        ),
+    ],
+)
+def test_pylock_invalid_url_fields(
+    package_data: dict[str, Any], expected_context: str
+) -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [package_data],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        f"URL 'not-a-url' is missing a scheme in {expected_context!r}"
+    )
+
+
+@pytest.mark.parametrize(
     ("dist", "expected_filename"),
     [
         # sdists

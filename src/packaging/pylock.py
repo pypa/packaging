@@ -244,6 +244,12 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
+def _validate_url(url: str) -> str:
+    if not urlparse(url).scheme:
+        raise PylockValidationError(f"URL {url!r} is missing a scheme")
+    return url
+
+
 def _path_name(path: str | None) -> str | None:
     if not path:
         return None
@@ -349,7 +355,7 @@ class PackageVcs:
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package_vcs = cls(
             type=_get_required(d, str, "type"),
-            url=_get(d, str, "url"),
+            url=_get_as(d, str, _validate_url, "url"),
             path=_get(d, str, "path"),
             requested_revision=_get(d, str, "requested-revision"),
             commit_id=_get_required(d, str, "commit-id"),
@@ -416,7 +422,7 @@ class PackageArchive:
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package_archive = cls(
-            url=_get(d, str, "url"),
+            url=_get_as(d, str, _validate_url, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
             upload_time=_get(d, datetime, "upload-time"),
@@ -459,7 +465,7 @@ class PackageSdist:
         package_sdist = cls(
             name=_get(d, str, "name"),
             upload_time=_get(d, datetime, "upload-time"),
-            url=_get(d, str, "url"),
+            url=_get_as(d, str, _validate_url, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
@@ -508,7 +514,7 @@ class PackageWheel:
         package_wheel = cls(
             name=_get(d, str, "name"),
             upload_time=_get(d, datetime, "upload-time"),
-            url=_get(d, str, "url"),
+            url=_get_as(d, str, _validate_url, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
@@ -584,7 +590,7 @@ class Package:
             vcs=_get_object(d, PackageVcs, "vcs"),
             directory=_get_object(d, PackageDirectory, "directory"),
             archive=_get_object(d, PackageArchive, "archive"),
-            index=_get(d, str, "index"),
+            index=_get_as(d, str, _validate_url, "index"),
             sdist=_get_object(d, PackageSdist, "sdist"),
             wheels=_get_sequence_of_objects(d, PackageWheel, "wheels"),
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]

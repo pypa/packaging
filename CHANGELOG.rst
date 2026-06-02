@@ -13,6 +13,7 @@ Fixes:
 
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
+* Validate URL fields when parsing ``pylock.toml`` data. (:issue:`1185`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~
