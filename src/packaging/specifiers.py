@@ -720,6 +720,10 @@ class Specifier(BaseSpecifier):
         ... [{"ver": "1.2"}, {"ver": "1.3"}],
         ... key=lambda x: x["ver"]))
         [{'ver': '1.3'}]
+
+        .. versionchanged:: 26.1
+
+            Added the ``key`` parameter.
         """
         if prereleases is None:
             if self._prereleases is not None:
@@ -1296,6 +1300,10 @@ class SpecifierSet(BaseSpecifier):
         ['1.3', '1.5a1']
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
+
+        .. versionchanged:: 26.1
+
+            Added the ``key`` parameter.
         """
         # Determine if we're forcing a prerelease or not, if we're not forcing
         # one for this particular filter call, then we'll use whatever the
