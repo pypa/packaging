@@ -77,6 +77,26 @@ class TestNode:
         with pytest.raises(NotImplementedError):
             Node("cover all the code").serialize()
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("plain", '"plain"'),
+            ('a"b', "'a\"b'"),
+            ("a'b", '"a\'b"'),
+        ],
+    )
+    def test_value_serialize_chooses_quote_delimiter(
+        self, value: str, expected: str
+    ) -> None:
+        assert Value(value).serialize() == expected
+
+    def test_value_serialize_rejects_both_quote_delimiters(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Cannot serialize marker value containing both quote characters",
+        ):
+            Value("a\"b'c").serialize()
+
 
 class TestOperatorEvaluation:
     def test_prefers_pep440(self) -> None:
@@ -204,6 +224,10 @@ class TestMarker:
             # Test the different quoting rules
             ("python_version == '2.7'", 'python_version == "2.7"'),
             ('python_version == "2.7"', 'python_version == "2.7"'),
+            (
+                '\'a" == os_name or python_version >= "0" or "b\' == os_name',
+                '\'a" == os_name or python_version >= "0" or "b\' == os_name',
+            ),
             # Test and/or expressions
             (
                 'python_version == "2.7" and os_name == "linux"',
