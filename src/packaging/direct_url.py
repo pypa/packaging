@@ -110,7 +110,10 @@ def _strip_url(url: str, safe_user_passwords: Collection[str]) -> str:
 
 
 class DirectUrlValidationError(Exception):
-    """Raised when when input data is not spec-compliant."""
+    """Raised when when input data is not spec-compliant.
+
+    .. versionadded:: 26.1
+    """
 
     context: str | None = None
     message: str
@@ -237,7 +240,10 @@ class DirInfo:
 
 @dataclasses.dataclass(frozen=True, init=False)
 class DirectUrl:
-    """A class representing a direct URL."""
+    """A class representing a direct URL.
+
+    .. versionadded:: 26.1
+    """
 
     url: str
     archive_info: ArchiveInfo | None = None

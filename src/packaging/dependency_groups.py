@@ -28,12 +28,16 @@ def __dir__() -> list[str]:
 class DuplicateGroupNames(ValueError):
     """
     The same dependency groups were defined twice, with different non-normalized names.
+
+    .. versionadded:: 26.1
     """
 
 
 class CyclicDependencyGroup(ValueError):
     """
     The dependency group includes form a cycle.
+
+    .. versionadded:: 26.1
     """
 
     def __init__(self, requested_group: str, group: str, include_group: str) -> None:
@@ -58,6 +62,8 @@ class InvalidDependencyGroupObject(ValueError):
     """
     A member of a dependency group was identified as a dict, but was not in a valid
     format.
+
+    .. versionadded:: 26.1
     """
 
 
@@ -91,6 +97,8 @@ class DependencyGroupResolver:
 
     :param dependency_groups: A mapping, as provided via pyproject
         ``[dependency-groups]``.
+
+    .. versionadded:: 26.1
     """
 
     def __init__(
@@ -261,6 +269,8 @@ def resolve_dependency_groups(
     :param dependency_groups: the parsed contents of the ``[dependency-groups]`` table
         from ``pyproject.toml``
     :param groups: the name of the group(s) to resolve
+
+    .. versionadded:: 26.1
     """
     resolver = DependencyGroupResolver(dependency_groups)
     return tuple(str(r) for group in groups for r in resolver.resolve(group))
