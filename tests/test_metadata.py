@@ -807,6 +807,7 @@ class TestMetadata:
             "Use-it-after-midnight",
             "LicenseRef-License with spaces",
             "LicenseRef-License_with_underscores",
+            "LicenseRef-Foo+",
             "or",
             "and",
             "with",

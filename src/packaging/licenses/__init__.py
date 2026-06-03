@@ -168,10 +168,10 @@ def canonicalize_license_expression(
                 suffix = ""
 
             if final_token.startswith("licenseref-"):
-                if not license_ref_allowed.match(final_token):
-                    message = f"Invalid licenseref: {final_token!r}"
+                if suffix or not license_ref_allowed.match(final_token):
+                    message = f"Invalid licenseref: {token!r}"
                     raise InvalidLicenseExpression(message)
-                normalized_tokens.append(license_refs[final_token] + suffix)
+                normalized_tokens.append(license_refs[final_token])
             else:
                 if final_token not in LICENSES:
                     message = f"Unknown license: {final_token!r}"
