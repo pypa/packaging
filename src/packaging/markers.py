@@ -369,6 +369,8 @@ class Marker:
             # ]
         except ParserSyntaxError as e:
             raise InvalidMarker(str(e)) from e
+        except RecursionError as e:
+            raise InvalidMarker("Marker expression is too complex") from e
 
     @classmethod
     def _from_markers(cls, markers: MarkerList) -> Marker:

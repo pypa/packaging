@@ -145,7 +145,13 @@ class DependencyGroupResolver:
         with _ErrorCollector().on_exit(
             f"[dependency-groups] data for {group!r} was malformed"
         ) as errors:
-            return self._resolve(group, group, errors)
+            try:
+                return self._resolve(group, group, errors)
+            except RecursionError:
+                errors.error(
+                    ValueError("Dependency group includes are too deeply nested")
+                )
+                return ()
 
     def _resolve(
         self, group: str, requested_group: str, errors: _ErrorCollector

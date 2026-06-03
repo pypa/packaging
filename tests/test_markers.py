@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytest
 
+from packaging import markers as markers_module
 from packaging._parser import Node, Op, Value, Variable
 from packaging.markers import (
     InvalidMarker,
@@ -197,6 +198,16 @@ class TestMarker:
     def test_parses_invalid(self, marker_string: str) -> None:
         with pytest.raises(InvalidMarker):
             Marker(marker_string)
+
+    def test_rejects_marker_parser_recursion(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_recursion_error(_marker: str) -> None:
+            raise RecursionError
+
+        monkeypatch.setattr(markers_module, "_parse_marker", raise_recursion_error)
+        with pytest.raises(InvalidMarker, match="too complex"):
+            Marker('python_version >= "0"')
 
     @pytest.mark.parametrize(
         ("marker_string", "expected"),

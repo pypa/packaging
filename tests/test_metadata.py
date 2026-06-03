@@ -633,6 +633,23 @@ class TestMetadata:
             field="requires-dist",
         )
 
+    def test_complex_requires_dist_marker(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_invalid_requirement(_requirement: str) -> None:
+            raise requirements.InvalidRequirement("Requirement is too complex")
+
+        monkeypatch.setattr(
+            metadata.requirements, "Requirement", raise_invalid_requirement
+        )
+        meta = metadata.Metadata.from_raw({"requires_dist": ["pytest"]}, validate=False)
+        self._invalid_with_cause(
+            meta,
+            "requires_dist",
+            requirements.InvalidRequirement,
+            field="requires-dist",
+        )
+
     def test_valid_dynamic(self) -> None:
         dynamic = ["Keywords", "Home-Page", "Author"]
         meta = metadata.Metadata.from_raw({"dynamic": dynamic}, validate=False)

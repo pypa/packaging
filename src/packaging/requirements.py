@@ -63,6 +63,8 @@ class Requirement:
             parsed = _parse_requirement(requirement_string)
         except ParserSyntaxError as e:
             raise InvalidRequirement(str(e)) from e
+        except RecursionError as e:
+            raise InvalidRequirement("Requirement is too complex") from e
 
         self.name: str = parsed.name
         self.url: str | None = parsed.url or None

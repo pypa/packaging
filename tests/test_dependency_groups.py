@@ -210,6 +210,22 @@ def test_single_include_group() -> None:
     assert set(resolve_dependency_groups(groups, "test")) == {"pytest", "sqlalchemy"}
 
 
+def test_long_acyclic_include_chain_raises_validation_error() -> None:
+    groups: GroupsTable = {}
+    for i in range(1200):
+        groups[f"group{i}"] = [{"include-group": f"group{i + 1}"}]
+    groups["group1200"] = ["pytest"]
+
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'group0' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "group0")
+
+    assert _group_contains(
+        excinfo, ValueError, match="Dependency group includes are too deeply nested"
+    )
+
+
 def test_sdual_include_group() -> None:
     groups: GroupsTable = {
         "test": [

@@ -8,6 +8,7 @@ import pickle
 
 import pytest
 
+from packaging import requirements as requirements_module
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
@@ -446,6 +447,19 @@ class TestRequirementParsing:
             "    name; invalid_name\n"
             "          ^"
         )
+
+    def test_error_requirement_parser_recursion(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # GIVEN
+        def raise_recursion_error(_requirement: str) -> None:
+            raise RecursionError
+
+        monkeypatch.setattr(
+            requirements_module, "_parse_requirement", raise_recursion_error
+        )
+        with pytest.raises(InvalidRequirement, match="too complex"):
+            Requirement("name")
 
     def test_error_invalid_marker_rvalue(self) -> None:
         # GIVEN
