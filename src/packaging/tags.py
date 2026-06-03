@@ -868,6 +868,9 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
         Added the `pp3-none-any` tag (:issue:`311`).
     .. versionchanged:: 26.1
         Added the `abi3t` tag (:issue:`1099`).
+    .. versionchanged:: 26.3
+        Native ``linux_*`` platform tags are now ordered before ``manylinux``
+        and ``musllinux`` tags (:issue:`160`).
     """
 
     interp_name = interpreter_name()
