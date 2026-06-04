@@ -73,6 +73,12 @@ class InvalidDependencyGroupObject(ValueError):
 
 
 class DependencyGroupInclude:
+    """
+    A reference to another dependency group by name.
+
+    .. versionadded:: 26.1
+    """
+
     __slots__ = ("include_group",)
 
     def __init__(self, include_group: str) -> None:
