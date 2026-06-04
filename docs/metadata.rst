@@ -53,6 +53,8 @@ Low Level Interface
 
 .. autoclass:: packaging.metadata.RFC822Message
 
+.. autoclass:: packaging.metadata.RFC822Policy
+
 
 Exceptions
 ''''''''''
