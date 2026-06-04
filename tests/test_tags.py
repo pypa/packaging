@@ -167,6 +167,29 @@ class TestParseTag:
         )
         assert given == expected
 
+    def test_limit_allows_exact_number_of_tags(self) -> None:
+        expected = {tags.Tag("py2", "none", "any"), tags.Tag("py3", "none", "any")}
+        given = tags.parse_tag("py2.py3-none-any", limit=2)
+        assert given == expected
+
+    def test_limit_raises_when_exceeded(self) -> None:
+        with pytest.raises(tags.TooManyTagsError, match="would generate 2 tags"):
+            tags.parse_tag("py2.py3-none-any", limit=1)
+
+    def test_limit_counts_cartesian_product_entries(self) -> None:
+        # "py3.py3" generates two entries, even though both collapse to the
+        # same Tag in the returned frozenset.
+        with pytest.raises(tags.TooManyTagsError, match="would generate 2 tags"):
+            tags.parse_tag("py3.py3-none-any", limit=1)
+
+    def test_limit_rejects_negative_value(self) -> None:
+        with pytest.raises(ValueError, match="limit must be non-negative"):
+            tags.parse_tag("py3-none-any", limit=-1)
+
+    def test_limit_can_be_combined_with_validate_order(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag("py3.py2-none-any", validate_order=True, limit=2)
+
     def test_unsorted_interpreter_parses_by_default(self) -> None:
         # Unsorted tags should parse fine without validate_order
         result = tags.parse_tag("py3.py2-none-any")
