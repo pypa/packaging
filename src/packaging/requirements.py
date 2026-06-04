@@ -49,8 +49,9 @@ class Requirement:
 
     .. versionchanged:: 26.3
 
-        The specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
-        override is now preserved across a pickle round trip.
+        The dedicated pickle support introduced in 26.2 did not preserve the
+        specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
+        override; it is now included again.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
