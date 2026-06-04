@@ -11,6 +11,8 @@ Features:
   representing the versions a specifier set accepts as an interval set that
   supports intersection, union, complement, membership tests, and filtering.
   (:pull:`1267`)
+* Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
+  (:issue:`1220`)
 
 Behavior adaptations:
 
