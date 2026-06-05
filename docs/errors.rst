@@ -4,7 +4,7 @@ Errors
 Error classes and error-handling helpers used by the packaging library.
 
 Currently this contains :class:`~packaging.errors.ExceptionGroup`, a simple
-backport of the stdlib :class:`ExceptionGroup`. It is recommended to use
+backport of the stdlib :external:exc:`ExceptionGroup`. It is recommended to use
 the stdlib module on Python 3.11+, but this does reexport that as well.
 
 Recommended Usage
@@ -33,7 +33,7 @@ Reference
 .. py:class:: packaging.errors.ExceptionGroup(message: str, exceptions: list[Exception])
 
    On older Pythons, this is a small fallback implementation of the
-   :class:`ExceptionGroup` introduced in Python 3.11.
+   :external:exc:`ExceptionGroup` introduced in Python 3.11.
 
    :param message: The message for the group.
    :param exceptions: A list of exceptions contained in the group.

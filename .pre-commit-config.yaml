@@ -35,7 +35,7 @@ repos:
           - tomli
           - tomli_w
           - types-invoke
-          - 'typing_extensions>=4.5'
+          - 'typing_extensions>=4.15.0'
           - httpx
 
   - repo: https://github.com/crate-ci/typos
