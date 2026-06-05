@@ -175,7 +175,10 @@ def test_glibc_version_string_ctypes_raise_oserror(
     assert _glibc_version_string_ctypes() is None
 
 
-@pytest.mark.skipif(platform.system() != "Linux", reason="requires Linux")
+@pytest.mark.skipif(
+    platform.system() != "Linux" or _glibc_version_string() is None,
+    reason="requires a glibc-based Linux",
+)
 def test_is_manylinux_compatible_old() -> None:
     # Assuming no one is running this test with a version of glibc released in
     # 1997.
