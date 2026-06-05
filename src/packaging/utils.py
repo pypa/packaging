@@ -87,6 +87,11 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     'oslo-concurrency'
     >>> canonicalize_name("requests")
     'requests'
+
+    .. versionadded:: 16.2
+
+    .. versionchanged:: 20.4
+       The return type was changed to :class:`NormalizedName`.
     """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
