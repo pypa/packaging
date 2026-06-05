@@ -65,11 +65,17 @@ Reference
     :members: from_dict, to_dict, validate
     :exclude-members: __init__, __new__
 
-.. class:: ArchiveInfo
+.. autoclass:: ArchiveInfo
+    :members:
+    :undoc-members:
 
-.. class:: DirInfo
+.. autoclass:: DirInfo
+    :members:
+    :undoc-members:
 
-.. class:: VcsInfo
+.. autoclass:: VcsInfo
+    :members:
+    :undoc-members:
 
 The following exception may be raised by this module:
 
