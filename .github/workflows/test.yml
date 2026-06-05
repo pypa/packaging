@@ -54,6 +54,29 @@ jobs:
         env:
           NOXFORCEPYTHON: ${{ matrix.python_version }}
 
+  musl:
+    name: Alpine / musl
+    runs-on: ubuntu-latest
+    container: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+
+    steps:
+      # Alpine ships a genuinely musl-linked Python, so this exercises the
+      # musllinux tag detection code paths that glibc runners cannot.
+      - name: Install system dependencies
+        run: apk add --no-cache git python3
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        name: Setup uv
+
+      - name: Run tests
+        run: uv run --python python3 python -m pytest
+        env:
+          UV_PYTHON_PREFERENCE: only-system
+
   property-tests:
     name: Property tests
     runs-on: ubuntu-latest
@@ -128,6 +151,7 @@ jobs:
 
     needs:
       - test
+      - musl
 
     runs-on: ubuntu-slim
 
