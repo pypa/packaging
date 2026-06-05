@@ -149,6 +149,7 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
 
 @dataclasses.dataclass(frozen=True, init=False)
 class VcsInfo:
+    """The version control information of a :class:`DirectUrl`."""
     vcs: str
     commit_id: str
     requested_revision: str | None = None
@@ -176,6 +177,7 @@ class VcsInfo:
 
 @dataclasses.dataclass(frozen=True, init=False)
 class ArchiveInfo:
+    """The archive information of a :class:`DirectUrl`."""
     hashes: Mapping[str, str] | None = None
 
     def __init__(
@@ -222,6 +224,7 @@ class ArchiveInfo:
 
 @dataclasses.dataclass(frozen=True, init=False)
 class DirInfo:
+    """The local directory information of a :class:`DirectUrl`."""
     editable: bool | None = None
 
     def __init__(

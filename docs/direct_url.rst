@@ -68,14 +68,17 @@ Reference
 .. autoclass:: ArchiveInfo
     :members:
     :undoc-members:
+    :exclude-members: __init__, __new__
 
 .. autoclass:: DirInfo
     :members:
     :undoc-members:
+    :exclude-members: __init__, __new__
 
 .. autoclass:: VcsInfo
     :members:
     :undoc-members:
+    :exclude-members: __init__, __new__
 
 The following exception may be raised by this module:
 
