@@ -260,6 +260,7 @@ def test_validate_error() -> None:
     [
         ("https://g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
         ("https://user:pass@g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
+        ("https://user:pa@ss@g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
         ("ssh://git@g.c/user/repo.git", [], "ssh://g.c/user/repo.git"),
         ("ssh://git@g.c/user/repo.git", ["git"], "ssh://git@g.c/user/repo.git"),
         ("ssh://cvs@g.c/user/repo.git", ["git"], "ssh://g.c/user/repo.git"),
@@ -293,6 +294,14 @@ def test_strip_url(url: str, safe_user_passwords: list[str], expected_url: str) 
 def test_to_dict_strip_url() -> None:
     direct_url = DirectUrl(
         url="https://user:pass@g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+    )
+    assert direct_url.to_dict()["url"] == "https://g.c/user/repo.git"
+
+
+def test_to_dict_strip_url_with_at_in_password() -> None:
+    direct_url = DirectUrl(
+        url="https://user:pa@ss@g.c/user/repo.git",
         vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
     )
     assert direct_url.to_dict()["url"] == "https://g.c/user/repo.git"
