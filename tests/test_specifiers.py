@@ -94,6 +94,10 @@ class TestSpecifier:
             # Cannot use a prefix matching after a .devN version
             "==1.0.dev1.*",
             "!=1.0.dev1.*",
+            # Local segment with a non-ASCII letter that matches regex '[a-z]'
+            # when re.IGNORECASE is in force and re.ASCII is not (issue #469)
+            "==1.2+\u0130",
+            "==1.2+\u0130\u0131\u017fK",
         ],
     )
     def test_specifiers_invalid(self, specifier: str) -> None:
