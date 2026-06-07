@@ -11,6 +11,10 @@ Behavior adaptations:
 
 Fixes:
 
+* Make ``Requirement.__hash__`` consistent with ``__eq__`` for
+  trailing-zero-equivalent specifiers (e.g. ``foo==1.0.0`` and
+  ``foo==1.0.0.0``), so equal requirements hash equal and deduplicate in
+  sets and dicts. (:pull:`1232`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 
