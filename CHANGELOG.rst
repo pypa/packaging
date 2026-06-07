@@ -11,6 +11,8 @@ Behavior adaptations:
 
 Fixes:
 
+* Fix ``DirectUrl`` netloc auth stripping when the password contains an
+  ``@`` character. (:pull:`1218`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 
