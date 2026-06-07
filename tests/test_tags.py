@@ -572,6 +572,17 @@ class TestAndroidPlatforms:
         ]
 
 
+@pytest.fixture
+def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The manylinux platform tests assert exact tag lists and do not expect
+    # musllinux_* entries. On a musl host (e.g. Alpine), ``_get_musl_version()``
+    # returns a real version and those tags leak into ``_linux_platforms()`` /
+    # ``sys_tags()``, breaking the assertions. Neutralize musl detection by
+    # default; tests that exercise musllinux re-patch ``_get_musl_version``.
+    monkeypatch.setattr(tags._musllinux, "_get_musl_version", lambda _: None)  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
         # Clear the version cache
@@ -1546,6 +1557,7 @@ class TestCompatibleTags:
         ]
 
 
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache
