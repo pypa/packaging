@@ -196,6 +196,21 @@ class TestParseTag:
         assert tags.Tag("py2", "none", "any") in result
         assert tags.Tag("py3", "none", "any") in result
 
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "-none-any",  # Empty interpreter
+            "py3--any",  # Empty ABI
+            "py3-none-",  # Empty platform
+            "py3.-none-any",  # Empty member of a compressed interpreter set
+            "py3-none-any.",  # Empty member of a compressed platform set
+            "--",  # All empty
+        ],
+    )
+    def test_empty_component_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="empty component"):
+            tags.parse_tag(tag)
+
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
