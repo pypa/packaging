@@ -46,7 +46,7 @@ Features:
 
 * PEP 783: add handling for Emscripten wheel tags in (:pull:`804`) (old name used in implementation, fixed in next release)
 * PEP 803: add handling for the ``abi3.abi3t`` free-threading tag in (:pull:`1099`)
-* PEP 723: add ``packaging.dependency_groups`` module, based on the ``dependency-groups`` package in (:pull:`1065`)
+* PEP 735: add ``packaging.dependency_groups`` module, based on the ``dependency-groups`` package in (:pull:`1065`)
 * Add the ``packaging.direct_url`` module in (:pull:`944`)
 * Add the ``packaging.errors`` module in (:pull:`1071`)
 * Add ``SpecifierSet.is_unsatisfiable`` using ranges (new internals that will be expanded in future versions) in (:pull:`1119`)

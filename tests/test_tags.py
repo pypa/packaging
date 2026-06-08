@@ -196,6 +196,21 @@ class TestParseTag:
         assert tags.Tag("py2", "none", "any") in result
         assert tags.Tag("py3", "none", "any") in result
 
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "-none-any",  # Empty interpreter
+            "py3--any",  # Empty ABI
+            "py3-none-",  # Empty platform
+            "py3.-none-any",  # Empty member of a compressed interpreter set
+            "py3-none-any.",  # Empty member of a compressed platform set
+            "--",  # All empty
+        ],
+    )
+    def test_empty_component_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="empty component"):
+            tags.parse_tag(tag)
+
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -572,6 +587,17 @@ class TestAndroidPlatforms:
         ]
 
 
+@pytest.fixture
+def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The manylinux platform tests assert exact tag lists and do not expect
+    # musllinux_* entries. On a musl host (e.g. Alpine), ``_get_musl_version()``
+    # returns a real version and those tags leak into ``_linux_platforms()`` /
+    # ``sys_tags()``, breaking the assertions. Neutralize musl detection by
+    # default; tests that exercise musllinux re-patch ``_get_musl_version``.
+    monkeypatch.setattr(tags._musllinux, "_get_musl_version", lambda _: None)  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
         # Clear the version cache
@@ -1546,6 +1572,7 @@ class TestCompatibleTags:
         ]
 
 
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache

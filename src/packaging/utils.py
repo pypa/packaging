@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import NewType, Union, cast
 
-from .tags import Tag, UnsortedTagsError, parse_tag
+from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 __all__ = [
@@ -58,7 +58,7 @@ class InvalidSdistFilename(ValueError):
 _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
-_normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]", re.ASCII)
+_normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 
@@ -87,6 +87,11 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     'oslo-concurrency'
     >>> canonicalize_name("requests")
     'requests'
+
+    .. versionadded:: 16.2
+
+    .. versionchanged:: 20.4
+       The return type was changed to :class:`NormalizedName`.
     """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
@@ -242,6 +247,10 @@ def parse_wheel_filename(
         raise InvalidWheelFilename(
             f"Invalid wheel filename (compressed tag set components must be in "
             f"sorted order per PEP 425): {filename!r}"
+        ) from None
+    except InvalidTag:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (empty tag component): {filename!r}"
         ) from None
     return (name, version, build, tags)
 
