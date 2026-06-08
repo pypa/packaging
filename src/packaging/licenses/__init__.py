@@ -64,7 +64,7 @@ class InvalidLicenseExpression(ValueError):
     >>> canonicalize_license_expression("invalid")
     Traceback (most recent call last):
         ...
-    packaging.licenses.InvalidLicenseExpression: Invalid license expression: 'invalid'
+    packaging.licenses.InvalidLicenseExpression: Unknown license: 'invalid'
     """
 
 
