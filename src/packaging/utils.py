@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import NewType, Union, cast
 
-from .tags import Tag, UnsortedTagsError, parse_tag
+from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 __all__ = [
@@ -247,6 +247,10 @@ def parse_wheel_filename(
         raise InvalidWheelFilename(
             f"Invalid wheel filename (compressed tag set components must be in "
             f"sorted order per PEP 425): {filename!r}"
+        ) from None
+    except InvalidTag:
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (empty tag component): {filename!r}"
         ) from None
     return (name, version, build, tags)
 

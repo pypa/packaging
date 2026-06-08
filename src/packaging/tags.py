@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 __all__ = [
     "INTERPRETER_SHORT_NAMES",
     "AppleVersion",
+    "InvalidTag",
     "PythonVersion",
     "Tag",
     "UnsortedTagsError",
@@ -81,6 +82,14 @@ class UnsortedTagsError(ValueError):
     Raised when a tag component is not in sorted order per PEP 425.
 
     .. versionadded:: 26.1
+    """
+
+
+class InvalidTag(ValueError):
+    """
+    Raised when a tag has an empty interpreter, ABI, or platform component.
+
+    .. versionadded:: 26.3
     """
 
 
@@ -216,12 +225,20 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
         are in sorted order.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
+    :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
+        of a compressed tag set) is empty.
 
     .. versionadded:: 26.1
        The *validate_order* parameter.
+
+    .. versionadded:: 26.3
+       Raises :class:`InvalidTag` on empty tag components.
     """
     tags = set()
     interpreters, abis, platforms = tag.split("-")
+    for component in (interpreters, abis, platforms):
+        if "" in component.split("."):
+            raise InvalidTag(f"Tag {tag!r} has an empty component: {component!r}")
     if validate_order:
         for component in (interpreters, abis, platforms):
             parts = component.split(".")

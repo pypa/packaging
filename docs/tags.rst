@@ -50,6 +50,8 @@ items that applications should need to reference, in order to parse and check ta
 
 .. autoexception:: UnsortedTagsError
 
+.. autoexception:: InvalidTag
+
 
 
 Low Level Interface
