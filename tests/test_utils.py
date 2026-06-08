@@ -70,6 +70,8 @@ def test_canonicalize_name_invalid(name: str, expected: str) -> None:
         ("foo___bar", "foo-bar"),
         ("foo-bar", "foo-bar"),
         ("foo----bar", "foo-bar"),
+        ("a--b", "a-b"),
+        ("1--1", "1-1"),
     ],
 )
 def test_is_normalized_name(name: str, expected: str) -> None:
