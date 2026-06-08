@@ -234,23 +234,24 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
     .. versionadded:: 26.3
        Raises :class:`InvalidTag` on empty tag components.
     """
-    tags = set()
-    interpreters, abis, platforms = tag.split("-")
-    for component in (interpreters, abis, platforms):
-        if "" in component.split("."):
+    component_parts = [component.split(".") for component in tag.split("-")]
+    for parts in component_parts:
+        if "" in parts:
+            component = ".".join(parts)
             raise InvalidTag(f"Tag {tag!r} has an empty component: {component!r}")
-    if validate_order:
-        for component in (interpreters, abis, platforms):
-            parts = component.split(".")
-            if parts != sorted(parts):
-                raise UnsortedTagsError(
-                    f"Tag component {component!r} is not in sorted order per PEP 425"
-                )
-    for interpreter in interpreters.split("."):
-        for abi in abis.split("."):
-            for platform_ in platforms.split("."):
-                tags.add(Tag(interpreter, abi, platform_))
-    return frozenset(tags)
+        if validate_order and parts != sorted(parts):
+            component = ".".join(parts)
+            raise UnsortedTagsError(
+                f"Tag component {component!r} is not in sorted order per PEP 425"
+            )
+
+    interpreters, abis, platforms = component_parts
+    return frozenset(
+        Tag(interpreter, abi, platform_)
+        for interpreter in interpreters
+        for abi in abis
+        for platform_ in platforms
+    )
 
 
 def _get_config_var(name: str, warn: bool = False) -> int | str | None:
