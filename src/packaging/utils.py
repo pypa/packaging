@@ -107,8 +107,11 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
 
 def is_normalized_name(name: str) -> bool:
     """
-    Check if a name is already normalized (i.e. :func:`canonicalize_name` would
-    roundtrip to the same value).
+    Check if a name is a valid normalized name.
+
+    This validates the normalized-name shape, so it is stricter than checking
+    whether :func:`canonicalize_name` would return the same value for invalid
+    inputs.
 
     :param str name: The name to check.
 
