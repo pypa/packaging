@@ -252,6 +252,9 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
                 f"Tag component {component!r} is not in sorted order per PEP 425"
             )
 
+    if len(component_parts) != 3:
+        raise InvalidTag(f"Tag {tag!r} must have exactly three components")
+
     interpreters, abis, platforms = component_parts
     return frozenset(
         Tag(interpreter, abi, platform_)
