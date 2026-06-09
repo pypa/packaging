@@ -11,6 +11,8 @@ Behavior adaptations:
 
 Fixes:
 
+* Raise ``InvalidTag`` instead of ``ValueError`` when ``parse_tag()`` receives
+  a tag with too few or too many components.
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 
