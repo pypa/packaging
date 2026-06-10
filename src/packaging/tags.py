@@ -286,10 +286,10 @@ def parse_tag(
             f"limit {limit}"
         )
 
-    if len(component_parts) != 3:
-        raise InvalidTag(f"Tag {tag!r} must have exactly three components")
-
-    interpreters, abis, platforms = component_parts
+    try:
+        interpreters, abis, platforms = component_parts
+    except ValueError as exc:
+        raise InvalidTag(f"Tag {tag!r} must have exactly three components") from exc
     return frozenset(
         Tag(interpreter, abi, platform_)
         for interpreter in interpreters
