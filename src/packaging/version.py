@@ -287,10 +287,15 @@ def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | Non
         return value
     if isinstance(value, tuple) and len(value) == 2:
         letter, number = value
-        letter = normalize_pre(letter)
-        if letter in {"a", "b", "rc"} and isinstance(number, int) and number >= 0:
+        # The letter must be a string before it can be normalized.
+        if (
+            isinstance(letter, str)
+            and (normalized := normalize_pre(letter)) in {"a", "b", "rc"}
+            and isinstance(number, int)
+            and number >= 0
+        ):
             # type checkers can't infer the Literal type here on letter
-            return (letter, number)  # type: ignore[return-value]
+            return (normalized, number)  # type: ignore[return-value]
     msg = f"pre must be a tuple of ('a'|'b'|'rc', non-negative int), got {value}"
     raise InvalidVersion(msg)
 
