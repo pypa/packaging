@@ -232,6 +232,51 @@ def test_pylock_packages_with_archive_directory_and_vcs() -> None:
     )
 
 
+def test_pylock_empty_wheels_with_directory() -> None:
+    # An empty wheels array still counts as wheels being specified, so it is
+    # mutually exclusive with vcs, directory, and archive.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "wheels": [],
+                "directory": {
+                    "path": ".",
+                    "editable": False,
+                },
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "None of vcs, directory, archive must be set "
+        "if sdist or wheels are set "
+        "in 'packages[0]'"
+    )
+
+
+def test_pylock_empty_wheels_without_source() -> None:
+    # An empty wheels array on its own counts as wheels being specified, so no
+    # direct URL source is required and the lock validates.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "wheels": [],
+            }
+        ],
+    }
+    pylock = Pylock.from_dict(data)
+    assert pylock.packages[0].wheels == []
+
+
 def test_pylock_basic_package() -> None:
     data = {
         "lock-version": "1.0",
