@@ -228,13 +228,19 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
     # and we don't need to deal with it.
     if isinstance(source, str):
         payload = msg.get_payload()
-        assert isinstance(payload, str)
+        # A multipart payload makes get_payload() return a list of messages
+        # rather than a str; treat it as unparsable instead of crashing.
+        if not isinstance(payload, str):
+            raise ValueError("payload is not a string")  # noqa: TRY004
         return payload
     # If our source is a bytes, then we're managing the encoding and we need
     # to deal with it.
     else:
         bpayload = msg.get_payload(decode=True)
-        assert isinstance(bpayload, bytes)
+        # A multipart payload makes get_payload(decode=True) return None;
+        # treat it as unparsable instead of crashing.
+        if not isinstance(bpayload, bytes):
+            raise ValueError("payload in an invalid encoding")  # noqa: TRY004
         try:
             return bpayload.decode("utf8", "strict")
         except UnicodeDecodeError as exc:
