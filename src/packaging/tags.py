@@ -231,7 +231,7 @@ def parse_tag(
     If **validate_order** is true, compressed tag set components are checked
     to be in sorted order as required by PEP 425.
 
-    If **limit** is not ``None``, the compressed tag set must generate at most
+    If **limit** is not ``None``, the compressed tag set can generate at most
     that many tags.
 
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
