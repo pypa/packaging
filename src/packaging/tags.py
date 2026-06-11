@@ -237,7 +237,7 @@ def parse_tag(
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
     :param bool validate_order: Check whether compressed tag set components
         are in sorted order.
-    :param int limit: The maximum number of tags to parse.
+    :param int | None limit: The maximum number of tags to parse.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
     :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
