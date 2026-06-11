@@ -422,6 +422,17 @@ class TestMarker:
         assert str(Marker(lhs)) == f'"{normalized_name}" == extra'
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
+    def test_nested_extra_str_normalization(self) -> None:
+        marker = Marker(
+            '(extra == "Foo_Bar" or extra == "Baz") and python_version >= "3"'
+        )
+
+        assert (
+            str(marker)
+            == '(extra == "foo-bar" or extra == "baz") and python_version >= "3"'
+        )
+        assert marker.evaluate({"extra": "foo-bar", "python_version": "3.12"})
+
     def test_python_full_version_untagged_user_provided(self) -> None:
         """A user-provided python_full_version ending with a + is also repaired."""
         assert Marker("python_full_version < '3.12'").evaluate(
