@@ -328,6 +328,29 @@ class TestRequirementParsing:
             "           ~~~~~^"
         )
 
+    @pytest.mark.parametrize("operator", ["==", "!="])
+    @pytest.mark.parametrize("version", ["1.0a1", "1.0.post1", "1.0.dev1", "1.0+local"])
+    def test_error_when_prefix_match_is_used_after_version_suffix(
+        self, operator: str, version: str
+    ) -> None:
+        # GIVEN
+        version_specifier = f"{operator} {version}"
+        to_parse = f"name {version_specifier}.*"
+        marker = "~" * (len(version_specifier) + 1)
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used after pre-release, post-release, "
+            "developmental release, or local version labels\n"
+            f"    {to_parse}\n"
+            f"         {marker}^"
+        )
+
     @pytest.mark.parametrize("operator", [">=", "<=", ">", "<", "~="])
     def test_error_when_local_version_label_is_used_incorrectly(
         self, operator: str
