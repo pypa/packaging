@@ -219,6 +219,20 @@ def test_dir_info_url_scheme_file() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "FILE:///home/myproject",
+        "File:///home/myproject",
+        "file:/home/myproject",
+    ],
+)
+def test_dir_info_url_scheme_file_case_insensitive(url: str) -> None:
+    """Per RFC 3986 §3.1, URL schemes are case-insensitive; all variants of
+    the file scheme must be accepted when dir_info is present."""
+    DirectUrl.from_dict({"url": url, "dir_info": {}})
+
+
 def test_missing_url() -> None:
     with pytest.raises(
         DirectUrlValidationError,
