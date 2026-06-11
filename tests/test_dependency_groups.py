@@ -425,6 +425,29 @@ def test_unknown_object_shape(item: dict[str, str] | object) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("item", "exc_type", "match"),
+    [
+        ({}, InvalidDependencyGroupObject, "Invalid dependency group item:"),
+        ({"include-group": 5}, TypeError, "include-group value is not a string"),
+    ],
+)
+def test_malformed_group_entries_are_not_cached_on_resolver_instance(
+    item: object,
+    exc_type: type[BaseException],
+    match: str,
+) -> None:
+    groups: Any = {"test": [item]}
+    resolver = DependencyGroupResolver(groups)
+
+    for _ in range(2):
+        with pytest.raises(
+            ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+        ) as excinfo:
+            resolver.lookup("test")
+        assert _group_contains(excinfo, exc_type, match=match)
+
+
 def test_non_unexpected_item_type() -> None:
     groups: Any = {"test": [object()]}
     with pytest.raises(
