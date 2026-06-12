@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from ._elffile import EIClass, EIData, ELFFile, EMachine
 
 if TYPE_CHECKING:
+    import types
     from collections.abc import Generator, Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
@@ -182,30 +183,41 @@ def _get_glibc_version() -> _GLibCVersion:
 
 
 # From PEP 513, PEP 600
-def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
+def _get_manylinux_module() -> types.ModuleType | None:
+    """Return the ``_manylinux`` C extension module, or None if unavailable."""
+    try:
+        import _manylinux  # noqa: F401, PLC0415
+    except ImportError:
+        return None
+    return sys.modules["_manylinux"]
+
+
+def _is_compatible(
+    arch: str, version: _GLibCVersion, manylinux_mod: types.ModuleType | None
+) -> bool:
     sys_glibc = _get_glibc_version()
     if sys_glibc < version:
         return False
     # Check for presence of _manylinux module.
-    try:
-        import _manylinux  # noqa: PLC0415
-    except ImportError:
+    if manylinux_mod is None:
         return True
-    if hasattr(_manylinux, "manylinux_compatible"):
-        result = _manylinux.manylinux_compatible(version[0], version[1], arch)
+    if hasattr(manylinux_mod, "manylinux_compatible"):
+        result = manylinux_mod.manylinux_compatible(version[0], version[1], arch)
         if result is not None:
             return bool(result)
         return True
-    if version == _GLibCVersion(2, 5) and hasattr(_manylinux, "manylinux1_compatible"):
-        return bool(_manylinux.manylinux1_compatible)
+    if version == _GLibCVersion(2, 5) and hasattr(
+        manylinux_mod, "manylinux1_compatible"
+    ):
+        return bool(manylinux_mod.manylinux1_compatible)
     if version == _GLibCVersion(2, 12) and hasattr(
-        _manylinux, "manylinux2010_compatible"
+        manylinux_mod, "manylinux2010_compatible"
     ):
-        return bool(_manylinux.manylinux2010_compatible)
+        return bool(manylinux_mod.manylinux2010_compatible)
     if version == _GLibCVersion(2, 17) and hasattr(
-        _manylinux, "manylinux2014_compatible"
+        manylinux_mod, "manylinux2014_compatible"
     ):
-        return bool(_manylinux.manylinux2014_compatible)
+        return bool(manylinux_mod.manylinux2014_compatible)
     return True
 
 
@@ -248,6 +260,9 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     for glibc_major in range(current_glibc.major - 1, 1, -1):
         glibc_minor = _LAST_GLIBC_MINOR[glibc_major]
         glibc_max_list.append(_GLibCVersion(glibc_major, glibc_minor))
+    # Resolve the _manylinux module once for the entire loop rather than
+    # re-running the import machinery on every (arch, glibc-version) pair.
+    manylinux_mod = _get_manylinux_module()
     for arch in archs:
         for glibc_max in glibc_max_list:
             if glibc_max.major == too_old_glibc2.major:
@@ -257,7 +272,7 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
                 min_minor = -1
             for glibc_minor in range(glibc_max.minor, min_minor, -1):
                 glibc_version = _GLibCVersion(glibc_max.major, glibc_minor)
-                if _is_compatible(arch, glibc_version):
+                if _is_compatible(arch, glibc_version, manylinux_mod):
                     yield "manylinux_{}_{}_{}".format(*glibc_version, arch)
 
                     # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.

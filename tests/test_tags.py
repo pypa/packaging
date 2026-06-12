@@ -655,7 +655,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 5),
+            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 5),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
@@ -729,7 +729,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
+            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 17),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{native_arch}")
         monkeypatch.setattr(
@@ -862,7 +862,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
+            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 17),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
