@@ -557,6 +557,37 @@ def test_hash_eq_for_combined_markers() -> None:
     )
 
 
+def test_marker_hash_is_cached() -> None:
+    # The cached hash must match the uncached string hash, and a second call
+    # must return the same value from the cache.
+    m = Marker('python_version >= "3.6" and os_name == "posix"')
+    assert m._hash_cache is None
+    expected = hash(str(m))
+    first = hash(m)
+    assert first == expected
+    assert m._hash_cache == first
+    assert hash(m) == first
+
+
+def test_marker_hash_from_markers_constructor() -> None:
+    # Markers built via _from_markers (used by & and |) must have an
+    # initialized hash cache and hash correctly.
+    combined = Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
+    assert combined._hash_cache is None
+    assert hash(combined) == hash(str(combined))
+    assert combined._hash_cache == hash(combined)
+
+
+def test_marker_hash_after_pickle() -> None:
+    # The hash must survive a pickle round trip and the cache slot must be
+    # initialized on the unpickled object.
+    m = Marker('python_version >= "3.8" and os_name == "posix"')
+    original_hash = hash(m)
+    loaded = pickle.loads(pickle.dumps(m))
+    assert loaded._hash_cache is None
+    assert hash(loaded) == original_hash
+
+
 def test_evaluation_of_combined_markers() -> None:
     env = {"python_version": "3.8", "os_name": "posix", "platform_system": "Linux"}
     m = (

@@ -338,7 +338,7 @@ class Marker:
         release.
     """
 
-    __slots__ = ("_markers",)
+    __slots__ = ("_hash_cache", "_markers")
 
     def __init__(self, marker: str) -> None:
         # Note: We create a Marker object without calling this constructor in
@@ -348,6 +348,9 @@ class Marker:
         # If this fails and throws an error, the repr still expects _markers to
         # be defined.
         self._markers: MarkerList = []
+
+        # Hash cache (populated lazily by __hash__).
+        self._hash_cache: int | None = None
 
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
@@ -378,6 +381,7 @@ class Marker:
         """
         new = cls.__new__(cls)
         new._markers = markers
+        new._hash_cache = None
         return new
 
     def __str__(self) -> str:
@@ -387,7 +391,13 @@ class Marker:
         return f"<{self.__class__.__name__}({str(self)!r})>"
 
     def __hash__(self) -> int:
-        return hash(str(self))
+        # Serializing the marker tree to a string is comparatively expensive,
+        # so cache the resulting hash. The Marker is immutable, so the cached
+        # value never goes stale.
+        if (cached_hash := self._hash_cache) is not None:
+            return cached_hash
+        self._hash_cache = cached_hash = hash(str(self))
+        return cached_hash
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Marker):
@@ -401,6 +411,8 @@ class Marker:
         return str(self)
 
     def __setstate__(self, state: object) -> None:
+        # Discard any cached hash; it is recomputed on demand from _markers.
+        self._hash_cache = None
         if isinstance(state, str):
             # New format (26.2+): just the marker expression string.
             try:

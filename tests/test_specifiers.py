@@ -246,6 +246,28 @@ class TestSpecifier:
     def test_specifiers_hash(self, specifier: str) -> None:
         assert hash(Specifier(specifier)) == hash(Specifier(specifier))
 
+    @pytest.mark.parametrize("specifier", SPECIFIERS)
+    def test_specifiers_hash_is_cached(self, specifier: str) -> None:
+        # The cached hash must match the uncached canonical-spec hash, and a
+        # second call must return the same value from the cache.
+        spec = Specifier(specifier)
+        assert spec._hash_cache is None
+        expected = hash(spec._canonical_spec)
+        first = hash(spec)
+        assert first == expected
+        assert spec._hash_cache == first
+        assert hash(spec) == first
+
+    @pytest.mark.parametrize("specifier", SPECIFIERS)
+    def test_specifiers_hash_after_pickle(self, specifier: str) -> None:
+        # The hash must survive a pickle round trip and the cache slot must be
+        # initialized on the unpickled object.
+        spec = Specifier(specifier)
+        original_hash = hash(spec)
+        loaded = pickle.loads(pickle.dumps(spec))
+        assert loaded._hash_cache is None
+        assert hash(loaded) == original_hash
+
     @pytest.mark.parametrize(
         ("left", "right", "op"),
         itertools.chain.from_iterable(
