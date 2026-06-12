@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import operator
 import os
 import platform
@@ -217,14 +218,32 @@ _operators: dict[str, Operator] = {
 }
 
 
+# Cache bound at 64 entries: there are at most 8 version comparison operators
+# and real-world markers use a small, stable set of version strings, so 64
+# slots comfortably covers typical resolver workloads without growing without
+# limit in long-running processes.
+@functools.lru_cache(maxsize=64)
+def _get_specifier(spec_str: str) -> Specifier | None:
+    """Return a cached :class:`Specifier` for *spec_str*, or ``None`` on parse failure.
+
+    The result is cached so that repeated marker evaluations with the same
+    operator/version pair avoid re-parsing the specifier string each time.
+    ``None`` is returned (rather than raising) because
+    :func:`functools.lru_cache` does not cache raised exceptions, which would
+    defeat the purpose of the cache on invalid inputs.
+    """
+    try:
+        return Specifier(spec_str)
+    except InvalidSpecifier:
+        return None
+
+
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
     op_str = op.serialize()
     if key in MARKERS_REQUIRING_VERSION:
-        try:
-            spec = Specifier(f"{op_str}{rhs}")
-        except InvalidSpecifier:
-            pass
-        else:
+        assert isinstance(rhs, str), "version marker rhs must be a string"
+        spec = _get_specifier(f"{op_str}{rhs}")
+        if spec is not None:
             return spec.contains(lhs, prereleases=True)
 
     oper: Operator | None = _operators.get(op_str)
