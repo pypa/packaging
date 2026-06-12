@@ -19,6 +19,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
     from typing import Union
 
+    # Total-order key for comparing two boundaries (boundary-vs-boundary only).
+    # The post slot may be ``_BOUNDARY_INF`` for an AFTER_POSTS boundary.
+    _BoundaryOrderSuffix = tuple[int, int, int, Union[int, float], int, int]
+    _BoundaryOrderKey = tuple[int, tuple[int, ...], _BoundaryOrderSuffix, float]
+
 __all__ = [
     "FULL_RANGE",
     "filter_by_ranges",
@@ -30,6 +35,10 @@ __all__ = [
 
 #: The smallest possible PEP 440 version. No valid version is less than this.
 _MIN_VERSION: Final[Version] = Version("0.dev0")
+
+#: Sorts above any real post number and any local label, so a boundary can be
+#: ordered above the version family it covers when two boundaries are compared.
+_BOUNDARY_INF: Final[float] = float("inf")
 
 
 class _BoundaryKind(enum.Enum):
@@ -97,6 +106,27 @@ class _BoundaryVersion:
         # Post family: V itself + any post-release of V.
         return other.dev == self._cached_dev or other.post is not None
 
+    def _order_key(self) -> _BoundaryOrderKey:
+        """Sort key placing this boundary just above the versions it covers.
+
+        It extends ``V``'s comparison key ``(epoch, release, suffix)`` with
+        a trailing ``_BOUNDARY_INF`` local component, so the key sorts after
+        ``V`` and every ``V+local`` (whose keys carry a real, finite local
+        segment). ``suffix`` is the 6-int comparison suffix
+        ``(pre_rank, pre_n, post_rank, post_n, dev_rank, dev_n)``.
+
+        For an AFTER_POSTS boundary the suffix is replaced with one whose
+        post number is ``_BOUNDARY_INF``, so the key also sorts after every
+        ``V.postN``. An AFTER_LOCALS boundary uses ``V``'s suffix unchanged.
+        """
+        version_key = self.version._key
+        suffix: _BoundaryOrderSuffix = version_key[2]
+
+        if self._kind == _BoundaryKind.AFTER_POSTS:
+            suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
+
+        return version_key[0], version_key[1], suffix, _BOUNDARY_INF
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, _BoundaryVersion):
             return self.version == other.version and self._kind == other._kind
@@ -104,9 +134,7 @@ class _BoundaryVersion:
 
     def __lt__(self, other: _BoundaryVersion | Version) -> bool:
         if isinstance(other, _BoundaryVersion):
-            if self.version != other.version:
-                return self.version < other.version
-            return self._kind.value < other._kind.value  # pragma: no cover
+            return self._order_key() < other._order_key()
         # boundary < other_version iff V < other AND other not in family.
         # The cheap V >= other path short-circuits before the family check.
         if not (self.version < other):
@@ -117,9 +145,7 @@ class _BoundaryVersion:
         # Defined directly to bypass functools.total_ordering's
         # NotImplemented round-trip on reflected ``Version < boundary``.
         if isinstance(other, _BoundaryVersion):
-            if self.version != other.version:
-                return self.version > other.version
-            return self._kind.value > other._kind.value
+            return self._order_key() > other._order_key()
         if self.version >= other:
             return True
         return self._is_family(other)
