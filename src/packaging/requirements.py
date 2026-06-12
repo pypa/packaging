@@ -73,6 +73,10 @@ class Requirement:
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
+            self.marker._hash_cache = None
+
+        # Hash cache (populated lazily by __hash__).
+        self._hash_cache: int | None = None
 
     def _iter_parts(self, name: str) -> Iterator[str]:
         yield name
@@ -115,6 +119,8 @@ class Requirement:
         elif isinstance(state, dict):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
             self.__dict__.update(state)
+            # Old pickles predate the hash cache, so initialize it here.
+            self._hash_cache = None
             return
         else:
             raise TypeError(f"Cannot restore Requirement from {state!r}")
@@ -129,6 +135,8 @@ class Requirement:
         self.specifier = tmp.specifier
         self.specifier._prereleases = prereleases
         self.marker = tmp.marker
+        # Discard any cached hash; it is recomputed on demand.
+        self._hash_cache = None
 
     def __str__(self) -> str:
         return "".join(self._iter_parts(self.name))
@@ -137,7 +145,15 @@ class Requirement:
         return f"<{self.__class__.__name__}({str(self)!r})>"
 
     def __hash__(self) -> int:
-        return hash(tuple(self._iter_parts(canonicalize_name(self.name))))
+        # Re-serializing the requirement parts is comparatively expensive, so
+        # cache the resulting hash. A Requirement is treated as immutable, so
+        # the cached value never goes stale.
+        if (cached_hash := self._hash_cache) is not None:
+            return cached_hash
+        self._hash_cache = cached_hash = hash(
+            tuple(self._iter_parts(canonicalize_name(self.name)))
+        )
+        return cached_hash
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Requirement):

@@ -11,6 +11,7 @@ import pytest
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -708,6 +709,26 @@ class TestRequirementBehaviour:
     def test_compare_with_string(self) -> None:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
 
+    def test_requirement_hash_is_cached(self) -> None:
+        # The cached hash must match the uncached parts hash, and a second call
+        # must return the same value from the cache.
+        req = Requirement('requests[security]>=2.0; python_version >= "3.8"')
+        assert req._hash_cache is None
+        expected = hash(tuple(req._iter_parts(canonicalize_name(req.name))))
+        first = hash(req)
+        assert first == expected
+        assert req._hash_cache == first
+        assert hash(req) == first
+
+    def test_requirement_hash_after_pickle(self) -> None:
+        # The hash must survive a pickle round trip and the cache slot must be
+        # initialized on the unpickled object.
+        req = Requirement('requests[security]>=2.0; python_version >= "3.8"')
+        original_hash = hash(req)
+        loaded = pickle.loads(pickle.dumps(req))
+        assert loaded._hash_cache is None
+        assert hash(loaded) == original_hash
+
 
 @pytest.mark.parametrize(
     "req_str",
@@ -892,6 +913,10 @@ def test_pickle_requirement_old_format_loads() -> None:
     assert r.marker is not None
     assert str(r.marker) == 'python_version >= "3.8"'
     assert r == Requirement('requests>=2.0; python_version >= "3.8"')
+    # The hash cache must be initialized for old-format pickles too, including
+    # the nested old-format Marker.
+    assert hash(r) == hash(Requirement('requests>=2.0; python_version >= "3.8"'))
+    assert hash(r.marker) == hash(Marker('python_version >= "3.8"'))
 
 
 def test_pickle_requirement_26_0_format_loads() -> None:

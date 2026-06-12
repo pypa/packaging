@@ -240,6 +240,7 @@ class Specifier(BaseSpecifier):
     """
 
     __slots__ = (
+        "_hash_cache",
         "_prereleases",
         "_ranges",
         "_spec",
@@ -389,6 +390,9 @@ class Specifier(BaseSpecifier):
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[VersionRange] | None = None
 
+        # Hash cache (populated lazily by __hash__)
+        self._hash_cache: int | None = None
+
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
         if self._spec_version is not None and self._spec_version[0] == version:
@@ -478,6 +482,7 @@ class Specifier(BaseSpecifier):
         # Always discard cached values - they will be recomputed on demand.
         self._spec_version = None
         self._ranges = None
+        self._hash_cache = None
 
         if isinstance(state, tuple):
             if len(state) == 2:
@@ -568,7 +573,13 @@ class Specifier(BaseSpecifier):
         return operator, canonical_version
 
     def __hash__(self) -> int:
-        return hash(self._canonical_spec)
+        # The canonical spec is comparatively expensive to compute (it parses
+        # and canonicalizes the version), so cache the resulting hash. The
+        # Specifier is immutable, so the cached value never goes stale.
+        if (cached_hash := self._hash_cache) is not None:
+            return cached_hash
+        self._hash_cache = cached_hash = hash(self._canonical_spec)
+        return cached_hash
 
     def __eq__(self, other: object) -> bool:
         """Whether or not the two Specifier-like objects are equal.
