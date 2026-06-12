@@ -2890,6 +2890,60 @@ class TestIsUnsatisfiable:
         combined = s1 & s2
         assert not combined.is_unsatisfiable()
 
+    def test_canonicalization_keeps_range_cache(self) -> None:
+        """Canonicalization must not discard the computed range cache.
+
+        ``_canonical_specs`` only reorders and dedupes specs, which leaves
+        the intersected ranges unchanged, so the expensive ``_ranges`` cache
+        must survive a canonicalizing operation such as ``str()``.
+        """
+        ss = SpecifierSet(">=1.0,<2.0,!=1.5")
+        # filter() builds and caches the intersected ranges, the same cache
+        # the range path of contains() reuses.
+        assert list(ss.filter(["1.2"])) == ["1.2"]
+        assert ss._ranges is not None
+        cached_ranges = ss._ranges
+        # str() forces canonicalization (sort + dedup of the spec tuple).
+        str(ss)
+        # The range cache must still be present and unchanged.
+        assert ss._ranges is cached_ranges
+        # A subsequent contains() now reuses the surviving cache.
+        assert ss.contains("1.2")
+        assert ss._ranges is cached_ranges
+
+    def test_canonicalization_keeps_unsatisfiable_cache(self) -> None:
+        """Canonicalization must not discard the unsatisfiability cache."""
+        ss = SpecifierSet(">=2.0,<1.0")
+        assert ss.is_unsatisfiable()
+        assert ss._is_unsatisfiable is True
+        # Force canonicalization; the cached verdict must remain.
+        str(ss)
+        assert ss._is_unsatisfiable is True
+
+    @pytest.mark.parametrize(
+        ("spec", "versions"),
+        [
+            # Duplicate specifiers.
+            (">=1.0,>=1.0,<2.0", ["0.5", "1.0", "1.5", "2.0", "2.5"]),
+            # Unsorted order.
+            ("<2.0,!=1.5,>=1.0", ["0.5", "1.0", "1.5", "1.9", "2.0"]),
+            # != plus post-release edge cases.
+            ("!=1.0,>=1.0", ["1.0", "1.0.post1", "1.1"]),
+            (">1.0,!=1.0.post1", ["1.0", "1.0.post1", "1.0.post2", "1.1"]),
+        ],
+    )
+    def test_contains_identical_across_canonicalization(
+        self, spec: str, versions: list[str]
+    ) -> None:
+        """contains() results are stable before and after canonicalization."""
+        before = {v: SpecifierSet(spec).contains(v) for v in versions}
+        ss = SpecifierSet(spec)
+        # Populate the range cache, then canonicalize via str().
+        _ = {v: ss.contains(v) for v in versions}
+        str(ss)
+        after = {v: ss.contains(v) for v in versions}
+        assert after == before
+
     def test_range_bounds_hashable_and_equal(self) -> None:
         """Range bounds are hashable and support equality."""
         a = Specifier(">1.0")._to_ranges()
