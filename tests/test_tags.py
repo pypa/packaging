@@ -1146,19 +1146,8 @@ class TestCPythonTags:
             tags.Tag("cp315", "cp315t", "platform"),
             tags.Tag("cp315", "abi3t", "platform"),
             tags.Tag("cp315", "none", "platform"),
-            tags.Tag("cp314", "abi3t", "platform"),
-            tags.Tag("cp313", "abi3t", "platform"),
-            tags.Tag("cp312", "abi3t", "platform"),
-            tags.Tag("cp311", "abi3t", "platform"),
-            tags.Tag("cp310", "abi3t", "platform"),
-            tags.Tag("cp39", "abi3t", "platform"),
-            tags.Tag("cp38", "abi3t", "platform"),
-            tags.Tag("cp37", "abi3t", "platform"),
-            tags.Tag("cp36", "abi3t", "platform"),
-            tags.Tag("cp35", "abi3t", "platform"),
-            tags.Tag("cp34", "abi3t", "platform"),
-            tags.Tag("cp33", "abi3t", "platform"),
-            tags.Tag("cp32", "abi3t", "platform"),
+        ] + [
+            tags.Tag(f"cp3{minor}", "abi3t", "platform") for minor in range(14, 1, -1)
         ]
 
         result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
