@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import operator
 import os
 import platform
@@ -337,6 +338,21 @@ def default_environment() -> Environment:
     }
 
 
+@functools.lru_cache(maxsize=1)
+def _cached_default_environment() -> Environment:
+    """Return a cached copy of :func:`default_environment`.
+
+    The values returned by :func:`default_environment` are derived from
+    process-constant data (the running interpreter and the host platform), so
+    rebuilding them on every :meth:`Marker.evaluate` call is wasteful. This
+    helper is used only by :meth:`Marker.evaluate`.
+
+    The returned dictionary is shared between callers and must never be mutated;
+    :meth:`Marker.evaluate` copies it before applying overrides.
+    """
+    return default_environment()
+
+
 class Marker:
     """Represents a parsed dependency marker expression.
 
@@ -486,8 +502,11 @@ class Marker:
         :returns: ``True`` if the marker matches, otherwise ``False``.
 
         """
+        # Copy the cached environment before mutating it below: the cached dict
+        # is shared between calls and must not be modified. A shallow copy is
+        # enough because every value is an immutable string.
         current_environment = cast(
-            "dict[str, str | AbstractSet[str]]", default_environment()
+            "dict[str, str | AbstractSet[str]]", dict(_cached_default_environment())
         )
         if context == "lock_file":
             current_environment |= {
