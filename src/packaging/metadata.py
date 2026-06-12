@@ -229,7 +229,7 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
     if isinstance(source, str):
         payload = msg.get_payload()
         # A multipart payload makes get_payload() return a list of messages
-        # rather than a str; treat it as unparsable instead of crashing.
+        # rather than a str; route it to ``unparsed``.
         if not isinstance(payload, str):
             raise ValueError("payload is not a string")  # noqa: TRY004
         return payload
@@ -238,7 +238,7 @@ def _get_payload(msg: email.message.Message, source: bytes | str) -> str:
     else:
         bpayload = msg.get_payload(decode=True)
         # A multipart payload makes get_payload(decode=True) return None;
-        # treat it as unparsable instead of crashing.
+        # route it to ``unparsed``.
         if not isinstance(bpayload, bytes):
             raise ValueError("payload in an invalid encoding")  # noqa: TRY004
         try:
