@@ -4,6 +4,11 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Features:
+
+* Add the ``packaging.ranges`` module with a ``VersionRange`` class in (:pull:`1182`)
+* Add ``Specifier.to_range()`` and ``SpecifierSet.to_range()`` in (:pull:`1182`)
+
 Behavior adaptations:
 
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``

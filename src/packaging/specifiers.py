@@ -4,6 +4,7 @@
 """
 .. testsetup::
 
+    from packaging.ranges import VersionRange
     from packaging.specifiers import Specifier, SpecifierSet, InvalidSpecifier
     from packaging.version import Version
 """
@@ -11,6 +12,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import re
 import typing
 from typing import (
@@ -18,33 +20,34 @@ from typing import (
     Any,
     Callable,
     Final,
+    Literal,
     TypeVar,
     Union,
 )
 
-from ._ranges import (
-    FULL_RANGE,
+from ._range_utils import (
+    bounds_for_spec,
     filter_by_ranges,
-    intersect_ranges,
+    intersect_specifier_bounds,
+    matches_bounds_only,
     ranges_are_prerelease_only,
-    standard_ranges,
-    trim_release,
-    wildcard_ranges,
+    resolve_prereleases,
 )
+from ._version_utils import coerce_version, trim_release
+from .ranges import VersionRange
 from .utils import canonicalize_version
-from .version import InvalidVersion, Version
+from .version import Version
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Iterable, Iterator
+
+    from ._range_utils import Interval
 
     if sys.version_info >= (3, 10):
         from typing import TypeGuard
     else:
         from typing_extensions import TypeGuard
-
-    from ._ranges import VersionRange
-
 
 __all__ = [
     "BaseSpecifier",
@@ -76,50 +79,34 @@ UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
 
-def _coerce_version(version: UnparsedVersion) -> Version | None:
-    if not isinstance(version, Version):
-        try:
-            version = Version(version)
-        except InvalidVersion:
-            return None
-    return version
+def _direct_match(
+    operator: str,
+    spec_version: Version,
+    parsed: Version,
+) -> bool | None:
+    """Direct comparison for a non-wildcard spec and a no-local ``parsed``.
 
-
-# Operators whose result is just a direct Version comparison, given a parsed
-# item with no local. ``<=``/``==``/``!=`` need that no-local guard because
-# PEP 440 strips locals on those; ``>=`` works regardless.
-_DIRECT_COMPARE_OPS: dict[str, Callable[[Version, Version], bool]] = {
-    ">=": Version.__ge__,
-    "<=": Version.__le__,
-    "==": Version.__eq__,
-    "!=": Version.__ne__,
-}
-
-
-def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
-    """Match ``parsed`` against ``specifier`` without building a range.
-
-    Handles ``>=``, ``<=``, ``==``, ``!=``, ``<``, ``>`` when the spec is
-    not a wildcard and ``parsed`` has no local. Returns ``None`` when the
-    range path must be used. Pre-release policy is left to the caller.
+    Returns the boolean match, or ``None`` when ``<``/``>`` lands inside V's
+    pre/post/dev family and the range path is needed.
     """
-    op_str, ver_str = specifier._spec
-    if ver_str.endswith(".*") or parsed.local is not None:
-        return None
+    # ``<=``/``==``/``!=`` only reach here when parsed has no local segment
+    # (PEP 440 strips locals on those); ``>=`` works regardless.
+    if operator == ">=":
+        return parsed >= spec_version
+    if operator == "<=":
+        return parsed <= spec_version
+    if operator == "==":
+        return parsed == spec_version
+    if operator == "!=":
+        return parsed != spec_version
 
-    direct_compare = _DIRECT_COMPARE_OPS.get(op_str)
-    if direct_compare is not None:
-        return direct_compare(parsed, specifier._require_spec_version(ver_str))
-
-    if op_str in ("<", ">"):
-        spec_v = specifier._require_spec_version(ver_str)
-        # ``<V``/``>V`` carve out V's family (pre/dev/post); that only
-        # matters when parsed shares V's epoch and trimmed release.
-        # Otherwise a direct cmpkey comparison is correct.
-        if parsed.epoch != spec_v.epoch or trim_release(parsed.release) != trim_release(
-            spec_v.release
-        ):
-            return parsed < spec_v if op_str == "<" else parsed > spec_v
+    if operator in ("<", ">"):
+        # ``<V``/``>V`` carve out V's family (pre/dev/post). A direct
+        # comparison is correct only when parsed is outside that family.
+        if parsed.epoch != spec_version.epoch or trim_release(
+            parsed.release
+        ) != trim_release(spec_version.release):
+            return parsed < spec_version if operator == "<" else parsed > spec_version
         return None
 
     return None
@@ -224,9 +211,11 @@ class Specifier(BaseSpecifier):
 
     .. tip::
 
-        It is generally not required to instantiate this manually. You should instead
-        prefer to work with :class:`SpecifierSet` instead, which can parse
-        comma-separated version specifiers (which is what package metadata contains).
+        It is generally not required to instantiate this manually. You
+        should instead prefer to work with
+        :class:`~packaging.specifiers.SpecifierSet` instead, which can
+        parse comma-separated version specifiers (which is what package
+        metadata contains).
 
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
@@ -241,7 +230,10 @@ class Specifier(BaseSpecifier):
 
     __slots__ = (
         "_prereleases",
+        "_range_cache",
+        "_range_cache_key",
         "_ranges",
+        "_resolved_prereleases",
         "_spec",
         "_spec_version",
     )
@@ -386,15 +378,28 @@ class Specifier(BaseSpecifier):
         # Specifier version cache
         self._spec_version: tuple[str, Version] | None = None
 
-        # Version range cache (populated by _to_ranges)
-        self._ranges: Sequence[VersionRange] | None = None
+        # VersionRange cache, populated by :meth:`to_range`.
+        self._range_cache: VersionRange | None = None
+        # Last-stamped ``(resolved, configured)`` pre-release tags for
+        # :attr:`_range_cache`. Lets :meth:`to_range` detect a caller mutating
+        # the cached range and hand back a fresh copy without re-running
+        # ``from_specifier``.
+        self._range_cache_key: tuple[bool | None, bool | None] | None = None
+
+        # Internal bounds cache for the hot filter / contains path,
+        # populated lazily by :meth:`_to_ranges`.
+        self._ranges: tuple[Interval, ...] | None = None
+
+        # Cache of the autodetected ``prereleases`` value; ``"unset"`` is a
+        # sentinel because ``None`` is a valid resolved value.
+        self._resolved_prereleases: bool | None | Literal["unset"] = "unset"
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
         if self._spec_version is not None and self._spec_version[0] == version:
             return self._spec_version[1]
 
-        version_specifier = _coerce_version(version)
+        version_specifier = coerce_version(version)
         if version_specifier is None:
             return None
 
@@ -411,30 +416,56 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> Sequence[VersionRange]:
-        """Convert this specifier to sorted, non-overlapping version ranges.
+    def _to_ranges(self) -> tuple[Interval, ...]:
+        """Per-instance cache around :func:`bounds_for_spec`.
 
-        Each standard operator maps to one or two ranges.  ``===`` is
-        modeled as full range (actual check done separately).  Cached.
+        Only called for the non-``===`` operators; ``===`` filtering goes
+        through :meth:`to_range`.
         """
-        if self._ranges is not None:
-            return self._ranges
+        bounds = self._ranges
+        if bounds is not None:
+            return bounds
 
-        op = self.operator
-        ver_str = self.version
+        op, ver_str = self._spec
+        # Warm (and reuse) the per-instance parsed-version cache so siblings
+        # like ``_fast_match`` and ``__hash__`` skip the re-parse later.
+        # Wildcards cache the base ``X[.Y]*`` slice; everything else caches
+        # ``ver_str``.
+        parsed = self._require_spec_version(ver_str.removesuffix(".*"))
+        bounds = bounds_for_spec(op, ver_str, parsed=parsed)
+        self._ranges = bounds
+        return bounds
 
-        if op == "===":
-            result: Sequence[VersionRange] = FULL_RANGE
-        elif ver_str.endswith(".*"):
-            base = self._require_spec_version(ver_str[:-2])
-            result = wildcard_ranges(op, base)
-        else:
-            v = self._require_spec_version(ver_str)
-            has_local = "+" in ver_str
-            result = standard_ranges(op, v, has_local)
+    def _range_prereleases(self) -> tuple[bool | None, bool | None]:
+        """Return the ``(resolved, configured)`` tag a
+        :class:`~packaging.ranges.VersionRange` built from this object should carry.
 
-        self._ranges = result
-        return result
+        Configured is what was passed to ``__init__``; resolved folds the
+        PEP 440 default into the autodetected value. Together they let the
+        range mirror :meth:`filter` defaults and set-algebra behaviour.
+        """
+        return (
+            resolve_prereleases(self._prereleases, self.prereleases),
+            self._prereleases,
+        )
+
+    def _fast_match(self, parsed: Version) -> bool | None:
+        """Match ``parsed`` against this specifier without building a range.
+
+        Handles ``>=``, ``<=``, ``==``, ``!=``, ``<``, ``>`` when the spec
+        is not a wildcard. A local segment on ``parsed`` is safe for ``>=``
+        (locals only widen V's family upward, so the threshold answer is
+        unchanged) but not for the others, which need the range path's
+        local-stripping. Returns ``None`` when the range path must be used.
+        Pre-release policy is left to the caller. Uses the per-instance
+        parsed-version cache.
+        """
+        op_str, ver_str = self._spec
+        if ver_str.endswith(".*"):
+            return None
+        if parsed.local is not None and op_str != ">=":
+            return None
+        return _direct_match(op_str, self._require_spec_version(ver_str), parsed)
 
     @property
     def prereleases(self) -> bool | None:
@@ -443,30 +474,36 @@ class Specifier(BaseSpecifier):
         if self._prereleases is not None:
             return self._prereleases
 
+        cached = self._resolved_prereleases
+        if cached != "unset":
+            return cached
+
         # Only the "!=" operator does not imply prereleases when
         # the version in the specifier is a prerelease.
         operator, version_str = self._spec
         if operator == "!=":
-            return False
+            resolved: bool | None = False
+        elif operator == "==" and version_str.endswith(".*"):
+            # The == specifier with trailing .* cannot include prereleases
+            # e.g. "==1.0a1.*" is not valid.
+            resolved = False
+        else:
+            # "===" can have arbitrary string versions, so we cannot parse
+            # those, we take prereleases as unknown (None) for those.
+            version = self._get_spec_version(version_str)
+            resolved = None if version is None else version.is_prerelease
 
-        # The == specifier with trailing .* cannot include prereleases
-        # e.g. "==1.0a1.*" is not valid.
-        if operator == "==" and version_str.endswith(".*"):
-            return False
-
-        # "===" can have arbitrary string versions, so we cannot parse
-        # those, we take prereleases as unknown (None) for those.
-        version = self._get_spec_version(version_str)
-        if version is None:
-            return None
-
-        # For all other operators, use the check if spec Version
-        # object implies pre-releases.
-        return version.is_prerelease
+        self._resolved_prereleases = resolved
+        return resolved
 
     @prereleases.setter
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
+        # The range carries the resolved prereleases value, so drop the
+        # cache; the bounds-only ``_ranges`` cache is unaffected.
+        self._range_cache = None
+        self._range_cache_key = None
+        self._resolved_prereleases = "unset"
 
     def __getstate__(self) -> tuple[tuple[str, str], bool | None]:
         # Return state as a 2-item tuple for compactness:
@@ -477,7 +514,10 @@ class Specifier(BaseSpecifier):
     def __setstate__(self, state: object) -> None:
         # Always discard cached values - they will be recomputed on demand.
         self._spec_version = None
+        self._range_cache = None
+        self._range_cache_key = None
         self._ranges = None
+        self._resolved_prereleases = "unset"
 
         if isinstance(state, tuple):
             if len(state) == 2:
@@ -643,31 +683,75 @@ class Specifier(BaseSpecifier):
         False
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
         True
+
+        :raises TypeError: if ``item`` is not a :class:`str` or
+            :class:`~packaging.version.Version`.
         """
+        if not isinstance(item, (str, Version)):
+            raise TypeError(
+                f"Specifier.contains() expected str or Version, "
+                f"got {type(item).__name__}"
+            )
+
         # ``===`` compares the raw string, so a Version parse here would
         # be wasted.
         if self._spec[0] == "===":
             return bool(list(self.filter([item], prereleases=prereleases)))
 
-        parsed = _coerce_version(item)
+        parsed = coerce_version(item)
         if parsed is None:
             # Standard operators never match an unparsable input.
             return False
 
-        match = _fast_match(self, parsed)
+        match = self._fast_match(parsed)
         if match is not None:
             if prereleases is None:
-                if self._prereleases is not None:
-                    prereleases = self._prereleases
-                elif self.prereleases:
-                    prereleases = True
+                prereleases = resolve_prereleases(self._prereleases, self.prereleases)
             if prereleases is False and parsed.is_prerelease:
                 return False
             return match
 
-        # Pass the already-parsed Version so filter_by_ranges doesn't
+        # Pass the already-parsed Version so VersionRange.filter doesn't
         # re-coerce it.
         return bool(list(self.filter([parsed], prereleases=prereleases)))
+
+    def to_range(self) -> VersionRange:
+        """The :class:`~packaging.ranges.VersionRange` accepted by this
+        specifier.
+
+        For ``===`` the returned range matches the literal string
+        case-insensitively; no PEP 440
+        :class:`~packaging.version.Version` other than the literal
+        itself is contained.
+
+        >>> isinstance(Specifier(">=1.0").to_range(), VersionRange)
+        True
+        >>> "wat" in Specifier("===wat").to_range()
+        True
+
+        .. versionadded:: 26.3
+        """
+        cache = self._range_cache
+        if cache is None or self._range_cache_key is None:
+            cache = VersionRange.from_specifier(self)
+            self._range_cache = cache
+            self._range_cache_key = (cache._prereleases, cache._prereleases_configured)
+            return cache
+
+        # A caller may have mutated the cached range's tags after we handed
+        # it out. If the captured stamp still matches, the cache is clean;
+        # otherwise hand back a freshly stamped copy.
+        resolved, configured = self._range_cache_key
+        if (
+            cache._prereleases == resolved
+            and cache._prereleases_configured == configured
+        ):
+            return cache
+
+        refreshed = copy.copy(cache)
+        refreshed._restamp(resolved=resolved, configured=configured)
+        self._range_cache = refreshed
+        return refreshed
 
     @typing.overload
     def filter(
@@ -725,47 +809,23 @@ class Specifier(BaseSpecifier):
 
             Added the ``key`` parameter.
         """
+        # Resolve the default when no explicit value is given.
         if prereleases is None:
-            if self._prereleases is not None:
-                prereleases = self._prereleases
-            elif self.prereleases:
-                prereleases = True
-
-        if self.operator == "===":
-            spec_lower = self.version.lower()
-            matches = (
-                item
-                for item in iterable
-                if str(item if key is None else key(item)).lower() == spec_lower
+            prereleases = resolve_prereleases(self._prereleases, self.prereleases)
+        # Non-``===`` specifiers go through the bounds-only fast path
+        # (``packaging._range_utils`` is private; this is the only
+        # back-channel into the range machinery that is not
+        # :class:`VersionRange`'s public API). ``===`` keeps the
+        # admission-aware :meth:`VersionRange.filter` path.
+        if self._spec[0] != "===":
+            return filter_by_ranges(
+                ranges=self._to_ranges(),
+                iterable=iterable,
+                key=key,
+                prereleases=prereleases,
             )
-            return _apply_prereleases_filter(matches, key, prereleases)
 
-        ranges = self._ranges
-        if ranges is None:
-            ranges = self._to_ranges()
-        return filter_by_ranges(ranges, iterable, key, prereleases)
-
-
-def _apply_prereleases_filter(
-    matches: Iterable[Any],
-    key: Callable[[Any], UnparsedVersion] | None,
-    prereleases: bool | None,
-) -> Iterator[Any]:
-    """Apply ``prereleases=`` handling to an already-matched iterable.
-
-    ``None`` means PEP 440 default (buffer pre-releases until a final
-    appears); ``True`` yields everything; ``False`` drops pre-releases.
-    """
-    if prereleases is None:
-        return _pep440_filter_prereleases(matches, key)
-    if prereleases:
-        return iter(matches)
-    return (
-        item
-        for item in matches
-        if (parsed := _coerce_version(item if key is None else key(item))) is None
-        or not parsed.is_prerelease
-    )
+        return self.to_range().filter(iterable, key=key, prereleases=prereleases)
 
 
 class SpecifierSet(BaseSpecifier):
@@ -792,6 +852,8 @@ class SpecifierSet(BaseSpecifier):
         "_has_arbitrary",
         "_is_unsatisfiable",
         "_prereleases",
+        "_range_cache",
+        "_range_cache_key",
         "_ranges",
         "_specs",
     )
@@ -819,10 +881,7 @@ class SpecifierSet(BaseSpecifier):
         """
 
         if isinstance(specifiers, str):
-            # Split on `,` to break each individual specifier into its own item, and
-            # strip each item to remove leading/trailing whitespace.
             split_specifiers = [s.strip() for s in specifiers.split(",") if s.strip()]
-
             self._specs: tuple[Specifier, ...] = tuple(map(Specifier, split_specifiers))
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
@@ -834,20 +893,42 @@ class SpecifierSet(BaseSpecifier):
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
-        self._ranges: Sequence[VersionRange] | None = None
-
-        # Store our prereleases value so we can use it later to determine if
-        # we accept prereleases or not.
+        self._range_cache: VersionRange | None = None
+        # Last-stamped policy for :attr:`_range_cache`: ``(configured,
+        # resolved)`` captured when the cache was tagged. Lets the cached
+        # path skip resolving :attr:`prereleases` live on each hit.
+        self._range_cache_key: tuple[bool | None, bool | None] | None = None
+        # Internal bounds cache for the hot filter path (populated by
+        # :meth:`_intersect_bounds`). ``contains`` reads it when set but
+        # never populates it, so a contains-only workload stays on the
+        # per-spec path without paying the intersected-bounds build cost.
+        self._ranges: tuple[Interval, ...] | None = None
         self._prereleases = prereleases
 
     def _canonical_specs(self) -> tuple[Specifier, ...]:
-        """Deduplicate, sort, and cache specs for order-sensitive operations."""
+        """Deduplicate, sort, and cache specs for order-sensitive operations.
+
+        Sort and dedup do not change the set of versions accepted by the set,
+        so the cached bounds (``_ranges``), the cached range
+        (``_range_cache``), and ``_is_unsatisfiable`` all stay valid. No
+        invalidation here; touching them would just force a re-derivation
+        with the same result.
+        """
         if not self._canonicalized:
             self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
             self._canonicalized = True
-            self._is_unsatisfiable = None
-            self._ranges = None
         return self._specs
+
+    def _range_prereleases(self) -> tuple[bool | None, bool | None]:
+        """Return the ``(resolved, configured)`` tag a
+        :class:`~packaging.ranges.VersionRange` built from this object should carry.
+
+        A set's public ``prereleases`` already folds in the autodetected value
+        and equals the resolved tag, so the configured tag is the only
+        constructor flag the range needs to track separately. ``__and__``
+        relies on the distinction to mirror its True/False conflict rule.
+        """
+        return self.prereleases, self._prereleases
 
     @property
     def prereleases(self) -> bool | None:
@@ -873,6 +954,9 @@ class SpecifierSet(BaseSpecifier):
     def prereleases(self, value: bool | None) -> None:
         self._prereleases = value
         self._is_unsatisfiable = None
+        self._range_cache = None
+        self._range_cache_key = None
+        self._ranges = None
 
     def __getstate__(self) -> tuple[tuple[Specifier, ...], bool | None]:
         # Return state as a 2-item tuple for compactness:
@@ -882,8 +966,10 @@ class SpecifierSet(BaseSpecifier):
 
     def __setstate__(self, state: object) -> None:
         # Always discard cached values - they will be recomputed on demand.
-        self._ranges = None
         self._is_unsatisfiable = None
+        self._range_cache = None
+        self._range_cache_key = None
+        self._ranges = None
 
         if isinstance(state, tuple):
             if len(state) == 2:
@@ -994,7 +1080,6 @@ class SpecifierSet(BaseSpecifier):
         specifier._canonicalized = len(specifier._specs) <= 1
         specifier._has_arbitrary = self._has_arbitrary or other._has_arbitrary
 
-        # Combine prerelease settings: use common or non-None value
         if self._prereleases is None or self._prereleases == other._prereleases:
             specifier._prereleases = other._prereleases
         elif other._prereleases is None:
@@ -1046,30 +1131,6 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> Sequence[VersionRange]:
-        """Intersect all specifiers into a single sequence of version ranges.
-
-        Empty when unsatisfiable. Callers must ensure ``self._specs``
-        is non-empty.
-        """
-        if self._ranges is not None:
-            return self._ranges
-
-        result: Sequence[VersionRange] | None = None
-        for s in self._specs:
-            sub = s._to_ranges()
-            if result is None:
-                result = sub
-            else:
-                result = intersect_ranges(result, sub)
-                if not result:
-                    break
-
-        if result is None:  # pragma: no cover
-            raise RuntimeError("_get_ranges called with no specs")
-        self._ranges = result
-        return result
-
     def is_unsatisfiable(self) -> bool:
         """Check whether this specifier set can never be satisfied.
 
@@ -1094,55 +1155,108 @@ class SpecifierSet(BaseSpecifier):
             self._is_unsatisfiable = False
             return False
 
-        result = not self._get_ranges()
+        # ``===`` introduces literal-string matching that bare bounds can't
+        # represent, so route those through the full VersionRange.
+        if self._has_arbitrary:
+            range_ = self.to_range()
 
-        if not result:
-            result = self._check_arbitrary_unsatisfiable()
+            if range_.is_empty:
+                self._is_unsatisfiable = True
+                return True
+            if self.prereleases is not False:
+                self._is_unsatisfiable = False
+                return False
 
-        if not result and self.prereleases is False:
-            result = ranges_are_prerelease_only(self._get_ranges())
+            result = range_.is_prerelease_only
+            self._is_unsatisfiable = result
+            return result
 
+        # Bounds-only fast path: reuse each Specifier's cached intervals
+        # instead of folding via VersionRange.from_specifier.
+        if (bounds := self._ranges) is None:
+            bounds = self._ranges = self._intersect_bounds()
+
+        if not bounds:
+            self._is_unsatisfiable = True
+            return True
+        if self.prereleases is not False:
+            self._is_unsatisfiable = False
+            return False
+
+        result = ranges_are_prerelease_only(bounds)
         self._is_unsatisfiable = result
         return result
 
-    def _check_arbitrary_unsatisfiable(self) -> bool:
-        """Check === (arbitrary equality) specs for unsatisfiability.
+    def to_range(self) -> VersionRange:
+        """The :class:`~packaging.ranges.VersionRange` accepted by this
+        specifier set.
 
-        === uses case-insensitive string comparison, so the only candidate
-        that can match ``===V`` is the literal string V.  This method
-        checks whether that candidate is excluded by other specifiers.
+        The intersection of every specifier in the set. An empty
+        :class:`~packaging.specifiers.SpecifierSet` yields the
+        unbounded range; an unsatisfiable set yields an empty
+        :class:`~packaging.ranges.VersionRange`. Sets containing
+        ``===`` produce a range whose only matching items are the
+        literal strings (case-insensitive) that satisfy every
+        rangelike specifier in the set as well.
+
+        >>> isinstance(SpecifierSet(">=1.0,<2.0").to_range(), VersionRange)
+        True
+        >>> SpecifierSet(">=1.0,<2.0").to_range().is_empty
+        False
+        >>> SpecifierSet(">=2.0,<1.0").to_range().is_empty
+        True
+        >>> "wat" in SpecifierSet("===wat").to_range()
+        True
+
+        .. versionadded:: 26.3
         """
-        arbitrary = [s for s in self._specs if s.operator == "==="]
-        if not arbitrary:
-            return False
+        cache = self._range_cache
+        if cache is None or self._range_cache_key is None:
+            cache = VersionRange.from_specifier_set(self)
+            self._range_cache = cache
+            self._range_cache_key = (cache._prereleases, cache._prereleases_configured)
+            return cache
 
-        # Multiple === must agree on the same string (case-insensitive).
-        first = arbitrary[0].version.lower()
-        if any(s.version.lower() != first for s in arbitrary[1:]):
-            return True
-
-        # The sole candidate is the === version string.  Check whether
-        # it can satisfy every standard spec.
-        candidate = _coerce_version(arbitrary[0].version)
-
-        # With prereleases=False, a prerelease candidate is excluded
-        # by contains() before the === string check even runs.
+        # Two drift sources to catch. (1) A caller mutated the cached range's
+        # tags after we handed it out; (2) an inner Specifier's ``prereleases``
+        # changed under us, shifting the set's autodetect without going
+        # through this set's setter (which would have cleared the cache).
+        # Either way, hand back a freshly stamped copy rather than re-stamping
+        # the range an earlier call returned. The structural bounds are
+        # policy-independent so only the carried tags need updating.
+        resolved_stamped, configured_stamped = self._range_cache_key
         if (
-            self.prereleases is False
-            and candidate is not None
-            and candidate.is_prerelease
+            cache._prereleases == resolved_stamped
+            and cache._prereleases_configured == configured_stamped
+            and (configured_stamped is not None or self.prereleases == resolved_stamped)
         ):
-            return True
+            return cache
 
-        standard = [s for s in self._specs if s.operator != "==="]
-        if not standard:
-            return False
+        # ``_restamp`` is :class:`~packaging.ranges.VersionRange`'s friend API
+        # for this ranges<->specifiers cache-refresh path; the slots have no
+        # public setter by design.
+        resolved = (
+            resolved_stamped if configured_stamped is not None else self.prereleases
+        )
+        refreshed = copy.copy(cache)
+        refreshed._restamp(resolved=resolved, configured=configured_stamped)
+        self._range_cache = refreshed
+        self._range_cache_key = (resolved, configured_stamped)
+        return refreshed
 
-        if candidate is None:
-            # Unparsable string cannot satisfy any standard spec.
-            return True
+    def _intersect_bounds(self) -> tuple[Interval, ...]:
+        """Intersect every specifier's bounds into a single range.
 
-        return not all(s.contains(candidate) for s in standard)
+        Thin wrapper that reuses each :class:`Specifier`'s per-instance bounds
+        cache and folds via :func:`intersect_specifier_bounds`. Callers must
+        exclude ``===`` specifiers (which have no bound form) and guard
+        against the empty set; the result feeds :meth:`is_unsatisfiable` and
+        the cold path of :meth:`__contains__` and :meth:`filter`.
+        """
+        assert not self._has_arbitrary, (
+            "_intersect_bounds called on a set containing ==="
+        )
+        return intersect_specifier_bounds(spec._to_ranges() for spec in self._specs)
 
     def __contains__(self, item: UnparsedVersion) -> bool:
         """Return whether or not the item is contained in this specifier.
@@ -1196,8 +1310,16 @@ class SpecifierSet(BaseSpecifier):
         False
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.3.0a1", prereleases=True)
         True
+
+        :raises TypeError: if ``item`` is not a :class:`str` or
+            :class:`~packaging.version.Version`.
         """
-        version = _coerce_version(item)
+        if not isinstance(item, (str, Version)):
+            raise TypeError(
+                f"SpecifierSet.contains() expected str or Version, "
+                f"got {type(item).__name__}"
+            )
+        version = coerce_version(item)
 
         if version is not None and installed and version.is_prerelease:
             prereleases = True
@@ -1209,14 +1331,10 @@ class SpecifierSet(BaseSpecifier):
         else:
             check_item = version
 
-        # Fast path: skip the intersected-range build while every spec
-        # answers directly. Once ``_ranges`` is set the cached range
-        # path beats re-iterating specs, so fall through then. A local
-        # on ``version`` needs PEP 440 stripping that the range path
-        # applies.
+        # Fast path: a parseable, local-free version against a rangelike
+        # set. The set-level pre-release decision is made first.
         if (
-            self._ranges is None
-            and version is not None
+            version is not None
             and not self._has_arbitrary
             and version.local is None
             and self._specs
@@ -1226,14 +1344,27 @@ class SpecifierSet(BaseSpecifier):
                 or (prereleases is None and self._prereleases is False)
             ):
                 return False
-            for spec in self._specs:
-                match = _fast_match(spec, version)
-                if match is None:
-                    break
-                if not match:
-                    return False
-            else:
+
+            # Answer per-spec when the intersected bounds aren't already
+            # cached. Specs that ``_fast_match`` cannot handle (wildcard,
+            # ``~=``, ``<V``/``>V`` family carve-out) fall back to that
+            # single spec's bounds via :meth:`Specifier._to_ranges`, so a
+            # contains-only workload never pays the ~50 us cost of
+            # folding the full set. :meth:`filter` and
+            # :meth:`is_unsatisfiable` populate ``_ranges`` when called;
+            # once it is, the cheap bounds-only path takes over.
+            if (bounds := self._ranges) is None:
+                for spec in self._specs:
+                    match = spec._fast_match(version)
+                    if match is False:
+                        return False
+                    if match is None and not matches_bounds_only(
+                        spec._to_ranges(), version
+                    ):
+                        return False
                 return True
+
+            return matches_bounds_only(bounds, version)
 
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
@@ -1305,72 +1436,31 @@ class SpecifierSet(BaseSpecifier):
 
             Added the ``key`` parameter.
         """
-        # Determine if we're forcing a prerelease or not, if we're not forcing
-        # one for this particular filter call, then we'll use whatever the
-        # SpecifierSet thinks for whether or not we should support prereleases.
-        if prereleases is None and self.prereleases is not None:
-            prereleases = self.prereleases
+        # Resolve the default when no explicit value is given (the
+        # ``resolve_prereleases`` rule). ``self.prereleases`` scans every
+        # spec, so resolve it once and only when needed.
+        if prereleases is None:
+            resolved = self.prereleases
+            if resolved is not None:
+                prereleases = resolved
+        # Empty set with ``prereleases=True`` admits everything; skip the
+        # range-build and yield the iterable as-is.
+        if not self._has_arbitrary and not self._specs and prereleases is True:
+            return iter(iterable)
+        # Non-empty sets without ``===`` use the bounds-only fast path
+        # (see :meth:`Specifier.filter` for the rationale). The empty
+        # :class:`SpecifierSet` and ``===`` cases route through
+        # :class:`VersionRange`'s public filter so it can admit
+        # unparsable strings and arbitrary-equality literals.
+        if not self._has_arbitrary and self._specs:
+            if (bounds := self._ranges) is None:
+                bounds = self._ranges = self._intersect_bounds()
 
-        if self._specs:
-            if self._has_arbitrary:
-                # Slow path for ===
-                specs = self._specs
-                matches = (
-                    item
-                    for item in iterable
-                    if all(
-                        s.contains(item if key is None else key(item), prereleases=True)
-                        for s in specs
-                    )
-                )
-                return _apply_prereleases_filter(matches, key, prereleases)
+            return filter_by_ranges(
+                ranges=bounds,
+                iterable=iterable,
+                key=key,
+                prereleases=prereleases,
+            )
 
-            ranges = self._ranges
-            if ranges is None:
-                ranges = self._get_ranges()
-            return filter_by_ranges(ranges, iterable, key, prereleases)
-
-        # Empty SpecifierSet.
-        return _apply_prereleases_filter(iterable, key, prereleases)
-
-
-def _pep440_filter_prereleases(
-    iterable: Iterable[Any], key: Callable[[Any], UnparsedVersion] | None
-) -> Iterator[Any]:
-    """Filter per PEP 440: exclude prereleases unless no finals exist."""
-    # Two lists used:
-    #   * all_nonfinal to preserve order if no finals exist
-    #   * arbitrary_strings for streaming when first final found
-    all_nonfinal: list[Any] = []
-    arbitrary_strings: list[Any] = []
-
-    found_final = False
-    for item in iterable:
-        parsed = _coerce_version(item if key is None else key(item))
-
-        if parsed is None:
-            # Arbitrary strings are always included as it is not
-            # possible to determine if they are prereleases,
-            # and they have already passed all specifiers.
-            if found_final:
-                yield item
-            else:
-                arbitrary_strings.append(item)
-                all_nonfinal.append(item)
-            continue
-
-        if not parsed.is_prerelease:
-            # Final release found - flush arbitrary strings, then yield
-            if not found_final:
-                yield from arbitrary_strings
-                found_final = True
-            yield item
-            continue
-
-        # Prerelease - buffer if no finals yet, otherwise skip
-        if not found_final:
-            all_nonfinal.append(item)
-
-    # No finals found - yield all buffered items
-    if not found_final:
-        yield from all_nonfinal
+        return self.to_range().filter(iterable, key=key, prereleases=prereleases)

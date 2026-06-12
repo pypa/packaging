@@ -36,6 +36,13 @@ from packaging.specifiers import Specifier, SpecifierSet
 from packaging.tags import Tag
 from packaging.version import Version
 
+try:
+    from packaging.ranges import VersionRange
+except ImportError:
+    # ``packaging.ranges`` ships from 26.3; older releases run this
+    # script too (step 1 of the round-trip pickles with the old code).
+    VersionRange = None  # type: ignore[assignment,misc]
+
 _OBJECTS = {
     "version": [
         Version("1.2.3"),
@@ -79,6 +86,25 @@ _TYPE_CHECKS: dict[str, type[object]] = {
     "tag": Tag,
 }
 
+if VersionRange is not None:
+    _OBJECTS["versionrange"] = [
+        VersionRange.empty(),
+        VersionRange.full(),
+        VersionRange.singleton("1.0"),
+        Specifier("===wat").to_range(),
+        Specifier("===wat").to_range().complement(),
+        SpecifierSet(">=1.0,<2.0,!=1.5").to_range(),
+        # AFTER_LOCALS boundary kind from ``==V``.
+        SpecifierSet("==1.0").to_range(),
+        # AFTER_POSTS boundary kind from ``>V``.
+        SpecifierSet(">1.0").to_range(),
+        # Explicit ``prereleases=False`` survives the round trip.
+        SpecifierSet(">=1.0", prereleases=False).to_range(),
+        # Autodetected ``prereleases=True`` from a pre-release pin.
+        SpecifierSet(">=1.0a1").to_range(),
+    ]
+    _TYPE_CHECKS["versionrange"] = VersionRange
+
 
 def write(version: str, output_dir: pathlib.Path) -> pathlib.Path:
     """Pickle a representative set of objects and write them to disk."""
@@ -118,6 +144,10 @@ def verify(path: pathlib.Path, expected_version: str | None = None) -> int:
         return 1
 
     for kind, expected_cls in _TYPE_CHECKS.items():
+        if kind not in objects:
+            # Older releases pickle a subset of kinds; skip ones the
+            # generator did not write.
+            continue
         loaded_list = objects[kind]
         expected_list = _OBJECTS[kind]
 

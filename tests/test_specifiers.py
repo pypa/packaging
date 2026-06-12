@@ -13,8 +13,9 @@ import typing
 
 import pytest
 
+from packaging.ranges import VersionRange
 from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
-from packaging.version import Version, parse
+from packaging.version import InvalidVersion, Version, parse
 
 from .test_version import VERSIONS
 
@@ -274,6 +275,8 @@ class TestSpecifier:
         assert Specifier(left) == Specifier(right)
         assert left == Specifier(right)
         assert Specifier(left) == right
+        # Canonically-equal specifiers must produce equal ranges.
+        assert Specifier(left).to_range() == Specifier(right).to_range()
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
@@ -532,6 +535,7 @@ class TestSpecifier:
     )
     def test_specifiers(self, version: str, spec_str: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
+        version_range = spec.to_range()
 
         if expected:
             # Test that the plain string form works
@@ -541,6 +545,10 @@ class TestSpecifier:
             # Test that the version instance form works
             assert Version(version) in spec
             assert spec.contains(Version(version))
+
+            # And the same via ``Specifier.to_range``.
+            assert version in version_range
+            assert Version(version) in version_range
         else:
             # Test that the plain string form works
             assert version not in spec
@@ -549,6 +557,9 @@ class TestSpecifier:
             # Test that the version instance form works
             assert Version(version) not in spec
             assert not spec.contains(Version(version))
+
+            assert version not in version_range
+            assert Version(version) not in version_range
 
     @pytest.mark.parametrize(
         ("spec_str", "version", "expected"),
@@ -570,6 +581,10 @@ class TestSpecifier:
     def test_invalid_version(self, spec_str: str, version: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
         assert spec.contains(version) == expected
+        # Range equivalence: ``===`` carve-out ranges still answer
+        # ``contains`` correctly via the case-insensitive literal match.
+        version_range = spec.to_range()
+        assert (version in version_range) == expected
 
     @pytest.mark.parametrize(
         (
@@ -626,6 +641,167 @@ class TestSpecifier:
 
         assert (version in spec) == final_contains
         assert spec.contains(version) == final_contains
+
+        # contains() passed no explicit prereleases, so the bare range
+        # filter must match it. contains/filter on a Specifier take the
+        # bounds path (not to_range), so the range cache is cold and
+        # to_range here carries the prereleases just set.
+        version_range = spec.to_range()
+        assert bool(list(version_range.filter([version]))) == final_contains
+
+    def test_prereleases_setter_invalidates_range_cache(self) -> None:
+        """Setting prereleases must refresh to_range so it keeps mirroring filter."""
+        spec = Specifier(">=1.0")
+
+        # Warm the range cache before flipping the flag.
+        spec.to_range()
+        spec.prereleases = True
+
+        # to_range must carry the new flag and mirror Specifier.filter.
+        assert list(spec.to_range().filter(["1.0", "2.0a1"])) == list(
+            spec.filter(["1.0", "2.0a1"])
+        )
+        assert list(spec.to_range().filter(["1.0", "2.0a1"])) == ["1.0", "2.0a1"]
+
+    def test_spec_to_range_copy_on_stamp(self) -> None:
+        """Mutating the cached range's prereleases tag must not leak into the
+        next to_range() call."""
+        spec = Specifier(">=1.0")
+        r1 = spec.to_range()
+        r1._prereleases = True
+
+        r2 = spec.to_range()
+        assert r2 is not r1
+        assert r2._prereleases is None
+        # The earlier handout stays mutated; only the cache restamps.
+        assert r1._prereleases is True
+
+    def test_spec_to_range_copy_on_stamp_configured(self) -> None:
+        """Mutating the cached range's configured tag must restamp on the next
+        to_range() call."""
+        spec = Specifier(">=1.0a1")
+        r1 = spec.to_range()
+        assert r1._prereleases is True
+        assert r1._prereleases_configured is None
+
+        r1._prereleases_configured = False
+        r2 = spec.to_range()
+        assert r2 is not r1
+        assert r2._prereleases_configured is None
+        assert r2._prereleases is True
+
+    def test_spec_to_range_cache_hit_returns_same_instance(self) -> None:
+        """Repeat to_range() calls must return the same cached instance when
+        nothing mutated the tags."""
+        spec = Specifier(">=1.0")
+        cached = spec.to_range()
+        for _ in range(5):
+            assert spec.to_range() is cached
+
+    def test_spec_to_range_pickle_round_trip(self) -> None:
+        """Pickling a warmed Specifier must drop the range cache and rebuild
+        on first to_range() after unpickling."""
+        spec = Specifier(">=1.0", prereleases=True)
+        spec.to_range()
+        restored = pickle.loads(pickle.dumps(spec))
+        restored_range = restored.to_range()
+        assert restored_range._prereleases is True
+        assert restored_range._prereleases_configured is True
+
+    def test_set_to_range_reflects_inner_spec_prereleases_mutation(self) -> None:
+        """A shared inner Specifier mutated after warming the set's range
+        cache must not leave a stale prerelease tag on to_range()."""
+        inner = Specifier(">=1.0a1")
+        s = SpecifierSet([inner])
+
+        # Warm the set's cached range; its tag autodetects True.
+        s.to_range()
+        assert s.to_range()._prereleases is True
+
+        # Flip the inner spec to exclude pre-releases. The set has no
+        # back-pointer to clear its cache, so to_range must re-stamp.
+        # The set's autodetect then drops to None (no spec autodetects
+        # True any more, and the set's own override was never set).
+        inner.prereleases = False
+        items = ["1.0a1", "1.5"]
+        assert list(s.to_range().filter(items)) == list(s.filter(items))
+        assert list(s.to_range().filter(items)) == ["1.5"]
+        assert s.to_range()._prereleases == s.prereleases
+        assert s.to_range()._prereleases is None
+
+        # Flip back to autodetect-True and re-verify the tag follows.
+        inner.prereleases = True
+        assert s.to_range()._prereleases is True
+        assert s.to_range()._prereleases == s.prereleases
+
+    def test_to_range_does_not_mutate_prior_result(self) -> None:
+        """A later to_range() must not reach back and re-stamp a range a prior
+        call already handed out when a shared inner spec's policy changes."""
+        inner = Specifier(">=1.0")
+        s = SpecifierSet([inner])
+        first = s.to_range()
+        items = ["2.0a1", "1.5"]
+        before = list(first.filter(items))
+
+        # Shift the set's policy without clearing its cache.
+        inner.prereleases = True
+        s.to_range()
+
+        assert list(first.filter(items)) == before
+
+    def test_set_to_range_copy_on_stamp(self) -> None:
+        """Mutating the cached set range's prereleases tag must not leak into
+        the next to_range() call."""
+        s = SpecifierSet(">=1.0")
+        r1 = s.to_range()
+        r1._prereleases = True
+
+        r2 = s.to_range()
+        assert r2 is not r1
+        assert r2._prereleases is None
+        # The earlier handout stays mutated; only the cache restamps.
+        assert r1._prereleases is True
+
+    def test_set_to_range_copy_on_stamp_configured(self) -> None:
+        """Mutating the cached set range's configured tag must restamp on the
+        next to_range() call."""
+        s = SpecifierSet(">=1.0a1")
+        r1 = s.to_range()
+        assert r1._prereleases is True
+        assert r1._prereleases_configured is None
+
+        r1._prereleases_configured = False
+        r2 = s.to_range()
+        assert r2 is not r1
+        assert r2._prereleases_configured is None
+        assert r2._prereleases is True
+
+    def test_set_to_range_cache_hit_returns_same_instance(self) -> None:
+        """An explicit-prereleases SpecifierSet must return the same cached
+        range instance on repeat calls, without restamping."""
+        specs = ",".join([">=1.0"] + [f"!={i}.0" for i in range(2, 12)])
+        s = SpecifierSet(specs, prereleases=False)
+
+        cached = s.to_range()
+        for _ in range(5):
+            assert s.to_range() is cached
+
+    def test_set_to_range_cache_resolved_change_restamps(self) -> None:
+        """Toggling the set's own prereleases must restamp the cached range
+        even though structural bounds are unchanged."""
+        s = SpecifierSet(">=1.0,<2.0")
+
+        first = s.to_range()
+        assert first._prereleases is None
+
+        s.prereleases = True
+        second = s.to_range()
+        assert second._prereleases is True
+        assert second is not first
+
+        s.prereleases = None
+        third = s.to_range()
+        assert third._prereleases is None
 
     @pytest.mark.parametrize(
         ("version", "spec_str", "expected"),
@@ -696,6 +872,9 @@ class TestSpecifier:
     ) -> None:
         spec = Specifier(spec_str)
         assert spec.contains(version) == expected
+        # ``===`` membership via ``to_range`` matches ``Specifier.contains``.
+        r = spec.to_range()
+        assert (version in r) == expected
 
     @pytest.mark.parametrize(
         ("spec_str", "version", "expected"),
@@ -751,6 +930,11 @@ class TestSpecifier:
     ) -> None:
         spec = Specifier(spec_str, prereleases=True)
         assert spec.contains(version) == expected
+        # ``===`` carve-out: pass the original *version* (not a parsed
+        # one) so the case-insensitive literal match sees the same
+        # string ``contains`` saw.
+        version_range = spec.to_range()
+        assert (version in version_range) == expected
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),
@@ -874,6 +1058,14 @@ class TestSpecifier:
 
         assert spec.contains(version, prereleases=contains_pre) == expected
 
+        # Range parity: same prereleases arg contains() got; the range
+        # self-resolves to match.
+        version_range = spec.to_range()
+        assert (
+            bool(list(version_range.filter([version], prereleases=contains_pre)))
+            == expected
+        )
+
     @pytest.mark.parametrize(
         ("specifier", "specifier_prereleases", "prereleases", "input", "expected"),
         [
@@ -957,6 +1149,12 @@ class TestSpecifier:
 
         assert result == expected
 
+        # Range parity: same prereleases arg the spec filter got (``None``
+        # included), so the range self-resolves. Covers the ``===`` path.
+        version_range = spec.to_range()
+        range_result = list(version_range.filter(input, prereleases=prereleases))
+        assert range_result == expected
+
     @pytest.mark.parametrize(
         ("specifier", "input", "expected"),
         [
@@ -983,6 +1181,10 @@ class TestSpecifier:
     ) -> None:
         spec = Specifier(specifier, prereleases=True)
         assert list(spec.filter(input)) == expected
+        # filter() got no prereleases arg; the range self-resolves the
+        # one carried from the spec (constructed with prereleases=True).
+        version_range = spec.to_range()
+        assert list(version_range.filter(input)) == expected
 
     @pytest.mark.parametrize(
         ("prereleases", "expected_indexes"),
@@ -1011,6 +1213,15 @@ class TestSpecifier:
 
         expected = [items[index] for index in expected_indexes]
         assert result == expected
+
+        # Range parity: filter() takes ``key`` too; same prereleases arg.
+        version_range = spec.to_range()
+        range_result = list(
+            version_range.filter(
+                items, key=lambda item: item["version"], prereleases=prereleases
+            )
+        )
+        assert range_result == expected
 
     @pytest.mark.parametrize(
         ("spec", "op"),
@@ -1234,6 +1445,12 @@ class TestSpecifierSet:
         assert parse(version) in spec
         assert spec.contains(parse(version))
 
+        # Range equivalence: the empty SpecifierSet maps to the full
+        # range, which contains every parseable PEP 440 version.
+        version_range = spec.to_range()
+        assert version in version_range
+        assert parse(version) in version_range
+
     @pytest.mark.parametrize(
         ("prereleases", "versions", "expected"),
         [
@@ -1264,6 +1481,13 @@ class TestSpecifierSet:
         # check filter behavior (no override of prereleases passed to filter)
         assert list(spec.filter(versions)) == expected
 
+        # Empty SpecifierSet maps to the full range, which admits
+        # arbitrary strings. filter() got no prereleases arg, so the
+        # range self-resolves the one carried from the spec.
+        version_range = spec.to_range()
+        assert "foobar" in version_range
+        assert list(version_range.filter(versions)) == expected
+
     @pytest.mark.parametrize(
         ("versions", "expected"),
         [
@@ -1290,6 +1514,21 @@ class TestSpecifierSet:
         spec = SpecifierSet("")
         result = list(spec.filter(versions))
         assert result == expected
+
+        # Range equivalence: the full range admits arbitrary strings
+        # and applies PEP 440 default-mode buffering identically.
+        version_range = spec.to_range()
+        assert list(version_range.filter(versions)) == expected
+
+    def test_filter_unsatisfiable_multispec_short_circuits(self) -> None:
+        # The specs sort to ``<1.0``, ``>=2.0``, ``>=2.5``, so the running
+        # bounds intersection is already empty before the last spec; the
+        # fold short-circuits and the set matches nothing.
+        spec = SpecifierSet("<1.0,>=2.0,>=2.5")
+        assert list(spec.filter(["0.5", "1.5", "3.0"])) == []
+        version_range = spec.to_range()
+        assert version_range.is_empty
+        assert list(version_range.filter(["0.5", "1.5", "3.0"])) == []
 
     def test_create_from_specifiers(self) -> None:
         spec_strs = [">=1.0", "!=1.1", "!=1.2", "<2.0"]
@@ -1366,6 +1605,12 @@ class TestSpecifierSet:
         assert (version in spec) == final_contains
         assert spec.contains(version) == final_contains
 
+        # Range parity: contains() used no prereleases arg, so the bare
+        # filter must match. The setter invalidates the cache, so to_range
+        # carries the prereleases just set and self-resolves.
+        version_range = spec.to_range()
+        assert bool(list(version_range.filter([version]))) == final_contains
+
     def test_specifier_contains_prereleases(self) -> None:
         spec = SpecifierSet()
         assert spec.prereleases is None
@@ -1376,6 +1621,18 @@ class TestSpecifierSet:
         assert spec.prereleases
         assert spec.contains("1.0.dev1")
         assert not spec.contains("1.0.dev1", prereleases=False)
+
+        # Range equivalence: empty SpecifierSet -> full range.
+        # Membership of a prerelease version depends on the
+        # ``prereleases`` flag passed to ``version_range.filter``.
+        empty_range = SpecifierSet().to_range()
+        # ``prereleases=None`` (PEP 440 default with no finals in the
+        # iterable) yields the prerelease.
+        assert list(empty_range.filter(["1.0.dev1"])) == ["1.0.dev1"]
+        # ``prereleases=True`` always yields it.
+        assert list(empty_range.filter(["1.0.dev1"], prereleases=True)) == ["1.0.dev1"]
+        # ``prereleases=False`` excludes it.
+        assert list(empty_range.filter(["1.0.dev1"], prereleases=False)) == []
 
     @pytest.mark.parametrize(
         (
@@ -1461,9 +1718,33 @@ class TestSpecifierSet:
 
         assert spec.contains(version, **kwargs) == expected
 
+        # Range parity: the range can't model ``installed``, so mirror its
+        # prerelease upgrade locally, then pass that as the prereleases arg.
+        version_range = spec.to_range()
+        item_pre = contains_prereleases
+        if installed:
+            try:
+                if Version(version).is_prerelease:
+                    item_pre = True
+            except InvalidVersion:
+                pass
+        assert (
+            bool(list(version_range.filter([version], prereleases=item_pre)))
+            == expected
+        )
+
         spec = SpecifierSet("~=1.0", prereleases=False)
         assert spec.contains("1.1.0.dev1", installed=True)
+        # Same upgrade when the item is already a Version instance.
+        assert spec.contains(Version("1.1.0.dev1"), installed=True)
         assert not spec.contains("1.1.0.dev1", prereleases=False, installed=False)
+        # Range parity for the inline checks: installed=True treats the
+        # candidate prerelease as prereleases=True.
+        version_range_2 = spec.to_range()
+        assert list(version_range_2.filter(["1.1.0.dev1"], prereleases=True)) == [
+            "1.1.0.dev1"
+        ]
+        assert list(version_range_2.filter(["1.1.0.dev1"], prereleases=False)) == []
 
     @pytest.mark.parametrize(
         ("specifier", "specifier_prereleases", "prereleases", "input", "expected"),
@@ -1607,6 +1888,13 @@ class TestSpecifierSet:
 
         assert result == expected
 
+        # Range parity: same prereleases arg (``None`` included). The full
+        # range and ``===`` admit unparsable strings; other ranges match
+        # only parseable versions, as the spec layer already does.
+        version_range = spec.to_range()
+        range_result = list(version_range.filter(input, prereleases=prereleases))
+        assert range_result == expected
+
     @pytest.mark.parametrize(
         ("prereleases", "expected_indexes"),
         [
@@ -1635,6 +1923,15 @@ class TestSpecifierSet:
         expected = [items[index] for index in expected_indexes]
         assert result == expected
 
+        # Range equivalence: ``version_range.filter`` accepts ``key`` too.
+        version_range = spec.to_range()
+        range_result = list(
+            version_range.filter(
+                items, key=lambda item: item["version"], prereleases=prereleases
+            )
+        )
+        assert range_result == expected
+
     @pytest.mark.parametrize(
         ("prereleases", "expected_indexes"),
         [
@@ -1656,6 +1953,15 @@ class TestSpecifierSet:
 
         expected = [items[index] for index in expected_indexes]
         assert result == expected
+
+        # Empty SpecifierSet maps to the full range. filter() got no
+        # prereleases arg, so the range self-resolves the one carried
+        # from the spec.
+        version_range = spec.to_range()
+        range_result = list(
+            version_range.filter(items, key=lambda item: item["version"])
+        )
+        assert range_result == expected
 
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "input", "expected"),
@@ -1901,6 +2207,10 @@ class TestSpecifierSet:
 
         assert result == expected
 
+        # Range parity: same prereleases arg the spec filter got.
+        version_range = spec.to_range()
+        assert list(version_range.filter(input, prereleases=prereleases)) == expected
+
     @pytest.mark.parametrize(
         ("specifier", "prereleases", "version", "expected"),
         [
@@ -2062,6 +2372,14 @@ class TestSpecifierSet:
         kwargs = {"prereleases": prereleases} if prereleases is not None else {}
         assert spec.contains(version, **kwargs) == expected
 
+        # Range parity: same prereleases arg contains() got (``None``
+        # exercises the exclusionary-gap pre-release case).
+        version_range = spec.to_range()
+        assert (
+            bool(list(version_range.filter([version], prereleases=prereleases)))
+            == expected
+        )
+
     @pytest.mark.parametrize(
         ("specifier", "input"),
         [
@@ -2073,6 +2391,34 @@ class TestSpecifierSet:
     ) -> None:
         spec = SpecifierSet(specifier, prereleases=True)
         assert not spec.contains(input)
+        # Range equivalence: an unparsable string is never in any
+        # range.
+        version_range = spec.to_range()
+        assert input not in version_range
+
+    @pytest.mark.parametrize("spec_str", [">=1.0", "===1", "==1.*", "!=1.0"])
+    @pytest.mark.parametrize("bad_item", [1, 1.5, None, True, b"1.0", []])
+    def test_specifier_contains_off_type_raises_type_error(
+        self, spec_str: str, bad_item: object
+    ) -> None:
+        """``Specifier.contains`` and ``in`` reject non-str/non-Version inputs."""
+        spec = Specifier(spec_str)
+        with pytest.raises(TypeError, match="expected str or Version"):
+            spec.contains(bad_item)  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expected str or Version"):
+            bad_item in spec  # type: ignore[operator]  # noqa: B015
+
+    @pytest.mark.parametrize("spec_str", [">=1.0", "===1", "==1.*", "!=1.0", ""])
+    @pytest.mark.parametrize("bad_item", [1, 1.5, None, True, b"1.0", []])
+    def test_specifierset_contains_off_type_raises_type_error(
+        self, spec_str: str, bad_item: object
+    ) -> None:
+        """``SpecifierSet.contains`` and ``in`` reject non-str/non-Version inputs."""
+        ss = SpecifierSet(spec_str)
+        with pytest.raises(TypeError, match="expected str or Version"):
+            ss.contains(bad_item)  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expected str or Version"):
+            bad_item in ss  # type: ignore[operator]  # noqa: B015
 
     @pytest.mark.skipif(
         not hasattr(sys, "get_int_max_str_digits"),
@@ -2092,6 +2438,20 @@ class TestSpecifierSet:
             spec = SpecifierSet(specifier)
             with pytest.raises(ValueError, match="Exceeds the limit"):
                 spec.contains("1.0")
+            # Range equivalence: ``to_range`` either raises during
+            # bound construction (the spec version's int conversion
+            # hits the limit) or builds a range whose ``__contains__``
+            # comparison hits it on the same input.  Either path
+            # surfaces ``ValueError("Exceeds the limit")``; wrapping
+            # both calls in one ``pytest.raises`` block keeps the
+            # contract loose.
+
+            def _trigger() -> None:
+                version_range = spec.to_range()
+                _ = "1.0" in version_range
+
+            with pytest.raises(ValueError, match="Exceeds the limit"):
+                _trigger()
         finally:
             sys.set_int_max_str_digits(old)
 
@@ -2131,6 +2491,10 @@ class TestSpecifierSet:
     ) -> None:
         spec = SpecifierSet(specifier)
         assert spec.contains(version) == expected
+        # Range equivalence: every spec form (including ``===``) has
+        # a range form thanks to the carve-out.
+        version_range = spec.to_range()
+        assert (version in version_range) == expected
 
     @pytest.mark.parametrize(
         ("spec_str", "version", "expected"),
@@ -2162,6 +2526,9 @@ class TestSpecifierSet:
     ) -> None:
         spec = SpecifierSet(spec_str, prereleases=True)
         assert spec.contains(version) == expected
+        # ``===`` membership via ``to_range`` matches ``SpecifierSet.contains``.
+        version_range = spec.to_range()
+        assert (version in version_range) == expected
 
     @pytest.mark.parametrize(
         ("specifier", "expected"),
@@ -2257,10 +2624,18 @@ class TestSpecifierSet:
         assert a == b
         assert hash(a) == hash(b)
         assert str(a) == str(b)
+        # Range equivalence: deduplicated specifiers produce the same
+        # range too.
+        assert a.to_range() == b.to_range()
 
     def test_specifiers_combine_deduplicates(self) -> None:
         result = SpecifierSet(">=1.0") & SpecifierSet(">=1.0,<5.0")
         assert str(result) == "<5.0,>=1.0"
+        # Range equivalence: combined SpecifierSet's range matches the
+        # intersection of the two component ranges.
+        assert result.to_range() == (
+            SpecifierSet(">=1.0").to_range() & SpecifierSet(">=1.0,<5.0").to_range()
+        )
 
     def test_specifiers_combine_not_implemented(self) -> None:
         with pytest.raises(TypeError):
@@ -2315,6 +2690,9 @@ class TestSpecifierSet:
         assert SpecifierSet(left) == SpecifierSet(right)
         assert left == SpecifierSet(right)
         assert SpecifierSet(left) == right
+        # Range equivalence: canonicalisation in the range builder
+        # produces equal ranges for canonicalised SpecifierSets.
+        assert SpecifierSet(left).to_range() == SpecifierSet(right).to_range()
 
     def test_comparison_non_specifier(self) -> None:
         assert SpecifierSet("==1.0") != 12
@@ -2335,11 +2713,21 @@ class TestSpecifierSet:
         self, version: str, specifier: str, expected: bool
     ) -> None:
         assert (Version(version) in SpecifierSet(specifier)) == expected
+        # Range equivalence: structural ``in`` on the range agrees
+        # with ``in`` on the SpecifierSet for parseable Version
+        # objects (no prerelease filter).
+        version_range = SpecifierSet(specifier).to_range()
+        assert (Version(version) in version_range) == expected
 
     def test_contains_with_compatible_operator(self) -> None:
         combination = SpecifierSet("~=1.18.0") & SpecifierSet("~=1.18")
         assert "1.19.5" not in combination
         assert "1.18.0" in combination
+        # Range equivalence: combined range membership matches the
+        # ``contains`` results.
+        version_range = combination.to_range()
+        assert "1.19.5" not in version_range
+        assert "1.18.0" in version_range
 
     @pytest.mark.parametrize(
         ("spec1", "spec2", "input_versions"),
@@ -2372,9 +2760,16 @@ class TestSpecifierSet:
         s2 = Specifier(spec2)
         versions1 = set(s1.filter(input_versions))
         versions2 = set(s2.filter(input_versions))
-        combined_versions = set(SpecifierSet(f"{spec1},{spec2}").filter(input_versions))
+        combined = SpecifierSet(f"{spec1},{spec2}")
+        combined_versions = set(combined.filter(input_versions))
 
         assert versions1 & versions2 == combined_versions
+
+        # Each spec form's filter mirrors its range form's filter, and
+        # the intersection identity holds for the range forms too.
+        assert set(s1.to_range().filter(input_versions)) == versions1
+        assert set(s2.to_range().filter(input_versions)) == versions2
+        assert set(combined.to_range().filter(input_versions)) == combined_versions
 
 
 def _version_family(base: str) -> list[str]:
@@ -2531,6 +2926,10 @@ class TestIsUnsatisfiable:
         # >V excludes posts of V; <V.postN bound leaves no room
         ">1.0,<1.0.post0",
         ">1.0,<1.0.post1",
+        # !=V leaves an AFTER_LOCALS(V) lower bound whose only successor,
+        # V.post0.dev0, is excluded by the <V.post0 upper bound
+        ">=1.0.0,<1.0.post0,!=1.0",
+        ">=1.0.post0,<1.0.post1,!=1.0.post0",
         # >V.postN + <V.postN+1: no version exists in the gap
         ">1.0.post0,<1.0.post1",
         # dev crossing
@@ -2555,6 +2954,9 @@ class TestIsUnsatisfiable:
         # === with unparsable + standard spec
         "===foobar,==1.0",
         "===foobar,>=1.0",
+        # >=0.dev0 has full bounds but admits no arbitrary string, so the
+        # unparsable === literal satisfies it nowhere
+        "===foobar,>=0.dev0",
         "===a,!=1.0",
         "===not-a-version,~=1.0",
         "===foobar,>=2.0,<3.0",
@@ -2722,6 +3124,13 @@ class TestIsUnsatisfiable:
             f"is_unsatisfiable() but filter matched: "
             f"{[str(v) for v in result]} for {spec_str!r}"
         )
+        # Range equivalence: empty bounds imply unsatisfiability and
+        # ``version_range.filter`` returns nothing.
+        version_range = ss.to_range()
+        assert version_range.is_empty, (
+            f"Range disagreed about unsatisfiability: {spec_str!r}"
+        )
+        assert list(version_range.filter(_SAMPLE_VERSIONS, prereleases=True)) == []
 
     @pytest.mark.parametrize("spec_str", SATISFIABLE)
     def test_satisfiable(self, spec_str: str) -> None:
@@ -2730,12 +3139,49 @@ class TestIsUnsatisfiable:
         assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
         result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS, prereleases=True)), None))
         assert result, f"Expected filter to match at least one version for {spec_str!r}"
+        # Range equivalence: non-empty bounds imply satisfiability.
+        version_range = ss.to_range()
+        assert not version_range.is_empty, (
+            f"Range disagreed about satisfiability: {spec_str!r}"
+        )
+        range_result = bool(
+            next(iter(version_range.filter(_SAMPLE_VERSIONS, prereleases=True)), None)
+        )
+        assert range_result, f"Range filter found no version for {spec_str!r}"
+
+    @pytest.mark.parametrize("spec_str", SATISFIABLE)
+    def test_filter_matches_per_spec_filter(self, spec_str: str) -> None:
+        """Range-based ``SpecifierSet.filter`` must match the conjunction of
+        per-spec ``contains`` checks."""
+        if not spec_str:
+            return
+        ss = SpecifierSet(spec_str)
+        interval_result = set(ss.filter(_SAMPLE_VERSIONS, prereleases=True))
+        manual_result = set()
+        for v in _SAMPLE_VERSIONS:
+            if all(spec.contains(v, prereleases=True) for spec in ss):
+                manual_result.add(v)
+        assert interval_result == manual_result, (
+            f"Filter mismatch for {spec_str!r}: "
+            f"extra={sorted(str(v) for v in interval_result - manual_result)}, "
+            f"missing={sorted(str(v) for v in manual_result - interval_result)}"
+        )
+        # The range form's filter matches the same conjunction.
+        range_result = set(ss.to_range().filter(_SAMPLE_VERSIONS, prereleases=True))
+        assert range_result == manual_result
 
     def test_result_is_cached(self) -> None:
         ss = SpecifierSet(">=2.0,<1.0")
         assert ss.is_unsatisfiable()
         assert ss._is_unsatisfiable is True
         assert ss.is_unsatisfiable()  # second call uses cache
+
+    def test_reuses_ranges_populated_by_filter(self) -> None:
+        ss = SpecifierSet(">=1.0,<2.0")
+        list(ss.filter([Version("1.5")]))
+        assert ss._ranges is not None
+        assert ss._is_unsatisfiable is None
+        assert not ss.is_unsatisfiable()
 
     def test_cache_reset_on_prereleases_change(self) -> None:
         ss = SpecifierSet(">=1.0,<2.0")
@@ -2797,6 +3243,8 @@ class TestIsUnsatisfiable:
         # Inclusive upper at non-pre-release boundary
         ">=1.0rc1,<=1.0",
         ">=1.0.dev0,<=1.0",
+        # >V.preN.postM lower: the final V still sits inside the range
+        ">1.0a1.post2,<1.0.post0",
     ]
 
     @pytest.mark.parametrize("spec_str", UNSATISFIABLE_NO_PRE)
@@ -2810,6 +3258,11 @@ class TestIsUnsatisfiable:
             f"is_unsatisfiable() but filter matched: "
             f"{[str(v) for v in result]} for {spec_str!r}"
         )
+        # Range equivalence: ``version_range.filter(prereleases=False)`` produces
+        # nothing when the spec is unsatisfiable under
+        # ``prereleases=False``.
+        version_range = ss.to_range()
+        assert list(version_range.filter(_SAMPLE_VERSIONS, prereleases=False)) == []
 
     @pytest.mark.parametrize("spec_str", SATISFIABLE_NO_PRE)
     def test_satisfiable_prereleases_false(self, spec_str: str) -> None:
@@ -2818,14 +3271,39 @@ class TestIsUnsatisfiable:
         assert not ss.is_unsatisfiable(), f"Expected satisfiable: {spec_str!r}"
         result = bool(next(iter(ss.filter(_SAMPLE_VERSIONS)), None))
         assert result, f"Expected filter to match at least one version for {spec_str!r}"
+        # Range equivalence: ``version_range.filter(prereleases=False)`` finds at
+        # least one version when the spec is satisfiable.
+        version_range = ss.to_range()
+        range_result = bool(
+            next(iter(version_range.filter(_SAMPLE_VERSIONS, prereleases=False)), None)
+        )
+        assert range_result
+
+    def test_prerelease_post_lower_bound_keeps_final(self) -> None:
+        """A ``>V.preN.postM`` lower bound must not hide the final V.
+
+        ``1.0a1.post2 < 1.0 < 1.0.post0`` in PEP 440, so 1.0 is a final
+        release inside the range and the set is satisfiable.
+        """
+        ss = SpecifierSet(">1.0a1.post2,<1.0.post0", prereleases=False)
+        assert not ss.is_unsatisfiable()
+        assert ss.contains("1.0")
 
     def test_and_preserves_unsatisfiable(self) -> None:
         combined = SpecifierSet(">=2.0") & SpecifierSet("<1.0")
         assert combined.is_unsatisfiable()
+        # Range equivalence: the combined range is empty.
+        version_range = combined.to_range()
+        assert version_range.is_empty
 
     def test_and_satisfiable(self) -> None:
         combined = SpecifierSet(">=1.0") & SpecifierSet("<2.0")
         assert not combined.is_unsatisfiable()
+        # Range equivalence: the combined range is non-empty and
+        # admits versions inside [1.0, 2.0).
+        version_range = combined.to_range()
+        assert not version_range.is_empty
+        assert "1.5" in version_range
 
     def test_and_reuses_interval_cache(self) -> None:
         """Specifier interval cache is reused when specs are shared via &."""
@@ -2834,15 +3312,15 @@ class TestIsUnsatisfiable:
         # Compute intervals on the original sets first.
         assert not s1.is_unsatisfiable()
         assert not s2.is_unsatisfiable()
-        # __and__ reuses the same Specifier objects, so _to_ranges()
-        # hits the cache on those Specifier instances.
+        # __and__ reuses the same Specifier objects, so the range
+        # cache is hit on those Specifier instances.
         combined = s1 & s2
         assert not combined.is_unsatisfiable()
 
     def test_range_bounds_hashable_and_equal(self) -> None:
         """Range bounds are hashable and support equality."""
-        a = Specifier(">1.0")._to_ranges()
-        b = Specifier(">1.0")._to_ranges()
+        a = Specifier(">1.0").to_range()._bounds
+        b = Specifier(">1.0").to_range()._bounds
         for (al, au), (bl, bu) in zip(a, b):
             hash(al)
             hash(au)
@@ -2850,16 +3328,16 @@ class TestIsUnsatisfiable:
             assert au == bu
 
     def test_range_bounds_repr(self) -> None:
-        [(lower, upper)] = Specifier(">=1.0")._to_ranges()
-        assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
-        assert repr(upper) == "<_UpperBound None)>"
+        [(lower, upper)] = Specifier(">=1.0").to_range()._bounds
+        assert repr(lower) == "<LowerBound [<Version('1.0')>>"
+        assert repr(upper) == "<UpperBound None)>"
 
-        [(lower2, upper2)] = Specifier(">1.0")._to_ranges()
+        [(lower2, upper2)] = Specifier(">1.0").to_range()._bounds
         assert (
             repr(lower2)
-            == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
+            == "<LowerBound (BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
         )
-        assert repr(upper2) == "<_UpperBound None)>"
+        assert repr(upper2) == "<UpperBound None)>"
 
 
 @pytest.mark.parametrize(
@@ -2888,11 +3366,15 @@ def test_pickle_specifier_roundtrip(
     s = Specifier(specifier, prereleases=spec_prereleases)
     # Warm up caches before pickling to ensure they are excluded from state.
     _ = s.prereleases
-    _ = s._to_ranges()
+    _ = s.to_range()
     loaded = pickle.loads(pickle.dumps(s))
     assert loaded == s
     assert str(loaded) == str(s)
     assert loaded.prereleases == s.prereleases
+    # Range equivalence: the unpickled specifier produces the same
+    # range as the original (cache is rebuilt lazily but must yield
+    # the same structural result).
+    assert loaded.to_range() == s.to_range()
 
 
 @pytest.mark.parametrize(
@@ -2921,6 +3403,9 @@ def test_pickle_specifierset_roundtrip(
     assert loaded == ss
     assert str(loaded) == str(ss)
     assert loaded.prereleases == ss.prereleases
+    # Range equivalence: the unpickled SpecifierSet produces the same
+    # range as the original.
+    assert loaded.to_range() == ss.to_range()
 
 
 def test_pickle_setstate_rejects_invalid_state() -> None:
@@ -2977,33 +3462,41 @@ def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
 
 
 def test_pickle_specifier_setstate_clears_cache() -> None:
-    # Verify that __setstate__ resets all cached slots to their reset
-    # values, regardless of what was cached before the call.
-    s = Specifier("==1.*")
-    # Warm up every cache slot.
-    _ = s._to_ranges()  # populates _spec_version + _ranges
+    # Verify that __setstate__ resets all cached slots to None,
+    # regardless of what was cached before the call.
+    s = Specifier(">=1.0")
+    # Warm up every cache slot. The second access exercises the
+    # cache-hit branch in ``to_range()``.
+    _ = hash(s)  # populates _spec_version via _canonical_spec
+    cold_range = s.to_range()  # populates _range_cache
+    warm_range = s.to_range()  # cache hit
     assert s._spec_version is not None
-    assert s._ranges is not None
+    assert s._range_cache is not None
+    assert cold_range is warm_range
 
-    s.__setstate__((("==", "1.*"), None))
+    s.__setstate__(((">=", "1.0"), None))
 
     assert s._spec_version is None
-    assert s._ranges is None
+    assert s._range_cache is None
 
 
 def test_pickle_specifierset_setstate_clears_cache() -> None:
-    # Verify that __setstate__ resets all cached slots, regardless of
-    # what was cached before the call.
+    # Verify that __setstate__ resets all cached slots to None,
+    # regardless of what was cached before the call.
     ss = SpecifierSet(">=1.0,<2.0")
-    # Warm up every cache slot.
-    ss.is_unsatisfiable()  # populates _is_unsatisfiable + _ranges
+    # Warm up every cache slot. The double ``to_range()`` access also
+    # exercises the cache-hit branch.
+    ss.is_unsatisfiable()  # populates _is_unsatisfiable
+    cold_range = ss.to_range()  # populates _range_cache
+    warm_range = ss.to_range()  # cache hit
     assert ss._is_unsatisfiable is not None
-    assert ss._ranges is not None
+    assert ss._range_cache is not None
+    assert cold_range is warm_range
 
     ss.__setstate__(((Specifier(">=3.0"), Specifier("<4.0")), None))
 
     assert ss._is_unsatisfiable is None
-    assert ss._ranges is None
+    assert ss._range_cache is None
 
 
 # Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
@@ -3047,6 +3540,11 @@ def test_pickle_specifierset_25_0_format_loads() -> None:
     assert "3.10" in ss
     assert "3.12" in ss
     assert "4.0" not in ss
+    # to_range is rebuilt from the unpickled set and agrees on membership.
+    version_range = ss.to_range()
+    assert "3.10" in version_range
+    assert "3.12" in version_range
+    assert "4.0" not in version_range
     assert ss.prereleases is None
 
 
@@ -3099,6 +3597,11 @@ def test_pickle_specifierset_26_0_slots_format_loads() -> None:
     assert "3.10" in ss
     assert "3.12" in ss
     assert "4.0" not in ss
+    # to_range is rebuilt from the unpickled set and agrees on membership.
+    version_range = ss.to_range()
+    assert "3.10" in version_range
+    assert "3.12" in version_range
+    assert "4.0" not in version_range
     assert ss.prereleases is None
 
 
@@ -3151,6 +3654,11 @@ def test_pickle_specifierset_26_1_slots_format_loads() -> None:
     assert "3.10" in ss
     assert "3.12" in ss
     assert "4.0" not in ss
+    # to_range is rebuilt from the unpickled set and agrees on membership.
+    version_range = ss.to_range()
+    assert "3.10" in version_range
+    assert "3.12" in version_range
+    assert "4.0" not in version_range
     assert ss.prereleases is None
 
 
@@ -3193,7 +3701,20 @@ def test_pickle_specifierset_26_2_tuple_format_loads() -> None:
     assert "3.10" in ss
     assert "3.12" in ss
     assert "4.0" not in ss
-    assert ss.prereleases is None
+    # to_range is rebuilt from the unpickled set and agrees on membership.
+    version_range = ss.to_range()
+    assert "3.10" in version_range
+    assert "3.12" in version_range
+    assert "4.0" not in version_range
+
+
+def test_pickle_specifier_set_version_range_round_trip() -> None:
+    """SpecifierSet pickle survives a VersionRange round-trip."""
+    ss = SpecifierSet(">=1.0,<2.0")
+    r1 = VersionRange.from_specifier_set(ss)
+    restored = pickle.loads(pickle.dumps(ss))
+    r2 = VersionRange.from_specifier_set(restored)
+    assert r1 == r2
 
 
 def test_filter_multirange_pep440_prerelease_after_final() -> None:
@@ -3202,6 +3723,10 @@ def test_filter_multirange_pep440_prerelease_after_final() -> None:
     ss = SpecifierSet("!=1.5")
     assert list(ss.filter(["1.4", "1.6a1"])) == ["1.4"]
     assert list(ss.filter(["1.6a1", "1.4"])) == ["1.4"]
+    # filter() got no prereleases arg; the range self-resolves to match.
+    version_range = ss.to_range()
+    assert list(version_range.filter(["1.4", "1.6a1"])) == ["1.4"]
+    assert list(version_range.filter(["1.6a1", "1.4"])) == ["1.4"]
 
 
 @pytest.mark.parametrize(
@@ -3220,9 +3745,10 @@ def test_filter_multirange_pep440_prerelease_after_final() -> None:
     ],
 )
 def test_specifier_construction_is_lazy(spec: str) -> None:
+    """Construction must defer range building, version parsing, and to_range cache."""
     s = Specifier(spec)
     assert s._spec_version is None
-    assert s._ranges is None
+    assert s._range_cache is None
 
 
 @pytest.mark.parametrize(
@@ -3236,21 +3762,80 @@ def test_specifier_construction_is_lazy(spec: str) -> None:
     ],
 )
 def test_specifierset_construction_is_lazy(spec: str) -> None:
+    """Construction must defer all inner caches as well."""
     ss = SpecifierSet(spec)
     assert ss._is_unsatisfiable is None
-    assert ss._ranges is None
-    # Every inner Specifier must also be untouched.
+    assert ss._range_cache is None
     for inner in ss._specs:
         assert inner._spec_version is None
-        assert inner._ranges is None
+        assert inner._range_cache is None
+
+
+_COMPLEX_RANGELIKE = ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14,!=3.11.0,!=3.12.0"
+
+
+def test_specifierset_contains_never_builds_bounds() -> None:
+    """``contains`` only reads ``_ranges``; building stays in ``filter`` /
+    ``is_unsatisfiable``. A contains-only workload pays the per-spec cost
+    on every call instead of the ~50 us intersected-bounds build."""
+    ss = SpecifierSet(_COMPLEX_RANGELIKE)
+    assert ss._ranges is None
+
+    for _ in range(3):
+        ss.contains(Version("3.10.5"))
+        assert ss._ranges is None
+
+
+def test_specifierset_contains_uses_cached_bounds_when_filter_warms_them() -> None:
+    """Once a sibling call (here ``filter``) has populated ``_ranges``,
+    ``contains`` switches to the cheap bounds-only path."""
+    ss = SpecifierSet(_COMPLEX_RANGELIKE)
+    list(ss.filter([Version("3.10.5")]))
+    assert ss._ranges is not None
+    cached = ss._ranges
+
+    assert ss.contains(Version("3.10.7")) is True
+
+    assert ss._ranges is cached
+
+
+def test_empty_specifierset_filter_pre_true_passes_through() -> None:
+    """``SpecifierSet("").filter(items, prereleases=True)`` is an ``iter()``
+    shortcut and yields every item unchanged, including non-version strings.
+    """
+    items = ["1.3", "1.5a1", Version("2.0"), "garbage"]
+
+    out = list(SpecifierSet("").filter(items, prereleases=True))
+
+    assert out == items
+
+
+def test_specifierset_contains_per_spec_and_bounds_paths_agree() -> None:
+    """The per-spec path (``_ranges`` is ``None``) and the bounds-only path
+    (``_ranges`` populated by ``filter``) must produce identical answers
+    across a representative version grid."""
+    versions = [Version(f"3.{m}.{p}") for m in range(7, 15) for p in range(3)]
+    per_spec_results = [SpecifierSet(_COMPLEX_RANGELIKE).contains(v) for v in versions]
+
+    bounds_path = SpecifierSet(_COMPLEX_RANGELIKE)
+    list(bounds_path.filter([versions[0]]))
+    assert bounds_path._ranges is not None
+    bounds_results = [bounds_path.contains(v) for v in versions]
+
+    assert per_spec_results == bounds_results
 
 
 def test_specifier_filter_with_version_iterable_warms_then_reuses_cache() -> None:
-    """filter() reuses warm _ranges and exercises the Version isinstance branch."""
+    """filter() reuses warm _range_cache and exercises the Version isinstance branch."""
     spec = Specifier(">=1.5")
     assert spec.contains(Version("2.0"))
     items = [Version("1.0"), Version("2.0"), Version("3.0")]
     assert list(spec.filter(items)) == [Version("2.0"), Version("3.0")]
+
+    # Range parity: contains via singleton filter, filter via bare call.
+    version_range = spec.to_range()
+    assert bool(list(version_range.filter([Version("2.0")])))
+    assert list(version_range.filter(items)) == [Version("2.0"), Version("3.0")]
 
 
 @pytest.mark.parametrize(
@@ -3276,11 +3861,20 @@ def test_boundary_closure_short_release(
     filtered = list(spec.filter([version], prereleases=True))
     assert (filtered == [version]) is expected
 
+    # Range parity: contains via bare singleton filter, filter with the
+    # same prereleases=True the spec form used.
+    version_range = spec.to_range()
+    assert bool(list(version_range.filter([version]))) is expected
+    assert (list(version_range.filter([version], prereleases=True)) == [version]) is (
+        expected
+    )
+
 
 def test_filter_arbitrary_with_prereleases_false_skips_pre() -> None:
     """``===1.0a1`` with ``prereleases=False`` drops the pre-release."""
     spec = Specifier("===1.0a1")
     assert list(spec.filter(["1.0a1", "0.9"], prereleases=False)) == []
+    assert list(spec.to_range().filter(["1.0a1", "0.9"], prereleases=False)) == []
 
 
 def test_filter_arbitrary_constructor_prereleases_false_skips_pre() -> None:
@@ -3288,6 +3882,9 @@ def test_filter_arbitrary_constructor_prereleases_false_skips_pre() -> None:
     spec = Specifier("===1.0a1", prereleases=False)
     assert list(spec.filter(["1.0a1"])) == []
     assert spec.contains("1.0a1") is False
+    # filter()/contains() got no prereleases arg; the range self-resolves
+    # the False carried from the constructor.
+    assert list(spec.to_range().filter(["1.0a1"])) == []
 
 
 def test_filter_arbitrary_unparsable_uses_key() -> None:
@@ -3295,6 +3892,10 @@ def test_filter_arbitrary_unparsable_uses_key() -> None:
     items = [{"v": "wat"}, {"v": "WAT"}, {"v": "else"}]
     spec = Specifier("===wat")
     assert list(spec.filter(items, key=lambda x: x["v"])) == [
+        {"v": "wat"},
+        {"v": "WAT"},
+    ]
+    assert list(spec.to_range().filter(items, key=lambda x: x["v"])) == [
         {"v": "wat"},
         {"v": "WAT"},
     ]
@@ -3306,9 +3907,11 @@ def test_filter_arbitrary_pep440_unparsable_buffer_flush() -> None:
     # match. Two matching items both buffer and then flush at the end.
     spec = Specifier("===wat")
     assert list(spec.filter(["wat", "wat"])) == ["wat", "wat"]
+    assert list(spec.to_range().filter(["wat", "wat"])) == ["wat", "wat"]
 
 
 def test_filter_arbitrary_pep440_pre_only() -> None:
     """``===1.0a1`` PEP 440 default: prerelease literal flushes without a final."""
     pre_spec = Specifier("===1.0a1")
     assert list(pre_spec.filter(["1.0a1"])) == ["1.0a1"]
+    assert list(pre_spec.to_range().filter(["1.0a1"])) == ["1.0a1"]
