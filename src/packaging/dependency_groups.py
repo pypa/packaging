@@ -254,12 +254,11 @@ class DependencyGroupResolver:
                 else:
                     include_group = item["include-group"]
                     if not isinstance(include_group, str):
-                        errors.error(
-                            TypeError(
-                                "Dependency group include-group value is not a string: "
-                                f"{item!r}"
-                            )
+                        msg = (
+                            "Dependency group include-group value is not a string: "
+                            f"{item!r}"
                         )
+                        errors.error(TypeError(msg))
                     else:
                         elements.append(
                             DependencyGroupInclude(include_group=include_group)
