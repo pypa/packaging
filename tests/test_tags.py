@@ -441,6 +441,19 @@ class TestMacOSPlatforms:
             assert "macosx_12_0_arm64" in platforms
             assert "macosx_12_0_universal2" in platforms
 
+    def test_no_mac_ver_when_both_args_given(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # When both version and arch are explicitly provided, platform.mac_ver()
+        # must not be called — it reads from the system and is irrelevant for
+        # cross-targeting use cases.
+        mac_ver_stub = pretend.call_recorder(
+            pretend.raiser(AssertionError("platform.mac_ver() must not be called"))
+        )
+        monkeypatch.setattr(platform, "mac_ver", mac_ver_stub)
+        list(tags.mac_platforms(version=(11, 0), arch="x86_64"))
+        assert mac_ver_stub.calls == []
+
 
 class TestIOSPlatforms:
     @pytest.mark.usefixtures("mock_ios")

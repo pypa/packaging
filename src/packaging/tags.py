@@ -616,28 +616,30 @@ def mac_platforms(
         - On Linux, code must be run on the system itself to determine
           compatibility
     """
-    version_str, _, cpu_arch = platform.mac_ver()
-    if version is None:
-        version = cast("AppleVersion", tuple(map(int, version_str.split(".")[:2])))
-        if version == (10, 16):
-            # When built against an older macOS SDK, Python will report macOS 10.16
-            # instead of the real version.
-            version_str = subprocess.run(
-                [
-                    sys.executable,
-                    "-sS",
-                    "-c",
-                    "import platform; print(platform.mac_ver()[0])",
-                ],
-                check=True,
-                env={"SYSTEM_VERSION_COMPAT": "0"},
-                stdout=subprocess.PIPE,
-                text=True,
-            ).stdout
+    if version is None or arch is None:
+        version_str, _, cpu_arch = platform.mac_ver()
+        if version is None:
             version = cast("AppleVersion", tuple(map(int, version_str.split(".")[:2])))
-
-    if arch is None:
-        arch = _mac_arch(cpu_arch)
+            if version == (10, 16):
+                # When built against an older macOS SDK, Python will report macOS 10.16
+                # instead of the real version.
+                version_str = subprocess.run(
+                    [
+                        sys.executable,
+                        "-sS",
+                        "-c",
+                        "import platform; print(platform.mac_ver()[0])",
+                    ],
+                    check=True,
+                    env={"SYSTEM_VERSION_COMPAT": "0"},
+                    stdout=subprocess.PIPE,
+                    text=True,
+                ).stdout
+                version = cast(
+                    "AppleVersion", tuple(map(int, version_str.split(".")[:2]))
+                )
+        if arch is None:
+            arch = _mac_arch(cpu_arch)
 
     if (10, 0) <= version < (11, 0):
         # Prior to Mac OS 11, each yearly release of Mac OS bumped the
