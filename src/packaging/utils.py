@@ -61,6 +61,8 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+# PEP 427: Valid characters for an escaped project name in a wheel filename.
+_wheel_name_regex = re.compile(r"^[\w._]*$", re.UNICODE)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -219,7 +221,7 @@ def parse_wheel_filename(
     parts = filename.split("-", dashes - 2)
     name_part = parts[0]
     # See PEP 427 for the rules on escaping the project name.
-    if "__" in name_part or re.match(r"^[\w\d._]*$", name_part, re.UNICODE) is None:
+    if "__" in name_part or _wheel_name_regex.match(name_part) is None:
         raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
     name = canonicalize_name(name_part)
 
