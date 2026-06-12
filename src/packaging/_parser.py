@@ -10,7 +10,7 @@ import ast
 from collections.abc import Sequence
 from typing import Literal, NamedTuple, Union
 
-from ._tokenizer import DEFAULT_RULES, Tokenizer
+from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
 
 
 class Node:
@@ -355,7 +355,15 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     if tokenizer.check("VARIABLE"):
         return process_env_var(tokenizer.read().text.replace(".", "_"))
     elif tokenizer.check("QUOTED_STRING"):
-        return process_python_str(tokenizer.read().text)
+        token = tokenizer.read()
+        try:
+            return process_python_str(token.text)
+        except (SyntaxError, ValueError) as exc:
+            raise ParserSyntaxError(
+                "Invalid quoted string",
+                source=tokenizer.source,
+                span=(token.position, token.position + len(token.text)),
+            ) from exc
     else:
         tokenizer.raise_syntax_error(
             message="Expected a marker variable or quoted string"
