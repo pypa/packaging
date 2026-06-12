@@ -261,7 +261,9 @@ class DependencyGroupResolver:
                             )
                         )
                     else:
-                        elements.append(DependencyGroupInclude(include_group=include_group))
+                        elements.append(
+                            DependencyGroupInclude(include_group=include_group)
+                        )
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
