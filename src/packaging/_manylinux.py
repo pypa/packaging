@@ -183,22 +183,25 @@ def _get_glibc_version() -> _GLibCVersion:
 
 
 # From PEP 513, PEP 600
+@functools.lru_cache(maxsize=1)
 def _get_manylinux_module() -> types.ModuleType | None:
-    """Return the ``_manylinux`` C extension module, or None if unavailable."""
+    """Return the ``_manylinux`` C extension module, or None if unavailable.
+
+    The result is cached for the lifetime of the process, since the presence
+    of the module does not change while running.
+    """
     try:
-        import _manylinux  # noqa: F401, PLC0415
+        return __import__("_manylinux")
     except ImportError:
         return None
-    return sys.modules["_manylinux"]
 
 
-def _is_compatible(
-    arch: str, version: _GLibCVersion, manylinux_mod: types.ModuleType | None
-) -> bool:
+def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
     sys_glibc = _get_glibc_version()
     if sys_glibc < version:
         return False
     # Check for presence of _manylinux module.
+    manylinux_mod = _get_manylinux_module()
     if manylinux_mod is None:
         return True
     if hasattr(manylinux_mod, "manylinux_compatible"):
@@ -260,9 +263,6 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     for glibc_major in range(current_glibc.major - 1, 1, -1):
         glibc_minor = _LAST_GLIBC_MINOR[glibc_major]
         glibc_max_list.append(_GLibCVersion(glibc_major, glibc_minor))
-    # Resolve the _manylinux module once for the entire loop rather than
-    # re-running the import machinery on every (arch, glibc-version) pair.
-    manylinux_mod = _get_manylinux_module()
     for arch in archs:
         for glibc_max in glibc_max_list:
             if glibc_max.major == too_old_glibc2.major:
@@ -272,7 +272,7 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
                 min_minor = -1
             for glibc_minor in range(glibc_max.minor, min_minor, -1):
                 glibc_version = _GLibCVersion(glibc_max.major, glibc_minor)
-                if _is_compatible(arch, glibc_version, manylinux_mod):
+                if _is_compatible(arch, glibc_version):
                     yield "manylinux_{}_{}_{}".format(*glibc_version, arch)
 
                     # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.

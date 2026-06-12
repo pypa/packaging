@@ -600,8 +600,9 @@ def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_disable_musl_detection")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
-        # Clear the version cache
+        # Clear the version and module caches
         tags._manylinux._get_glibc_version.cache_clear()  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     def test_get_config_var_does_not_log(self, monkeypatch: pytest.MonkeyPatch) -> None:
         debug = pretend.call_recorder(lambda *a: None)
@@ -655,7 +656,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 5),
+            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 5),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
         monkeypatch.setattr(platform, "machine", lambda: "x86_64")
@@ -729,7 +730,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 17),
+            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{native_arch}")
         monkeypatch.setattr(
@@ -862,7 +863,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(
             tags._manylinux,  # type: ignore[attr-defined]
             "_is_compatible",
-            lambda _, glibc_version, __: glibc_version == _GLibCVersion(2, 17),
+            lambda _, glibc_version: glibc_version == _GLibCVersion(2, 17),
         )
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_armv6l")
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
@@ -1577,6 +1578,7 @@ class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache
         tags._glibc_version = []  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     @pytest.mark.parametrize(
         ("name", "expected"),
