@@ -3355,3 +3355,17 @@ def test_filter_arbitrary_pep440_pre_only() -> None:
     """``===1.0a1`` PEP 440 default: prerelease literal flushes without a final."""
     pre_spec = Specifier("===1.0a1")
     assert list(pre_spec.filter(["1.0a1"])) == ["1.0a1"]
+
+
+def test_specifierset_contains_reads_cached_bounds() -> None:
+    # ``filter`` populates the intersected bounds; ``contains`` then answers
+    # from that cache rather than re-folding the specifiers. Poisoning the
+    # cache with empty bounds (which match nothing) flips the answer, proving
+    # ``contains`` reads ``_ranges`` instead of recomputing it.
+    ss = SpecifierSet(">=1.0,!=1.5,<3.0")
+    list(ss.filter([Version("2.0")]))
+    assert ss._ranges is not None
+    assert ss.contains("2.0") is True
+
+    ss._ranges = ()
+    assert ss.contains("2.0") is False
