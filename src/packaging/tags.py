@@ -94,7 +94,8 @@ class UnsortedTagsError(ValueError):
 
 class InvalidTag(ValueError):
     """
-    Raised when a tag has an empty interpreter, ABI, or platform component.
+    Raised when a tag has an empty interpreter, ABI, or platform component, or
+    does not have exactly three components.
 
     .. versionadded:: 26.3
     """
@@ -233,13 +234,15 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
     :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
-        of a compressed tag set) is empty.
+        of a compressed tag set) is empty, or the tag does not have exactly three
+        components.
 
     .. versionadded:: 26.1
        The *validate_order* parameter.
 
     .. versionadded:: 26.3
-       Raises :class:`InvalidTag` on empty tag components.
+       Raises :class:`InvalidTag` on empty tag components, or a tag that does
+       not have exactly three components.
     """
     component_parts = [component.split(".") for component in tag.split("-")]
     for parts in component_parts:
