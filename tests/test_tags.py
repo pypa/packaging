@@ -211,6 +211,17 @@ class TestParseTag:
         with pytest.raises(tags.InvalidTag, match="empty component"):
             tags.parse_tag(tag)
 
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "py3-none",
+            "py3-none-any-extra",
+        ],
+    )
+    def test_invalid_component_count_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="exactly three components"):
+            tags.parse_tag(tag)
+
 
 class TestInterpreterName:
     def test_sys_implementation_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
