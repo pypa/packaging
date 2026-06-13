@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class Token:
+    __slots__ = ("name", "position", "text")
+
     name: str
     text: str
     position: int
@@ -97,6 +99,8 @@ class Tokenizer:
     Provides methods to examine the input stream to check whether the next token
     matches.
     """
+
+    __slots__ = ("next_token", "position", "rules", "source")
 
     def __init__(
         self,
