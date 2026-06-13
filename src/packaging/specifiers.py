@@ -845,12 +845,6 @@ class SpecifierSet(BaseSpecifier):
         if not self._canonicalized:
             self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
             self._canonicalized = True
-            # Canonicalization only reorders and removes duplicate specs; it
-            # does not change the set of constraints. Both ``_ranges`` (the
-            # intersection of every spec's ranges) and ``_is_unsatisfiable``
-            # depend only on that set, since range intersection is
-            # commutative, associative, and idempotent. The caches therefore
-            # stay valid and are deliberately left intact here.
         return self._specs
 
     @property
