@@ -30,6 +30,15 @@ EQUAL_DEPENDENCIES = [
 
 EQUIVALENT_DEPENDENCIES = [
     ("scikit-learn==1.0.1", "scikit_learn==1.0.1"),
+    # Trailing-zero-equivalent specifiers compare equal, so they must hash
+    # equal too (regression guard for the __hash__/__eq__ invariant).
+    ("foo==1.0.0", "foo==1.0.0.0"),
+    ("foo>=1.0", "foo>=1.0.0"),
+    # Canonical-specifier hashing must hold alongside extras + marker.
+    (
+        'foo[a]==1.0.0; python_version>="3.8"',
+        'foo[a]==1.0.0.0; python_version>="3.8"',
+    ),
 ]
 
 DIFFERENT_DEPENDENCIES = [
