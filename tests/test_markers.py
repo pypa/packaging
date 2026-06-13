@@ -201,6 +201,31 @@ class TestMarker:
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
         [
+            (
+                'os_name == "C:\\"',
+                "packaging.markers.InvalidMarker: Invalid quoted string\n"
+                '    os_name == "C:\\"\n'
+                "               ~~~~~^",
+            ),
+            (
+                r'os_name == "\x"',
+                "packaging.markers.InvalidMarker: Invalid quoted string\n"
+                r'    os_name == "\x"'
+                "\n"
+                "               ~~~~^",
+            ),
+        ],
+    )
+    def test_parses_invalid_malformed_quoted_string(
+        self, marker_string: str, expected: str
+    ) -> None:
+        with pytest.raises(InvalidMarker) as ctx:
+            Marker(marker_string)
+        assert ctx.exconly() == expected
+
+    @pytest.mark.parametrize(
+        ("marker_string", "expected"),
+        [
             # Test the different quoting rules
             ("python_version == '2.7'", 'python_version == "2.7"'),
             ('python_version == "2.7"', 'python_version == "2.7"'),
