@@ -26,9 +26,14 @@ if TYPE_CHECKING:
 
 __all__ = [
     "FULL_RANGE",
+    "bounds_for_spec",
+    "coerce_version",
     "filter_by_ranges",
     "intersect_ranges",
+    "intersect_specifier_bounds",
+    "matches_bounds_only",
     "ranges_are_prerelease_only",
+    "resolve_prereleases",
     "standard_ranges",
     "wildcard_ranges",
 ]
@@ -303,7 +308,7 @@ def _base_dev0(version: Version) -> Version:
     return Version.from_parts(epoch=version.epoch, release=version.release, dev=0)
 
 
-def _coerce_version(version: Version | str) -> Version | None:
+def coerce_version(version: Version | str) -> Version | None:
     if not isinstance(version, Version):
         try:
             version = Version(version)
@@ -490,7 +495,7 @@ def filter_by_ranges(
             above = lower._above
             below = upper._below
             for item in iterable:
-                parsed = _coerce_version(item if key is None else key(item))
+                parsed = coerce_version(item if key is None else key(item))
                 if parsed is None:
                     continue
                 if above is not None and not above(parsed):
@@ -508,7 +513,7 @@ def filter_by_ranges(
             return
 
         for item in iterable:
-            parsed = _coerce_version(item if key is None else key(item))
+            parsed = coerce_version(item if key is None else key(item))
             if parsed is None:
                 continue
             for lower, upper in ranges:
@@ -537,7 +542,7 @@ def filter_by_ranges(
         above = lower._above
         below = upper._below
         for item in iterable:
-            parsed = _coerce_version(item if key is None else key(item))
+            parsed = coerce_version(item if key is None else key(item))
             if parsed is None:
                 continue
             if exclude_prereleases and parsed.is_prerelease:
@@ -549,7 +554,7 @@ def filter_by_ranges(
         return
 
     for item in iterable:
-        parsed = _coerce_version(item if key is None else key(item))
+        parsed = coerce_version(item if key is None else key(item))
         if parsed is None:
             continue
         if exclude_prereleases and parsed.is_prerelease:
@@ -689,3 +694,76 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionR
         ]
 
     raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
+
+
+def bounds_for_spec(op: str, version_str: str, version: Version) -> list[VersionRange]:
+    """Ranges for one specifier's ``(op, version_str)``.
+
+    Dispatches between the wildcard and standard builders. ``version`` is the
+    parsed ``version_str`` (its base, without the trailing ``.*``, for
+    wildcards). ``===`` is not handled here; its match is a literal string
+    compared in :mod:`packaging.specifiers`.
+    """
+    if version_str.endswith(".*"):
+        return wildcard_ranges(op, version)
+
+    return standard_ranges(op, version, "+" in version_str)
+
+
+def intersect_specifier_bounds(
+    per_specifier_ranges: Iterable[Sequence[VersionRange]],
+) -> Sequence[VersionRange]:
+    """Intersect each specifier's ranges into a single sequence.
+
+    Short-circuits once the running intersection is empty, since no later
+    specifier can revive it. Callers must pass at least one specifier.
+    """
+    result: Sequence[VersionRange] | None = None
+    for sub in per_specifier_ranges:
+        if result is None:
+            result = sub
+        else:
+            result = intersect_ranges(result, sub)
+            if not result:
+                break
+
+    if result is None:  # pragma: no cover - callers guard non-empty input
+        raise RuntimeError("intersect_specifier_bounds called with no specifiers")
+
+    return result
+
+
+def matches_bounds_only(ranges: Sequence[VersionRange], version: Version) -> bool:
+    """Whether ``version`` falls within any of ``ranges``.
+
+    The pure bounds membership test, for a single already-parsed version with
+    no pre-release policy applied. ``ranges`` are sorted and non-overlapping,
+    so a version below one range's lower bound is below every later range too.
+    """
+    for lower, upper in ranges:
+        above = lower._above
+        if above is not None and not above(version):
+            return False
+
+        below = upper._below
+        if below is None or below(version):
+            return True
+
+    return False
+
+
+def resolve_prereleases(
+    configured: bool | None, autodetected: bool | None
+) -> bool | None:
+    """Resolve a specifier's effective default pre-release policy.
+
+    An explicit ``configured`` value wins; otherwise an autodetected ``True``
+    propagates and anything else falls back to the PEP 440 default (``None``).
+    """
+    if configured is not None:
+        return configured
+
+    if autodetected:
+        return True
+
+    return None
