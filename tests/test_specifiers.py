@@ -2074,6 +2074,35 @@ class TestSpecifierSet:
         spec = SpecifierSet(specifier, prereleases=True)
         assert not spec.contains(input)
 
+    @pytest.mark.parametrize(
+        ("spec_str", "version", "expected"),
+        [
+            # ">V" excludes every post-release of V (PEP 440 exclusive ordered
+            # comparison); intersecting with "!=V.postN" must not re-admit a
+            # different post-release of V.
+            (">1.0,!=1.0.post1", "1.0.post2", False),
+            (">1.0,!=1.0.post1", "1.0.post2.dev3", False),
+            (">1.0,!=1.0.post1", "1.0.post1", False),
+            (">1.0,!=1.0.post1", "1.1", True),
+            (">2.3,!=2.3.post1", "2.3.post2", False),
+            (">1!1.0,!=1!1.0.post1", "1!1.0.post2", False),
+        ],
+    )
+    def test_contains_post_release_boundary_intersection(
+        self, spec_str: str, version: str, expected: bool
+    ) -> None:
+        ss = SpecifierSet(spec_str)
+        assert ss.contains(version, prereleases=True) == expected
+        # set membership must equal the conjunction of its member specifiers
+        assert ss.contains(version, prereleases=True) == all(
+            s.contains(version, prereleases=True) for s in ss
+        )
+
+    def test_filter_post_release_boundary_intersection(self) -> None:
+        ss = SpecifierSet(">1.0,!=1.0.post1")
+        result = list(ss.filter(["1.0.post2", "1.0.post3", "1.1"], prereleases=True))
+        assert result == ["1.1"]
+
     @pytest.mark.skipif(
         not hasattr(sys, "get_int_max_str_digits"),
         reason="requires int max str digits limit",
@@ -2826,6 +2855,20 @@ class TestIsUnsatisfiable:
     def test_and_satisfiable(self) -> None:
         combined = SpecifierSet(">=1.0") & SpecifierSet("<2.0")
         assert not combined.is_unsatisfiable()
+
+    @pytest.mark.parametrize(
+        "spec_str",
+        [
+            ">1.0,<=1.0.post1",
+            ">1.0,<=1.0.post5",
+            ">2.3,<=2.3.post1",
+            ">1!1.0,<=1!1.0.post1",
+        ],
+    )
+    def test_post_release_boundary_unsatisfiable(self, spec_str: str) -> None:
+        # ">V" excludes every "V.postN", so ">V,<=V.postN" admits no version.
+        ss = SpecifierSet(spec_str)
+        assert ss.is_unsatisfiable(), f"Expected unsatisfiable: {spec_str!r}"
 
     def test_and_reuses_interval_cache(self) -> None:
         """Specifier interval cache is reused when specs are shared via &."""
