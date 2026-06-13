@@ -1078,6 +1078,7 @@ class _TrimmedRelease(Version):
             self._post = version._post
             self._local = version._local
             self._key_cache = version._key_cache
+            self._hash_cache = version._hash_cache
             return
         super().__init__(version)  # pragma: no cover
 
