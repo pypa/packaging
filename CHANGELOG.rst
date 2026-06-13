@@ -11,6 +11,9 @@ Behavior adaptations:
 
 Fixes:
 
+* Raise a catchable ``ValueError`` (routing the body to ``unparsed``) instead
+  of a bare ``AssertionError`` when ``parse_email()`` is given a multipart
+  payload. (:issue:`1239`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 

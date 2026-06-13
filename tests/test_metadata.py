@@ -177,6 +177,27 @@ class TestRawMetadata:
         assert "description" in unparsed
         assert unparsed["description"] == expected
 
+    @pytest.mark.parametrize("encode", [False, True])
+    def test_description_multipart_payload(self, encode: bool) -> None:
+        # A multipart body makes get_payload() return a non-str; it must route
+        # to unparsed rather than trip the old assert.
+        metadata_text = (
+            "Metadata-Version: 2.1\n"
+            "Name: example\n"
+            'Content-Type: multipart/mixed; boundary="BOUND"\n'
+            "\n"
+            "--BOUND\n"
+            "Content-Type: text/plain\n"
+            "\n"
+            "the description\n"
+            "--BOUND--\n"
+        )
+        given: str | bytes = metadata_text.encode("utf8") if encode else metadata_text
+        raw, unparsed = metadata.parse_email(given)
+        assert raw["name"] == "example"
+        assert "description" not in raw
+        assert "description" in unparsed
+
     def test_lowercase_keys(self) -> None:
         header = "AUTHOR: Tarek Ziadé\nWhatever: Else"
         raw, unparsed = metadata.parse_email(header)
