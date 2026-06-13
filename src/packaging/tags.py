@@ -381,8 +381,10 @@ def cpython_tags(
     if abis is None:
         abis = _cpython_abis(python_version, warn) if len(python_version) > 1 else []
     abis = list(abis)
-    # 'abi3' and 'none' are explicitly handled later.
-    for explicit_abi in ("abi3", "none"):
+    threading = _is_threaded_cpython(abis)
+    # Stable ABIs and 'none' are explicitly handled later.
+    explicit_abis = ("abi3", "abi3t", "none") if threading else ("abi3", "none")
+    for explicit_abi in explicit_abis:
         try:
             abis.remove(explicit_abi)
         except ValueError:  # noqa: PERF203
@@ -393,10 +395,8 @@ def cpython_tags(
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
 
-    threading = _is_threaded_cpython(abis)
     use_abi3 = _abi3_applies(python_version, threading)
     use_abi3t = _abi3t_applies(python_version, threading)
-
     if use_abi3:
         yield from (Tag(interpreter, "abi3", platform_) for platform_ in platforms)
     if use_abi3t:

@@ -1154,6 +1154,13 @@ class TestCPythonTags:
             tags.Tag("cp32", "abi3t", "platform"),
         ]
 
+        result = list(tags.cpython_tags((3, 15), ["cp315t", "abi3t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp315", "cp315t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp315", "none", "platform"),
+        ] + [tags.Tag(f"cp3{minor}", "abi3t", "platform") for minor in range(14, 1, -1)]
+
         result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
         assert result == [
             tags.Tag("cp316", "cp316t", "platform"),
