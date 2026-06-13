@@ -613,8 +613,9 @@ def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_disable_musl_detection")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
-        # Clear the version cache
+        # Clear the version and module caches
         tags._manylinux._get_glibc_version.cache_clear()  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     def test_get_config_var_does_not_log(self, monkeypatch: pytest.MonkeyPatch) -> None:
         debug = pretend.call_recorder(lambda *a: None)
@@ -1597,6 +1598,7 @@ class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache
         tags._glibc_version = []  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     @pytest.mark.parametrize(
         ("name", "expected"),
