@@ -316,10 +316,14 @@ def _format_full_version(info: sys._version_info) -> str:
     return version
 
 
-def default_environment() -> Environment:
-    """Return the default marker environment for the current Python process.
+@functools.cache
+def _cached_default_environment() -> Environment:
+    """Build the default marker environment for the current Python process.
 
-    This is the base environment used by :meth:`Marker.evaluate`.
+    The values are derived from process-constant data (the running interpreter
+    and the host platform), so this is cached and built only once. The result is
+    shared between callers and must never be mutated; :func:`default_environment`
+    returns a fresh copy.
     """
     iver = _format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
@@ -338,19 +342,14 @@ def default_environment() -> Environment:
     }
 
 
-@functools.lru_cache(maxsize=1)
-def _cached_default_environment() -> Environment:
-    """Return a cached copy of :func:`default_environment`.
+def default_environment() -> Environment:
+    """Return the default marker environment for the current Python process.
 
-    The values returned by :func:`default_environment` are derived from
-    process-constant data (the running interpreter and the host platform), so
-    rebuilding them on every :meth:`Marker.evaluate` call is wasteful. This
-    helper is used only by :meth:`Marker.evaluate`.
-
-    The returned dictionary is shared between callers and must never be mutated;
-    :meth:`Marker.evaluate` copies it before applying overrides.
+    This is the base environment used by :meth:`Marker.evaluate`. A fresh copy
+    is returned on every call so callers may freely mutate the result; a shallow
+    copy suffices because all values are immutable strings.
     """
-    return default_environment()
+    return cast("Environment", dict(_cached_default_environment()))
 
 
 class Marker:
@@ -502,11 +501,8 @@ class Marker:
         :returns: ``True`` if the marker matches, otherwise ``False``.
 
         """
-        # Copy the cached environment before mutating it below: the cached dict
-        # is shared between calls and must not be modified. A shallow copy is
-        # enough because every value is an immutable string.
         current_environment = cast(
-            "dict[str, str | AbstractSet[str]]", dict(_cached_default_environment())
+            "dict[str, str | AbstractSet[str]]", default_environment()
         )
         if context == "lock_file":
             current_environment |= {

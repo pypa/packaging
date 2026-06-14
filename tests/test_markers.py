@@ -48,6 +48,14 @@ PEP_345_VARIABLES = [
     "platform.python_implementation",
 ]
 
+
+@pytest.fixture(autouse=True)
+def _clear_default_environment_cache() -> None:
+    # default_environment() is cached, so tests that patch platform/sys must run
+    # against a fresh cache and must not leak their patched values to later tests.
+    _cached_default_environment.cache_clear()
+
+
 SETUPTOOLS_VARIABLES = ["python_implementation"]
 
 OPERATORS = ["===", "==", ">=", "<=", "!=", "~=", ">", "<", "in", "not in"]
@@ -473,19 +481,12 @@ class TestMarker:
         )
 
     def test_python_full_version_untagged(self) -> None:
-        # Marker.evaluate() reads from a cached environment, so clear the cache
-        # around the patched platform.python_version to make the patch visible.
-        _cached_default_environment.cache_clear()
-        try:
-            with mock.patch("platform.python_version", return_value="3.11.1+"):
-                assert Marker("python_full_version < '3.12'").evaluate()
-        finally:
-            _cached_default_environment.cache_clear()
+        with mock.patch("platform.python_version", return_value="3.11.1+"):
+            assert Marker("python_full_version < '3.12'").evaluate()
 
     def test_evaluate_does_not_mutate_cached_environment(self) -> None:
         # An evaluate() call that overrides values (and adds "extra") must not
         # leak those overrides into the cached environment used by later calls.
-        _cached_default_environment.cache_clear()
         marker = Marker("os_name == 'magic'")
         assert marker.evaluate({"os_name": "magic"})
 
