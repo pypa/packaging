@@ -271,7 +271,15 @@ def downstream(session: nox.Session, project: str) -> None:
             "argcomplete",
             env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
         )
-        session.run("pytest", "-m", "not integration", *session.posargs, env=test_env)
+        # tox appends a pip-freeze line to command output when CI is set, which
+        # several output-asserting tests do not expect, so run them without it.
+        session.run(
+            "pytest",
+            "-m",
+            "not integration",
+            *session.posargs,
+            env={**test_env, "CI": None},
+        )
     elif project == "virtualenv":
         session.install(
             "-e.", "--group=test", env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"}
