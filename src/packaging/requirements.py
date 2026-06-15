@@ -137,7 +137,20 @@ class Requirement:
         return f"<{self.__class__.__name__}({str(self)!r})>"
 
     def __hash__(self) -> int:
-        return hash(tuple(self._iter_parts(canonicalize_name(self.name))))
+        # Mirror __eq__ by hashing the canonical specifier object rather than
+        # its raw string. ``_iter_parts`` yields ``str(self.specifier)``, which
+        # is non-canonical, so trailing-zero-equivalent requirements such as
+        # ``foo==1.0.0`` and ``foo==1.0.0.0`` (which compare equal) would
+        # otherwise hash differently, breaking the hash/__eq__ invariant.
+        return hash(
+            (
+                canonicalize_name(self.name),
+                frozenset(self.extras),
+                self.specifier,
+                self.url,
+                self.marker,
+            )
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Requirement):
