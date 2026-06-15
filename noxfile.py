@@ -105,8 +105,7 @@ def property_tests(session: nox.Session) -> None:
 
 
 # A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13)
-# Pip and uv are one day different in handling it
-PYTEST_910_CUTOFF = "2026-06-12"
+PYTEST_910_CUTOFF = "2026-06-12 00:00:00Z"
 
 
 @dataclass(frozen=True)
