@@ -109,6 +109,25 @@ PROJECTS = {
     "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
     "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
     "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
+    "dependency_groups": "https://github.com/pypa/dependency-groups/archive/refs/tags/1.3.1.tar.gz",
+    "dep_logic": "https://github.com/pdm-project/dep-logic/archive/refs/tags/0.6.0.tar.gz",
+    "twine": "https://github.com/pypa/twine/archive/refs/tags/6.2.0.tar.gz",
+    "cibuildwheel": "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
+    "hatchling": "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.30.1.tar.gz",
+    "tox": "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
+    "virtualenv": "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
+    "pdm": "https://github.com/pdm-project/pdm/archive/refs/tags/2.27.0.tar.gz",
+}
+
+# The original pinned releases predate pytest 9.1.0, which turns their parametrize
+# usage into collection errors, so they need an older pytest. The newer downstream
+# releases below support pytest 9.1.0 and must not get that pin.
+LEGACY_PYTEST_PROJECTS = {
+    "packaging_legacy",
+    "build",
+    "pyproject_metadata",
+    "setuptools",
+    "pip",
 }
 
 
@@ -135,10 +154,16 @@ def downstream(session: nox.Session, project: str) -> None:
 
     pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
 
-    # These pinned downstream releases predate pytest 9.1.0, which turns their
-    # parametrize usage into collection errors. Install a compatible pytest
-    # before the project's test deps so it is kept (pip won't upgrade it).
-    session.install("pytest<9.1.0")
+    # nox points TMPDIR inside this git checkout, so downstream tools that walk
+    # up the tree (hatchling's VCS sdist builder, tox/pdm config discovery) find
+    # packaging's own repo metadata and misbehave. Run the newer projects' tests
+    # with a temp dir outside the checkout. The original five do not need this.
+    test_env = {**env, "TMPDIR": tempfile.mkdtemp(prefix="downstream-")}
+
+    if project in LEGACY_PYTEST_PROJECTS:
+        # Install a compatible pytest before the project's test deps so it is
+        # kept (pip won't upgrade it). See LEGACY_PYTEST_PROJECTS.
+        session.install("pytest<9.1.0")
 
     if project == "packaging_legacy":
         session.install("-r", "tests/requirements.txt")
@@ -179,6 +204,85 @@ def downstream(session: nox.Session, project: str) -> None:
             "-k",
             "not test_ensure_svn_available",
             *session.posargs,
+        )
+    elif project == "dependency_groups":
+        session.install("-e.", "--group=test")
+        session.run(*pip_cmd, "list")
+        session.run("pytest", *session.posargs, env=test_env)
+    elif project == "dep_logic":
+        # pdm-backend computes the version from git, absent in the tarball. Scope
+        # the override to the build so it cannot leak into version-aware tests.
+        session.install("-e.", "pytest", env={"PDM_BUILD_SCM_VERSION": "0.6.0"})
+        session.run(*pip_cmd, "list")
+        session.run("pytest", *session.posargs, env=test_env)
+    elif project == "twine":
+        # twine keeps its test deps in tox.ini rather than a [test] extra.
+        session.install(
+            "-e.",
+            "pretend",
+            "pytest",
+            "pytest-socket",
+            "coverage",
+            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "6.2.0"},
+        )
+        # test_fails_rst_syntax_error asserts an exact docutils warning string
+        # that changed in newer docutils; unrelated to packaging.
+        session.run(
+            "pytest",
+            "-k",
+            "not test_fails_rst_syntax_error",
+            *session.posargs,
+            env=test_env,
+        )
+    elif project == "cibuildwheel":
+        session.install("-e.", "--group=test")
+        session.run(*pip_cmd, "list")
+        # unit_test/ is the fast suite; test/ holds slow Docker integration tests.
+        session.run("pytest", "unit_test", *session.posargs, env=test_env)
+    elif project == "hatchling":
+        # hatchling lives in the hatch monorepo; its backend tests under
+        # tests/backend rely on the full hatch package and its fixtures. Keep the
+        # version override out of the test env: hatchling has version-detection
+        # tests that fail if SETUPTOOLS_SCM_PRETEND_VERSION is set while they run.
+        session.install(
+            "-e./backend",
+            "-e.",
+            "pytest",
+            "pytest-mock",
+            "filelock",
+            "editables",
+            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
+        )
+        # test_binary downloads a PyApp binary over the network.
+        session.run(
+            "pytest",
+            "tests/backend",
+            "--ignore=tests/backend/builders/test_binary.py",
+            *session.posargs,
+            env=test_env,
+        )
+    elif project == "tox":
+        # argcomplete is an optional dep that several tests import at collection.
+        session.install(
+            "-e.",
+            "--group=test",
+            "argcomplete",
+            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
+        )
+        session.run("pytest", "-m", "not integration", *session.posargs, env=test_env)
+    elif project == "virtualenv":
+        session.install(
+            "-e.", "--group=test", env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"}
+        )
+        session.run("pytest", *session.posargs, env=test_env)
+    elif project == "pdm":
+        session.install("-e.", "--group=test", env={"PDM_BUILD_SCM_VERSION": "2.27.0"})
+        session.run(
+            "pytest",
+            "-m",
+            "not network and not integration",
+            *session.posargs,
+            env=test_env,
         )
     else:
         session.error("Unknown package")
