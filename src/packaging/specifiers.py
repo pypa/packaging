@@ -24,15 +24,17 @@ from typing import (
 
 from ._ranges import (
     FULL_RANGE,
+    bounds_for_spec,
+    coerce_version,
     filter_by_ranges,
-    intersect_ranges,
+    intersect_specifier_bounds,
+    matches_bounds_only,
     ranges_are_prerelease_only,
-    standard_ranges,
+    resolve_prereleases,
     trim_release,
-    wildcard_ranges,
 )
 from .utils import canonicalize_version
-from .version import InvalidVersion, Version
+from .version import Version
 
 if TYPE_CHECKING:
     import sys
@@ -74,15 +76,6 @@ def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
 T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
-
-
-def _coerce_version(version: UnparsedVersion) -> Version | None:
-    if not isinstance(version, Version):
-        try:
-            version = Version(version)
-        except InvalidVersion:
-            return None
-    return version
 
 
 # Operators whose result is just a direct Version comparison, given a parsed
@@ -394,7 +387,7 @@ class Specifier(BaseSpecifier):
         if self._spec_version is not None and self._spec_version[0] == version:
             return self._spec_version[1]
 
-        version_specifier = _coerce_version(version)
+        version_specifier = coerce_version(version)
         if version_specifier is None:
             return None
 
@@ -425,13 +418,9 @@ class Specifier(BaseSpecifier):
 
         if op == "===":
             result: Sequence[VersionRange] = FULL_RANGE
-        elif ver_str.endswith(".*"):
-            base = self._require_spec_version(ver_str[:-2])
-            result = wildcard_ranges(op, base)
         else:
-            v = self._require_spec_version(ver_str)
-            has_local = "+" in ver_str
-            result = standard_ranges(op, v, has_local)
+            version = self._require_spec_version(ver_str.removesuffix(".*"))
+            result = bounds_for_spec(op, ver_str, version)
 
         self._ranges = result
         return result
@@ -649,25 +638,24 @@ class Specifier(BaseSpecifier):
         if self._spec[0] == "===":
             return bool(list(self.filter([item], prereleases=prereleases)))
 
-        parsed = _coerce_version(item)
+        parsed = coerce_version(item)
         if parsed is None:
             # Standard operators never match an unparsable input.
             return False
 
+        if prereleases is None:
+            prereleases = resolve_prereleases(self._prereleases, self.prereleases)
+
+        if prereleases is False and parsed.is_prerelease:
+            return False
+
+        # ``_fast_match`` answers the simple operators without building a
+        # range; otherwise fall back to the engine's bounds membership.
         match = _fast_match(self, parsed)
         if match is not None:
-            if prereleases is None:
-                if self._prereleases is not None:
-                    prereleases = self._prereleases
-                elif self.prereleases:
-                    prereleases = True
-            if prereleases is False and parsed.is_prerelease:
-                return False
             return match
 
-        # Pass the already-parsed Version so filter_by_ranges doesn't
-        # re-coerce it.
-        return bool(list(self.filter([parsed], prereleases=prereleases)))
+        return matches_bounds_only(self._to_ranges(), parsed)
 
     @typing.overload
     def filter(
@@ -726,10 +714,7 @@ class Specifier(BaseSpecifier):
             Added the ``key`` parameter.
         """
         if prereleases is None:
-            if self._prereleases is not None:
-                prereleases = self._prereleases
-            elif self.prereleases:
-                prereleases = True
+            prereleases = resolve_prereleases(self._prereleases, self.prereleases)
 
         if self.operator == "===":
             spec_lower = self.version.lower()
@@ -740,10 +725,7 @@ class Specifier(BaseSpecifier):
             )
             return _apply_prereleases_filter(matches, key, prereleases)
 
-        ranges = self._ranges
-        if ranges is None:
-            ranges = self._to_ranges()
-        return filter_by_ranges(ranges, iterable, key, prereleases)
+        return filter_by_ranges(self._to_ranges(), iterable, key, prereleases)
 
 
 def _apply_prereleases_filter(
@@ -763,7 +745,7 @@ def _apply_prereleases_filter(
     return (
         item
         for item in matches
-        if (parsed := _coerce_version(item if key is None else key(item))) is None
+        if (parsed := coerce_version(item if key is None else key(item))) is None
         or not parsed.is_prerelease
     )
 
@@ -1055,20 +1037,8 @@ class SpecifierSet(BaseSpecifier):
         if self._ranges is not None:
             return self._ranges
 
-        result: Sequence[VersionRange] | None = None
-        for s in self._specs:
-            sub = s._to_ranges()
-            if result is None:
-                result = sub
-            else:
-                result = intersect_ranges(result, sub)
-                if not result:
-                    break
-
-        if result is None:  # pragma: no cover
-            raise RuntimeError("_get_ranges called with no specs")
-        self._ranges = result
-        return result
+        self._ranges = intersect_specifier_bounds(s._to_ranges() for s in self._specs)
+        return self._ranges
 
     def is_unsatisfiable(self) -> bool:
         """Check whether this specifier set can never be satisfied.
@@ -1123,7 +1093,7 @@ class SpecifierSet(BaseSpecifier):
 
         # The sole candidate is the === version string.  Check whether
         # it can satisfy every standard spec.
-        candidate = _coerce_version(arbitrary[0].version)
+        candidate = coerce_version(arbitrary[0].version)
 
         # With prereleases=False, a prerelease candidate is excluded
         # by contains() before the === string check even runs.
@@ -1197,7 +1167,7 @@ class SpecifierSet(BaseSpecifier):
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.3.0a1", prereleases=True)
         True
         """
-        version = _coerce_version(item)
+        version = coerce_version(item)
 
         if version is not None and installed and version.is_prerelease:
             prereleases = True
@@ -1209,14 +1179,11 @@ class SpecifierSet(BaseSpecifier):
         else:
             check_item = version
 
-        # Fast path: skip the intersected-range build while every spec
-        # answers directly. Once ``_ranges`` is set the cached range
-        # path beats re-iterating specs, so fall through then. A local
-        # on ``version`` needs PEP 440 stripping that the range path
+        # Fast path: a parseable, local-free version against a rangelike set.
+        # A local on ``version`` needs PEP 440 stripping that the range path
         # applies.
         if (
-            self._ranges is None
-            and version is not None
+            version is not None
             and not self._has_arbitrary
             and version.local is None
             and self._specs
@@ -1226,14 +1193,25 @@ class SpecifierSet(BaseSpecifier):
                 or (prereleases is None and self._prereleases is False)
             ):
                 return False
-            for spec in self._specs:
-                match = _fast_match(spec, version)
-                if match is None:
-                    break
-                if not match:
-                    return False
-            else:
-                return True
+
+            bounds = self._ranges
+            if bounds is None:
+                # Per-spec ``_fast_match`` answers a set of simple specifiers
+                # without folding anything. If a spec needs the range path,
+                # fold the intersected bounds once and cache them so repeated
+                # checks on the same set stay cheap.
+                for spec in self._specs:
+                    match = _fast_match(spec, version)
+                    if match is None:
+                        break
+                    if not match:
+                        return False
+                else:
+                    return True
+
+                bounds = self._ranges = self._get_ranges()
+
+            return matches_bounds_only(bounds, version)
 
         return bool(list(self.filter([check_item], prereleases=prereleases)))
 
@@ -1346,7 +1324,7 @@ def _pep440_filter_prereleases(
 
     found_final = False
     for item in iterable:
-        parsed = _coerce_version(item if key is None else key(item))
+        parsed = coerce_version(item if key is None else key(item))
 
         if parsed is None:
             # Arbitrary strings are always included as it is not
