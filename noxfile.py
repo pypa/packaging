@@ -121,10 +121,13 @@ PROJECTS = {
     "pipenv": "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz",
 }
 
-# The original pinned releases predate pytest 9.1.0, which turns their parametrize
-# usage into collection errors, so they need an older pytest. The newer downstream
-# releases below support pytest 9.1.0 and must not get that pin.
-LEGACY_PYTEST_PROJECTS = {
+# The pinned releases below break under pytest 9.1.0 (released 2026-06-13), whose
+# parametrize handling turns their test collection into errors. Rather than pin
+# pytest by hand, cap dependency resolution at the day before it shipped, so they
+# resolve pytest 9.0.x (and otherwise-current deps) on both the uv and pip
+# backends. The newer downstream projects support 9.1.0 and are left alone.
+PYTEST_910_CUTOFF = "2026-06-12"
+DATE_LIMITED_PROJECTS = {
     "packaging_legacy",
     "build",
     "pyproject_metadata",
@@ -162,10 +165,11 @@ def downstream(session: nox.Session, project: str) -> None:
     # with a temp dir outside the checkout. The original five do not need this.
     test_env = {**env, "TMPDIR": tempfile.mkdtemp(prefix="downstream-")}
 
-    if project in LEGACY_PYTEST_PROJECTS:
-        # Install a compatible pytest before the project's test deps so it is
-        # kept (pip won't upgrade it). See LEGACY_PYTEST_PROJECTS.
-        session.install("pytest<9.1.0")
+    if project in DATE_LIMITED_PROJECTS:
+        # See DATE_LIMITED_PROJECTS: cap resolution at the cutoff so these
+        # projects pull a pytest they support, for both backends.
+        session.env["UV_EXCLUDE_NEWER"] = PYTEST_910_CUTOFF
+        session.env["PIP_UPLOADED_PRIOR_TO"] = PYTEST_910_CUTOFF
 
     if project == "packaging_legacy":
         session.install("-r", "tests/requirements.txt")
