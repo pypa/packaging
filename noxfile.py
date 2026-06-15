@@ -117,6 +117,8 @@ PROJECTS = {
     "tox": "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
     "virtualenv": "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
     "pdm": "https://github.com/pdm-project/pdm/archive/refs/tags/2.27.0.tar.gz",
+    "poetry_core": "https://github.com/python-poetry/poetry-core/archive/refs/tags/2.4.1.tar.gz",
+    "pipenv": "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz",
 }
 
 # The original pinned releases predate pytest 9.1.0, which turns their parametrize
@@ -281,6 +283,48 @@ def downstream(session: nox.Session, project: str) -> None:
             "pytest",
             "-m",
             "not network and not integration",
+            *session.posargs,
+            env=test_env,
+        )
+    elif project == "poetry_core":
+        # poetry-core uses poetry-native dependency groups, so its test deps are
+        # not pip-installable as an extra; install them explicitly.
+        session.install(
+            "-e.",
+            "pytest",
+            "pytest-mock",
+            "build",
+            "setuptools",
+            "tomli-w",
+            "virtualenv",
+            "trove-classifiers",
+        )
+        # poetry-core vendors packaging under _vendor and injects it onto
+        # sys.path; replace it with the current source, as we do for pip.
+        repl_dir = "src/poetry/core/_vendor/packaging"
+        shutil.rmtree(repl_dir)
+        shutil.copytree(pkg_dir, repl_dir)
+        session.run("pytest", "tests", *session.posargs, env=test_env)
+    elif project == "pipenv":
+        session.install("-e.[tests]")
+        # pipenv vendors packaging twice (its own vendor tree and the patched
+        # pip); replace both with the current source.
+        for repl_dir in (
+            "pipenv/vendor/packaging",
+            "pipenv/patched/pip/_vendor/packaging",
+        ):
+            shutil.rmtree(repl_dir)
+            shutil.copytree(pkg_dir, repl_dir)
+        # test_vendor.py asserts vendoring integrity (and needs pytz), so it is
+        # expected to fail after the swap. pipenv's addopts enable --no-cov,
+        # which errors without pytest-cov; replace them. integration tests need
+        # the network.
+        session.run(
+            "pytest",
+            "tests/unit",
+            "--ignore=tests/unit/test_vendor.py",
+            "-o",
+            "addopts=-ra",
             *session.posargs,
             env=test_env,
         )
