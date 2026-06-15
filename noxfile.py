@@ -19,6 +19,7 @@ import tempfile
 import textwrap
 import time
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
@@ -103,36 +104,160 @@ def property_tests(session: nox.Session) -> None:
     )
 
 
-PROJECTS = {
-    "packaging_legacy": "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
-    "build": "https://github.com/pypa/build/archive/refs/tags/1.5.0.tar.gz",
-    "setuptools": "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
-    "pyproject_metadata": "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
-    "pip": "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
-    "dependency_groups": "https://github.com/pypa/dependency-groups/archive/refs/tags/1.3.1.tar.gz",
-    "dep_logic": "https://github.com/pdm-project/dep-logic/archive/refs/tags/0.6.0.tar.gz",
-    "twine": "https://github.com/pypa/twine/archive/refs/tags/6.2.0.tar.gz",
-    "cibuildwheel": "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
-    "hatchling": "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.30.1.tar.gz",
-    "tox": "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
-    "virtualenv": "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
-    "pdm": "https://github.com/pdm-project/pdm/archive/refs/tags/2.27.0.tar.gz",
-    "poetry_core": "https://github.com/python-poetry/poetry-core/archive/refs/tags/2.4.1.tar.gz",
-    "pipenv": "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz",
-}
-
-# The pinned releases below break under pytest 9.1.0 (released 2026-06-13), whose
-# parametrize handling turns their test collection into errors. Rather than pin
-# pytest by hand, cap dependency resolution at the day before it shipped, so they
-# resolve pytest 9.0.x (and otherwise-current deps) on both the uv and pip
-# backends. The newer downstream projects support 9.1.0 and are left alone.
+# A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13),
+# whose parametrize handling turns their test collection into errors. Rather than
+# pin pytest by hand, projects with ``date_limit`` cap dependency resolution at
+# the day before it shipped, so they resolve pytest 9.0.x (and otherwise-current
+# deps) on both the uv and pip backends.
 PYTEST_910_CUTOFF = "2026-06-12"
-DATE_LIMITED_PROJECTS = {
-    "packaging_legacy",
-    "build",
-    "pyproject_metadata",
-    "setuptools",
-    "pip",
+
+
+@dataclass(frozen=True)
+class Project:
+    """One downstream project: how to fetch, install, patch, and test it."""
+
+    url: str
+    # Arguments for ``session.install``; the default covers the common case.
+    install: tuple[str, ...] = ("-e.", "--group=test")
+    # Environment for the install only, e.g. a build-backend version override
+    # (the tarball has no ``.git``). Kept off the test run so it cannot leak into
+    # version-aware tests.
+    install_env: dict[str, str] | None = None
+    # Vendored ``packaging`` directories to replace with the current source.
+    swap: tuple[str, ...] = ()
+    # Arguments inserted before ``session.posargs`` when running pytest.
+    pytest_args: tuple[str, ...] = ()
+    # Extra environment merged into the test run (e.g. unsetting a variable).
+    extra_env: dict[str, str | None] | None = None
+    date_limit: bool = False
+
+
+PROJECTS = {
+    "packaging_legacy": Project(
+        "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
+        install=("-r", "tests/requirements.txt", "-e."),
+        date_limit=True,
+    ),
+    "build": Project(
+        "https://github.com/pypa/build/archive/refs/tags/1.5.0.tar.gz",
+        date_limit=True,
+    ),
+    "setuptools": Project(
+        "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
+        install=("-e.[test,cover]",),
+        swap=("setuptools/_vendor/packaging",),
+        pytest_args=(
+            "-k",
+            "not test_editable_install and not test_editable_with_pyproject",
+        ),
+        date_limit=True,
+    ),
+    "pyproject_metadata": Project(
+        "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
+        date_limit=True,
+    ),
+    "pip": Project(
+        "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
+        swap=("src/pip/_vendor/packaging",),
+        pytest_args=(
+            "tests/unit",
+            "--numprocesses=auto",
+            "-k",
+            "not test_ensure_svn_available",
+        ),
+        date_limit=True,
+    ),
+    "dependency_groups": Project(
+        "https://github.com/pypa/dependency-groups/archive/refs/tags/1.3.1.tar.gz",
+    ),
+    "dep_logic": Project(
+        "https://github.com/pdm-project/dep-logic/archive/refs/tags/0.6.0.tar.gz",
+        install=("-e.", "pytest"),
+        install_env={"PDM_BUILD_SCM_VERSION": "0.6.0"},
+    ),
+    "twine": Project(
+        "https://github.com/pypa/twine/archive/refs/tags/6.2.0.tar.gz",
+        # twine keeps its test deps in tox.ini rather than a [test] extra.
+        install=("-e.", "pretend", "pytest", "pytest-socket", "coverage"),
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "6.2.0"},
+        # test_fails_rst_syntax_error asserts an exact docutils warning string
+        # that changed in newer docutils; unrelated to packaging.
+        pytest_args=("-k", "not test_fails_rst_syntax_error"),
+    ),
+    "cibuildwheel": Project(
+        "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
+        # unit_test/ is the fast suite; test/ holds slow Docker integration tests.
+        pytest_args=("unit_test",),
+    ),
+    "hatchling": Project(
+        "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.30.1.tar.gz",
+        # hatchling lives in the hatch monorepo; its backend tests rely on the
+        # full hatch package and its fixtures.
+        install=(
+            "-e./backend",
+            "-e.",
+            "pytest",
+            "pytest-mock",
+            "filelock",
+            "editables",
+        ),
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
+        # test_binary downloads a PyApp binary over the network.
+        pytest_args=("tests/backend", "--ignore=tests/backend/builders/test_binary.py"),
+    ),
+    "tox": Project(
+        "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
+        # argcomplete is an optional dep that several tests import at collection.
+        install=("-e.", "--group=test", "argcomplete"),
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
+        pytest_args=("-m", "not integration"),
+        # tox appends a pip-freeze line to command output when CI is set, which
+        # several output-asserting tests do not expect.
+        extra_env={"CI": None},
+    ),
+    "virtualenv": Project(
+        "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"},
+    ),
+    "pdm": Project(
+        "https://github.com/pdm-project/pdm/archive/refs/tags/2.27.0.tar.gz",
+        install_env={"PDM_BUILD_SCM_VERSION": "2.27.0"},
+        pytest_args=("-m", "not network and not integration"),
+    ),
+    "poetry_core": Project(
+        "https://github.com/python-poetry/poetry-core/archive/refs/tags/2.4.1.tar.gz",
+        # poetry-core uses poetry-native dependency groups, so its test deps are
+        # not pip-installable as an extra; install them explicitly. setuptools is
+        # needed to build its C-extension test fixtures.
+        install=(
+            "-e.",
+            "pytest",
+            "pytest-mock",
+            "build",
+            "setuptools",
+            "tomli-w",
+            "virtualenv",
+            "trove-classifiers",
+        ),
+        # poetry-core vendors packaging under _vendor and injects it onto sys.path.
+        swap=("src/poetry/core/_vendor/packaging",),
+        pytest_args=("tests",),
+    ),
+    "pipenv": Project(
+        "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz",
+        install=("-e.[tests]",),
+        # pipenv vendors packaging twice: its own vendor tree and the patched pip.
+        swap=("pipenv/vendor/packaging", "pipenv/patched/pip/_vendor/packaging"),
+        # test_vendor.py asserts vendoring integrity (and needs pytz), so it is
+        # expected to fail after the swap. pipenv's addopts enable --no-cov, which
+        # errors without pytest-cov; replace them.
+        pytest_args=(
+            "tests/unit",
+            "--ignore=tests/unit/test_vendor.py",
+            "-o",
+            "addopts=-ra",
+        ),
+    ),
 }
 
 
@@ -142,15 +267,15 @@ def downstream(session: nox.Session, project: str) -> None:
     """
     Run downstream projects with this packaging.
     """
+    cfg = PROJECTS[project]
     pkg_dir = Path.cwd() / "src/packaging"
-    env = {"FORCE_COLOR": None}
     session.install("-e.")
 
     tmp_dir = Path(session.create_tmp())
     session.chdir(tmp_dir)
 
     shutil.rmtree(project, ignore_errors=True)
-    with urllib.request.urlopen(PROJECTS[project]) as resp:
+    with urllib.request.urlopen(cfg.url) as resp:
         data = resp.read()
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         tf.extractall(project)
@@ -159,38 +284,27 @@ def downstream(session: nox.Session, project: str) -> None:
 
     pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
 
-    # nox points TMPDIR inside this git checkout, so downstream tools that walk
-    # up the tree (hatchling's VCS sdist builder, tox/pdm config discovery) find
-    # packaging's own repo metadata and misbehave. Run the newer projects' tests
-    # with a temp dir outside the checkout. The original five do not need this.
-    test_env = {**env, "TMPDIR": tempfile.mkdtemp(prefix="downstream-")}
-
-    if project in DATE_LIMITED_PROJECTS:
-        # See DATE_LIMITED_PROJECTS: cap resolution at the cutoff so these
-        # projects pull a pytest they support, for both backends.
+    if cfg.date_limit:
+        # See PYTEST_910_CUTOFF: cap resolution so these projects pull a pytest
+        # they support, on both backends.
         session.env["UV_EXCLUDE_NEWER"] = PYTEST_910_CUTOFF
         session.env["PIP_UPLOADED_PRIOR_TO"] = PYTEST_910_CUTOFF
 
-    if project == "packaging_legacy":
-        session.install("-r", "tests/requirements.txt")
-        session.install("-e.")
-        session.run(*pip_cmd, "list")
-        session.run("pytest", *session.posargs, env=env)
-    elif project in {"build", "pyproject_metadata"}:
-        session.install("-e.", "--group=test")
-        if project != "build":
-            session.run(*pip_cmd, "list")
-        session.run("pytest", *session.posargs, env=env)
-    elif project == "setuptools":
-        session.install("-e.[test,cover]")
-        session.run(*pip_cmd, "list")
-        repl_dir = "setuptools/_vendor/packaging"
-        shutil.rmtree(repl_dir)
-        shutil.copytree(pkg_dir, repl_dir)
-        skips = ["-k", "not test_editable_install and not test_editable_with_pyproject"]
-        session.run("pytest", *skips, *session.posargs, env=env)
-    elif project == "pip":
-        session.install("-e.", "--group=test")
+    # nox points TMPDIR inside this git checkout, so downstream tools that walk up
+    # the tree (hatchling's VCS sdist builder, tox/pdm config discovery) find
+    # packaging's own repo metadata and misbehave. Keep the test temp dir outside.
+    test_env: dict[str, str | None] = {
+        "FORCE_COLOR": None,
+        "TMPDIR": tempfile.mkdtemp(prefix="downstream-"),
+    }
+    if cfg.extra_env:
+        test_env |= cfg.extra_env
+
+    session.install(*cfg.install, env=cfg.install_env)
+
+    if project == "pip":
+        # pip needs its common test wheels built before its vendored copy of
+        # packaging is swapped out.
         session.run(
             "pip",
             "wheel",
@@ -199,149 +313,15 @@ def downstream(session: nox.Session, project: str) -> None:
             "--group",
             "test-common-wheels",
         )
-        session.run(*pip_cmd, "list")
-        repl_dir = "src/pip/_vendor/packaging"
+
+    for repl_dir in cfg.swap:
+        # Replace the vendored packaging with the current source. Its relative
+        # imports keep it self-contained under any vendor namespace.
         shutil.rmtree(repl_dir)
         shutil.copytree(pkg_dir, repl_dir)
-        session.run(
-            "pytest",
-            "tests/unit",
-            "--numprocesses=auto",
-            "-k",
-            "not test_ensure_svn_available",
-            *session.posargs,
-        )
-    elif project == "dependency_groups":
-        session.install("-e.", "--group=test")
-        session.run(*pip_cmd, "list")
-        session.run("pytest", *session.posargs, env=test_env)
-    elif project == "dep_logic":
-        # pdm-backend computes the version from git, absent in the tarball. Scope
-        # the override to the build so it cannot leak into version-aware tests.
-        session.install("-e.", "pytest", env={"PDM_BUILD_SCM_VERSION": "0.6.0"})
-        session.run(*pip_cmd, "list")
-        session.run("pytest", *session.posargs, env=test_env)
-    elif project == "twine":
-        # twine keeps its test deps in tox.ini rather than a [test] extra.
-        session.install(
-            "-e.",
-            "pretend",
-            "pytest",
-            "pytest-socket",
-            "coverage",
-            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "6.2.0"},
-        )
-        # test_fails_rst_syntax_error asserts an exact docutils warning string
-        # that changed in newer docutils; unrelated to packaging.
-        session.run(
-            "pytest",
-            "-k",
-            "not test_fails_rst_syntax_error",
-            *session.posargs,
-            env=test_env,
-        )
-    elif project == "cibuildwheel":
-        session.install("-e.", "--group=test")
-        session.run(*pip_cmd, "list")
-        # unit_test/ is the fast suite; test/ holds slow Docker integration tests.
-        session.run("pytest", "unit_test", *session.posargs, env=test_env)
-    elif project == "hatchling":
-        # hatchling lives in the hatch monorepo; its backend tests under
-        # tests/backend rely on the full hatch package and its fixtures. Keep the
-        # version override out of the test env: hatchling has version-detection
-        # tests that fail if SETUPTOOLS_SCM_PRETEND_VERSION is set while they run.
-        session.install(
-            "-e./backend",
-            "-e.",
-            "pytest",
-            "pytest-mock",
-            "filelock",
-            "editables",
-            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
-        )
-        # test_binary downloads a PyApp binary over the network.
-        session.run(
-            "pytest",
-            "tests/backend",
-            "--ignore=tests/backend/builders/test_binary.py",
-            *session.posargs,
-            env=test_env,
-        )
-    elif project == "tox":
-        # argcomplete is an optional dep that several tests import at collection.
-        session.install(
-            "-e.",
-            "--group=test",
-            "argcomplete",
-            env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
-        )
-        # tox appends a pip-freeze line to command output when CI is set, which
-        # several output-asserting tests do not expect, so run them without it.
-        session.run(
-            "pytest",
-            "-m",
-            "not integration",
-            *session.posargs,
-            env={**test_env, "CI": None},
-        )
-    elif project == "virtualenv":
-        session.install(
-            "-e.", "--group=test", env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"}
-        )
-        session.run("pytest", *session.posargs, env=test_env)
-    elif project == "pdm":
-        session.install("-e.", "--group=test", env={"PDM_BUILD_SCM_VERSION": "2.27.0"})
-        session.run(
-            "pytest",
-            "-m",
-            "not network and not integration",
-            *session.posargs,
-            env=test_env,
-        )
-    elif project == "poetry_core":
-        # poetry-core uses poetry-native dependency groups, so its test deps are
-        # not pip-installable as an extra; install them explicitly.
-        session.install(
-            "-e.",
-            "pytest",
-            "pytest-mock",
-            "build",
-            "setuptools",
-            "tomli-w",
-            "virtualenv",
-            "trove-classifiers",
-        )
-        # poetry-core vendors packaging under _vendor and injects it onto
-        # sys.path; replace it with the current source, as we do for pip.
-        repl_dir = "src/poetry/core/_vendor/packaging"
-        shutil.rmtree(repl_dir)
-        shutil.copytree(pkg_dir, repl_dir)
-        session.run("pytest", "tests", *session.posargs, env=test_env)
-    elif project == "pipenv":
-        session.install("-e.[tests]")
-        # pipenv vendors packaging twice (its own vendor tree and the patched
-        # pip); replace both with the current source.
-        for repl_dir in (
-            "pipenv/vendor/packaging",
-            "pipenv/patched/pip/_vendor/packaging",
-        ):
-            shutil.rmtree(repl_dir)
-            shutil.copytree(pkg_dir, repl_dir)
-        # test_vendor.py asserts vendoring integrity (and needs pytz), so it is
-        # expected to fail after the swap. pipenv's addopts enable --no-cov,
-        # which errors without pytest-cov; replace them. integration tests need
-        # the network.
-        session.run(
-            "pytest",
-            "tests/unit",
-            "--ignore=tests/unit/test_vendor.py",
-            "-o",
-            "addopts=-ra",
-            *session.posargs,
-            env=test_env,
-        )
-    else:
-        session.error("Unknown package")
+
+    session.run(*pip_cmd, "list")
+    session.run("pytest", *cfg.pytest_args, *session.posargs, env=test_env)
 
 
 @nox.session(python="3.10")
