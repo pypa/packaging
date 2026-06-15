@@ -104,30 +104,18 @@ def property_tests(session: nox.Session) -> None:
     )
 
 
-# A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13),
-# whose parametrize handling turns their test collection into errors. Rather than
-# pin pytest by hand, projects with ``date_limit`` cap dependency resolution at
-# the day before it shipped, so they resolve pytest 9.0.x (and otherwise-current
-# deps) on both the uv and pip backends.
+# A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13)
+# Pip and uv are one day different in handling it
 PYTEST_910_CUTOFF = "2026-06-12"
 
 
 @dataclass(frozen=True)
 class Project:
-    """One downstream project: how to fetch, install, patch, and test it."""
-
     url: str
-    # Arguments for ``session.install``; the default covers the common case.
     install: tuple[str, ...] = ("-e.", "--group=test")
-    # Environment for the install only, e.g. a build-backend version override
-    # (the tarball has no ``.git``). Kept off the test run so it cannot leak into
-    # version-aware tests.
     install_env: dict[str, str] | None = None
-    # Vendored ``packaging`` directories to replace with the current source.
     swap: tuple[str, ...] = ()
-    # Arguments inserted before ``session.posargs`` when running pytest.
     pytest_args: tuple[str, ...] = ()
-    # Extra environment merged into the test run (e.g. unsetting a variable).
     extra_env: dict[str, str | None] | None = None
     date_limit: bool = False
 
@@ -211,9 +199,10 @@ PROJECTS = {
         install=("-e.", "--group=test", "argcomplete"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
         pytest_args=("-m", "not integration"),
-        # tox appends a pip-freeze line to command output when CI is set, which
-        # several output-asserting tests do not expect.
-        extra_env={"CI": None},
+        # In CI, tox appends a pip-freeze line to command output, which several
+        # output-asserting tests do not expect. Unset every variable its is_ci()
+        # (tox/util/ci.py) checks that GitHub Actions sets.
+        extra_env={"CI": None, "GITHUB_ACTIONS": None},
     ),
     "virtualenv": Project(
         "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
