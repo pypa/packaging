@@ -805,39 +805,41 @@ class TestVersion:
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that
         # should be True for the given operator
-        itertools.chain.from_iterable(
-            # Verify that the less than (<) operator works correctly
-            [
-                [(x, y, operator.lt) for y in VERSIONS[i + 1 :]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the less than equal (<=) operator works correctly
-            [
-                [(x, y, operator.le) for y in VERSIONS[i:]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.eq) for x in VERSIONS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than equal (>=) operator works correctly
-            [
-                [(x, y, operator.ge) for y in VERSIONS[: i + 1]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than (>) operator works correctly
-            [
-                [(x, y, operator.gt) for y in VERSIONS[:i]]
-                for i, x in enumerate(VERSIONS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the less than (<) operator works correctly
+                [
+                    [(x, y, operator.lt) for y in VERSIONS[i + 1 :]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the less than equal (<=) operator works correctly
+                [
+                    [(x, y, operator.le) for y in VERSIONS[i:]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.eq) for x in VERSIONS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than equal (>=) operator works correctly
+                [
+                    [(x, y, operator.ge) for y in VERSIONS[: i + 1]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than (>) operator works correctly
+                [
+                    [(x, y, operator.gt) for y in VERSIONS[:i]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+            )
         ),
     )
     def test_comparison_true(
@@ -849,39 +851,41 @@ class TestVersion:
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that
         # should be False for the given operator
-        itertools.chain.from_iterable(
-            # Verify that the less than (<) operator works correctly
-            [
-                [(x, y, operator.lt) for y in VERSIONS[: i + 1]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the less than equal (<=) operator works correctly
-            [
-                [(x, y, operator.le) for y in VERSIONS[:i]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the equal (==) operator works correctly
-            [
-                [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [[(x, x, operator.ne) for x in VERSIONS]]
-            +
-            # Verify that the greater than equal (>=) operator works correctly
-            [
-                [(x, y, operator.ge) for y in VERSIONS[i + 1 :]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than (>) operator works correctly
-            [
-                [(x, y, operator.gt) for y in VERSIONS[i:]]
-                for i, x in enumerate(VERSIONS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the less than (<) operator works correctly
+                [
+                    [(x, y, operator.lt) for y in VERSIONS[: i + 1]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the less than equal (<=) operator works correctly
+                [
+                    [(x, y, operator.le) for y in VERSIONS[:i]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the equal (==) operator works correctly
+                [
+                    [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [[(x, x, operator.ne) for x in VERSIONS]]
+                +
+                # Verify that the greater than equal (>=) operator works correctly
+                [
+                    [(x, y, operator.ge) for y in VERSIONS[i + 1 :]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than (>) operator works correctly
+                [
+                    [(x, y, operator.gt) for y in VERSIONS[i:]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+            )
         ),
     )
     def test_comparison_false(
