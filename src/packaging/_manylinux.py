@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from ._elffile import EIClass, EIData, ELFFile, EMachine
 
 if TYPE_CHECKING:
+    import types
     from collections.abc import Generator, Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
@@ -182,30 +183,44 @@ def _get_glibc_version() -> _GLibCVersion:
 
 
 # From PEP 513, PEP 600
+@functools.lru_cache(maxsize=1)
+def _get_manylinux_module() -> types.ModuleType | None:
+    """Return the ``_manylinux`` C extension module, or None if unavailable.
+
+    The result is cached for the lifetime of the process, since the presence
+    of the module does not change while running.
+    """
+    try:
+        return __import__("_manylinux")
+    except ImportError:
+        return None
+
+
 def _is_compatible(arch: str, version: _GLibCVersion) -> bool:
     sys_glibc = _get_glibc_version()
     if sys_glibc < version:
         return False
     # Check for presence of _manylinux module.
-    try:
-        import _manylinux  # noqa: PLC0415
-    except ImportError:
+    manylinux_mod = _get_manylinux_module()
+    if manylinux_mod is None:
         return True
-    if hasattr(_manylinux, "manylinux_compatible"):
-        result = _manylinux.manylinux_compatible(version[0], version[1], arch)
+    if hasattr(manylinux_mod, "manylinux_compatible"):
+        result = manylinux_mod.manylinux_compatible(version[0], version[1], arch)
         if result is not None:
             return bool(result)
         return True
-    if version == _GLibCVersion(2, 5) and hasattr(_manylinux, "manylinux1_compatible"):
-        return bool(_manylinux.manylinux1_compatible)
+    if version == _GLibCVersion(2, 5) and hasattr(
+        manylinux_mod, "manylinux1_compatible"
+    ):
+        return bool(manylinux_mod.manylinux1_compatible)
     if version == _GLibCVersion(2, 12) and hasattr(
-        _manylinux, "manylinux2010_compatible"
+        manylinux_mod, "manylinux2010_compatible"
     ):
-        return bool(_manylinux.manylinux2010_compatible)
+        return bool(manylinux_mod.manylinux2010_compatible)
     if version == _GLibCVersion(2, 17) and hasattr(
-        _manylinux, "manylinux2014_compatible"
+        manylinux_mod, "manylinux2014_compatible"
     ):
-        return bool(_manylinux.manylinux2014_compatible)
+        return bool(manylinux_mod.manylinux2014_compatible)
     return True
 
 

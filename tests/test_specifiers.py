@@ -248,15 +248,17 @@ class TestSpecifier:
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
-        itertools.chain.from_iterable(
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.eq) for x in SPECIFIERS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.ne) for j, y in enumerate(SPECIFIERS) if i != j]
-                for i, x in enumerate(SPECIFIERS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.eq) for x in SPECIFIERS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.ne) for j, y in enumerate(SPECIFIERS) if i != j]
+                    for i, x in enumerate(SPECIFIERS)
+                ]
+            )
         ),
     )
     def test_comparison_true(
@@ -277,15 +279,17 @@ class TestSpecifier:
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
-        itertools.chain.from_iterable(
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.ne) for x in SPECIFIERS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.eq) for j, y in enumerate(SPECIFIERS) if i != j]
-                for i, x in enumerate(SPECIFIERS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.ne) for x in SPECIFIERS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.eq) for j, y in enumerate(SPECIFIERS) if i != j]
+                    for i, x in enumerate(SPECIFIERS)
+                ]
+            )
         ),
     )
     def test_comparison_false(
@@ -2297,15 +2301,17 @@ class TestSpecifierSet:
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
-        itertools.chain.from_iterable(
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.eq) for x in SPECIFIERS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.ne) for j, y in enumerate(SPECIFIERS) if i != j]
-                for i, x in enumerate(SPECIFIERS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.eq) for x in SPECIFIERS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.ne) for j, y in enumerate(SPECIFIERS) if i != j]
+                    for i, x in enumerate(SPECIFIERS)
+                ]
+            )
         ),
     )
     def test_comparison_true(
@@ -2319,15 +2325,17 @@ class TestSpecifierSet:
 
     @pytest.mark.parametrize(
         ("left", "right", "op"),
-        itertools.chain.from_iterable(
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.ne) for x in SPECIFIERS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.eq) for j, y in enumerate(SPECIFIERS) if i != j]
-                for i, x in enumerate(SPECIFIERS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.ne) for x in SPECIFIERS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.eq) for j, y in enumerate(SPECIFIERS) if i != j]
+                    for i, x in enumerate(SPECIFIERS)
+                ]
+            )
         ),
     )
     def test_comparison_false(

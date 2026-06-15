@@ -135,6 +135,11 @@ def downstream(session: nox.Session, project: str) -> None:
 
     pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
 
+    # These pinned downstream releases predate pytest 9.1.0, which turns their
+    # parametrize usage into collection errors. Install a compatible pytest
+    # before the project's test deps so it is kept (pip won't upgrade it).
+    session.install("pytest<9.1.0")
+
     if project == "packaging_legacy":
         session.install("-r", "tests/requirements.txt")
         session.install("-e.")
