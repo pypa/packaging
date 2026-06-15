@@ -267,7 +267,7 @@ class DependencyGroupResolver:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
         if errors.errors:
-            return tuple(elements)
+            return ()
 
         self._parsed_groups[group] = tuple(elements)
         return self._parsed_groups[group]
