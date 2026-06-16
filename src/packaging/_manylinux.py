@@ -31,7 +31,7 @@ _ALLOWED_ARCHS = {
 
 
 @contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[ELFFile | None, None, None]:
+def _parse_elf(path: str) -> Generator[ELFFile | None]:
     try:
         with open(path, "rb") as f:
             yield ELFFile(f)

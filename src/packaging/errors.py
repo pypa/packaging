@@ -62,7 +62,7 @@ class _ErrorCollector:
             raise ExceptionGroup(msg, self.errors)
 
     @contextlib.contextmanager
-    def on_exit(self, msg: str) -> typing.Generator[_ErrorCollector, None, None]:
+    def on_exit(self, msg: str) -> typing.Generator[_ErrorCollector]:
         """
         Calls finalize if no uncollected errors were present.
 
@@ -72,7 +72,7 @@ class _ErrorCollector:
         self.finalize(msg)
 
     @contextlib.contextmanager
-    def collect(self, *err_cls: type[Exception]) -> typing.Generator[None, None, None]:
+    def collect(self, *err_cls: type[Exception]) -> typing.Generator[None]:
         """
         Context manager to collect errors into the error list.
 

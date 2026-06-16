@@ -33,7 +33,7 @@ from packaging._manylinux import (
 
 
 @pytest.fixture(autouse=True)
-def clear_lru_cache() -> Generator[None, None, None]:
+def clear_lru_cache() -> Generator[None]:
     yield
     _get_glibc_version.cache_clear()
     _get_manylinux_module.cache_clear()
