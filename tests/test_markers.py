@@ -422,6 +422,23 @@ class TestMarker:
         assert str(Marker(lhs)) == f'"{normalized_name}" == extra'
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
+    def test_extra_compared_to_variable_not_normalized(self) -> None:
+        # A variable-vs-variable atom must not be rewritten into a string
+        # literal, even when one side is ``extra``.
+        assert str(Marker("extra == os_name")) == "extra == os_name"
+        assert str(Marker("os_name == extra")) == "os_name == extra"
+
+    def test_nested_extra_str_normalization(self) -> None:
+        marker = Marker(
+            '(extra == "Foo_Bar" or extra == "Baz") and python_version >= "3"'
+        )
+
+        assert (
+            str(marker)
+            == '(extra == "foo-bar" or extra == "baz") and python_version >= "3"'
+        )
+        assert marker.evaluate({"extra": "foo-bar", "python_version": "3.12"})
+
     def test_python_full_version_untagged_user_provided(self) -> None:
         """A user-provided python_full_version ending with a + is also repaired."""
         assert Marker("python_full_version < '3.12'").evaluate(
