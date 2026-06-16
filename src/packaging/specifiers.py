@@ -827,8 +827,6 @@ class SpecifierSet(BaseSpecifier):
         if not self._canonicalized:
             self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
             self._canonicalized = True
-            self._is_unsatisfiable = None
-            self._ranges = None
         return self._specs
 
     @property
