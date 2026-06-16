@@ -33,7 +33,7 @@ _ALLOWED_ARCHS = {
 # `os.PathLike` not a generic type until Python 3.9, so sticking with `str`
 # as the type for `path` until then.
 @contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[ELFFile | None, None, None]:
+def _parse_elf(path: str) -> Generator[ELFFile | None]:
     try:
         with open(path, "rb") as f:
             yield ELFFile(f)
