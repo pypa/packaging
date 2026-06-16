@@ -190,10 +190,6 @@ PROJECTS = {
         ),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
         # test_binary downloads a PyApp binary over the network.
-        # test_default_shared_scripts is flaky (~0.4%/run) and unrelated to
-        # packaging: it builds a shared script from os.urandom(1024) and
-        # hatchling's shebang rewriter drops leading blank lines, so when the
-        # random bytes start with a blank line the RECORD hash/length mismatches.
         # See https://github.com/pypa/hatch/issues/2319.
         pytest_args=(
             "tests/backend",
