@@ -44,7 +44,6 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
         "3.13t",
         "3.14t",
         "3.15t",
-        "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],
