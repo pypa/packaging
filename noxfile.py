@@ -190,7 +190,12 @@ PROJECTS = {
         ),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
         # test_binary downloads a PyApp binary over the network.
-        pytest_args=("tests/backend", "--ignore=tests/backend/builders/test_binary.py"),
+        # See https://github.com/pypa/hatch/issues/2319.
+        pytest_args=(
+            "tests/backend",
+            "--ignore=tests/backend/builders/test_binary.py",
+            "--deselect=tests/backend/builders/test_wheel.py::TestBuildStandard::test_default_shared_scripts",
+        ),
     ),
     "tox": Project(
         "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
