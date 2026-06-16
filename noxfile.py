@@ -49,7 +49,6 @@ HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
         "3.13t",
         "3.14t",
         "3.15t",
-        "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],

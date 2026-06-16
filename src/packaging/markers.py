@@ -9,8 +9,9 @@ import operator
 import os
 import platform
 import sys
+from collections.abc import Callable
 from collections.abc import Set as AbstractSet
-from typing import TYPE_CHECKING, Callable, Literal, TypedDict, Union, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -36,7 +37,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
-Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
+Operator = Callable[[str, str | AbstractSet[str]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 """A ``typing.Literal`` enumerating valid marker evaluation contexts.
 
