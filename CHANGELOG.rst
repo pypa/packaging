@@ -4,6 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Removals:
+
+* Drop support for EOL Python 3.9. (:pull:`1263`)
+
 Behavior adaptations:
 
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
