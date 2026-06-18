@@ -631,12 +631,25 @@ class _Validator(Generic[T]):
     def _process_description_content_type(self, value: str) -> str:
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
         message = email.message.EmailMessage()
-        message["content-type"] = value
+        try:
+            message["content-type"] = value
+        except ValueError as exc:
+            raise self._invalid_metadata(
+                f"{{field}} must be one of {list(content_types)}, not {value!r}",
+                cause=exc,
+            ) from exc
+        content_type_header = message["content-type"]
+        if content_type_header.defects:
+            defect = content_type_header.defects[0]
+            raise self._invalid_metadata(
+                f"{{field}} must be one of {list(content_types)}, not {value!r}",
+                cause=defect,
+            ) from defect
 
         content_type, parameters = (
             # Defaults to `text/plain` if parsing failed.
             message.get_content_type().lower(),
-            message["content-type"].params,
+            content_type_header.params,
         )
         # Check if content-type is valid or defaulted to `text/plain` and thus was
         # not parseable.
@@ -844,13 +857,44 @@ class Metadata:
         raw, unparsed = parse_email(data)
 
         if validate:
-            with _ErrorCollector().on_exit("unparsed") as collector:
-                for unparsed_key in unparsed:
-                    if unparsed_key in _EMAIL_TO_RAW_MAPPING:
-                        message = f"{unparsed_key!r} has invalid data"
-                    else:
-                        message = f"unrecognized field: {unparsed_key!r}"
-                    collector.error(InvalidMetadata(unparsed_key, message))
+            collector = _ErrorCollector()
+            unparsed_raw_fields: set[str] = set()
+            required_email_fields = {
+                _RAW_TO_EMAIL_MAPPING[field] for field in _REQUIRED_ATTRS
+            }
+            for unparsed_key in unparsed:
+                if unparsed_key in _EMAIL_TO_RAW_MAPPING:
+                    unparsed_raw_fields.add(_EMAIL_TO_RAW_MAPPING[unparsed_key])
+                    message = f"{unparsed_key!r} has invalid data"
+                else:
+                    message = f"unrecognized field: {unparsed_key!r}"
+                collector.error(InvalidMetadata(unparsed_key, message))
+            try:
+                validated = cls.from_raw(raw, validate=validate)
+            except InvalidMetadata as exc:
+                from_raw_errors = (exc,)
+            except ExceptionGroup as exc_group:
+                from_raw_errors = exc_group.exceptions
+            else:
+                if collector.errors:
+                    raise ExceptionGroup(
+                        "invalid or unparsed metadata", collector.errors
+                    ) from None
+                return validated
+
+            for exc in from_raw_errors:
+                if (
+                    isinstance(exc, InvalidMetadata)
+                    and exc.field in required_email_fields
+                    and _EMAIL_TO_RAW_MAPPING[exc.field] in unparsed_raw_fields
+                    and _EMAIL_TO_RAW_MAPPING[exc.field] not in raw
+                ):
+                    continue
+                collector.error(exc)
+            if collector.errors:
+                raise ExceptionGroup(
+                    "invalid or unparsed metadata", collector.errors
+                ) from None
 
         try:
             return cls.from_raw(raw, validate=validate)
