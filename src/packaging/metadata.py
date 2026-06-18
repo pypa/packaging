@@ -21,6 +21,8 @@ from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 
@@ -880,9 +882,12 @@ class Metadata:
                 else:
                     message = f"unrecognized field: {unparsed_key!r}"
                 collector.error(InvalidMetadata(unparsed_key, message))
+            from_raw_errors: Sequence[Exception] = ()
             try:
                 validated = cls.from_raw(raw, validate=validate)
             except InvalidMetadata as exc:
+                if not collector.errors:
+                    raise
                 from_raw_errors = (exc,)
             except ExceptionGroup as exc_group:
                 from_raw_errors = exc_group.exceptions
@@ -893,19 +898,19 @@ class Metadata:
                     ) from None
                 return validated
 
-            for exc in from_raw_errors:
-                if (
-                    isinstance(exc, InvalidMetadata)
-                    and exc.field in required_email_fields
-                    and _EMAIL_TO_RAW_MAPPING[exc.field] in unparsed_raw_fields
-                    and _EMAIL_TO_RAW_MAPPING[exc.field] not in raw
-                ):
-                    continue
-                collector.error(exc)
-            if collector.errors:
-                raise ExceptionGroup(
-                    "invalid or unparsed metadata", collector.errors
-                ) from None
+            for from_raw_error in from_raw_errors:
+                if isinstance(from_raw_error, InvalidMetadata):
+                    raw_field = _EMAIL_TO_RAW_MAPPING.get(from_raw_error.field)
+                    if (
+                        from_raw_error.field in required_email_fields
+                        and raw_field in unparsed_raw_fields
+                        and raw_field not in raw
+                    ):
+                        continue
+                collector.error(from_raw_error)
+            raise ExceptionGroup(
+                "invalid or unparsed metadata", collector.errors
+            ) from None
 
         try:
             return cls.from_raw(raw, validate=validate)

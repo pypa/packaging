@@ -16,6 +16,13 @@ if typing.TYPE_CHECKING:
     from packaging.metadata import RawMetadata
 
 
+def _invalid_metadata_exceptions(
+    exceptions: tuple[Exception, ...] | list[Exception],
+) -> list[metadata.InvalidMetadata]:
+    assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
+    return typing.cast("list[metadata.InvalidMetadata]", list(exceptions))
+
+
 class TestRawMetadata:
     @pytest.mark.parametrize("raw_field", sorted(metadata._STRING_FIELDS))
     def test_non_repeating_fields_only_once(self, raw_field: str) -> None:
@@ -345,14 +352,23 @@ class TestMetadata:
         )
         assert meta.import_names == []
 
+    def test_from_email_validate_returns_valid_metadata(self) -> None:
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n",
+            validate=True,
+        )
+
+        assert meta.name == "packaging"
+        assert str(meta.version) == "1.0"
+
     def test_from_email_unparsed(self) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email("Hello: PyPA")
 
         exceptions = exc_info.value.exceptions
         assert len(exceptions) == 4
-        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
-        assert {exc.field for exc in exceptions} == {
+        invalid_metadata = _invalid_metadata_exceptions(exceptions)
+        assert {exc.field for exc in invalid_metadata} == {
             "hello",
             "metadata-version",
             "name",
@@ -375,11 +391,26 @@ class TestMetadata:
             metadata.Metadata.from_email("", validate=True)
 
         assert exc_info.value.message == "invalid or unparsed metadata"
-        assert {exc.field for exc in exc_info.value.exceptions} == {
+        invalid_metadata = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        assert {exc.field for exc in invalid_metadata} == {
             "metadata-version",
             "name",
             "version",
         }
+
+    def test_from_email_collects_unparsed_field_with_valid_raw_metadata(self) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Version: 1.0\n"
+                "Unknown-Field: value\n"
+            )
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "unknown-field"
+        assert exc_info.value.__context__ is None
 
     def test_from_email_collects_unparsed_and_invalid_fields(self) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
@@ -392,8 +423,8 @@ class TestMetadata:
 
         exceptions = exc_info.value.exceptions
         assert len(exceptions) == 2
-        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
-        assert {exc.field for exc in exceptions} == {"name", "version"}
+        invalid_metadata = _invalid_metadata_exceptions(exceptions)
+        assert {exc.field for exc in invalid_metadata} == {"name", "version"}
         assert exc_info.value.__context__ is None
 
     def test_from_email_collects_required_fields_after_unparsed_known_header(
@@ -401,14 +432,13 @@ class TestMetadata:
     ) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email(
-                "Name: packaging\n"
-                "Name: packaging-copy\n"
-                "Unknown-Field: value\n"
+                "Name: packaging\nName: packaging-copy\nUnknown-Field: value\n"
             )
 
         exceptions = exc_info.value.exceptions
         assert len(exceptions) == 4
-        assert {exc.field for exc in exceptions} == {
+        invalid_metadata = _invalid_metadata_exceptions(exceptions)
+        assert {exc.field for exc in invalid_metadata} == {
             "name",
             "unknown-field",
             "metadata-version",
@@ -426,12 +456,103 @@ class TestMetadata:
 
         exceptions = exc_info.value.exceptions
         assert len(exceptions) == 2
-        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
-        assert {exc.field for exc in exceptions} == {
+        invalid_metadata = _invalid_metadata_exceptions(exceptions)
+        assert {exc.field for exc in invalid_metadata} == {
             "unknown-field",
             "version",
         }
         assert exc_info.value.__context__ is None
+
+    def test_from_email_keeps_non_metadata_validation_errors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def from_raw(
+            raw: metadata.RawMetadata, *, validate: bool = True
+        ) -> metadata.Metadata:
+            del raw, validate
+            raise ExceptionGroup("invalid metadata", [RuntimeError("boom")])
+
+        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n"
+            )
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, RuntimeError)
+        assert str(exc) == "boom"
+
+    def test_from_email_preserves_single_from_raw_validation_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        expected = metadata.InvalidMetadata("summary", "invalid summary")
+
+        def from_raw(
+            raw: metadata.RawMetadata, *, validate: bool = True
+        ) -> metadata.Metadata:
+            del raw, validate
+            raise expected
+
+        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
+
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n"
+            )
+
+        assert exc_info.value is expected
+
+    def test_from_email_aggregates_single_from_raw_validation_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        expected = metadata.InvalidMetadata("summary", "invalid summary")
+
+        def from_raw(
+            raw: metadata.RawMetadata, *, validate: bool = True
+        ) -> metadata.Metadata:
+            del raw, validate
+            raise expected
+
+        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Version: 1.0\n"
+                "Unknown-Field: value\n"
+            )
+
+        unknown_field, from_raw_error = exc_info.value.exceptions
+        assert isinstance(unknown_field, metadata.InvalidMetadata)
+        assert unknown_field.field == "unknown-field"
+        assert from_raw_error is expected
+        assert exc_info.value.__context__ is None
+
+    def test_from_email_validate_false_wraps_from_raw_groups(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        expected = metadata.InvalidMetadata("summary", "invalid summary")
+
+        def from_raw(
+            raw: metadata.RawMetadata, *, validate: bool = True
+        ) -> metadata.Metadata:
+            assert validate is False
+            del raw
+            raise ExceptionGroup("invalid metadata", [expected])
+
+        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n",
+                validate=False,
+            )
+
+        assert exc_info.value.message == "invalid or unparsed metadata"
+        assert list(exc_info.value.exceptions) == [expected]
+        assert exc_info.value.__suppress_context__ is True
 
     @pytest.mark.parametrize(
         ("data", "field"),
@@ -451,10 +572,7 @@ class TestMetadata:
                 "name",
             ),
             (
-                "Metadata-Version: 2.6\n"
-                "Name: packaging\n"
-                "Version: 1.0\n"
-                "Version: 2.0\n",
+                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\nVersion: 2.0\n",
                 "version",
             ),
         ],
@@ -498,6 +616,17 @@ class TestMetadata:
         assert exc.field == "description-content-type"
         assert repr(description_content_type) in str(exc)
         assert "is not a valid content type" in str(exc)
+
+    def test_invalid_description_content_type_without_defects(self) -> None:
+        raw = _RAW_EXAMPLE.copy()
+        raw["description_content_type"] = "application/octet-stream"
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw)
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "description-content-type"
 
     def test_required_fields(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
