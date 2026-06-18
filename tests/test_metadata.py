@@ -349,8 +349,15 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email("Hello: PyPA")
 
-        assert len(exc_info.value.exceptions) == 1
-        assert isinstance(exc_info.value.exceptions[0], metadata.InvalidMetadata)
+        exceptions = exc_info.value.exceptions
+        assert len(exceptions) == 4
+        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
+        assert {exc.field for exc in exceptions} == {
+            "hello",
+            "metadata-version",
+            "name",
+            "version",
+        }
 
     def test_from_email_validate(self) -> None:
         with pytest.raises(ExceptionGroup):
@@ -362,6 +369,107 @@ class TestMetadata:
             metadata.Metadata.from_email(
                 "Project-URL: A, B\nProject-URL: A, C", validate=True
             )
+
+    def test_from_email_empty_metadata_uses_from_email_error_message(self) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email("", validate=True)
+
+        assert exc_info.value.message == "invalid or unparsed metadata"
+        assert {exc.field for exc in exc_info.value.exceptions} == {
+            "metadata-version",
+            "name",
+            "version",
+        }
+
+    def test_from_email_collects_unparsed_and_invalid_fields(self) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Name: packaging-copy\n"
+                "Version: invalid version\n"
+            )
+
+        exceptions = exc_info.value.exceptions
+        assert len(exceptions) == 2
+        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
+        assert {exc.field for exc in exceptions} == {"name", "version"}
+        assert exc_info.value.__context__ is None
+
+    def test_from_email_collects_required_fields_after_unparsed_known_header(
+        self,
+    ) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Name: packaging\n"
+                "Name: packaging-copy\n"
+                "Unknown-Field: value\n"
+            )
+
+        exceptions = exc_info.value.exceptions
+        assert len(exceptions) == 4
+        assert {exc.field for exc in exceptions} == {
+            "name",
+            "unknown-field",
+            "metadata-version",
+            "version",
+        }
+
+    def test_from_email_collects_unknown_and_invalid_fields(self) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Unknown-Field: value\n"
+                "Version: invalid version\n"
+            )
+
+        exceptions = exc_info.value.exceptions
+        assert len(exceptions) == 2
+        assert all(isinstance(exc, metadata.InvalidMetadata) for exc in exceptions)
+        assert {exc.field for exc in exceptions} == {
+            "unknown-field",
+            "version",
+        }
+        assert exc_info.value.__context__ is None
+
+    @pytest.mark.parametrize(
+        ("data", "field"),
+        [
+            (
+                "Metadata-Version: 2.6\n"
+                "Metadata-Version: 2.5\n"
+                "Name: packaging\n"
+                "Version: 1.0\n",
+                "metadata-version",
+            ),
+            (
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Name: packaging-copy\n"
+                "Version: 1.0\n",
+                "name",
+            ),
+            (
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Version: 1.0\n"
+                "Version: 2.0\n",
+                "version",
+            ),
+        ],
+    )
+    def test_from_email_deduplicates_unparsed_required_fields(
+        self,
+        data: str,
+        field: str,
+    ) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(data)
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == field
 
     @pytest.mark.parametrize(
         "description_content_type",
