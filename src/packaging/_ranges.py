@@ -43,6 +43,10 @@ __all__ = [
 #: The smallest possible PEP 440 version. No valid version is less than this.
 MIN_VERSION: Final[Version] = Version("0.dev0")
 
+#: The smallest non-pre-release version, i.e. the nearest non-pre-release at or
+#: above the ``-inf`` floor.
+MIN_RELEASE: Final[Version] = Version("0")
+
 #: Sorts above any real post number and any local label, so a boundary can be
 #: ordered above the version family it covers when two boundaries are compared.
 _BOUNDARY_INF: Final[float] = float("inf")
@@ -631,8 +635,14 @@ def _nearest_release_above_prerelease(version: Version) -> Version:
     return version.__replace__(dev=None, local=None)
 
 
-def _lowest_release_at_or_above(value: Version | BoundaryVersion) -> Version:
-    """Smallest non-pre-release version at or above *value*."""
+def _lowest_release_at_or_above(value: Version | BoundaryVersion | None) -> Version:
+    """Smallest non-pre-release version at or above *value*.
+
+    ``None`` is the ``-inf`` floor, whose nearest non-pre-release is
+    :data:`MIN_RELEASE`.
+    """
+    if value is None:
+        return MIN_RELEASE
     if isinstance(value, BoundaryVersion):
         inner_version = value.version
         if inner_version.is_prerelease:
@@ -655,12 +665,7 @@ def ranges_are_prerelease_only(ranges: Sequence[VersionRange]) -> bool:
     if every range is pre-release-only, every contained version is excluded.
     """
     for lower, upper in ranges:
-        # An unbounded lower reaches the PEP 440 floor; its nearest non-pre is 0.
-        if lower.version is None:
-            nearest = Version("0")
-        else:
-            nearest = _lowest_release_at_or_above(lower.version)
-
+        nearest = _lowest_release_at_or_above(lower.version)
         if upper.version is None or nearest < upper.version:
             return False
         if nearest == upper.version and upper.inclusive:
