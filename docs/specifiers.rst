@@ -59,6 +59,14 @@ Usage
     False
     >>> (SpecifierSet(">=3.13,<4.0") & SpecifierSet("==3.12.*")).is_unsatisfiable()
     True
+    >>> # We can convert a specifier set into a set-algebra VersionRange
+    >>> SpecifierSet(">=1.0,<2.0").to_range()
+    <VersionRange '[1.0, 2.0.dev0)'>
+
+The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
+:class:`~packaging.ranges.VersionRange`, a set-algebra view of the accepted
+versions that supports intersection, union, and complement. See :doc:`ranges`
+for details.
 
 
 Reference
