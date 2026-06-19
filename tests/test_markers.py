@@ -488,11 +488,8 @@ class TestMarker:
     def test_set_valued_marker_on_lhs_raises_undefined_comparison(
         self, variable: str, op: str
     ) -> None:
-        # A set-valued marker variable is only defined in the membership form
-        # (``"name" in <variable>``); using it on the left-hand side of a
-        # comparison has no defined meaning and must raise the public,
-        # documented UndefinedComparison rather than leak an internal
-        # AssertionError (which ``python -O`` strips entirely).
+        """Set-valued markers are only defined in the membership form, so using
+        one on the left-hand side of a comparison raises ``UndefinedComparison``."""
         marker = Marker(f"{variable} {op} 'foo'")
         with pytest.raises(UndefinedComparison):
             marker.evaluate(context="lock_file")
