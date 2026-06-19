@@ -1347,7 +1347,7 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == []
 
-    @pytest.mark.parametrize("ext_suffix", ["invalid", None])
+    @pytest.mark.parametrize("ext_suffix", ["invalid", "", None])
     def test__generic_abi_error(
         self, ext_suffix: str | None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
