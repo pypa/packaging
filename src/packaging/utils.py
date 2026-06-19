@@ -205,6 +205,9 @@ def parse_wheel_filename(
 
     .. versionadded:: 26.1
        The *validate_order* parameter.
+
+    .. versionchanged:: 26.3
+       Raises :class:`InvalidWheelFilename` on empty tag set components.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -266,8 +269,9 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     :param str filename: The name of the sdist file.
     :raises InvalidSdistFilename: If the filename does not end
-        with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
-        contain a dash separating the name and the version of the distribution.
+        with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
+        contain a dash separating the name and the version of the distribution,
+        or if the version portion is not a valid version.
 
     >>> from packaging.utils import parse_sdist_filename
     >>> from packaging.version import Version
