@@ -897,7 +897,7 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     if interp_name == "cp":
         yield from cpython_tags(warn=warn)
     else:
-        yield from generic_tags()
+        yield from generic_tags(warn=warn)
 
     if interp_name == "pp":
         interp = "pp3"
