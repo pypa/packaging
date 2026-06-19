@@ -37,7 +37,10 @@ from ._ranges import (
     coerce_version,
     filter_by_ranges,
     intersect_ranges,
+    least_version_above,
     matches_bounds_only,
+    range_is_empty,
+    ranges_are_prerelease_only,
 )
 from .version import Version
 
@@ -61,45 +64,9 @@ def __dir__() -> list[str]:
     return __all__
 
 
-# Range algebra: intersection lives in the engine (``intersect_ranges``);
-# union and complement are only needed here, so they live in this module.
-
-
-def _after_locals_successor(version: Version) -> Version:
-    """Smallest real version strictly above ``AFTER_LOCALS(version)``.
-
-    When V has a dev segment, the next real version is V with ``dev + 1``.
-    Otherwise AFTER_LOCALS(V) sits just below V.post0, so its successor is
-    V.post0.dev0 (V.post(N+1).dev0 when V is itself a post-release).
-    """
-    if version.dev is not None:
-        return version.__replace__(dev=version.dev + 1, local=None)
-
-    next_post = (version.post + 1) if version.post is not None else 0
-    return version.__replace__(post=next_post, dev=0, local=None)
-
-
-def _range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
-    """True when the union gap ``(lower, upper)`` holds no version.
-
-    Union calls this only for a strictly-ordered gap between two intervals,
-    so an ordinary version gap always holds a version. The one empty case is
-    a flipped ``AFTER_LOCALS(V)`` lower whose smallest real successor,
-    ``V.post0.dev0``, sits at or above the upper.
-    """
-    lower_version = lower.version
-    upper_version = upper.version
-
-    if (
-        isinstance(lower_version, BoundaryVersion)
-        and lower_version.kind == BoundaryKind.AFTER_LOCALS
-        and isinstance(upper_version, Version)
-    ):
-        successor = _after_locals_successor(lower_version.version)
-        if upper_version == successor:
-            return not upper.inclusive
-        return upper_version < successor
-    return False
+# Range algebra: intersection and the empty-interval test live in the engine
+# (``intersect_ranges`` / ``range_is_empty``); union and complement are only
+# needed here, so they live in this module.
 
 
 def _union_ranges(
@@ -147,7 +114,7 @@ def _union_ranges(
             # stay canonical.
             gap_lower = LowerBound(prev_upper.version, not prev_upper.inclusive)
             gap_upper = UpperBound(lower.version, not lower.inclusive)
-            overlaps = _range_is_empty(gap_lower, gap_upper)
+            overlaps = range_is_empty(gap_lower, gap_upper)
 
         if overlaps:
             merged[-1] = (prev_lower, max(prev_upper, upper))
@@ -172,16 +139,12 @@ def _complement_ranges(ranges: Sequence[_Interval]) -> list[_Interval]:
 
     for lower, upper in ranges:
         if prev_upper is None:
-            # A leading gap that ends at or below the PEP 440 floor holds no
-            # version, so it is dropped to keep ``is_empty`` correct. The live
-            # trigger is ``~singleton("0.dev0")`` (a strict ``[0.dev0, 0.dev0]``
-            # built outside ``_canonical_floor``); specifier-derived floor
-            # ranges are already collapsed to ``-inf`` before complement.
-            if lower.version is not None and not (
-                lower.inclusive
-                and isinstance(lower.version, Version)
-                and lower.version <= MIN_VERSION
-            ):
+            # Leading gap below the first interval. Every range reaching here is
+            # floor-canonical: ``_canonical_floor`` has already folded an
+            # inclusive lower at or below ``0.dev0`` into ``-inf``. So a finite
+            # first lower always leaves a non-empty gap down to ``-inf``, while a
+            # ``-inf`` lower leaves no leading gap at all.
+            if lower.version is not None:
                 gap_upper = UpperBound(lower.version, not lower.inclusive)
                 result.append((NEG_INF, gap_upper))
         else:
@@ -213,11 +176,7 @@ def _canonical_floor(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
         return bounds
 
     lower, upper = bounds[0]
-    if (
-        not upper.inclusive
-        and isinstance(upper.version, Version)
-        and upper.version <= MIN_VERSION
-    ):
+    if range_is_empty(NEG_INF, upper):
         return bounds[1:]
 
     if (
@@ -228,6 +187,74 @@ def _canonical_floor(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
         return ((NEG_INF, upper), *bounds[1:])
 
     return bounds
+
+
+def _predecessor_boundary(version: Version) -> BoundaryVersion | None:
+    """The boundary whose least successor is *version*, or ``None``.
+
+    Inverse of :func:`~packaging._ranges.least_version_above`. A plain version
+    that is exactly such a successor (``1.0a2.dev0`` sits just above
+    ``AFTER_POSTS(1.0a1)``) folds back to that boundary, so ``>=1.0a2.dev0`` and
+    ``>1.0a1`` share one form. The proposed boundary is confirmed by
+    round-tripping through ``least_version_above``.
+    """
+    # Only a least successor carries a dev segment, so nothing else can fold.
+    if version.dev is None:
+        return None
+
+    candidate: BoundaryVersion | None = None
+    if version.pre is not None and version.dev == 0 and version.post is None:
+        # 1.0a2.dev0 -> AFTER_POSTS(1.0a1)
+        kind, number = version.pre
+        if number >= 1:
+            candidate = BoundaryVersion(
+                version.__replace__(pre=(kind, number - 1), dev=None),
+                BoundaryKind.AFTER_POSTS,
+            )
+    elif version.dev >= 1:
+        # 1.0.dev3 -> AFTER_LOCALS(1.0.dev2)
+        candidate = BoundaryVersion(
+            version.__replace__(dev=version.dev - 1), BoundaryKind.AFTER_LOCALS
+        )
+    elif version.dev == 0 and version.post is not None:
+        # 1.0.post1.dev0 -> AFTER_LOCALS(1.0.post0); 1.0.post0.dev0 -> AFTER_LOCALS(1.0)
+        base = (
+            version.__replace__(post=None, dev=None)
+            if version.post == 0
+            else version.__replace__(post=version.post - 1, dev=None)
+        )
+        candidate = BoundaryVersion(base, BoundaryKind.AFTER_LOCALS)
+
+    if candidate is not None and least_version_above(candidate) == version:
+        return candidate
+    return None
+
+
+def _canonicalize(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
+    """Fold least-successor bounds to their boundary form.
+
+    ``>=1.0a2.dev0`` and ``>1.0a1`` denote the same set, so both must reduce to
+    one representation for ``==`` and ``hash`` to agree. An inclusive lower or
+    exclusive upper sitting on a boundary's least successor becomes that
+    boundary; the engine's emptiness check has already dropped the synthetic
+    gaps such intervals would otherwise leave.
+    """
+    result: list[_Interval] = []
+    for lower, upper in bounds:
+        new_lower, new_upper = lower, upper
+
+        if isinstance(lower.version, Version) and lower.inclusive:
+            boundary = _predecessor_boundary(lower.version)
+            if boundary is not None:
+                new_lower = LowerBound(boundary, inclusive=False)
+
+        if isinstance(upper.version, Version) and not upper.inclusive:
+            boundary = _predecessor_boundary(upper.version)
+            if boundary is not None:
+                new_upper = UpperBound(boundary, inclusive=True)
+
+        result.append((new_lower, new_upper))
+    return tuple(result)
 
 
 def _struct_admits(
@@ -352,9 +379,11 @@ class VersionRange:
     ) -> VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
 
-        Drops admit literals the bounds already admit, and reject literals the
-        bounds do not match anyway. Reject wins over admit on overlap.
+        Canonicalizes the bounds so equal version sets share one representation,
+        then drops admit literals the bounds already admit and reject literals
+        the bounds do not match anyway. Reject wins over admit on overlap.
         """
+        bounds = _canonicalize(bounds)
         if admit and reject:
             admit = admit - reject
         if admit:
@@ -796,12 +825,33 @@ class VersionRange:
     def is_empty(self) -> bool:
         """``True`` if no version or string satisfies this range.
 
+        Agrees with :meth:`~packaging.specifiers.SpecifierSet.is_unsatisfiable`,
+        including the pre-release policy: a range whose only members are
+        pre-releases is empty when that policy excludes them.
+
         >>> SpecifierSet(">=2,<1").to_range().is_empty
         True
         >>> SpecifierSet(">=1,<2").to_range().is_empty
         False
+        >>> SpecifierSet("==1.0a1", prereleases=False).to_range().is_empty
+        True
         """
-        return not self._bounds and not self._admit
+        # An arbitrary-string admission or a surviving ``===`` literal is a
+        # member; a literal that is a pre-release is dropped when the policy is.
+        if self._arbitrary_active():
+            return False
+
+        for literal in self._admit:
+            if self._prereleases is False:
+                parsed = coerce_version(literal)
+                if parsed is not None and parsed.is_prerelease:
+                    continue
+            return False
+
+        if not self._bounds:
+            return True
+
+        return self._prereleases is False and ranges_are_prerelease_only(self._bounds)
 
     def contains(
         self,
@@ -885,6 +935,20 @@ class VersionRange:
         :meth:`filter` agrees: the bounds, the ``===`` admit/reject literals,
         the arbitrary-string flag, and both the configured and resolved
         pre-release policies. Equal ranges therefore filter identically.
+
+        Different specifiers for the same set fold to one canonical bound form,
+        so they compare equal. ``>1.0a1`` excludes ``1.0a1``'s post-releases, so
+        its smallest member is ``1.0a2.dev0``, the same set as ``>=1.0a2.dev0``:
+
+        >>> SpecifierSet(">1.0a1").to_range() == SpecifierSet(">=1.0a2.dev0").to_range()
+        True
+
+        The pre-release policy is still part of equality, so two ranges with the
+        same versions but different policies stay unequal:
+
+        >>> le, lt = SpecifierSet("<=1.0"), SpecifierSet("<1.0.post0.dev0")
+        >>> le.to_range() == lt.to_range()
+        False
 
         >>> r = SpecifierSet(">=1.0,<2.0").to_range()
         >>> r == SpecifierSet(">=1.0,<2.0").to_range()

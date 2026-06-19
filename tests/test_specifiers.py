@@ -2548,6 +2548,15 @@ class TestIsUnsatisfiable:
     """
 
     UNSATISFIABLE: typing.ClassVar[list[str]] = [
+        # Synthetic gaps: >V excludes V's post-releases, so the least version
+        # >1.0a1 admits is 1.0a2.dev0, which <1.0a2.dev0 excludes (#1267).
+        ">1.0a1,<1.0a2.dev0",
+        ">1!1.0a1,<1!1.0a2.dev0",
+        ">1.0b0,<1.0b1.dev0",
+        ">1.0,<1.0.post0.dev0",
+        # Floor: an exclusive upper at or below 0.dev0 strands an empty interval
+        "!=0.dev0,<0.dev1",
+        "!=0.dev0,<=0.dev0",
         # Crossed bounds
         ">=2.0,<1.0",
         ">=2.0,<2.0",
@@ -2831,6 +2840,10 @@ class TestIsUnsatisfiable:
         # === with parseable pre-release string
         "===1.0a1",
         "===1.0.dev0",
+        # Floor: only members are pre-releases (#1267)
+        "<0.dev1",
+        "<=0.dev0",
+        "<0a1",
         # Already unsatisfiable regardless of prereleases
         ">=2.0,<1.0",
     ]
@@ -2858,6 +2871,9 @@ class TestIsUnsatisfiable:
         # Inclusive upper at non-pre-release boundary
         ">=1.0rc1,<=1.0",
         ">=1.0.dev0,<=1.0",
+        # Pre-release-with-post lower: the final release still satisfies (#1267)
+        ">=1.0a1.post0,<=1.0",
+        ">=1.0.post0.dev0,<=1.0.post0",
     ]
 
     @pytest.mark.parametrize("spec_str", UNSATISFIABLE_NO_PRE)

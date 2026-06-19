@@ -478,6 +478,173 @@ class TestAlgebraInvariants:
                     assert (v in ab) == ((v in a) or (v in b)), (a, b, v)
 
 
+class TestSyntheticEmptyGaps:
+    """Intervals that are ordered yet hold no real version.
+
+    ``>V`` excludes V's post-releases (AFTER_POSTS) and ``<=V`` includes V's
+    locals (AFTER_LOCALS), so a bound can sit just below the next real version.
+    When the opposite bound lands on that successor, the interval is ordered but
+    empty: ``>1.0a1`` admits nothing below ``1.0a2.dev0`` because every
+    ``1.0a1.postN`` is excluded. The empty interval must be detected so that
+    ``is_empty``, equality, and the set algebra stay correct.
+    """
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            ">1.0a1,<1.0a2.dev0",  # AFTER_POSTS pre-release, next pre-release
+            ">1.0a0,<1.0a1.dev0",
+            ">1.0b0,<1.0b1.dev0",
+            ">1.0rc1,<1.0rc2.dev0",
+            ">1!1.0a1,<1!1.0a2.dev0",  # epoch carried through
+            ">1.0,<1.0.post0.dev0",  # AFTER_POSTS final, below its post0.dev0
+        ],
+    )
+    def test_is_empty(self, spec: str) -> None:
+        assert SpecifierSet(spec).to_range().is_empty
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            ">1.0a2,<1.0b0.dev0",  # 1.0a3.dev0 sits between
+            ">1.5,<2",  # 1.5.1.dev0 sits between
+            ">1.0,<1.0.0.1",  # 1.0.0.0.1.dev0 sits between
+            ">1.0a1,<1.0a2",  # 1.0a2.dev0 sits between
+        ],
+    )
+    def test_not_empty(self, spec: str) -> None:
+        assert not SpecifierSet(spec).to_range().is_empty
+
+    def test_equal_substitutability(self) -> None:
+        # Equality is substitutability: two synthetic-empty ranges match no
+        # version, so they compare equal (both reduce to empty bounds).
+        a = vr(">1.0a1,<1.0a2.dev0")
+        b = vr(">1.0b0,<1.0b1.dev0")
+        assert a == b
+        assert hash(a) == hash(b)
+        assert a._bounds == ()
+
+    def test_subset_of_anything(self) -> None:
+        # The PubGrub subset test ``(a & ~b).is_empty``: the empty set is a
+        # subset of every range.
+        empty = vr(">1.0a1,<1.0a2.dev0")
+        assert (empty & ~vr(">=5.0")).is_empty
+
+    @pytest.mark.parametrize(
+        ("spec", "excluded"),
+        [
+            ("!=1.0,<1.0.post0.dev0", "1.0"),  # AFTER_LOCALS, post0 successor
+            ("!=1.0.post3,<1.0.post4.dev0", "1.0.post3"),  # post(N+1) successor
+            ("!=1.0.dev5,<1.0.dev6", "1.0.dev5"),  # dev(N+1) successor
+        ],
+    )
+    def test_intersection_drops_embedded_empty(self, spec: str, excluded: str) -> None:
+        # The empty AFTER_LOCALS interval must not survive in the bounds.
+        r = SpecifierSet(spec).to_range()
+        assert len(r._bounds) == 1
+        assert not r.is_empty
+        assert Version(excluded) not in r
+
+    def test_complement_of_covering_union_is_empty(self) -> None:
+        # ``~(>1.0a1)`` (everything up to and including 1.0a1's posts) and
+        # ``>=1.0a2.dev0`` leave only the empty gap uncovered, so the union is
+        # everything and its complement is empty.
+        covering = ~vr(">1.0a1") | vr(">=1.0a2.dev0")
+        assert covering._bounds == VersionRange.full()._bounds
+        assert covering.complement().is_empty
+
+    def test_double_complement_of_empty(self) -> None:
+        r = vr(">1.0a1,<1.0a2.dev0")
+        assert (~~r).is_empty
+
+
+class TestBoundaryCanonicalization:
+    """Different specifiers for the same set canonicalize to one form.
+
+    ``>1.0a1`` excludes ``1.0a1``'s post-releases, so its smallest member is
+    ``1.0a2.dev0``, exactly what ``>=1.0a2.dev0`` starts at. The two are the
+    same set, so they fold to one boundary form and compare equal. The boundary
+    (non-``.dev0``) form is canonical, so ``>=1.0a2.dev0`` adopts ``>1.0a1``'s.
+    """
+
+    @pytest.mark.parametrize(
+        ("dev_form", "boundary_form"),
+        [
+            # Both operands are pre-releases, so the pair shares one pre-release
+            # policy and equality reduces to the (identical) version set.
+            (">=1.0a2.dev0", ">1.0a1"),  # AFTER_POSTS pre-release
+            (">=1!1.0a2.dev0", ">1!1.0a1"),  # epoch carried through
+            (">=1.0a1.post1.dev0", ">1.0a1.post0"),  # AFTER_LOCALS post(N+1)
+            (">=1.0a1.dev6", ">1.0a1.dev5"),  # AFTER_LOCALS dev(N+1)
+            (">=1.0.dev6", ">1.0.dev5"),  # AFTER_LOCALS dev on a final base
+            (">=1.0a1.post1.dev6", ">1.0a1.post1.dev5"),  # AFTER_LOCALS post+dev
+            (">=1.0.post0.dev1", ">1.0.post0.dev0"),  # post+dev on a final base
+        ],
+    )
+    def test_equal_and_hash(self, dev_form: str, boundary_form: str) -> None:
+        a, b = vr(dev_form), vr(boundary_form)
+        assert a == b
+        assert hash(a) == hash(b)
+        assert a._bounds == b._bounds
+        assert len({a, b}) == 1
+
+    def test_upper_bound_folds_to_boundary(self) -> None:
+        # The exclusive-upper mirror: ``<1.0a2.dev0`` ends at AFTER_POSTS(1.0a1).
+        assert "1.0a1[AFTER_POSTS]" in repr(vr("<1.0a2.dev0"))
+
+    def test_keeps_non_dev_anchor(self) -> None:
+        # The boundary form is canonical, so the repr keeps the non-dev anchor.
+        assert "1.0a1[AFTER_POSTS]" in repr(vr(">=1.0a2.dev0"))
+
+    def test_prerelease_policy_keeps_them_distinct(self) -> None:
+        # Same set, but ``<1.0.post0.dev0`` admits pre-releases by default and
+        # ``<=1.0`` does not, so they are not substitutable and stay unequal.
+        assert vr("<1.0.post0.dev0") != vr("<=1.0")
+
+    def test_plain_version_is_not_folded(self) -> None:
+        # ``1.0a2`` is not a boundary successor, so ``>=1.0a2`` stays plain.
+        assert "1.0a2" in repr(vr(">=1.0a2"))
+        assert "AFTER" not in repr(vr(">=1.0a2"))
+
+
+class TestEmptyMatchesUnsatisfiable:
+    """``is_empty`` agrees with ``SpecifierSet.is_unsatisfiable``.
+
+    Both fold in the pre-release policy: a range whose only members are
+    pre-releases is empty when the policy excludes them.
+    """
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "==1.0a1",
+            "===1.0a1",
+            "==1.0a1,==1.0a1",
+            "==0.dev0",  # floor: only member 0.dev0 is a pre-release
+            "<0.dev1",  # floor: nothing below 0.dev1 but the pre-release 0.dev0
+        ],
+    )
+    def test_prerelease_only_empty_when_policy_excludes(self, spec: str) -> None:
+        assert vr(spec, prereleases=False).is_empty
+        assert not vr(spec, prereleases=True).is_empty
+        assert SpecifierSet(spec, prereleases=False).is_unsatisfiable()
+
+    def test_non_prerelease_literal_survives(self) -> None:
+        # ``===1.0`` admits a final release, so the policy does not empty it.
+        assert not vr("===1.0", prereleases=False).is_empty
+
+    @pytest.mark.parametrize(
+        "spec", [">=1.0", ">=1.0a1.post0,<=1.0", ">=1.0.post0.dev0,<=1.0.post0"]
+    )
+    def test_non_prerelease_bounds_survive(self, spec: str) -> None:
+        # A pre-release-with-post lower still admits the final/post release.
+        assert not vr(spec, prereleases=False).is_empty
+
+    def test_arbitrary_admission_is_not_empty(self) -> None:
+        # The universal range admits any string regardless of policy.
+        assert not vr("", prereleases=False).is_empty
+
+
 class TestCoverageEdges:
     """Targeted cases for branches the grid does not reach."""
 

@@ -65,6 +65,25 @@ of those without changing the version set, so the textbook subset test
     >>> (a & b).is_empty        # disjoint: a and b share no version
     False
 
+Different specifiers for the same set of versions canonicalize to one form, so
+they compare equal. ``>1.0a1`` excludes ``1.0a1``'s post-releases per PEP 440,
+so its smallest member is ``1.0a2.dev0``, exactly the set of ``>=1.0a2.dev0``:
+
+.. doctest::
+
+    >>> SpecifierSet(">1.0a1").to_range() == SpecifierSet(">=1.0a2.dev0").to_range()
+    True
+
+The pre-release policy is still part of equality. ``<1.0.post0.dev0`` and
+``<=1.0`` cover the same versions, but the first admits pre-releases by default
+(its bound is a ``.dev`` release) while the second does not, so they are not
+substitutable and compare unequal:
+
+.. doctest::
+
+    >>> SpecifierSet("<1.0.post0.dev0").to_range() == SpecifierSet("<=1.0").to_range()
+    False
+
 Reference
 ---------
 
