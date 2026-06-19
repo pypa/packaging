@@ -866,3 +866,44 @@ def test_validate_attestation_identity_invalid_kind() -> None:
         "Unexpected type int (expected str) "
         "in 'packages[0].attestation-identities[0].kind'"
     )
+
+
+
+def test_pylock_invalid_index_url() -> None:
+    """Package index must be a valid URL."""
+    data = {
+        "name": "test-package",
+        "version": "1.0.0",
+        "index": "not-a-url",
+    }
+    with pytest.raises(PylockValidationError, match="not a valid URL"):
+        Package._from_dict(data)
+
+
+def test_pylock_valid_index_url() -> None:
+    """Package index accepts valid URLs."""
+    data = {
+        "name": "test-package",
+        "version": "1.0.0",
+        "index": "https://pypi.org/simple",
+        "wheels": [{"name": "test_package-1.0.0-py3-none-any.whl",
+                     "url": "https://example.com/wheel.whl",
+                     "size": 100,
+                     "hashes": {"sha256": "x" * 64}}],
+    }
+    pkg = Package._from_dict(data)
+    assert pkg.index == "https://pypi.org/simple"
+
+
+def test_pylock_none_index_url() -> None:
+    """Package index can be None (default)."""
+    data = {
+        "name": "test-package",
+        "version": "1.0.0",
+        "wheels": [{"name": "test_package-1.0.0-py3-none-any.whl",
+                     "url": "https://example.com/wheel.whl",
+                     "size": 100,
+                     "hashes": {"sha256": "x" * 64}}],
+    }
+    pkg = Package._from_dict(data)
+    assert pkg.index is None
