@@ -3584,6 +3584,35 @@ class TestSpecifierSetToRangeEquivalence:
             ), (spec_str, prereleases)
 
     @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
+    @pytest.mark.parametrize("configured", [None, True, False])
+    def test_to_specifier_set_roundtrip_matches(
+        self, spec_str: str, configured: bool | None
+    ) -> None:
+        # When to_specifier_set() returns a non-None set, that set must match
+        # the same versions as the range under EVERY prereleases/installed
+        # override, not just the default policy.
+        version_range = SpecifierSet(spec_str, prereleases=configured).to_range()
+        recovered = version_range.to_specifier_set()
+        if recovered is None:
+            return
+        for item in _EQUIV_ITEMS:
+            for prereleases in (None, True, False):
+                for installed in (None, True, False):
+                    assert version_range.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ) == recovered.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ), (spec_str, configured, item, prereleases, installed)
+        for prereleases in (None, True, False):
+            assert list(
+                version_range.filter(_EQUIV_ITEMS, prereleases=prereleases)
+            ) == list(recovered.filter(_EQUIV_ITEMS, prereleases=prereleases)), (
+                spec_str,
+                configured,
+                prereleases,
+            )
+
+    @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
     def test_contains_equivalent_with_version_objects(self, spec_str: str) -> None:
         # The same equivalence holds when the item is a ``Version`` instance.
         spec_set = SpecifierSet(spec_str)
