@@ -289,14 +289,6 @@ def _evaluate_markers(
                 rhs_value = _lookup_environment(environment, environment_key)
 
             if not isinstance(lhs_value, str):
-                # Set-valued marker variables (``extras`` / ``dependency_groups``
-                # in the ``lock_file`` context) are only defined in the
-                # membership form ``"<name>" in <variable>``. Using one on the
-                # left-hand side of a comparison has no defined meaning, so
-                # surface the public, documented ``UndefinedComparison`` instead
-                # of leaking an internal ``AssertionError`` (which is also
-                # stripped under ``python -O``, leaving a set to flow into
-                # ``canonicalize_name``).
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
