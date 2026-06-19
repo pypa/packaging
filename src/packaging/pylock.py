@@ -101,16 +101,6 @@ def _toml_dict_factory(data: list[tuple[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _get_and_validate(
-    d: Mapping[str, Any], typ: type[_T], key: str,
-    validate: Callable[[_T], _T],
-) -> _T | None:
-    value = _get(d, typ, key)
-    if value is not None:
-        return validate(value)
-    return value
-
-
 def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
     """Get a value from the dictionary and verify it's the expected type."""
     if (value := d.get(key)) is None:
@@ -243,7 +233,6 @@ def _get_required_sequence_of_objects(
 
 
 def _validate_url(value: str) -> str:
-    from urllib.parse import urlparse
     parsed = urlparse(str(value))
     if not parsed.scheme or not parsed.netloc:
         raise PylockValidationError(f"{value!r} is not a valid URL")
@@ -602,7 +591,7 @@ class Package:
             vcs=_get_object(d, PackageVcs, "vcs"),
             directory=_get_object(d, PackageDirectory, "directory"),
             archive=_get_object(d, PackageArchive, "archive"),
-            index=_get_and_validate(d, str, "index", _validate_url),
+            index=_validate_url(_get(d, str, "index")) if _get(d, str, "index") is not None else None,
             sdist=_get_object(d, PackageSdist, "sdist"),
             wheels=_get_sequence_of_objects(d, PackageWheel, "wheels"),
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
