@@ -1347,7 +1347,7 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == []
 
-    @pytest.mark.parametrize("ext_suffix", ["invalid", None])
+    @pytest.mark.parametrize("ext_suffix", ["invalid", "", None])
     def test__generic_abi_error(
         self, ext_suffix: str | None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1686,6 +1686,27 @@ class TestSysTags:
             "py" + tags._version_nodot((sys.version_info[0], 0)), "none", "any"
         )
         assert result[-1] == expected
+
+    def test_warn_forwarded_to_generic_tags(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # On non-CPython interpreters ``generic_tags()`` is the primary tag
+        # source, so ``sys_tags(warn=...)`` must forward the flag to it.
+        class MockGenericTags:
+            def __init__(self) -> None:
+                self.warn: bool | None = None
+
+            def __call__(
+                self, *, warn: bool = False
+            ) -> collections.abc.Iterator[tags.Tag]:
+                self.warn = warn
+                return iter(())
+
+        mock_generic_tags = MockGenericTags()
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "generic")
+        monkeypatch.setattr(tags, "generic_tags", mock_generic_tags)
+        list(tags.sys_tags(warn=True))
+        assert mock_generic_tags.warn
 
     @pytest.mark.usefixtures("manylinux_module")
     def test_linux_platforms_manylinux2014_armv6l(

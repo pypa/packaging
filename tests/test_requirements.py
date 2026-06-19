@@ -472,6 +472,34 @@ class TestRequirementParsing:
             "                   ^"
         )
 
+    @pytest.mark.parametrize(
+        ("to_parse", "expected"),
+        [
+            (
+                'name; os_name == "C:\\"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                '    name; os_name == "C:\\"\n'
+                "                     ~~~~~^",
+            ),
+            (
+                r'name; os_name == "\x"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                r'    name; os_name == "\x"'
+                "\n"
+                "                     ~~~~^",
+            ),
+        ],
+    )
+    def test_error_invalid_marker_malformed_quoted_string(
+        self, to_parse: str, expected: str
+    ) -> None:
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == expected
+
     def test_error_invalid_marker_notin_without_whitespace(self) -> None:
         # GIVEN
         to_parse = "name; '3.7' notin python_version"

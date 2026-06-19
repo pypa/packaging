@@ -434,7 +434,7 @@ def _generic_abi() -> list[str]:
     #                                               => graalpy_38_native
 
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
-    if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
+    if not isinstance(ext_suffix, str) or not ext_suffix.startswith("."):
         raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
     parts = ext_suffix.split(".")
     if len(parts) < 3:
@@ -897,7 +897,7 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     if interp_name == "cp":
         yield from cpython_tags(warn=warn)
     else:
-        yield from generic_tags()
+        yield from generic_tags(warn=warn)
 
     if interp_name == "pp":
         interp = "pp3"

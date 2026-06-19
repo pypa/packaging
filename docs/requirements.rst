@@ -68,7 +68,7 @@ Usage
 Reference
 ---------
 
-.. class:: Requirement(requirement)
+.. class:: Requirement(requirement_string)
 
     This class abstracts handling the details of a requirement for a project.
     Each requirement will be parsed according to the specification.
@@ -89,8 +89,8 @@ Reference
         specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
         override; it is now included again.
 
-    :param str requirement: The string representation of a requirement.
-    :raises InvalidRequirement: If the given ``requirement`` is not parseable,
+    :param str requirement_string: The string representation of a requirement.
+    :raises InvalidRequirement: If the given ``requirement_string`` is not parseable,
                                 then this exception will be raised.
 
     .. attribute:: name
