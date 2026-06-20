@@ -427,11 +427,19 @@ class Marker:
         raise TypeError(f"Cannot restore Marker from {state!r}")
 
     def __and__(self, other: Marker) -> Marker:
+        """Combine this marker with another using ``and``.
+
+        .. versionadded:: 26.1
+        """
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "and", other._markers])
 
     def __or__(self, other: Marker) -> Marker:
+        """Combine this marker with another using ``or``.
+
+        .. versionadded:: 26.1
+        """
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "or", other._markers])
