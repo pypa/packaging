@@ -277,7 +277,13 @@ def _evaluate_markers(
                 environment_key = rhs.value
                 rhs_value = environment[environment_key]
 
-            assert isinstance(lhs_value, str), "lhs must be a string"
+            if not isinstance(lhs_value, str):
+                raise UndefinedComparison(
+                    f"Set-valued marker {environment_key!r} can only be used "
+                    f'with the membership form (e.g. "<name>" in '
+                    f"{environment_key}); it cannot appear on the left-hand "
+                    f"side of {op.serialize()!r}."
+                )
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
         elif marker == "or":
