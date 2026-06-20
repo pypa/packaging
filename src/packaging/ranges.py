@@ -376,12 +376,17 @@ class VersionRange:
         admit: frozenset[str] = frozenset(),
         reject: frozenset[str] = frozenset(),
         admit_arbitrary: bool = False,
+        *,
+        prereleases: bool | None = None,
+        prereleases_configured: bool | None = None,
     ) -> VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
 
         Canonicalizes the bounds so equal version sets share one representation,
         then drops admit literals the bounds already admit and reject literals
-        the bounds do not match anyway. Reject wins over admit on overlap.
+        the bounds do not match anyway. Reject wins over admit on overlap. The
+        pre-release policy is set here, so a built range never has its policy
+        reassigned afterwards.
         """
         bounds = _canonicalize(bounds)
         if admit and reject:
@@ -404,8 +409,8 @@ class VersionRange:
         instance._admit = admit
         instance._reject = reject
         instance._admit_arbitrary = admit_arbitrary
-        instance._prereleases = None
-        instance._prereleases_configured = None
+        instance._prereleases = prereleases
+        instance._prereleases_configured = prereleases_configured
 
         return instance
 
@@ -431,20 +436,34 @@ class VersionRange:
                 f"and {other._prereleases_configured!r}"
             )
 
-    def _propagate_prereleases(self, other: VersionRange, result: VersionRange) -> None:
-        """Carry the shared pre-release policy onto a freshly built result."""
-        result._prereleases_configured = self._prereleases_configured
-        if self._prereleases_configured is not None:
-            result._prereleases = self._prereleases_configured
-        elif self._prereleases is True or other._prereleases is True:
-            result._prereleases = True
-        else:
-            result._prereleases = None
+    def _combined_policy(self, other: VersionRange) -> tuple[bool | None, bool | None]:
+        """The ``(resolved, configured)`` pre-release policy for ``self`` combined
+        with ``other``, ready to feed into :meth:`_build`.
 
-    def _restamp(self, *, resolved: bool | None, configured: bool | None) -> None:
-        """Set the pre-release policy slots on a freshly built range."""
-        self._prereleases = resolved
-        self._prereleases_configured = configured
+        Both operands share a configured policy by the time this is called (see
+        :meth:`_check_policy_compat`).
+        """
+        configured = self._prereleases_configured
+        if configured is not None:
+            resolved: bool | None = configured
+        elif self._prereleases is True or other._prereleases is True:
+            resolved = True
+        else:
+            resolved = None
+        return resolved, configured
+
+    def _with_policy(
+        self, *, resolved: bool | None, configured: bool | None
+    ) -> VersionRange:
+        """A structural copy of this range carrying the given pre-release policy."""
+        return self._build(
+            self._bounds,
+            admit=self._admit,
+            reject=self._reject,
+            admit_arbitrary=self._admit_arbitrary,
+            prereleases=resolved,
+            prereleases_configured=configured,
+        )
 
     @classmethod
     def empty(cls, *, prereleases: bool | None = None) -> VersionRange:
@@ -455,11 +474,9 @@ class VersionRange:
         >>> "1.0" in VersionRange.empty()
         False
         """
-        result = cls._build(())
-        if prereleases is not None:
-            result._restamp(resolved=prereleases, configured=prereleases)
-
-        return result
+        return cls._build(
+            (), prereleases=prereleases, prereleases_configured=prereleases
+        )
 
     @classmethod
     def full(
@@ -480,11 +497,12 @@ class VersionRange:
         >>> "garbage" in VersionRange.full(admit_arbitrary=False)
         False
         """
-        result = cls._build(FULL_RANGE, admit_arbitrary=admit_arbitrary)
-        if prereleases is not None:
-            result._restamp(resolved=prereleases, configured=prereleases)
-
-        return result
+        return cls._build(
+            FULL_RANGE,
+            admit_arbitrary=admit_arbitrary,
+            prereleases=prereleases,
+            prereleases_configured=prereleases,
+        )
 
     @classmethod
     def singleton(
@@ -512,11 +530,11 @@ class VersionRange:
 
         # Collapse the floor: nothing sorts below ``MIN_VERSION``, so the
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
-        result = cls._build(_canonical_floor(((lower, upper),)))
-        if prereleases is not None:
-            result._restamp(resolved=prereleases, configured=prereleases)
-
-        return result
+        return cls._build(
+            _canonical_floor(((lower, upper),)),
+            prereleases=prereleases,
+            prereleases_configured=prereleases,
+        )
 
     def intersection(self, other: VersionRange) -> VersionRange:
         """Range containing exactly the versions in both self and other.
@@ -531,17 +549,25 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
+        resolved, configured = self._combined_policy(other)
         new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary and other._admit_arbitrary
         if not self._has_literals() and not other._has_literals():
-            result = self._build(new_bounds, admit_arbitrary=combined_arb)
-        else:
-            result = self._combine_literals(
-                other, new_bounds, intersect=True, admit_arbitrary=combined_arb
+            return self._build(
+                new_bounds,
+                admit_arbitrary=combined_arb,
+                prereleases=resolved,
+                prereleases_configured=configured,
             )
 
-        self._propagate_prereleases(other, result)
-        return result
+        return self._combine_literals(
+            other,
+            new_bounds,
+            intersect=True,
+            admit_arbitrary=combined_arb,
+            prereleases=resolved,
+            prereleases_configured=configured,
+        )
 
     def union(self, other: VersionRange) -> VersionRange:
         """Range containing every version in self or other.
@@ -558,13 +584,24 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
+        resolved, configured = self._combined_policy(other)
         new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary or other._admit_arbitrary
         if not self._has_literals() and not other._has_literals():
-            result = self._build(new_bounds, admit_arbitrary=combined_arb)
+            result = self._build(
+                new_bounds,
+                admit_arbitrary=combined_arb,
+                prereleases=resolved,
+                prereleases_configured=configured,
+            )
         else:
             result = self._combine_literals(
-                other, new_bounds, intersect=False, admit_arbitrary=combined_arb
+                other,
+                new_bounds,
+                intersect=False,
+                admit_arbitrary=combined_arb,
+                prereleases=resolved,
+                prereleases_configured=configured,
             )
 
         # ``r | full()`` collapses to the canonical universal range only when
@@ -575,11 +612,8 @@ class VersionRange:
             and not result._has_literals()
             and self._prereleases_configured is None
         ):
-            result._prereleases_configured = None
-            result._prereleases = None
-            return result
+            return self.full()
 
-        self._propagate_prereleases(other, result)
         return result
 
     def complement(self) -> VersionRange:
@@ -597,22 +631,16 @@ class VersionRange:
         >>> r.complement().complement() == r
         True
         """
-        if not self._has_literals():
-            result = self._build(
-                tuple(_complement_ranges(self._bounds)),
-                admit_arbitrary=self._admit_arbitrary,
-            )
-        else:
-            result = self._build(
-                tuple(_complement_ranges(self._bounds)),
-                admit=self._reject,
-                reject=self._admit,
-                admit_arbitrary=self._admit_arbitrary,
-            )
-
-        result._prereleases = self._prereleases
-        result._prereleases_configured = self._prereleases_configured
-        return result
+        # Complement swaps literal admission: what the range rejects, its
+        # complement admits, and vice versa.
+        return self._build(
+            tuple(_complement_ranges(self._bounds)),
+            admit=self._reject,
+            reject=self._admit,
+            admit_arbitrary=self._admit_arbitrary,
+            prereleases=self._prereleases,
+            prereleases_configured=self._prereleases_configured,
+        )
 
     def _combine_literals(
         self,
@@ -621,6 +649,8 @@ class VersionRange:
         *,
         intersect: bool,
         admit_arbitrary: bool,
+        prereleases: bool | None,
+        prereleases_configured: bool | None,
     ) -> VersionRange:
         """Resolve admit/reject for ``self & other`` or ``self | other``."""
         admits: set[str] = set()
@@ -639,6 +669,8 @@ class VersionRange:
             admit=frozenset(admits),
             reject=frozenset(rejects),
             admit_arbitrary=admit_arbitrary,
+            prereleases=prereleases,
+            prereleases_configured=prereleases_configured,
         )
 
     def _matches_literal(self, literal: str) -> bool:
@@ -814,12 +846,10 @@ class VersionRange:
                     )
                 result = result.intersection(operand)
 
-        result._restamp(
+        return result._with_policy(
             resolved=specifier_set.prereleases,
             configured=specifier_set._prereleases,
         )
-
-        return result
 
     @property
     def is_empty(self) -> bool:

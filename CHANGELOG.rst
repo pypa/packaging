@@ -10,7 +10,7 @@ Features:
   :meth:`SpecifierSet.to_range() <packaging.specifiers.SpecifierSet.to_range>`,
   representing the versions a specifier set accepts as an interval set that
   supports intersection, union, complement, membership tests, and filtering.
-  (:pull:`1182`)
+  (:pull:`1267`)
 
 Behavior adaptations:
 
