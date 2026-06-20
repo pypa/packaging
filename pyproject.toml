@@ -115,7 +115,7 @@ files = ["src", "tests", "noxfile.py"]
 native_parser = true
 
 [[tool.mypy.overrides]]
-module = ["_manylinux", "pretend", "progress.*", "pkg_resources"]
+module = ["_manylinux", "pretend"]
 ignore_missing_imports = true
 
 [tool.ruff]
@@ -159,7 +159,6 @@ flake8-unused-arguments.ignore-variadic-names = true
 [tool.ruff.lint.per-file-ignores]
 "tests/test_*.py" = ["PYI024", "PLR", "SIM201", "T20", "S301"]
 "tasks/*.py" = ["T20"]
-"tasks/check.py" = ["UP032"]
 "tasks/check_frozen_revs.py" = ["ANN401"]
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]
