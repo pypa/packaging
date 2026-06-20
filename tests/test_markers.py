@@ -19,6 +19,7 @@ from packaging.markers import (
     InvalidMarker,
     Marker,
     UndefinedComparison,
+    UndefinedEnvironmentName,
     _format_full_version,
     default_environment,
 )
@@ -507,6 +508,17 @@ class TestMarker:
 
         with pytest.raises(KeyError):
             marker.evaluate(context="requirement")
+
+    def test_missing_environment_key_raises_undefined_environment_name(self) -> None:
+        marker = Marker('"foo" in extras')
+        with pytest.raises(UndefinedEnvironmentName) as ctx:
+            marker.evaluate()
+        assert ctx.value.args == ("extras",)
+        # UndefinedEnvironmentName subclasses KeyError, so the historical
+        # bare ``except KeyError`` for a missing environment key still works.
+        assert issubclass(UndefinedEnvironmentName, KeyError)
+        with pytest.raises(KeyError):
+            marker.evaluate()
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
