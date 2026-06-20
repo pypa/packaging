@@ -131,6 +131,10 @@ class InvalidSpecifier(ValueError):
 
 
 class BaseSpecifier(metaclass=abc.ABCMeta):
+    """
+    Abstract base class for :class:`Specifier` and :class:`SpecifierSet`.
+    """
+
     __slots__ = ()
     __match_args__ = ("_str",)
 

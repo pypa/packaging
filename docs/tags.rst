@@ -73,6 +73,11 @@ to the implementation to provide.
     (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
 
 
+.. autodata:: PythonVersion
+
+.. autodata:: AppleVersion
+
+
 .. autofunction:: interpreter_name
 
 .. autofunction:: interpreter_version
