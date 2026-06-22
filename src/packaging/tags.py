@@ -59,6 +59,7 @@ PythonVersion = Sequence[int]
 """
 A sequence of integers describing a Python version, e.g. ``(3, 13)``.
 """
+
 AppleVersion = tuple[int, int]
 """
 A ``(major, minor)`` integer pair describing an Apple OS version.
