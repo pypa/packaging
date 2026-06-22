@@ -16,10 +16,8 @@ import typing
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Final,
     TypeVar,
-    Union,
 )
 
 from ._ranges import (
@@ -37,13 +35,8 @@ from .utils import canonicalize_version
 from .version import Version
 
 if TYPE_CHECKING:
-    import sys
-    from collections.abc import Iterable, Iterator, Sequence
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeGuard
-    else:
-        from typing_extensions import TypeGuard
+    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from typing import TypeGuard
 
     from ._ranges import VersionRange
 
@@ -74,7 +67,7 @@ def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
 
 
 T = TypeVar("T")
-UnparsedVersion = Union[Version, str]
+UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
 

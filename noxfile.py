@@ -44,7 +44,6 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
         "3.13t",
         "3.14t",
         "3.15t",
-        "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],
@@ -658,7 +657,7 @@ def _bump(session: nox.Session, *, version: str, file: Path, kind: str) -> None:
 @contextlib.contextmanager
 def _replace_file(
     original_path: Path,
-) -> Generator[tuple[IO[str], IO[str]], None, None]:
+) -> Generator[tuple[IO[str], IO[str]]]:
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 

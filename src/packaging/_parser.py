@@ -79,9 +79,9 @@ class Op(Node):
 
 
 MarkerLogical = Literal["and", "or"]
-MarkerVar = Union[Variable, Value]
+MarkerVar = Variable | Value
 MarkerItem = tuple[MarkerVar, Op, MarkerVar]
-MarkerAtom = Union[MarkerItem, Sequence["MarkerAtom"]]
+MarkerAtom = MarkerItem | Sequence["MarkerAtom"]
 MarkerList = list[Union["MarkerList", MarkerAtom, MarkerLogical]]
 
 
