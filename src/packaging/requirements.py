@@ -156,7 +156,7 @@ class Requirement:
         if not isinstance(other, Requirement):
             return NotImplemented
 
-        # Extras must be normalized before comparison as per PEP 658.
+        # Extras must be normalized before comparison as per PEP 685.
         self_extras = frozenset(canonicalize_name(e) for e in self.extras)
         other_extras = frozenset(canonicalize_name(e) for e in other.extras)
         return (
