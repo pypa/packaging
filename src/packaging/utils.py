@@ -29,6 +29,9 @@ def __dir__() -> list[str]:
 
 
 BuildTag = Union[tuple[()], tuple[int, str]]
+"""
+A wheel build tag: an empty tuple, or a ``(build number, build tag suffix)`` pair.
+"""
 
 NormalizedName = NewType("NormalizedName", str)
 """

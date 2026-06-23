@@ -56,7 +56,14 @@ def __dir__() -> list[str]:
 logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
+"""
+A sequence of integers describing a Python version, e.g. ``(3, 13)``.
+"""
+
 AppleVersion = tuple[int, int]
+"""
+A ``(major, minor)`` integer pair describing an Apple OS version.
+"""
 _T = TypeVar("_T")
 
 INTERPRETER_SHORT_NAMES: dict[str, str] = {
