@@ -84,5 +84,5 @@ if __name__ == "__main__":  # pragma: no cover
     print("plat:", plat)
     print("musl:", _get_musl_version(sys.executable))
     print("tags:", end=" ")
-    for t in platform_tags(re.sub(r"[.-]", "_", plat.split("-", 1)[-1])):
+    for t in platform_tags([re.sub(r"[.-]", "_", plat.split("-", 1)[-1])]):
         print(t, end="\n      ")
