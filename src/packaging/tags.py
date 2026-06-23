@@ -668,7 +668,6 @@ def mac_platforms(
             for binary_format in binary_formats:
                 yield f"macosx_{major_version}_{minor_version}_{binary_format}"
 
-    if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
         # Arm64 support was introduced in 11.0, so no Arm binaries from previous
         # releases exist.

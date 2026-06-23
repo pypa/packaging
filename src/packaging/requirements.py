@@ -67,7 +67,7 @@ class Requirement:
 
         self.name: str = parsed.name
         self.url: str | None = parsed.url or None
-        self.extras: set[str] = set(parsed.extras or [])
+        self.extras: set[str] = set(parsed.extras)
         self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
         self.marker: Marker | None = None
         if parsed.marker is not None:
