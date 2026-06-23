@@ -3,6 +3,7 @@
 # for complete details.
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from ._parser import parse_requirement as _parse_requirement
@@ -13,6 +14,8 @@ from .utils import canonicalize_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "InvalidRequirement",
@@ -60,9 +63,13 @@ class Requirement:
     # TODO: Can we normalize the name and extra name?
 
     def __init__(self, requirement_string: str) -> None:
+        logger.debug("parsing requirement", extra={"requirement": requirement_string})
         try:
             parsed = _parse_requirement(requirement_string)
         except ParserSyntaxError as e:
+            logger.debug(
+                "invalid requirement", extra={"requirement": requirement_string}
+            )
             raise InvalidRequirement(str(e)) from e
 
         self.name: str = parsed.name
@@ -73,6 +80,10 @@ class Requirement:
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
+        logger.debug(
+            "parsed requirement",
+            extra={"name": self.name, "extras": len(self.extras)},
+        )
 
     def _iter_parts(self, name: str) -> Iterator[str]:
         yield name

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import logging
 import sys
 import typing
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ExceptionGroup"]
 
@@ -59,6 +62,10 @@ class _ErrorCollector:
     def finalize(self, msg: str) -> None:
         """Raise a group exception if there are any errors."""
         if self.errors:
+            logger.debug(
+                "finalizing error collector",
+                extra={"message": msg, "error_count": len(self.errors)},
+            )
             raise ExceptionGroup(msg, self.errors)
 
     @contextlib.contextmanager
@@ -82,8 +89,13 @@ class _ErrorCollector:
         try:
             yield
         except ExceptionGroup as error:
+            logger.debug(
+                "collected exception group",
+                extra={"error_count": len(error.exceptions)},
+            )
             self.errors.extend(error.exceptions)
         except error_classes as error:
+            logger.debug("collected error", extra={"error": str(error)})
             self.errors.append(error)
 
     def error(

@@ -5,6 +5,7 @@ import email.message
 import email.parser
 import email.policy
 import keyword
+import logging
 import pathlib
 import typing
 from typing import (
@@ -23,6 +24,8 @@ from .errors import ExceptionGroup, _ErrorCollector
 if typing.TYPE_CHECKING:
     from .licenses import NormalizedLicenseExpression
     from .version import Version
+
+logger = logging.getLogger(__name__)
 
 T = typing.TypeVar("T")
 
@@ -345,6 +348,9 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     included in this dict.
 
     """
+    data_type = "str" if isinstance(data, str) else "bytes"
+    logger.debug("parsing email metadata", extra={"data_type": data_type})
+
     raw: dict[str, str | list[str] | dict[str, str]] = {}
     unparsed: dict[str, list[str]] = {}
 
@@ -507,6 +513,10 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     # literal key names, but we're computing our key names on purpose, but the
     # way this function is implemented, our `TypedDict` can only have valid key
     # names.
+    logger.debug(
+        "parsed email metadata",
+        extra={"field_count": len(raw), "unparsed_count": len(unparsed)},
+    )
     return cast("RawMetadata", raw), unparsed
 
 
@@ -561,6 +571,7 @@ class _Validator(Generic[T]):
         # With Python 3.8, the caching can be replaced with functools.cached_property().
         # No need to check the cache as attribute lookup will resolve into the
         # instance's __dict__ before __get__ is called.
+        logger.debug("accessing metadata field", extra={"field": self.name})
         cache = instance.__dict__
         value = instance._raw.get(self.name)
 
@@ -597,6 +608,7 @@ class _Validator(Generic[T]):
         # Implicitly makes Metadata-Version required.
         if value not in _VALID_METADATA_VERSIONS:
             raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
+        logger.debug("detected metadata version", extra={"version": value})
         return cast("_MetadataVersion", value)
 
     def _process_name(self, value: str) -> str:
@@ -610,17 +622,20 @@ class _Validator(Generic[T]):
                 f"{value!r} is invalid for {{field}}", cause=exc
             ) from exc
         else:
+            logger.debug("validated package name", extra={"name": value})
             return value
 
     def _process_version(self, value: str) -> Version:
         if not value:
             raise self._invalid_metadata("{field} is a required field")
         try:
-            return version_module.parse(value)
+            version = version_module.parse(value)
         except version_module.InvalidVersion as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {{field}}", cause=exc
             ) from exc
+        logger.debug("parsed version", extra={"version": str(version)})
+        return version
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
@@ -708,6 +723,9 @@ class _Validator(Generic[T]):
                 f"{req!r} is invalid for {{field}}", cause=exc
             ) from exc
         else:
+            logger.debug(
+                "processed requires-dist", extra={"requirement_count": len(reqs)}
+            )
             return reqs
 
     def _process_license_expression(self, value: str) -> NormalizedLicenseExpression:
@@ -787,6 +805,7 @@ class Metadata:
         If *validate* is true, all metadata will be validated. All exceptions
         related to validation will be gathered and raised as an :class:`ExceptionGroup`.
         """
+        logger.debug("creating metadata from raw", extra={"validate": validate})
         ins = cls()
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
@@ -830,6 +849,11 @@ class Metadata:
                 except InvalidMetadata as exc:
                     collector.error(exc)
 
+            if collector.errors:
+                logger.debug(
+                    "metadata validation errors",
+                    extra={"error_count": len(collector.errors)},
+                )
             collector.finalize("invalid metadata")
 
         return ins
@@ -841,6 +865,7 @@ class Metadata:
         If *validate* is true, the metadata will be validated. All exceptions
         related to validation will be gathered and raised as an :class:`ExceptionGroup`.
         """
+        logger.debug("creating metadata from email", extra={"validate": validate})
         raw, unparsed = parse_email(data)
 
         if validate:
@@ -950,6 +975,9 @@ class Metadata:
         """
         message = RFC822Message()
         self._write_metadata(message)
+        logger.debug(
+            "serialized metadata to rfc822", extra={"field_count": len(message.keys())}
+        )
         return message
 
     def _write_metadata(self, message: RFC822Message) -> None:

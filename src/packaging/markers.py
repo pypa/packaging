@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import operator
 import os
 import platform
@@ -19,6 +20,8 @@ from .utils import canonicalize_name
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "Environment",
@@ -359,6 +362,7 @@ class Marker:
         # Note: We create a Marker object without calling this constructor in
         #       packaging.requirements.Requirement. If any additional logic is
         #       added here, make sure to mirror/adapt Requirement.
+        logger.debug("parsing marker", extra={"marker": marker})
 
         # If this fails and throws an error, the repr still expects _markers to
         # be defined.
@@ -383,6 +387,7 @@ class Marker:
             #     ]
             # ]
         except ParserSyntaxError as e:
+            logger.debug("invalid marker", extra={"marker": marker})
             raise InvalidMarker(str(e)) from e
 
     @classmethod
@@ -502,9 +507,14 @@ class Marker:
                 extra = cast("str | None", current_environment["extra"])
                 current_environment["extra"] = canonicalize_name(extra) if extra else ""
 
-        return _evaluate_markers(
+        result = _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)
         )
+        logger.debug(
+            "evaluated marker",
+            extra={"marker": str(self), "result": result, "context": context},
+        )
+        return result
 
 
 def _pep440_python_full_version(python_full_version: str) -> str:
