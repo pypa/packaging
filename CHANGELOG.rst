@@ -23,6 +23,8 @@ Fixes:
   trailing-zero-equivalent specifiers (e.g. ``foo==1.0.0`` and
   ``foo==1.0.0.0``), so equal requirements hash equal and deduplicate in
   sets and dicts. (:pull:`1232`)
+* Raise ``InvalidTag`` instead of ``ValueError`` when ``parse_tag()`` receives
+  a tag with too few or too many components. (:pull:`1238`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 
