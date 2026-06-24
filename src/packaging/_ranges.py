@@ -31,7 +31,9 @@ __all__ = [
     "filter_by_ranges",
     "intersect_ranges",
     "intersect_specifier_bounds",
+    "least_version_above",
     "matches_bounds_only",
+    "range_is_empty",
     "ranges_are_prerelease_only",
     "resolve_prereleases",
     "standard_ranges",
@@ -39,14 +41,18 @@ __all__ = [
 ]
 
 #: The smallest possible PEP 440 version. No valid version is less than this.
-_MIN_VERSION: Final[Version] = Version("0.dev0")
+MIN_VERSION: Final[Version] = Version("0.dev0")
+
+#: The smallest non-pre-release version, i.e. the nearest non-pre-release at or
+#: above the ``-inf`` floor.
+MIN_RELEASE: Final[Version] = Version("0")
 
 #: Sorts above any real post number and any local label, so a boundary can be
 #: ordered above the version family it covers when two boundaries are compared.
 _BOUNDARY_INF: Final[float] = float("inf")
 
 
-class _BoundaryKind(enum.Enum):
+class BoundaryKind(enum.Enum):
     """Where a boundary marker sits in the version ordering."""
 
     AFTER_LOCALS = enum.auto()  # after V+local, before V.post0
@@ -54,7 +60,7 @@ class _BoundaryKind(enum.Enum):
 
 
 @functools.total_ordering
-class _BoundaryVersion:
+class BoundaryVersion:
     """A point on the version line between two real PEP 440 versions.
 
     Relative to a base version V::
@@ -73,13 +79,13 @@ class _BoundaryVersion:
         "_cached_post",
         "_cached_pre",
         "_cached_trimmed_release",
-        "_kind",
+        "kind",
         "version",
     )
 
-    def __init__(self, version: Version, kind: _BoundaryKind) -> None:
+    def __init__(self, version: Version, kind: BoundaryKind) -> None:
         self.version = version
-        self._kind = kind
+        self.kind = kind
         self._cached_trimmed_release = trim_release(version.release)
         self._cached_epoch = version.epoch
         self._cached_pre = version.pre
@@ -105,7 +111,7 @@ class _BoundaryVersion:
                 return False
         if other.pre != self._cached_pre:
             return False
-        if self._kind == _BoundaryKind.AFTER_LOCALS:
+        if self.kind == BoundaryKind.AFTER_LOCALS:
             # Local family: same public version, any local label.
             return other.post == self._cached_post and other.dev == self._cached_dev
         # Post family: V itself + any post-release of V.
@@ -127,18 +133,20 @@ class _BoundaryVersion:
         version_key = self.version._key
         suffix: _BoundaryOrderSuffix = version_key[2]
 
-        if self._kind == _BoundaryKind.AFTER_POSTS:
+        if self.kind == BoundaryKind.AFTER_POSTS:
             suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
 
         return version_key[0], version_key[1], suffix, _BOUNDARY_INF
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, _BoundaryVersion):
-            return self.version == other.version and self._kind == other._kind
+        # Key off the order key so equality matches the ``<`` / ``>`` order:
+        # ``AFTER_POSTS(1.0)`` and ``AFTER_POSTS(1.0.post1)`` are the same point.
+        if isinstance(other, BoundaryVersion):
+            return self._order_key() == other._order_key()
         return NotImplemented
 
-    def __lt__(self, other: _BoundaryVersion | Version) -> bool:
-        if isinstance(other, _BoundaryVersion):
+    def __lt__(self, other: BoundaryVersion | Version) -> bool:
+        if isinstance(other, BoundaryVersion):
             return self._order_key() < other._order_key()
         # boundary < other_version iff V < other AND other not in family.
         # The cheap V >= other path short-circuits before the family check.
@@ -146,28 +154,29 @@ class _BoundaryVersion:
             return False
         return not self._is_family(other)
 
-    def __gt__(self, other: _BoundaryVersion | Version) -> bool:
+    def __gt__(self, other: BoundaryVersion | Version) -> bool:
         # Defined directly to bypass functools.total_ordering's
         # NotImplemented round-trip on reflected ``Version < boundary``.
-        if isinstance(other, _BoundaryVersion):
+        if isinstance(other, BoundaryVersion):
             return self._order_key() > other._order_key()
         if self.version >= other:
             return True
         return self._is_family(other)
 
     def __hash__(self) -> int:
-        return hash((self.version, self._kind))
+        # Keyed to ``__eq__`` (the order key), so equal boundaries hash equal.
+        return hash(self._order_key())
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.version!r}, {self._kind.name})"
+        return f"{self.__class__.__name__}({self.version!r}, {self.kind.name})"
 
 
 if TYPE_CHECKING:
-    _VersionOrBoundary = Union[Version, _BoundaryVersion, None]
+    _VersionOrBoundary = Union[Version, BoundaryVersion, None]
 
 
 @functools.total_ordering
-class _LowerBound:
+class LowerBound:
     """Lower bound of a version range.
 
     A version *v* of ``None`` means unbounded below (-inf).
@@ -185,10 +194,10 @@ class _LowerBound:
         # call per check, no operator-dispatch chain.
         if version is None:
             self._above: Callable[[Version], bool] | None = None
-        elif isinstance(version, _BoundaryVersion):
+        elif isinstance(version, BoundaryVersion):
             # >V produces an AFTER_POSTS lower bound; the upper-side
             # range of !=V produces an AFTER_LOCALS lower bound.
-            if version._kind == _BoundaryKind.AFTER_POSTS:
+            if version.kind == BoundaryKind.AFTER_POSTS:
                 self._above = _make_above_after_posts(version.version)
             else:
                 self._above = _make_above_after_locals(version.version)
@@ -198,12 +207,12 @@ class _LowerBound:
             self._above = version.__lt__
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, _LowerBound):
-            return NotImplemented  # pragma: no cover
+        if not isinstance(other, LowerBound):
+            return NotImplemented
         return self.version == other.version and self.inclusive == other.inclusive
 
-    def __lt__(self, other: _LowerBound) -> bool:
-        if not isinstance(other, _LowerBound):  # pragma: no cover
+    def __lt__(self, other: LowerBound) -> bool:
+        if not isinstance(other, LowerBound):
             return NotImplemented
         # -inf < anything (except -inf itself).
         if self.version is None:
@@ -224,7 +233,7 @@ class _LowerBound:
 
 
 @functools.total_ordering
-class _UpperBound:
+class UpperBound:
     """Upper bound of a version range.
 
     A version *v* of ``None`` means unbounded above (+inf).
@@ -238,15 +247,18 @@ class _UpperBound:
         self.version = version
         self.inclusive = inclusive
         # Pre-bind a predicate "is parsed at or below this upper
-        # bound?". See _LowerBound for the rationale.
+        # bound?". See LowerBound for the rationale.
         if version is None:
             self._below: Callable[[Version], bool] | None = None
-        elif isinstance(version, _BoundaryVersion):
+        elif isinstance(version, BoundaryVersion):
             # Standard specifiers only ever produce AFTER_LOCALS upper
             # bounds (from <=V / ==V / !=V with no local).
-            if version._kind == _BoundaryKind.AFTER_LOCALS:
+            if version.kind == BoundaryKind.AFTER_LOCALS:
                 self._below = _make_below_after_locals(version.version)
-            else:  # pragma: no cover (AFTER_POSTS upper not produced by specifiers)
+            else:
+                # An AFTER_POSTS upper is not produced by any specifier, but
+                # range algebra reaches it: complementing ``>V`` flips the
+                # ``AFTER_POSTS(V)`` lower into this upper bound.
                 self._below = version.__ge__
         elif inclusive:
             self._below = version.__ge__
@@ -254,12 +266,12 @@ class _UpperBound:
             self._below = version.__gt__
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, _UpperBound):
-            return NotImplemented  # pragma: no cover
+        if not isinstance(other, UpperBound):
+            return NotImplemented
         return self.version == other.version and self.inclusive == other.inclusive
 
-    def __lt__(self, other: _UpperBound) -> bool:
-        if not isinstance(other, _UpperBound):  # pragma: no cover
+    def __lt__(self, other: UpperBound) -> bool:
+        if not isinstance(other, UpperBound):
             return NotImplemented
         # Nothing < +inf (except +inf itself).
         if self.version is None:
@@ -281,12 +293,12 @@ class _UpperBound:
 
 if TYPE_CHECKING:
     #: A single contiguous version range, as a (lower, upper) pair.
-    VersionRange = tuple[_LowerBound, _UpperBound]
+    VersionRange = tuple[LowerBound, UpperBound]
 
 
-_NEG_INF: Final[_LowerBound] = _LowerBound(None, False)
-_POS_INF: Final[_UpperBound] = _UpperBound(None, False)
-FULL_RANGE: Final[tuple[VersionRange]] = ((_NEG_INF, _POS_INF),)
+NEG_INF: Final[LowerBound] = LowerBound(None, False)
+POS_INF: Final[UpperBound] = UpperBound(None, False)
+FULL_RANGE: Final[tuple[VersionRange]] = ((NEG_INF, POS_INF),)
 
 
 def trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
@@ -327,7 +339,6 @@ def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
     version_ge = version.__ge__
     version_epoch = version.epoch
     version_pre = version.pre
-    version_dev = version.dev
     version_release_trimmed = trim_release(version.release)
     trimmed_length = len(version_release_trimmed)
 
@@ -348,13 +359,12 @@ def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
                 return True
         if parsed.pre != version_pre:
             return True
-        # In post family iff: same dev as V (covers V itself + V+local),
-        # or any post-release (covers V.postN + V.postN+local).
-        if parsed.dev == version_dev or parsed.post is not None:
-            return False
-        # Different dev with no post means parsed sorts before V
-        # cmpkey-wise, in which case version_ge returned True already.
-        return False  # pragma: no cover
+
+        # Same release and pre as V: parsed is in V's post family (V itself,
+        # V+local, or V.postN), which the boundary sits above. A V.devN
+        # (different dev, no post) sorts before V and was already caught by
+        # ``version_ge`` above, so the answer here is always "not above".
+        return False
 
     return above
 
@@ -437,12 +447,56 @@ def _make_below_after_locals(version: Version) -> Callable[[Version], bool]:
     return below
 
 
-def _range_is_empty(lower: _LowerBound, upper: _UpperBound) -> bool:
-    """True when the range defined by *lower* and *upper* contains no versions."""
-    if lower.version is None or upper.version is None:
+def least_version_above(boundary: BoundaryVersion) -> Version | None:
+    """Smallest real version strictly above *boundary*, or ``None`` if none exists."""
+    base = boundary.version
+
+    if boundary.kind == BoundaryKind.AFTER_LOCALS:
+        # AFTER_LOCALS(V) sits just below V.post0, so its least successor is
+        # V.post0.dev0 (V.dev(N+1) if V has a dev, V.post(N+1).dev0 if a post).
+        if base.dev is not None:
+            return base.__replace__(dev=base.dev + 1, local=None)
+        next_post = (base.post + 1) if base.post is not None else 0
+        return base.__replace__(post=next_post, dev=0, local=None)
+
+    # AFTER_POSTS(V): a pre-release V steps to the next pre-release's .dev0;
+    # a final-release AFTER_POSTS has no least successor.
+    if base.pre is not None:
+        kind, number = base.pre
+        return base.__replace__(pre=(kind, number + 1), post=None, dev=0, local=None)
+
+    return None
+
+
+def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
+    """True when the range defined by *lower* and *upper* contains no versions.
+
+    A boundary lower sits just below the next real version, so an ordered pair
+    is still empty when the upper excludes that least successor:
+    ``(AFTER_POSTS(1.0a1), 1.0a2.dev0)`` holds no version.
+    """
+    if upper.version is None:
         return False
+
+    if lower.version is None:
+        # Nothing sorts below MIN_VERSION, so an exclusive upper at or below it
+        # leaves an empty floor interval such as ``(-inf, 0.dev0)``.
+        return (
+            not upper.inclusive
+            and isinstance(upper.version, Version)
+            and upper.version <= MIN_VERSION
+        )
+
+    if isinstance(lower.version, BoundaryVersion):
+        successor = least_version_above(lower.version)
+        if successor is not None:
+            if upper.version == successor:
+                return not upper.inclusive
+            return upper.version < successor
+
     if lower.version == upper.version:
         return not (lower.inclusive and upper.inclusive)
+
     return lower.version > upper.version
 
 
@@ -460,7 +514,7 @@ def intersect_ranges(
         lower = max(left_lower, right_lower)
         upper = min(left_upper, right_upper)
 
-        if not _range_is_empty(lower, upper):
+        if not range_is_empty(lower, upper):
             result.append((lower, upper))
 
         # Advance whichever side has the smaller upper bound.
@@ -569,25 +623,39 @@ def filter_by_ranges(
                 break
 
 
-def _lowest_release_at_or_above(
-    value: _VersionOrBoundary,
-) -> Version | None:
-    """Smallest non-pre-release version at or above *value*, or None."""
+def _nearest_release_above_prerelease(version: Version) -> Version:
+    """Smallest non-pre-release at or above a pre-release *version*."""
+    if version.pre is not None:
+        # An a/b/rc pre-release drops to its final release, which outranks
+        # every post-release of that pre-release (1.0a1.post0 -> 1.0).
+        return version.__replace__(pre=None, post=None, dev=None, local=None)
+
+    # A dev-only release keeps its post-release (1.0.post0.dev0 -> 1.0.post0,
+    # whose final 1.0 sorts below it).
+    return version.__replace__(dev=None, local=None)
+
+
+def _lowest_release_at_or_above(value: Version | BoundaryVersion | None) -> Version:
+    """Smallest non-pre-release version at or above *value*.
+
+    ``None`` is the ``-inf`` floor, whose nearest non-pre-release is
+    :data:`MIN_RELEASE`.
+    """
     if value is None:
-        return None
-    if isinstance(value, _BoundaryVersion):
+        return MIN_RELEASE
+    if isinstance(value, BoundaryVersion):
         inner_version = value.version
         if inner_version.is_prerelease:
-            # AFTER_LOCALS(1.0a1) -> nearest non-pre is 1.0
-            return inner_version.__replace__(pre=None, dev=None, local=None)
+            return _nearest_release_above_prerelease(inner_version)
         # AFTER_LOCALS(1.0) -> nearest non-pre is 1.0.post0
         # AFTER_LOCALS(1.0.post0) -> nearest non-pre is 1.0.post1
         next_post = (inner_version.post + 1) if inner_version.post is not None else 0
         return inner_version.__replace__(post=next_post, local=None)
+
     if not value.is_prerelease:
         return value
-    # Strip pre/dev to get the final or post-release form.
-    return value.__replace__(pre=None, dev=None, local=None)
+
+    return _nearest_release_above_prerelease(value)
 
 
 def ranges_are_prerelease_only(ranges: Sequence[VersionRange]) -> bool:
@@ -598,8 +666,6 @@ def ranges_are_prerelease_only(ranges: Sequence[VersionRange]) -> bool:
     """
     for lower, upper in ranges:
         nearest = _lowest_release_at_or_above(lower.version)
-        if nearest is None:
-            return False
         if upper.version is None or nearest < upper.version:
             return False
         if nearest == upper.version and upper.inclusive:
@@ -615,11 +681,11 @@ def wildcard_ranges(op: str, base: Version) -> list[VersionRange]:
     lower = _base_dev0(base)
     upper = _next_prefix_dev0(base)
     if op == "==":
-        return [(_LowerBound(lower, True), _UpperBound(upper, False))]
+        return [(LowerBound(lower, True), UpperBound(upper, False))]
     # !=
     return [
-        (_NEG_INF, _UpperBound(lower, False)),
-        (_LowerBound(upper, True), _POS_INF),
+        (NEG_INF, UpperBound(lower, False)),
+        (LowerBound(upper, True), POS_INF),
     ]
 
 
@@ -631,15 +697,13 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionR
     upper bound includes V's local family.
     """
     if op == ">=":
-        return [(_LowerBound(version, True), _POS_INF)]
+        return [(LowerBound(version, True), POS_INF)]
 
     if op == "<=":
         return [
             (
-                _NEG_INF,
-                _UpperBound(
-                    _BoundaryVersion(version, _BoundaryKind.AFTER_LOCALS), True
-                ),
+                NEG_INF,
+                UpperBound(BoundaryVersion(version, BoundaryKind.AFTER_LOCALS), True),
             )
         ]
 
@@ -648,19 +712,17 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionR
             # >V.devN: dev versions have no post-releases, so the
             # next real version is V.dev(N+1).
             lower_bound = version.__replace__(dev=version.dev + 1, local=None)
-            return [(_LowerBound(lower_bound, True), _POS_INF)]
+            return [(LowerBound(lower_bound, True), POS_INF)]
         if version.post is not None:
             # >V.postN: next real version is V.post(N+1).dev0.
             lower_bound = version.__replace__(post=version.post + 1, dev=0, local=None)
-            return [(_LowerBound(lower_bound, True), _POS_INF)]
+            return [(LowerBound(lower_bound, True), POS_INF)]
         # >V (final or pre-release V): exclude V itself, V+local, and
         # every V.postN per PEP 440.
         return [
             (
-                _LowerBound(
-                    _BoundaryVersion(version, _BoundaryKind.AFTER_POSTS), False
-                ),
-                _POS_INF,
+                LowerBound(BoundaryVersion(version, BoundaryKind.AFTER_POSTS), False),
+                POS_INF,
             )
         ]
 
@@ -670,27 +732,27 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionR
         bound = (
             version if version.is_prerelease else version.__replace__(dev=0, local=None)
         )
-        if bound <= _MIN_VERSION:
+        if bound <= MIN_VERSION:
             return []
-        return [(_NEG_INF, _UpperBound(bound, False))]
+        return [(NEG_INF, UpperBound(bound, False))]
 
     # ==, !=: local versions of V match when the spec has no local segment.
-    after_locals = _BoundaryVersion(version, _BoundaryKind.AFTER_LOCALS)
+    after_locals = BoundaryVersion(version, BoundaryKind.AFTER_LOCALS)
     upper = version if has_local else after_locals
 
     if op == "==":
-        return [(_LowerBound(version, True), _UpperBound(upper, True))]
+        return [(LowerBound(version, True), UpperBound(upper, True))]
 
     if op == "!=":
         return [
-            (_NEG_INF, _UpperBound(version, False)),
-            (_LowerBound(upper, False), _POS_INF),
+            (NEG_INF, UpperBound(version, False)),
+            (LowerBound(upper, False), POS_INF),
         ]
 
     if op == "~=":
         prefix = version.__replace__(release=version.release[:-1])
         return [
-            (_LowerBound(version, True), _UpperBound(_next_prefix_dev0(prefix), False))
+            (LowerBound(version, True), UpperBound(_next_prefix_dev0(prefix), False))
         ]
 
     raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
