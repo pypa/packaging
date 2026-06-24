@@ -260,12 +260,9 @@ class Specifier(BaseSpecifier):
         if operator == "!=":
             return False
 
-        # The == specifier with trailing .* cannot include prereleases.
         if operator == "==" and version.endswith(".*"):
-            return False
+            version = version[:-2]
 
-        # === can have arbitrary string versions that aren't valid PEP 440,
-        # so we cannot determine prerelease status.
         parsed = _coerce_version(version)
         if parsed is None:
             return False
