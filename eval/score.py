@@ -12,6 +12,7 @@ Once edited, it becomes a Tier 1 (explicit) eval — the factory will use it as-
 """
 
 import json
+import re
 import subprocess
 import sys
 
@@ -129,16 +130,17 @@ def eval_coverage() -> dict:
             text=True,
             timeout=120,
         )
-        passed = result.returncode == 0
-        if passed:
+        output = result.stdout + result.stderr
+        match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+)%', output)
+        if not match:
+            match = re.search(r'TOTAL\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)%', output)
+        if match:
+            score = int(match.group(1)) / 100.0
+        elif result.returncode == 0:
             score = 1.0
         else:
-            # Partial score: count output lines as a rough error metric
-            error_lines = [ln for ln in (result.stdout + result.stderr).splitlines() if ln.strip()]
-            if not error_lines:
-                score = 0.0
-            else:
-                score = max(0.0, 1.0 - len(error_lines) * 0.05)
+            score = 0.0
+        passed = score >= 0.80
         return {
             "name": 'coverage',
             "score": score,
