@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import dataclasses
 import email.feedparser
 import email.header
 import email.message
@@ -181,10 +183,6 @@ _DICT_FIELDS = {
 }
 
 
-import contextlib
-import dataclasses
-
-
 @dataclasses.dataclass
 class _ErrorCollector:
     errors: list[Exception] = dataclasses.field(default_factory=list, init=False)
@@ -195,8 +193,10 @@ class _ErrorCollector:
 
     @contextlib.contextmanager
     def on_exit(self, msg: str) -> typing.Generator[_ErrorCollector, None, None]:
-        yield self
-        self.finalize(msg)
+        try:
+            yield self
+        finally:
+            self.finalize(msg)
 
     @contextlib.contextmanager
     def collect(self, *err_cls: type[Exception]) -> typing.Generator[None, None, None]:
