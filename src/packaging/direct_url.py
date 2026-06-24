@@ -289,7 +289,10 @@ class DirectUrl:
             raise DirectUrlValidationError(
                 "Exactly one of vcs_info, archive_info, dir_info must be present"
             )
-        if direct_url.dir_info is not None and not direct_url.url.startswith("file://"):
+        if (
+            direct_url.dir_info is not None
+            and urllib.parse.urlsplit(direct_url.url).scheme != "file"
+        ):
             raise DirectUrlValidationError(
                 "URL scheme must be file:// when dir_info is present",
                 context="url",
