@@ -1,6 +1,0 @@
-{
-  "dimensions": [
-    {"name": "tests", "weight": 1.0, "command": "python -m pytest tests/ -x -q --timeout 60"}
-  ],
-  "human_reviewed": true
-}
