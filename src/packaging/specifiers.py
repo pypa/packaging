@@ -257,18 +257,20 @@ class Specifier(BaseSpecifier):
         # Only the "!=" operator does not imply prereleases when
         # the version in the specifier is a prerelease.
         operator, version = self._spec
-        if operator != "!=":
-            # The == specifier can include a trailing .*, if it does we
-            # want to remove before parsing.
-            if operator == "==" and version.endswith(".*"):
-                version = version[:-2]
+        if operator == "!=":
+            return False
 
-            # Parse the version, and if it is a pre-release than this
-            # specifier allows pre-releases.
-            if Version(version).is_prerelease:
-                return True
+        # The == specifier with trailing .* cannot include prereleases.
+        if operator == "==" and version.endswith(".*"):
+            return False
 
-        return False
+        # === can have arbitrary string versions that aren't valid PEP 440,
+        # so we cannot determine prerelease status.
+        parsed = _coerce_version(version)
+        if parsed is None:
+            return False
+
+        return parsed.is_prerelease
 
     @prereleases.setter
     def prereleases(self, value: bool | None) -> None:
