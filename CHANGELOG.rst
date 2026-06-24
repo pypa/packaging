@@ -4,6 +4,11 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Features:
+
+* Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
+  (:issue:`1220`)
+
 Behavior adaptations:
 
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
