@@ -39,6 +39,11 @@ EQUIVALENT_DEPENDENCIES = [
         'foo[a]==1.0.0; python_version>="3.8"',
         'foo[a]==1.0.0.0; python_version>="3.8"',
     ),
+    # Extras that normalize to the same value are equivalent.
+    ("urllib3[secure]", "urllib3[SECURE]"),
+    ("fishtank[all-blue]", "fishtank[all_blue]"),
+    ("fishtank[all-blue]", "fishtank[all---blue]"),
+    ("fishtank[crazy-bunches]", "fishtank[cRazy_BUnches]"),
 ]
 
 DIFFERENT_DEPENDENCIES = [
