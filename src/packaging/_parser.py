@@ -60,6 +60,183 @@ class ParsedRequirement(NamedTuple):
 # --------------------------------------------------------------------------------------
 
 
+def parse_requirement(source: str) -> ParsedRequirement:
+    return _parse_requirement(Tokenizer(source, rules=DEFAULT_RULES))
+
+
+def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
+    """
+    requirement = WS? IDENTIFIER extras requirement_details WS?
+    """
+    tokenizer.consume("WS")
+    name_token = tokenizer.expect("IDENTIFIER", expected="package name at the start")
+    name = name_token.text
+    extras = _parse_extras(tokenizer)
+    url, specifier, marker = _parse_requirement_details(tokenizer)
+    tokenizer.consume("WS")
+    tokenizer.expect("END", expected="end of dependency specifier")
+    return ParsedRequirement(name, url, extras, specifier, marker)
+
+
+def _parse_requirement_details(
+    tokenizer: Tokenizer,
+) -> tuple[str, str, MarkerList | None]:
+    """
+    requirement_details = AT URL (WS requirement_marker)?
+                        | specifier (WS requirement_marker)?
+    """
+    tokenizer.consume("WS")
+
+    url = ""
+    specifier = ""
+    marker = None
+
+    if tokenizer.check("AT"):
+        span_start = tokenizer.position
+        tokenizer.read()
+        tokenizer.consume("WS")
+        url_token = tokenizer.expect("URL", expected="URL after @")
+        url = url_token.text
+        marker = _parse_requirement_marker(
+            tokenizer, span_start=span_start, expected="end of dependency specifier"
+        )
+    else:
+        specifier = _parse_specifier(tokenizer)
+        marker = _parse_requirement_marker(
+            tokenizer,
+            span_start=tokenizer.position,
+            expected="end of dependency specifier",
+        )
+
+    return url, specifier, marker
+
+
+def _parse_requirement_marker(
+    tokenizer: Tokenizer, *, span_start: int, expected: str
+) -> MarkerList | None:
+    """
+    requirement_marker = SEMICOLON WS? marker WS?
+    """
+    tokenizer.consume("WS")
+    if not tokenizer.check("SEMICOLON"):
+        return None
+    tokenizer.read()
+    tokenizer.consume("WS")
+
+    marker_source = tokenizer.source[tokenizer.position :]
+    marker = parse_marker(marker_source)
+    tokenizer.position = len(tokenizer.source)
+    return marker
+
+
+def _parse_extras(tokenizer: Tokenizer) -> list[str]:
+    """
+    extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
+    """
+    if not tokenizer.check("LEFT_BRACKET", peek=True):
+        return []
+
+    tokenizer.expect("LEFT_BRACKET", expected="'['")
+    tokenizer.consume("WS")
+    extras = _parse_extras_list(tokenizer)
+    tokenizer.consume("WS")
+    tokenizer.expect("RIGHT_BRACKET", expected="']'")
+    return extras
+
+
+def _parse_extras_list(tokenizer: Tokenizer) -> list[str]:
+    """
+    extras_list = IDENTIFIER (WS? COMMA WS? IDENTIFIER)*
+    """
+    extras: list[str] = []
+    if not tokenizer.check("IDENTIFIER"):
+        return extras
+
+    extras.append(tokenizer.read().text)
+
+    while True:
+        tokenizer.consume("WS")
+        if tokenizer.check("COMMA"):
+            tokenizer.read()
+            tokenizer.consume("WS")
+            extra_token = tokenizer.expect(
+                "IDENTIFIER", expected="extra name after comma"
+            )
+            extras.append(extra_token.text)
+        else:
+            break
+
+    return extras
+
+
+def _parse_specifier(tokenizer: Tokenizer) -> str:
+    """
+    specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
+              | version_many
+    """
+    with tokenizer.enclosing_tokens(
+        "LEFT_PARENTHESIS",
+        "RIGHT_PARENTHESIS",
+        around="version specifier",
+    ):
+        tokenizer.consume("WS")
+        parsed_specifiers = _parse_version_many(tokenizer)
+        tokenizer.consume("WS")
+
+    return parsed_specifiers
+
+
+def _parse_version_many(tokenizer: Tokenizer) -> str:
+    """
+    version_many = (SPECIFIER (WS? COMMA WS? SPECIFIER)*)?
+    """
+    parsed_specifiers = ""
+    if not tokenizer.check("SPECIFIER"):
+        return parsed_specifiers
+
+    span_start = tokenizer.position
+    token = tokenizer.read()
+    parsed_specifiers += token.text
+
+    if tokenizer.check("VERSION_PREFIX_TRAIL"):
+        tokenizer.raise_syntax_error(
+            ".* suffix can only be used with ==, !=, or ~= operators",
+            span_start=span_start,
+            span_end=tokenizer.position + 2,
+        )
+    if tokenizer.check("VERSION_LOCAL_LABEL_TRAIL"):
+        tokenizer.raise_syntax_error(
+            "Local version label is not allowed in this context",
+            span_start=span_start,
+            span_end=tokenizer.position,
+        )
+
+    while True:
+        tokenizer.consume("WS")
+        if not tokenizer.check("COMMA"):
+            break
+        tokenizer.read()
+        tokenizer.consume("WS")
+        parsed_specifiers += ", "
+
+        span_start = tokenizer.position
+        token = tokenizer.expect("SPECIFIER", expected="version specifier")
+        parsed_specifiers += token.text
+
+        if tokenizer.check("VERSION_PREFIX_TRAIL"):
+            tokenizer.raise_syntax_error(
+                ".* suffix can only be used with ==, !=, or ~= operators",
+                span_start=span_start,
+                span_end=tokenizer.position + 2,
+            )
+        if tokenizer.check("VERSION_LOCAL_LABEL_TRAIL"):
+            tokenizer.raise_syntax_error(
+                "Local version label is not allowed in this context",
+                span_start=span_start,
+                span_end=tokenizer.position,
+            )
+
+    return parsed_specifiers
 
 
 
