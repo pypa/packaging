@@ -81,6 +81,26 @@ def test_is_normalized_name(name: str, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        "-not-legal",  # canonicalize_name("_not_legal") produces this
+        "test-",
+        "-test",
+        "-test-",
+        "-a-b",
+        "a-b-",
+    ],
+)
+def test_is_normalized_name_edge_hyphens(name: str) -> None:
+    # canonicalize_name leaves names with leading/trailing hyphens unchanged, so
+    # is_normalized_name must agree that those names are already canonical.
+    assert canonicalize_name(name) == name, f"{name!r} should be a canonicalize_name fixed point"
+    assert is_normalized_name(name), (
+        f"is_normalized_name({name!r}) should be True when canonicalize_name roundtrips"
+    )
+
+
+@pytest.mark.parametrize(
     ("version", "expected"),
     [
         (Version("1.4.0"), "1.4"),
