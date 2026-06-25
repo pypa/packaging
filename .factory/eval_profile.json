@@ -1,0 +1,6 @@
+{
+  "dimensions": [
+    {"name": "tests", "weight": 1.0, "command": "true"}
+  ],
+  "human_reviewed": true
+}
