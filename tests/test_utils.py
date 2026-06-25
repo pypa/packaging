@@ -94,7 +94,9 @@ def test_is_normalized_name(name: str, expected: str) -> None:
 def test_is_normalized_name_edge_hyphens(name: str) -> None:
     # canonicalize_name leaves names with leading/trailing hyphens unchanged, so
     # is_normalized_name must agree that those names are already canonical.
-    assert canonicalize_name(name) == name, f"{name!r} should be a canonicalize_name fixed point"
+    assert canonicalize_name(name) == name, (
+        f"{name!r} should be a canonicalize_name fixed point"
+    )
     assert is_normalized_name(name), (
         f"is_normalized_name({name!r}) should be True when canonicalize_name roundtrips"
     )
