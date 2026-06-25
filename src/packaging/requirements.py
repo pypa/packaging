@@ -57,18 +57,24 @@ class Requirement:
 
     def _iter_parts(self, name: str) -> Iterator[str]:
         yield name
+
         if self.extras:
             formatted_extras = ",".join(sorted(self.extras))
             yield f"[{formatted_extras}]"
+
         if self.specifier:
             yield str(self.specifier)
+
         if self.url:
-            yield f"@ {self.url}"
+            yield f" @ {self.url}"
+            if self.marker:
+                yield " "
+
         if self.marker:
             yield f"; {self.marker}"
 
     def __str__(self) -> str:
-        return " ".join(self._iter_parts(self.name))
+        return "".join(self._iter_parts(self.name))
 
 
 
@@ -112,8 +118,11 @@ class Requirement:
     def __hash__(self) -> int:
         return hash(
             (
-                self.__class__.__name__,
-                *self._iter_parts(canonicalize_name(self.name)),
+                canonicalize_name(self.name),
+                frozenset(canonicalize_name(e) for e in self.extras),
+                self.specifier,
+                self.url,
+                self.marker,
             )
         )
 
@@ -121,9 +130,11 @@ class Requirement:
         if not isinstance(other, Requirement):
             return NotImplemented
 
+        self_extras = frozenset(canonicalize_name(e) for e in self.extras)
+        other_extras = frozenset(canonicalize_name(e) for e in other.extras)
         return (
             canonicalize_name(self.name) == canonicalize_name(other.name)
-            and self.extras == other.extras
+            and self_extras == other_extras
             and self.specifier == other.specifier
             and self.url == other.url
             and self.marker == other.marker
