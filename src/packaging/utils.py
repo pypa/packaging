@@ -122,7 +122,12 @@ def is_normalized_name(name: str) -> bool:
     >>> is_normalized_name("Django")
     False
     """
-    return canonicalize_name(name) == name
+    return (
+        name == name.lower()
+        and "_" not in name
+        and "." not in name
+        and "--" not in name
+    )
 
 
 def canonicalize_version(
