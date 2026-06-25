@@ -39,6 +39,14 @@ else:  # pragma: no cover
         message: str
         exceptions: list[Exception]
 
+        def __init__(self, message: str, exceptions: list[Exception]) -> None:
+            self.message = message
+            self.exceptions = exceptions
+            super().__init__(message)
+
+        def __repr__(self) -> str:
+            return f"ExceptionGroup({self.message!r}, {self.exceptions!r})"
+
 
 
 
@@ -181,6 +189,27 @@ _DICT_FIELDS = {
 }
 
 
+def _parse_keywords(data: str) -> list[str]:
+    return [k.strip() for k in data.split(",") if k.strip()]
+
+
+def _parse_project_urls(data: list[str]) -> dict[str, str]:
+    urls: dict[str, str] = {}
+    for item in data:
+        if "," in item:
+            label, _, url = item.partition(",")
+            label = label.strip()
+            url = url.strip()
+        else:
+            label = item.strip()
+            url = ""
+        if label in urls:
+            raise InvalidMetadata(
+                "project-urls",
+                f"duplicate label {label!r} in project URLs",
+            )
+        urls[label] = url
+    return urls
 
 
 
@@ -322,8 +351,126 @@ class RFC822Message(email.message.EmailMessage):
     def __init__(self) -> None:
         super().__init__(policy=RFC822Policy())
 
+    def as_bytes(
+        self, unixfrom: bool = False, policy: email.policy.Policy | None = None
+    ) -> bytes:
+        return self.as_string(unixfrom=unixfrom, policy=policy).encode("utf-8")
 
 
+def parse_email(
+    data: bytes | str,
+) -> tuple[RawMetadata, dict[str, list[Any]]]:
+    raw: dict[str, Any] = {}
+    unparsed: dict[str, list[Any]] = {}
+
+    if isinstance(data, bytes):
+        parsed = email.parser.BytesParser(
+            policy=email.policy.compat32
+        ).parsebytes(data)
+    else:
+        parsed = email.parser.Parser(
+            policy=email.policy.compat32
+        ).parsestr(data)
+
+    headers: dict[str, list[str]] = {}
+    for header_name in parsed.keys():
+        header_name_lower = header_name.lower()
+        raw_name = _EMAIL_TO_RAW_MAPPING.get(header_name_lower)
+        if raw_name is None:
+            key = header_name_lower.replace("-", "_")
+            unparsed.setdefault(key, [])
+
+        raw_value = parsed.get_all(header_name)
+        if raw_value is None:
+            continue
+
+        values_for_header: list[str] = []
+        valid_encoding = True
+
+        for val in raw_value:
+            if isinstance(val, email.header.Header):
+                chunks = email.header.decode_header(val)
+                new_chunks = []
+                for payload_bytes, charset in chunks:
+                    if isinstance(payload_bytes, bytes):
+                        try:
+                            payload_bytes.decode("utf-8")
+                            new_chunks.append(
+                                (payload_bytes, charset or "utf-8")
+                            )
+                        except UnicodeDecodeError:
+                            valid_encoding = False
+                            new_chunks.append((payload_bytes, "latin-1"))
+                    else:
+                        new_chunks.append((payload_bytes, charset))
+                reconstructed = str(
+                    email.header.make_header(
+                        [(b if isinstance(b, bytes) else b.encode(c or "utf-8") if c else b.encode("utf-8"), c) if isinstance(b, str) else (b, c)
+                         for b, c in new_chunks]
+                    )
+                )
+                values_for_header.append(reconstructed)
+            else:
+                values_for_header.append(val)
+
+        if raw_name is None:
+            key = header_name_lower.replace("-", "_")
+            unparsed.setdefault(key, []).extend(values_for_header)
+            continue
+
+        if not valid_encoding:
+            key = raw_name
+            unparsed.setdefault(key, []).extend(values_for_header)
+            continue
+
+        headers.setdefault(raw_name, []).extend(values_for_header)
+
+    for raw_name, values in headers.items():
+        if raw_name in _STRING_FIELDS:
+            if len(values) == 1:
+                raw[raw_name] = values[0]
+            else:
+                unparsed[raw_name] = values
+        elif raw_name in _LIST_FIELDS:
+            raw[raw_name] = values
+        elif raw_name in _DICT_FIELDS:
+            raw[raw_name] = values
+        else:
+            if len(values) == 1:
+                raw[raw_name] = values[0]
+            else:
+                unparsed[raw_name] = values
+
+    body: str | None = parsed.get_payload(decode=isinstance(data, bytes))
+
+    if isinstance(body, bytes):
+        try:
+            body = body.decode("utf-8")
+        except UnicodeDecodeError:
+            unparsed.setdefault("description", []).append(body)
+            body = None
+
+    if body is not None and body:
+        if "description" in raw:
+            desc_list = [raw.pop("description")]
+            desc_list.append(body)
+            unparsed.setdefault("description", []).extend(desc_list)
+        elif "description" in unparsed:
+            unparsed["description"].append(body)
+        else:
+            raw["description"] = body
+
+    if "keywords" in raw:
+        raw["keywords"] = _parse_keywords(raw["keywords"])
+
+    if "project_urls" in raw:
+        try:
+            raw["project_urls"] = _parse_project_urls(raw["project_urls"])
+        except InvalidMetadata:
+            unparsed["project_urls"] = headers.get("project_urls", [])
+            del raw["project_urls"]
+
+    return cast(RawMetadata, raw), unparsed
 
 
 
@@ -549,6 +696,173 @@ class _Validator(Generic[T]):
         self.name = name
         self.raw_name = _RAW_TO_EMAIL_MAPPING[name]
 
+    def __get__(self, instance: Metadata | None, _owner: type[Metadata]) -> T:
+        if instance is None:
+            return self  # type: ignore[return-value]
+
+        try:
+            return cast(T, instance.__dict__[self.name])
+        except KeyError:
+            pass
+
+        raw_value = instance._raw.get(self.name, _NOT_FOUND)
+        if raw_value is _NOT_FOUND:
+            if self.name in _REQUIRED_ATTRS:
+                raise InvalidMetadata(
+                    self.raw_name,
+                    f"{self.raw_name} is a required field",
+                )
+            instance.__dict__[self.name] = None
+            return cast(T, None)
+
+        try:
+            processor: Callable[[Any], T] | None = getattr(
+                self, f"_process_{self.name}", None
+            )
+            if processor is not None:
+                value = processor(raw_value)
+            else:
+                value = raw_value
+        except InvalidMetadata:
+            raise
+        else:
+            instance.__dict__[self.name] = value
+            del instance._raw[self.name]  # type: ignore[misc]
+            return value
+
+    def _invalid_metadata(self, msg: str) -> InvalidMetadata:
+        return InvalidMetadata(self.raw_name, msg.replace("{field}", self.raw_name))
+
+    def _process_metadata_version(self, value: str) -> _MetadataVersion:
+        if value not in _VALID_METADATA_VERSIONS:
+            raise InvalidMetadata(
+                "metadata-version",
+                f"Unknown metadata version: {value!r}",
+            )
+        return cast(_MetadataVersion, value)
+
+    def _process_name(self, value: str) -> str:
+        if not value:
+            raise InvalidMetadata("name", "name is a required field")
+        try:
+            utils.canonicalize_name(value, validate=True)
+        except utils.InvalidName as e:
+            raise InvalidMetadata("name", str(e)) from e
+        return value
+
+    def _process_version(self, value: str) -> version_module.Version:
+        if not value:
+            raise InvalidMetadata("version", "version is a required field")
+        try:
+            return version_module.Version(value)
+        except version_module.InvalidVersion as e:
+            raise InvalidMetadata("version", str(e)) from e
+
+    def _process_summary(self, value: str) -> str:
+        if "\n" in value:
+            raise InvalidMetadata(
+                "summary", "summary must not contain newlines"
+            )
+        return value
+
+    def _process_description_content_type(self, value: str) -> str:
+        parts = value.split(";")
+        if len(parts) > 1:
+            raise InvalidMetadata(
+                "description-content-type",
+                f"Invalid content type: {value!r}",
+            )
+        content_type = parts[0].strip()
+        if content_type not in ("text/plain", "text/x-rst", "text/markdown"):
+            raise InvalidMetadata(
+                "description-content-type",
+                f"Invalid content type: {value!r}",
+            )
+        return value
+
+    def _process_dynamic(self, value: list[str]) -> list[str]:
+        lowered = [v.lower() for v in value]
+        for val in lowered:
+            if val in ("name", "version", "metadata-version"):
+                raise InvalidMetadata(
+                    "dynamic",
+                    f"{val!r} is not allowed in dynamic",
+                )
+            raw_name = val.replace("-", "_")
+            if raw_name not in _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS:
+                raise InvalidMetadata(
+                    "dynamic",
+                    f"{val!r} is not a recognized metadata field",
+                )
+        return lowered
+
+    def _process_license_expression(
+        self, value: str
+    ) -> NormalizedLicenseExpression:
+        try:
+            return licenses.canonicalize_license_expression(value)
+        except ValueError as e:
+            raise InvalidMetadata(
+                "license-expression", str(e)
+            ) from e
+
+    def _process_license_files(self, value: list[str]) -> list[str]:
+        for path in value:
+            if ".." in path:
+                raise self._invalid_metadata(
+                    f"Invalid license file path: {path!r} — contains '..'"
+                )
+            if "*" in path:
+                raise self._invalid_metadata(
+                    f"Invalid license file path: {path!r} — contains '*'"
+                )
+            if "\\" in path:
+                raise self._invalid_metadata(
+                    f"Invalid license file path: {path!r} — contains backslash"
+                )
+            if pathlib.PurePosixPath(path).is_absolute() or pathlib.PureWindowsPath(
+                path
+            ).is_absolute():
+                raise self._invalid_metadata(
+                    f"Invalid license file path: {path!r} — is absolute"
+                )
+        return value
+
+    def _process_provides_extra(
+        self, value: list[str]
+    ) -> list[utils.NormalizedName]:
+        result: list[utils.NormalizedName] = []
+        for extra in value:
+            try:
+                result.append(utils.canonicalize_name(extra, validate=True))
+            except utils.InvalidName as e:
+                raise InvalidMetadata(
+                    "provides-extra", str(e)
+                ) from e
+        return result
+
+    def _process_requires_dist(
+        self, value: list[str]
+    ) -> list[requirements.Requirement]:
+        result: list[requirements.Requirement] = []
+        for item in value:
+            try:
+                result.append(requirements.Requirement(item))
+            except requirements.InvalidRequirement as e:
+                raise InvalidMetadata(
+                    "requires-dist", str(e)
+                ) from e
+        return result
+
+    def _process_requires_python(
+        self, value: str
+    ) -> specifiers.SpecifierSet:
+        try:
+            return specifiers.SpecifierSet(value)
+        except specifiers.InvalidSpecifier as e:
+            raise InvalidMetadata(
+                "requires-python", str(e)
+            ) from e
 
 
 
@@ -942,6 +1256,144 @@ class Metadata:
     obsoletes: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Obsoletes`` (deprecated)"""
 
+    @classmethod
+    def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> Metadata:
+        ins = cls.__new__(cls)
+        ins._raw = data.copy()  # type: ignore[assignment]
+        ins._unparsed: dict[str, list[Any]] = {}
+
+        if validate:
+            exceptions: list[Exception] = []
+
+            for attr_name, descriptor in _get_validators(cls):
+                try:
+                    getattr(ins, attr_name)
+                except InvalidMetadata as e:
+                    exceptions.append(e)
+
+            try:
+                mv = ins.__dict__.get("metadata_version")
+                if mv is not None:
+                    for attr_name, descriptor in _get_validators(cls):
+                        if attr_name in _REQUIRED_ATTRS:
+                            continue
+                        if attr_name in ins.__dict__ and ins.__dict__[attr_name] is not None:
+                            if _VALID_METADATA_VERSIONS.index(descriptor.added) > _VALID_METADATA_VERSIONS.index(mv):
+                                exceptions.append(
+                                    InvalidMetadata(
+                                        descriptor.raw_name,
+                                        f"{descriptor.raw_name} was added in metadata version {descriptor.added}, not {mv}",
+                                    )
+                                )
+            except (ValueError, InvalidMetadata):
+                pass
+
+            leftover = set(ins._raw.keys())
+            for attr_name, _ in _get_validators(cls):
+                leftover.discard(attr_name)
+            for field_name in leftover:
+                exceptions.append(
+                    InvalidMetadata(
+                        field_name,
+                        f"unrecognized field: {field_name!r}",
+                    )
+                )
+
+            if exceptions:
+                raise ExceptionGroup("invalid metadata", exceptions)
+
+        return ins
+
+    @classmethod
+    def from_email(
+        cls, data: bytes | str, *, validate: bool = True
+    ) -> Metadata:
+        raw, unparsed = parse_email(data)
+
+        exceptions: list[Exception] = []
+        for key, values in unparsed.items():
+            if key in _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS:
+                exceptions.append(
+                    InvalidMetadata(
+                        key.replace("_", "-"),
+                        f"unparsed value(s) for {key}: {values!r}",
+                    )
+                )
+            else:
+                exceptions.append(
+                    InvalidMetadata(
+                        key.replace("_", "-"),
+                        f"unrecognized field: {key!r}",
+                    )
+                )
+
+        try:
+            ins = cls.from_raw(raw, validate=validate)
+        except ExceptionGroup as eg:
+            exceptions.extend(eg.exceptions)
+            ins = cls.__new__(cls)
+            ins._raw = raw.copy()  # type: ignore[assignment]
+
+        ins._unparsed = unparsed
+
+        if exceptions and validate:
+            raise ExceptionGroup("invalid metadata", exceptions)
+
+        return ins
+
+    def as_rfc822(self) -> RFC822Message:
+        msg = RFC822Message()
+
+        for raw_name, email_name in _RAW_TO_EMAIL_MAPPING.items():
+            if raw_name == "description":
+                continue
+            try:
+                value = getattr(self, raw_name)
+            except (InvalidMetadata, AttributeError):
+                continue
+            if value is None:
+                continue
+
+            if raw_name == "project_urls" and isinstance(value, dict):
+                for label, url in value.items():
+                    msg[email_name] = f"{label}, {url}"
+            elif raw_name == "keywords" and isinstance(value, list):
+                msg[email_name] = ",".join(value)
+            elif raw_name == "import_names" and isinstance(value, list):
+                if len(value) == 0:
+                    msg[email_name] = ""
+                else:
+                    for item in value:
+                        msg[email_name] = item
+            elif raw_name == "import_namespaces" and isinstance(value, list):
+                if len(value) == 0:
+                    msg[email_name] = ""
+                else:
+                    for item in value:
+                        msg[email_name] = item
+            elif isinstance(value, list):
+                for item in value:
+                    msg[email_name] = str(item)
+            else:
+                msg[email_name] = str(value)
+
+        try:
+            description = self.description
+        except (InvalidMetadata, AttributeError):
+            description = None
+        if description is not None:
+            msg.set_payload(description)
+
+        return msg
+
+
+def _get_validators(cls: type[Metadata]) -> list[tuple[str, _Validator[Any]]]:
+    result = []
+    for attr_name in dir(cls):
+        obj = getattr(cls, attr_name, None)
+        if isinstance(obj, _Validator):
+            result.append((attr_name, obj))
+    return result
 
 
 

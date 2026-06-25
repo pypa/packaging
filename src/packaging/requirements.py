@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Iterator
 
 
+from ._parser import parse_requirement
 from ._tokenizer import ParserSyntaxError
 from .markers import Marker, _normalize_extra_values
 from .specifiers import SpecifierSet
@@ -30,6 +31,44 @@ class Requirement:
     #       If so how do we do that? Do we need to test against the _name_ of
     #       the thing as well as the version? What about the markers?
     # TODO: Can we normalize the name and extra name?
+
+    name: str
+    url: str | None
+    extras: set[str]
+    specifier: SpecifierSet
+    marker: Marker | None
+
+    def __init__(self, requirement_string: str) -> None:
+        try:
+            parsed = parse_requirement(requirement_string)
+        except ParserSyntaxError as e:
+            raise InvalidRequirement(str(e)) from e
+
+        self.name = parsed.name
+        self.url = parsed.url or None
+        self.extras = set(parsed.extras)
+        self.specifier = SpecifierSet(parsed.specifier)
+        if parsed.marker is not None:
+            marker = Marker.__new__(Marker)
+            marker._markers = _normalize_extra_values(parsed.marker)
+            self.marker = marker
+        else:
+            self.marker = None
+
+    def _iter_parts(self, name: str) -> Iterator[str]:
+        yield name
+        if self.extras:
+            formatted_extras = ",".join(sorted(self.extras))
+            yield f"[{formatted_extras}]"
+        if self.specifier:
+            yield str(self.specifier)
+        if self.url:
+            yield f"@ {self.url}"
+        if self.marker:
+            yield f"; {self.marker}"
+
+    def __str__(self) -> str:
+        return " ".join(self._iter_parts(self.name))
 
 
 
