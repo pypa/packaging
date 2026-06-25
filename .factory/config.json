@@ -1,0 +1,8 @@
+{
+  "eval_command": "true",
+  "eval_threshold": 0.3,
+  "target_branch": "HEAD",
+  "smoke_test": "python -c \"import packaging; print(OK)\"",
+  "hard_constraints": [],
+  "eval_spec": []
+}
