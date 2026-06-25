@@ -422,7 +422,7 @@ def release(session: nox.Session) -> None:
     print()
 
 
-@nox.session
+@nox.session(default=False)
 def release_build(session: nox.Session) -> None:
     """
     Build version from command-line arguments otherwise current Git tag.
@@ -459,7 +459,7 @@ def release_build(session: nox.Session) -> None:
 
     # Check out the Git tag, if provided.
     if checkout:
-        session.run("git", "switch", "-q", release_version, external=True)
+        session.run("git", "switch", "--detach", "-q", release_version, external=True)
 
     # Build the distribution.
     _build_and_check(session, release_version)
