@@ -41,7 +41,7 @@ def test_elffile_glibc(
             "aarch64",
             EIClass.C64,
             EIData.Lsb,
-            EMachine.AArc64,
+            EMachine.AArch64,
             "aarch64",
         ),
         ("i386", EIClass.C32, EIData.Lsb, EMachine.I386, "i386"),
