@@ -610,7 +610,8 @@ class VersionRange:
             result._bounds == FULL_RANGE
             and result._admit_arbitrary
             and not result._has_literals()
-            and self._prereleases_configured is None
+            and resolved is None
+            and configured is None
         ):
             return self.full()
 
