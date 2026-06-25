@@ -204,14 +204,20 @@ def _parse_project_urls(data: list[str]) -> dict[str, str]:
 
 def _get_payload(
     msg: email.message.Message, source: bytes | str
-) -> str | None:
+) -> str | bytes | None:
     if isinstance(source, bytes):
-        payload: str | None = msg.get_payload(decode=True).decode("utf-8")  # type: ignore[union-attr]
+        raw_payload = msg.get_payload(decode=True)  # type: ignore[union-attr]
+        if raw_payload:
+            try:
+                return raw_payload.decode("utf-8")
+            except UnicodeDecodeError:
+                return raw_payload
+        return None
     else:
         payload = msg.get_payload()
-    if payload:
-        return payload
-    return None
+        if payload:
+            return payload
+        return None
 
 
 
@@ -338,7 +344,7 @@ class RFC822Policy(email.policy.EmailPolicy):
 
     def header_store_parse(self, name: str, value: str) -> tuple[str, str]:
         if "\n" in value:
-            value = value.replace("\n", "\n" + " " * 8 + "\t")
+            value = value.replace("\n", "\n" + " " * (len(name) + 2))
         return (name, value)
 
 
@@ -376,18 +382,31 @@ def parse_email(
         msg = email.parser.Parser(policy=email.policy.compat32).parsestr(data)
 
     for name in msg.keys():
-        raw_name = name.lower().replace("-", "_")
-        mapped_name = _EMAIL_TO_RAW_MAPPING.get(name.lower().replace("_", "-"))
+        header_name = name.lower()
+        mapped_name = _EMAIL_TO_RAW_MAPPING.get(header_name.replace("_", "-"))
         if mapped_name is None:
-            if raw_name not in unparsed:
-                unparsed[raw_name] = []
+            if header_name not in unparsed:
+                unparsed[header_name] = []
             values = msg.get_all(name)
             if values:
                 for v in values:
                     if isinstance(v, email.header.Header):
-                        unparsed[raw_name].append(str(v))
+                        chunks = email.header.decode_header(v)
+                        new_chunks: list[tuple[bytes | str, str | None]] = []
+                        for chunk_bytes, chunk_encoding in chunks:
+                            if isinstance(chunk_bytes, bytes):
+                                try:
+                                    chunk_bytes.decode("utf-8")
+                                    new_chunks.append((chunk_bytes, "utf-8"))
+                                except UnicodeDecodeError:
+                                    new_chunks.append((chunk_bytes, "latin-1"))
+                            else:
+                                new_chunks.append((chunk_bytes, chunk_encoding))
+                        unparsed[header_name].append(
+                            str(email.header.make_header(new_chunks))
+                        )
                     else:
-                        unparsed[raw_name].append(v)
+                        unparsed[header_name].append(v)
             continue
 
     for name in dict.fromkeys(msg.keys()):
@@ -410,7 +429,7 @@ def parse_email(
                     if isinstance(chunk_bytes, bytes):
                         try:
                             chunk_bytes.decode("utf-8")
-                            new_chunks.append((chunk_bytes, chunk_encoding or "utf-8"))
+                            new_chunks.append((chunk_bytes, "utf-8"))
                         except UnicodeDecodeError:
                             valid_encoding = False
                             new_chunks.append((chunk_bytes, "latin-1"))
@@ -422,7 +441,7 @@ def parse_email(
                 str_values.append(val)
 
         if not valid_encoding:
-            unparsed.setdefault(mapped_name, []).extend(str_values)
+            unparsed.setdefault(norm_name, []).extend(str_values)
             continue
 
         if mapped_name in _STRING_FIELDS:
@@ -430,20 +449,26 @@ def parse_email(
                 if mapped_name not in raw:
                     raw[mapped_name] = str_values[0]
                 else:
-                    unparsed.setdefault(mapped_name, [])
+                    unparsed.setdefault(norm_name, [])
                     if isinstance(raw[mapped_name], str):
-                        unparsed[mapped_name].append(raw[mapped_name])
+                        unparsed[norm_name].append(raw[mapped_name])
                     del raw[mapped_name]
-                    unparsed[mapped_name].extend(str_values)
+                    unparsed[norm_name].extend(str_values)
             else:
                 if mapped_name in raw:
-                    unparsed.setdefault(mapped_name, [])
+                    unparsed.setdefault(norm_name, [])
                     if isinstance(raw[mapped_name], str):
-                        unparsed[mapped_name].append(raw[mapped_name])
+                        unparsed[norm_name].append(raw[mapped_name])
                     del raw[mapped_name]
-                unparsed.setdefault(mapped_name, []).extend(str_values)
+                unparsed.setdefault(norm_name, []).extend(str_values)
+        elif mapped_name == "keywords":
+            if len(str_values) == 1:
+                raw["keywords"] = str_values[0]
+            else:
+                unparsed.setdefault(norm_name, []).extend(str_values)
         elif mapped_name in _LIST_FIELDS:
-            raw.setdefault(mapped_name, []).extend(str_values)
+            filtered_values = [v for v in str_values if v]
+            raw.setdefault(mapped_name, []).extend(filtered_values)
         elif mapped_name in _DICT_FIELDS:
             raw.setdefault(mapped_name, []).extend(str_values)
 
@@ -454,16 +479,20 @@ def parse_email(
         try:
             raw["project_urls"] = _parse_project_urls(raw["project_urls"])
         except KeyError:
-            unparsed.setdefault("project_urls", []).extend(raw["project_urls"])
+            unparsed.setdefault("project-url", []).extend(raw["project_urls"])
             del raw["project_urls"]
 
     body = _get_payload(msg, data)
     if body:
-        if "description" in raw:
+        if isinstance(body, bytes):
+            unparsed.setdefault("description", []).append(body)
+        elif "description" in raw:
             unparsed.setdefault("description", [])
             unparsed["description"].append(raw["description"])
             unparsed["description"].append(body)
             del raw["description"]
+        elif "description" in unparsed:
+            unparsed["description"].append(body)
         else:
             raw["description"] = body
 
@@ -704,9 +733,24 @@ class _Validator(Generic[T]):
         raw_value = instance._raw.get(self.name, _NOT_FOUND)  # type: ignore[literal-required]
         if raw_value is _NOT_FOUND:
             if self.name in _REQUIRED_ATTRS:
-                raw_value = _NOT_FOUND
+                raise self._invalid_metadata("{field} is a required field")
             else:
                 return None
+
+        if (
+            self.added != "1.0"
+            and self.name != "metadata_version"
+            and "metadata_version" in instance._raw
+        ):
+            metadata_version = instance._raw["metadata_version"]
+            if metadata_version in _VALID_METADATA_VERSIONS:
+                idx_added = _VALID_METADATA_VERSIONS.index(self.added)
+                idx_current = _VALID_METADATA_VERSIONS.index(metadata_version)
+                if idx_current < idx_added:
+                    raise self._invalid_metadata(
+                        f"{{field}} was introduced in metadata version "
+                        f"{self.added}, not {metadata_version}"
+                    )
 
         try:
             process = getattr(self, f"_process_{self.name}")
@@ -769,7 +813,7 @@ class _Validator(Generic[T]):
                 f"text/markdown, not {content_type!r}"
             )
         charset = content_type_msg["Content-Type"].params.get("charset", "UTF-8")
-        if charset.upper() != "UTF-8":
+        if charset != "UTF-8":
             raise self._invalid_metadata(
                 f"{{field}} can only specify the UTF-8 charset, not {charset!r}"
             )
@@ -787,7 +831,7 @@ class _Validator(Generic[T]):
         for field in dynamic:
             if field in {"name", "version", "metadata-version"}:
                 raise self._invalid_metadata(
-                    f"{{field}} cannot include {field!r}"
+                    f"{field!r} is not allowed in {{field}}"
                 )
             if field.replace("-", "_") not in _EMAIL_TO_RAW_MAPPING.values():
                 raise self._invalid_metadata(
@@ -1261,6 +1305,16 @@ class Metadata:
 
         if validate:
             exceptions: list[InvalidMetadata] = []
+            valid_fields = {
+                attr_name
+                for attr_name in dir(cls)
+                if isinstance(getattr(cls, attr_name, None), _Validator)
+            }
+            for key in data:
+                if key not in valid_fields:
+                    exceptions.append(
+                        InvalidMetadata(key, f"unrecognized field: {key!r}")
+                    )
             for attr_name in dir(cls):
                 attr = getattr(cls, attr_name, None)
                 if not isinstance(attr, _Validator):
@@ -1283,13 +1337,10 @@ class Metadata:
 
         if validate and unparsed:
             for field, values in unparsed.items():
-                if field in _EMAIL_TO_RAW_MAPPING.values():
-                    raw_name = _RAW_TO_EMAIL_MAPPING.get(field, field)
-                else:
-                    raw_name = field
                 exceptions.append(
-                    InvalidMetadata(raw_name, f"{raw_name} is invalid")
+                    InvalidMetadata(field, f"{field} is invalid")
                 )
+            raise ExceptionGroup("invalid metadata", exceptions)
 
         try:
             meta = cls.from_raw(raw, validate=validate)
@@ -1298,9 +1349,6 @@ class Metadata:
 
         if exceptions:
             raise ExceptionGroup("invalid metadata", exceptions)
-
-        if not validate or not unparsed:
-            meta = cls.from_raw(raw, validate=validate)
 
         return meta
 
@@ -1325,7 +1373,7 @@ class Metadata:
             header_name = _RAW_TO_EMAIL_MAPPING[attr_name]
 
             if attr_name == "description":
-                msg.set_payload(value + "\n", charset="utf-8")
+                msg.set_payload(value)
             elif attr_name == "keywords":
                 msg[header_name] = ",".join(value)
             elif attr_name == "project_urls":

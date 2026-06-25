@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from typing import NamedTuple, Sequence, Tuple, Union
 
-from ._tokenizer import DEFAULT_RULES, Tokenizer
+from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
 
 
 class Node:
@@ -69,7 +69,9 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
     requirement = WS? IDENTIFIER extras requirement_details WS?
     """
     tokenizer.consume("WS")
-    name_token = tokenizer.expect("IDENTIFIER", expected="package name at the start")
+    name_token = tokenizer.expect(
+        "IDENTIFIER", expected="package name at the start of dependency specifier"
+    )
     name = name_token.text
     extras = _parse_extras(tokenizer)
     url, specifier, marker = _parse_requirement_details(tokenizer)
@@ -92,20 +94,30 @@ def _parse_requirement_details(
     marker = None
 
     if tokenizer.check("AT"):
-        span_start = tokenizer.position
         tokenizer.read()
         tokenizer.consume("WS")
+        span_start = tokenizer.position
         url_token = tokenizer.expect("URL", expected="URL after @")
         url = url_token.text
         marker = _parse_requirement_marker(
-            tokenizer, span_start=span_start, expected="end of dependency specifier"
+            tokenizer,
+            span_start=span_start,
+            expected="semicolon (after URL and whitespace) or end",
         )
     else:
+        specifier_start = tokenizer.position
         specifier = _parse_specifier(tokenizer)
+        if specifier:
+            expected = (
+                "comma (within version specifier), "
+                "semicolon (after version specifier) or end"
+            )
+        else:
+            expected = "semicolon (after name with no version specifier) or end"
         marker = _parse_requirement_marker(
             tokenizer,
-            span_start=tokenizer.position,
-            expected="end of dependency specifier",
+            span_start=specifier_start,
+            expected=expected,
         )
 
     return url, specifier, marker
@@ -119,12 +131,26 @@ def _parse_requirement_marker(
     """
     tokenizer.consume("WS")
     if not tokenizer.check("SEMICOLON"):
+        if not tokenizer.check("END", peek=True):
+            tokenizer.raise_syntax_error(
+                f"Expected {expected}",
+                span_start=span_start,
+            )
         return None
     tokenizer.read()
     tokenizer.consume("WS")
 
-    marker_source = tokenizer.source[tokenizer.position :]
-    marker = parse_marker(marker_source)
+    marker_offset = tokenizer.position
+    marker_source = tokenizer.source[marker_offset:]
+    try:
+        marker = parse_marker(marker_source)
+    except ParserSyntaxError as e:
+        adjusted_span = (e.span[0] + marker_offset, e.span[1] + marker_offset)
+        raise ParserSyntaxError(
+            e.message,
+            source=tokenizer.source,
+            span=adjusted_span,
+        ) from None
     tokenizer.position = len(tokenizer.source)
     return marker
 
@@ -133,14 +159,18 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     """
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
+    tokenizer.consume("WS")
     if not tokenizer.check("LEFT_BRACKET", peek=True):
         return []
 
-    tokenizer.expect("LEFT_BRACKET", expected="'['")
-    tokenizer.consume("WS")
-    extras = _parse_extras_list(tokenizer)
-    tokenizer.consume("WS")
-    tokenizer.expect("RIGHT_BRACKET", expected="']'")
+    with tokenizer.enclosing_tokens(
+        "LEFT_BRACKET",
+        "RIGHT_BRACKET",
+        around="extras",
+    ):
+        tokenizer.consume("WS")
+        extras = _parse_extras_list(tokenizer)
+        tokenizer.consume("WS")
     return extras
 
 
@@ -163,6 +193,8 @@ def _parse_extras_list(tokenizer: Tokenizer) -> list[str]:
                 "IDENTIFIER", expected="extra name after comma"
             )
             extras.append(extra_token.text)
+        elif tokenizer.check("IDENTIFIER"):
+            tokenizer.raise_syntax_error("Expected comma between extra names")
         else:
             break
 
@@ -200,13 +232,13 @@ def _parse_version_many(tokenizer: Tokenizer) -> str:
 
     if tokenizer.check("VERSION_PREFIX_TRAIL"):
         tokenizer.raise_syntax_error(
-            ".* suffix can only be used with ==, !=, or ~= operators",
+            ".* suffix can only be used with `==` or `!=` operators",
             span_start=span_start,
-            span_end=tokenizer.position + 2,
+            span_end=tokenizer.position + 1,
         )
     if tokenizer.check("VERSION_LOCAL_LABEL_TRAIL"):
         tokenizer.raise_syntax_error(
-            "Local version label is not allowed in this context",
+            "Local version label can only be used with `==` or `!=` operators",
             span_start=span_start,
             span_end=tokenizer.position,
         )
@@ -225,13 +257,13 @@ def _parse_version_many(tokenizer: Tokenizer) -> str:
 
         if tokenizer.check("VERSION_PREFIX_TRAIL"):
             tokenizer.raise_syntax_error(
-                ".* suffix can only be used with ==, !=, or ~= operators",
+                ".* suffix can only be used with `==` or `!=` operators",
                 span_start=span_start,
-                span_end=tokenizer.position + 2,
+                span_end=tokenizer.position + 1,
             )
         if tokenizer.check("VERSION_LOCAL_LABEL_TRAIL"):
             tokenizer.raise_syntax_error(
-                "Local version label is not allowed in this context",
+                "Local version label can only be used with `==` or `!=` operators",
                 span_start=span_start,
                 span_end=tokenizer.position,
             )

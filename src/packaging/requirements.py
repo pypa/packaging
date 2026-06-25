@@ -55,11 +55,14 @@ class Requirement:
             formatted_extras = ",".join(sorted(self.extras))
             yield f"[{formatted_extras}]"
         if self.url:
-            yield f" @ {self.url} "
-        elif self.specifier:
-            yield str(self.specifier)
-        if self.marker:
-            yield f" ; {self.marker}"
+            yield f" @ {self.url}"
+            if self.marker:
+                yield f" ; {self.marker}"
+        else:
+            if self.specifier:
+                yield str(self.specifier)
+            if self.marker:
+                yield f"; {self.marker}"
 
     def __str__(self) -> str:
         return "".join(self._iter_parts(self.name))
