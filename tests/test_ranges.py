@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from packaging._ranges import BoundaryKind, BoundaryVersion
-from packaging.ranges import VersionRange
+from packaging.ranges import _MAX_GAP_FRAGMENTS, VersionRange
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
@@ -448,6 +448,29 @@ class TestToSpecifierSet:
         assert str(recovered) == "<0.dev0"
         assert recovered.to_range() == r
 
+    def test_policy_empty_encodes_bounds_not_empty_spelling(self) -> None:
+        # A range empty only under a False policy keeps its pre-release bounds.
+        # Collapsing it to <0 dropped them, so a prereleases=True override on the
+        # recovered set filtered differently than the source range.
+        source = SpecifierSet("==1.0a1", prereleases=False)
+        r = source.to_range()
+        assert r.is_empty
+        assert r._bounds  # not the canonical empty range
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert source.contains("1.0a1", prereleases=True)
+        assert recovered.contains("1.0a1", prereleases=True)
+
+    def test_policy_empty_unencodable_bounds_none(self) -> None:
+        # Disjoint pre-release intervals under a False policy are still empty, but
+        # their two-group bounds have no single-set form. Returning None avoids
+        # the <0 spelling, which would drop the members an override recovers.
+        r = vr("==1.0a1", prereleases=False) | vr("==1.0b1", prereleases=False)
+        assert r.is_empty
+        assert len(r._bounds) == 2
+        assert r.to_specifier_set() is None
+
     def test_full_arbitrary(self) -> None:
         assert str(SpecifierSet("").to_range().to_specifier_set()) == ""
 
@@ -556,7 +579,7 @@ class TestToSpecifierSet:
     @pytest.mark.parametrize(
         ("spec", "expected"),
         [
-            # Family-base ``.dev0`` lowers recover without a synthetic prerelease.
+            # Family-base ``.dev0`` lowers recover without a synthetic pre-release.
             (">=3,!=3.*", "!=3.*,>=3"),
             (">=3.8,!=3.8.*", "!=3.8.*,>=3.8"),
             # At the floor the ``>=P`` half is redundant.
@@ -762,6 +785,56 @@ class TestToSpecifierSet:
         assert not r.is_empty
         assert r._prereleases is None
         assert r.to_specifier_set() is None
+
+    # Values that straddle the cap so the tests track ``_MAX_GAP_FRAGMENTS``
+    # rather than a hardcoded width.
+    _over = _MAX_GAP_FRAGMENTS + 2
+
+    def test_wide_wildcard_gap_capped_to_none(self) -> None:
+        # A gap spanning more release families than _MAX_GAP_FRAGMENTS has a valid
+        # but pathological ``!=P.*`` spelling; the conversion reports None instead
+        # of materializing it. The same shape with a small gap still re-encodes.
+        assert (vr("==0.*") | vr("==6.*")).to_specifier_set() is not None
+        assert (vr("==0.*") | vr(f"=={self._over}.*")).to_specifier_set() is None
+
+    def test_wide_wildcard_gap_capped_at_deeper_level(self) -> None:
+        # The sweep steps into a deeper release level; an over-wide deeper span
+        # caps there too (the leading ``1.0..1.4`` families stay under the cap).
+        assert (vr("==0.*") | vr(f"==1.5.{self._over}.*")).to_specifier_set() is None
+
+    def test_wide_dev_run_gap_capped_to_none(self) -> None:
+        # Complementing a wide closed ``.dev`` interval would emit one ``!=`` per
+        # dev release; past the cap the contiguous dev-run gap reports None.
+        assert (~vr(">=3.dev0,<=3.dev5")).to_specifier_set() is not None
+        assert (~vr(f">=3.dev0,<=3.dev{self._over}")).to_specifier_set() is None
+
+    def test_wide_wildcard_then_dev_run_capped_to_none(self) -> None:
+        # The ``!=W.*`` chain plus an over-wide trailing dev run in U's own family
+        # caps on the dev run even though the wildcard prefix is short.
+        under = ~vr("==2.*") & ~vr(">=3.dev0,<=3.dev5")
+        over = ~vr("==2.*") & ~vr(f">=3.dev0,<=3.dev{self._over}")
+        assert under.to_specifier_set() is not None
+        assert over.to_specifier_set() is None
+
+    def test_wide_dev_family_run_capped_to_none(self) -> None:
+        # ``~(!=X.dev<n>)`` is the singleton ``{X.dev<n>}``, whose ``.dev`` lower
+        # drives the dev-family run in ``_encode_lower``. Past the cap it returns
+        # None up front instead of emitting one ``!=`` per excluded dev. (Small
+        # runs at this site are covered by the floor-run recovery tests above.)
+        assert (~vr(f"!=1.0.dev{self._over}")).to_specifier_set() is None
+        assert (~vr(f"!=1.0.post0.dev{self._over}")).to_specifier_set() is None
+
+    def test_wide_epoch_floor_dev_run_capped_to_none(self) -> None:
+        # The epoch>0 zero-family floor (``==1!0.*``) excludes a leading ``.dev``
+        # run; ``~(!=1!0.dev<n>)`` drives it past the cap to None.
+        assert (~vr(f"!=1!0.dev{self._over}")).to_specifier_set() is None
+
+    def test_deep_release_sweep_does_not_recurse(self) -> None:
+        # A gap whose families share a long common prefix sweeps one wildcard
+        # level per release component. The sweep is iterative, so a very deep
+        # version returns a result instead of raising RecursionError.
+        deep = "1." + "0." * 2000 + "5"
+        assert (vr("==0.*") | vr("==" + deep + ".*")).to_specifier_set() is not None
 
 
 # Boundary-sensitive specs and versions exercising the union / complement /

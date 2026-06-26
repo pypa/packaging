@@ -303,7 +303,21 @@ def _format_upper(bound: UpperBound) -> str:
 # ``to_specifier_set`` recovery: encode a range's interval list back into
 # specifier fragments. Each helper returns ``None`` when its shape has no
 # PEP 440 form.
-#
+
+# A contiguous run of excluded release families or ``.dev`` releases encodes as one
+# ``!=`` fragment apiece. A run wider than ``_MAX_GAP_FRAGMENTS`` has a valid but
+# pathological spelling (``~(>=3.dev0,<=3.dev1000000000)`` would need ~1e9 clauses),
+# so the conversion returns ``None``; realistic specifier sets never reach it.
+_MAX_GAP_FRAGMENTS = 1000
+
+
+def _bounded_run(start: int, stop: int) -> range | None:
+    """``range(start, stop)``, or ``None`` past the ``_MAX_GAP_FRAGMENTS`` cap."""
+    if stop - start > _MAX_GAP_FRAGMENTS:
+        return None
+    return range(start, stop)
+
+
 # Bound and interval encoding: turn one interval's bounds into fragments.
 
 
@@ -357,16 +371,14 @@ def _epoch_floor_lower(
 ) -> tuple[Version, int, bool] | None:
     """The ``E!0`` family of a lower sitting on an epoch>0 zero-family floor.
 
-    An epoch>0 zero-family base such as ``1!0.dev0`` has no ``>=P,!=P.*`` spelling
-    since no version sorts below ``E!0`` within the epoch. While the interval
-    stays within ``==E!0.*`` it is that wildcard, trimmed by the upper and with a
-    leading ``.dev`` run excluded: an ``AFTER_LOCALS(E!0.dev(k))`` lower drops
-    ``E!0.dev0..E!0.dev(k)``, a plain inclusive ``E!0.dev0`` lower drops none.
-    Returns the ``E!0`` family, how many leading ``.dev`` releases to exclude, and
-    whether the upper sits at the family cap (so ``==E!0.*`` needs no upper), else
-    ``None``.
+    An ``E!0`` base has no ``>=P,!=P.*`` spelling (nothing sorts below it within the
+    epoch), so inside ``==E!0.*`` the interval is that wildcard. Returns the family,
+    how many leading ``.dev`` releases to exclude, and whether the upper sits at the
+    family cap (so ``==E!0.*`` needs no upper), else ``None``.
     """
     version = lower.version
+
+    # An ``AFTER_LOCALS(E!0.dev(k))`` lower drops ``E!0.dev0..E!0.dev(k)``.
     if isinstance(version, BoundaryVersion):
         if version.kind != BoundaryKind.AFTER_LOCALS:
             return None
@@ -404,15 +416,18 @@ def _epoch_floor_lower(
 def _dev_family_anchor(family: Version) -> list[str] | None:
     """Prerelease-free fragments for ``[family, ..)``, or ``None`` if it has none.
 
-    ``family`` is an ``X.dev0``. The floor gives ``[]`` (every version); a release
-    base its ``_clean_lower`` family-floor spelling (``!=0.*`` ...); an ``X.post0``
-    base ``>=X,!=X``. A pre-release base has no prerelease-free spelling.
+    ``family`` is an ``X.dev0``.
     """
+    # The floor admits every version.
     if family <= MIN_VERSION:
         return []
+
+    # A release base reuses its ``_clean_lower`` family-floor spelling (``!=0.*`` ...).
     clean = _clean_lower(family)
     if clean is not None:
         return clean
+
+    # An ``X.post0`` base is ``>=X,!=X``; a pre-release base has no clean spelling.
     if family.pre is None and family.post == 0:
         base = family.__replace__(post=None, dev=None)
         return [f">={base}", f"!={base}"]
@@ -422,12 +437,9 @@ def _dev_family_anchor(family: Version) -> list[str] | None:
 def _encode_lower(lower: LowerBound, prereleases: bool | None) -> list[str] | None:
     """Encode a lower bound as specifier fragments, or ``None``.
 
-    ``[]`` for ``-inf``. An ``AFTER_POSTS(V)`` lower is ``>V``. An
-    ``AFTER_LOCALS(V)`` lower is the set ``[successor, ..)`` and emits ``>=V,!=V``,
-    except under autodetect (``prereleases`` is ``None``) where it recovers a
-    prerelease-free spelling when one exists so the recovered set keeps
-    autodetecting ``None``: ``>3.8.post1`` for a post release, or a dev family's
-    anchor plus the dev run up to V for a ``.dev`` release.
+    ``-inf`` gives ``[]``. Under autodetect (``prereleases`` is ``None``) a bound
+    prefers a prerelease-free spelling so the recovered set keeps autodetecting
+    ``None``; the comments below cover each bound kind.
     """
     lower_version = lower.version
     if lower_version is None:
@@ -454,9 +466,10 @@ def _encode_lower(lower: LowerBound, prereleases: bool | None) -> list[str] | No
                 family = inner.__replace__(dev=0)
                 anchor = _dev_family_anchor(family)
                 if anchor is not None:
-                    run = [
-                        f"!={family.__replace__(dev=d)}" for d in range(inner.dev + 1)
-                    ]
+                    indices = _bounded_run(0, inner.dev + 1)
+                    if indices is None:
+                        return None
+                    run = [f"!={family.__replace__(dev=d)}" for d in indices]
                     return anchor + run
             else:
                 # A ``.post`` release recovers its prerelease-free ``>`` spelling
@@ -535,6 +548,7 @@ def _encode_upper(upper: UpperBound, prereleases: bool | None) -> list[str] | No
 
 def _detect_equal_wildcard(lower: LowerBound, upper: UpperBound) -> Version | None:
     """If ``[lower, upper)`` is the ``==V.*`` shape, return ``V``."""
+    # ``==V.*`` is two same-epoch ``X.dev0`` bounds, inclusive lower, exclusive upper.
     if isinstance(lower.version, BoundaryVersion) or isinstance(
         upper.version, BoundaryVersion
     ):
@@ -548,6 +562,7 @@ def _detect_equal_wildcard(lower: LowerBound, upper: UpperBound) -> Version | No
     if lower.version.epoch != upper.version.epoch:
         return None
 
+    # Pad both release tuples to equal length to compare their prefixes.
     lower_release = trim_release(lower.version.release)
     upper_release = trim_release(upper.version.release)
     padded_length = max(len(lower_release), len(upper_release))
@@ -570,11 +585,8 @@ def _detect_equal_wildcard(lower: LowerBound, upper: UpperBound) -> Version | No
 def _encode_interval(
     lower: LowerBound, upper: UpperBound, prereleases: bool | None
 ) -> list[str] | None:
-    """Encode one interval as specifier fragments, or ``None``.
-
-    Special-cases ``[V, V]`` with a local segment (``==V+local``) and the
-    ``==V.*`` shape so the fragment carries no synthetic ``.dev0`` literal.
-    """
+    """Encode one interval as specifier fragments, or ``None``."""
+    # ``[V, V]`` with a local segment is exactly ``==V+local`` (no synthetic ``.dev0``).
     if (
         lower.version is not None
         and upper.version is not None
@@ -587,6 +599,7 @@ def _encode_interval(
     ):
         return [f"=={lower.version}"]
 
+    # The ``==V.*`` shape collapses to one wildcard fragment.
     wildcard = _detect_equal_wildcard(lower, upper)
     if wildcard is not None:
         return [f"=={wildcard}.*"]
@@ -596,8 +609,11 @@ def _encode_interval(
     floor = _epoch_floor_lower(lower, upper) if prereleases is None else None
     if floor is not None:
         family, excluded_devs, upper_at_cap = floor
+        indices = _bounded_run(0, excluded_devs)
+        if indices is None:
+            return None
         parts = [f"=={family}.*"]
-        parts.extend(f"!={family.__replace__(dev=d)}" for d in range(excluded_devs))
+        parts.extend(f"!={family.__replace__(dev=d)}" for d in indices)
 
         # ``==E!0.*`` already caps at the next family; add the upper only if tighter.
         if not upper_at_cap:
@@ -675,7 +691,10 @@ def _detect_not_equal(
         and last.dev >= second.dev
         and last.__replace__(dev=second.dev) == second
     ):
-        run = (second.__replace__(dev=d) for d in range(second.dev, last.dev + 1))
+        indices = _bounded_run(second.dev, last.dev + 1)
+        if indices is None:
+            return None
+        run = (second.__replace__(dev=d) for d in indices)
         return [first, *run]
     return None
 
@@ -688,9 +707,11 @@ def _decompose_dev0_gap(
     """Decompose the gap ``[L.dev0, U.dev0)`` into wildcard prefixes.
 
     ``lower_trim``/``upper_trim`` are trimmed release tuples with
-    ``lower_trim < upper_trim`` lexicographically. The chain sweeps at the
-    first differing level. The gap is undecomposable when L has trailing
-    components below that level (the chain cannot escape L's subtree).
+    ``lower_trim < upper_trim`` lexicographically. The sweep starts at the first
+    differing level and steps down U's remaining components, one wildcard run per
+    level (iterative, so a deep version cannot overflow the stack). The gap is
+    undecomposable when L has trailing components below the first differing level
+    (the chain cannot escape L's subtree).
     """
     diff = 0
     while (
@@ -703,21 +724,22 @@ def _decompose_dev0_gap(
     if len(lower_trim) > diff + 1:
         return None
 
-    common = lower_trim[:diff]
     lower_val = lower_trim[diff] if len(lower_trim) > diff else 0
-    upper_val = upper_trim[diff]
-
-    fragments = [
-        Version.from_parts(epoch=epoch, release=(*common, segment))
-        for segment in range(lower_val, upper_val)
-    ]
-
-    if len(upper_trim) == diff + 1:
-        return fragments
-
-    tail = _decompose_dev0_gap((*common, upper_val), upper_trim, epoch)
-    assert tail is not None
-    return fragments + tail
+    fragments: list[Version] = []
+    while True:
+        # ``upper_trim[:diff]`` equals the common prefix; below the first level
+        # the run starts at 0 (the upper has descended into a fresh subtree).
+        indices = _bounded_run(lower_val, upper_trim[diff])
+        if indices is None:
+            return None
+        fragments.extend(
+            Version.from_parts(epoch=epoch, release=(*upper_trim[:diff], segment))
+            for segment in indices
+        )
+        if len(upper_trim) == diff + 1:
+            return fragments
+        diff += 1
+        lower_val = 0
 
 
 def _detect_not_equal_wildcards(
@@ -727,6 +749,8 @@ def _detect_not_equal_wildcards(
     left_upper_v = left_upper.version
     right_lower_v = right_lower.version
 
+    # The gap is ``[L.dev0, U.dev0)`` only for two same-epoch ``X.dev0`` versions,
+    # exclusive left upper, inclusive right lower.
     if not isinstance(left_upper_v, Version) or not isinstance(right_lower_v, Version):
         return None
     if left_upper.inclusive or not right_lower.inclusive:
@@ -788,7 +812,10 @@ def _detect_wildcards_then_dev0(
     if prefixes is None:
         return None
 
-    run = [upper.__replace__(dev=d) for d in range(upper.dev + 1)]
+    indices = _bounded_run(0, upper.dev + 1)
+    if indices is None:
+        return None
+    run = [upper.__replace__(dev=d) for d in indices]
     return prefixes, run
 
 
@@ -830,9 +857,12 @@ def _encode_grouped(
     group_lower, group_upper = bounds[0]
     exclusions: list[str] = []
     for next_lower, next_upper in bounds[1:]:
+        # An ``!=`` gap keeps the next interval in the current group; any other gap
+        # closes the group and starts a new one.
         not_equal = _detect_not_equal(group_upper, next_lower)
         not_equal_wildcards = _detect_not_equal_wildcards(group_upper, next_lower)
         wildcards_then_dev0 = _detect_wildcards_then_dev0(group_upper, next_lower)
+
         if not_equal is not None:
             exclusions.extend(f"!={point}" for point in not_equal)
         elif not_equal_wildcards is not None:
@@ -1410,21 +1440,22 @@ class VersionRange:
         same versions as self, or ``None`` if no single set expresses it.
 
         PEP 440 has no syntax for the strict singleton ``{V}``, the bounds
-        produced by complementing ``>V``, or a disjoint union of two or more
-        intervals; those return ``None``. The empty range maps to
-        ``SpecifierSet("<0")`` (``"<0.dev0"`` when its resolved pre-release policy
-        is ``True``); the full range maps to ``SpecifierSet("")`` when it admits
-        arbitrary strings, otherwise to ``SpecifierSet(">=0.dev0")``, except when
-        neither spelling's pre-release autodetect matches self's resolved policy
-        (an arbitrary full range resolving to ``True``, or a version-only one
-        resolving to ``None``), where it returns ``None`` instead.
+        produced by complementing ``>V``, two or more intervals that ``!=``
+        exclusions cannot bridge, or a gap too wide to spell as ``!=`` fragments;
+        those return ``None``. The canonical empty range maps to ``SpecifierSet("<0")``
+        (``"<0.dev0"`` when its resolved pre-release policy is ``True``); the full
+        range maps to ``SpecifierSet("")`` when it admits arbitrary strings,
+        otherwise to ``SpecifierSet(">=0.dev0")``, except when neither spelling's
+        pre-release autodetect matches self's resolved policy (an arbitrary full
+        range resolving to ``True``, or a version-only one resolving to ``None``),
+        where it returns ``None`` instead.
 
         Every range built from a :class:`~packaging.specifiers.SpecifierSet`
         round-trips: feeding the result back through
         :meth:`~packaging.specifiers.SpecifierSet.to_range` reproduces self. A
-        range that is empty only under its pre-release policy is the lone
-        exception: it recovers as the canonical empty range, which holds the
-        same versions (none) but not self's bounds.
+        range empty only under a ``False`` policy keeps its pre-release bounds and
+        encodes those when they have a single-set form, else returns ``None``; only
+        the range that holds nothing under any override takes the empty spelling.
         The encoder picks a spelling whose pre-release autodetect matches self's
         resolved policy: a prerelease-free spelling such as ``>3.8.post1`` or
         ``<3.14`` when that policy is ``None``, the ``.dev0``-bearing spelling
@@ -1441,14 +1472,18 @@ class VersionRange:
         """
         from .specifiers import SpecifierSet  # noqa: PLC0415
 
+        # A reject set or an arbitrary-admitting non-full range has no single form.
         if self._reject:
             return None
         if self._admit_arbitrary and self._bounds != FULL_RANGE:
             return None
-        if self.is_empty:
-            # Both ``<0`` and ``<0.dev0`` are empty, but only ``<0.dev0``
-            # autodetects pre-releases, so an autodetected-True empty range
-            # (e.g. ``>=1.0,<=1.0a1``) round-trips its policy through it.
+
+        if not self._bounds and not self._admit:
+            # Only the canonical empty range takes the empty spelling; a range
+            # empty merely under a ``False`` policy keeps its bounds and falls
+            # through to encode them, so an override still recovers its members.
+            # ``<0.dev0`` (not ``<0``) autodetects pre-releases, so an
+            # autodetected-True empty range round-trips its policy through it.
             empty_spec = "<0.dev0" if self._prereleases is True else "<0"
             return SpecifierSet(empty_spec, prereleases=self._prereleases_configured)
 

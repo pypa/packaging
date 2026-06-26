@@ -52,9 +52,9 @@ def _equivalent_round_trip(source: VersionRange, recovered: VersionRange) -> boo
 
     Whether the encoder keeps or drops the synthetic ``.dev0`` markers, the
     recovered set's range equals the source, so equality is exact, except that a
-    range that is empty under its policy has no unique structural form (e.g.
-    ``===0.dev0`` with ``prereleases=False`` recovers as the canonical ``<0``):
-    any empty recovery is equivalent.
+    range that is empty under its policy has no unique structural form (e.g. the
+    canonical empty range ``>=2,<1`` recovers as ``<0``): any empty recovery is
+    equivalent.
     """
     if source.is_empty and recovered.is_empty:
         return True
@@ -126,8 +126,8 @@ def test_adjacency_collapse_ranges_always_re_encode(spec_set: SpecifierSet) -> N
     """A version excluded with a run of its immediate successors merges into one
     gap; the specifier-derived range still re-encodes and round-trips.
 
-    The independent strategies draw exclusions at random, so they essentially
-    never produce a contiguous successor run. This exercises the ``!=`` chain,
+    The independent strategies draw exclusions at random, so they almost never
+    produce a contiguous successor run. This exercises the ``!=`` chain,
     dev-run, wildcard-then-dev-run, and epoch floor-run recovery paths when the
     drawn lead and base line up.
     """
@@ -138,10 +138,6 @@ def test_adjacency_collapse_ranges_always_re_encode(spec_set: SpecifierSet) -> N
         f"(input was {spec_set!r})"
     )
     assert _equivalent_round_trip(r, converted.to_range())
-
-
-# Omitted: test_to_specifier_sets_round_trips_when_not_none relied on the
-# dropped plural ``VersionRange.to_specifier_sets``.
 
 
 def _conflicting_configured(a: SpecifierSet, b: SpecifierSet) -> bool:
@@ -163,14 +159,6 @@ def test_intersection_round_trips_when_not_none(
     converted = inter.to_specifier_set()
     assert converted is not None
     assert _equivalent_round_trip(inter, converted.to_range())
-
-
-# Omitted: test_to_specifier_sets_handles_union_when_intervals_are_specifier_shaped
-# relied on the dropped plural ``VersionRange.to_specifier_sets``.
-
-
-# Omitted: test_to_specifier_set_implies_to_specifier_sets relied on the dropped
-# plural ``VersionRange.to_specifier_sets``.
 
 
 @example(spec_set=SpecifierSet(">=2.3,<=2.7"))
@@ -263,9 +251,9 @@ def test_round_trip_never_filter_drifts(spec_string: str) -> None:
 
     Guards the drift contract end-to-end: any time the encoder is willing
     to emit a single set, the recovered set must accept the same versions
-    as the source range across a representative probe set. The drift_guard
-    in ``to_specifier_set`` is what enforces this; the property is the
-    observable contract.
+    as the source range across a representative probe set. ``_guard_drift``
+    in ``to_specifier_set`` enforces this; the property is the observable
+    contract.
     """
     r = SpecifierSet(spec_string).to_range()
     for variant in (r, ~r):
@@ -275,7 +263,3 @@ def test_round_trip_never_filter_drifts(spec_string: str) -> None:
         assert list(variant.filter(_FILTER_PROBES)) == list(
             converted.filter(_FILTER_PROBES)
         )
-
-
-# Omitted: test_to_specifier_sets_round_trip_never_filter_drifts relied on the
-# dropped plural ``VersionRange.to_specifier_sets``.

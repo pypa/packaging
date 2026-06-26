@@ -39,7 +39,7 @@ Usage
     >>> # An unsatisfiable set produces the empty range
     >>> SpecifierSet(">=2.0,<1.0").to_range().is_empty
     True
-    >>> # Convert back to a SpecifierSet where a PEP 440 form exists
+    >>> # Convert back to a SpecifierSet when possible
     >>> str(r.to_specifier_set())
     '<2.0,>=1.0'
 
