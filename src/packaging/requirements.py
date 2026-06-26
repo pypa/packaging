@@ -67,7 +67,7 @@ class Requirement:
 
         self.name: str = parsed.name
         self.url: str | None = parsed.url or None
-        self.extras: set[str] = set(parsed.extras or [])
+        self.extras: set[str] = set(parsed.extras)
         self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
         self.marker: Marker | None = None
         if parsed.marker is not None:
@@ -145,7 +145,7 @@ class Requirement:
         return hash(
             (
                 canonicalize_name(self.name),
-                frozenset(self.extras),
+                frozenset(canonicalize_name(e) for e in self.extras),
                 self.specifier,
                 self.url,
                 self.marker,
@@ -156,9 +156,12 @@ class Requirement:
         if not isinstance(other, Requirement):
             return NotImplemented
 
+        # Extras must be normalized before comparison as per PEP 685.
+        self_extras = frozenset(canonicalize_name(e) for e in self.extras)
+        other_extras = frozenset(canonicalize_name(e) for e in other.extras)
         return (
             canonicalize_name(self.name) == canonicalize_name(other.name)
-            and self.extras == other.extras
+            and self_extras == other_extras
             and self.specifier == other.specifier
             and self.url == other.url
             and self.marker == other.marker

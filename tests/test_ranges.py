@@ -201,6 +201,23 @@ class TestSetAlgebra:
         collapsed = r | VersionRange.full(prereleases=True)
         assert collapsed._prereleases_configured is True
 
+    def test_union_full_preserves_autodetected_prerelease_policy(self) -> None:
+        r = vr(">=1.0a1")
+        assert list(r.filter(["1.3", "1.5a1"])) == ["1.3", "1.5a1"]
+
+        # Both orders keep the autodetected pre-release policy.
+        assert (r | VersionRange.full())._prereleases is True
+        assert (VersionRange.full() | r)._prereleases is True
+
+        assert list((r | VersionRange.full()).filter(["1.3", "1.5a1"])) == [
+            "1.3",
+            "1.5a1",
+        ]
+        assert list((VersionRange.full() | r).filter(["1.3", "1.5a1"])) == [
+            "1.3",
+            "1.5a1",
+        ]
+
     def test_arbitrary_flag_distinguishes_full(self) -> None:
         # nab contract: SpecifierSet("")-full differs from algebra-built full.
         flagged_full = SpecifierSet("").to_range()
