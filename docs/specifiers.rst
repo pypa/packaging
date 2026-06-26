@@ -65,8 +65,8 @@ Usage
 
 The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
 :class:`~packaging.ranges.VersionRange`, a set-algebra view of the accepted
-versions that supports intersection, union, and complement. See :doc:`ranges`
-for details.
+versions that supports intersection, union, complement, and difference. See
+:doc:`ranges` for details.
 
 
 Reference

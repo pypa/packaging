@@ -123,11 +123,14 @@ class TestQuoteSetOperationExamples:
     def test_set_difference_equals_intersection_with_complement(
         self, a: SpecifierSet, b: SpecifierSet
     ) -> None:
-        """``A \\ B`` (versions in A but not B) equals ``A ∩ ~B``."""
+        """``A \\ B`` (versions in A but not B) equals both ``A - B`` and ``A ∩ ~B``."""
         ra, rb = _to_range(a), _to_range(b)
         difference = ra & rb.complement()
+        operator_difference = ra - rb
         for v in VERSION_POOL:
-            assert (v in difference) == (v in ra and v not in rb)
+            in_a_not_b = v in ra and v not in rb
+            assert (v in difference) == in_a_not_b
+            assert (v in operator_difference) == in_a_not_b
 
     @given(a=specifier_sets(), b=specifier_sets())
     @SETTINGS
