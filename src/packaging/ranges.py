@@ -584,38 +584,27 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
+        # The merged pre-release policy rides along in (resolved, configured).
         resolved, configured = self._combined_policy(other)
         new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary or other._admit_arbitrary
         if not self._has_literals() and not other._has_literals():
-            result = self._build(
+            return self._build(
                 new_bounds,
                 admit_arbitrary=combined_arb,
                 prereleases=resolved,
                 prereleases_configured=configured,
             )
-        else:
-            result = self._combine_literals(
-                other,
-                new_bounds,
-                intersect=False,
-                admit_arbitrary=combined_arb,
-                prereleases=resolved,
-                prereleases_configured=configured,
-            )
 
-        # ``r | full()`` collapses to the canonical universal range only when
-        # both sides carry the autodetect default; an explicit policy survives.
-        if (
-            result._bounds == FULL_RANGE
-            and result._admit_arbitrary
-            and not result._has_literals()
-            and resolved is None
-            and configured is None
-        ):
-            return self.full()
-
-        return result
+        # One side carries ``===`` literals; resolve admit/reject per literal.
+        return self._combine_literals(
+            other,
+            new_bounds,
+            intersect=False,
+            admit_arbitrary=combined_arb,
+            prereleases=resolved,
+            prereleases_configured=configured,
+        )
 
     def complement(self) -> VersionRange:
         """Range containing every version not in self.

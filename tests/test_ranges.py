@@ -204,6 +204,10 @@ class TestSetAlgebra:
         r = vr(">=1.0a1")
         assert list(r.filter(["1.3", "1.5a1"])) == ["1.3", "1.5a1"]
 
+        # Both orders keep the autodetected pre-release policy.
+        assert (r | VersionRange.full())._prereleases is True
+        assert (VersionRange.full() | r)._prereleases is True
+
         assert list((r | VersionRange.full()).filter(["1.3", "1.5a1"])) == [
             "1.3",
             "1.5a1",
