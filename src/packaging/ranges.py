@@ -17,6 +17,7 @@ originating specifier set.
 
 from __future__ import annotations
 
+import enum
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -58,6 +59,14 @@ __all__ = ["VersionRange"]
 T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
+
+class _SetOp(enum.Enum):
+    """The binary set operation ``_combine_literals`` resolves over ``===`` literals."""
+
+    INTERSECTION = enum.auto()
+    UNION = enum.auto()
+    DIFFERENCE = enum.auto()
 
 
 def __dir__() -> list[str]:
@@ -565,6 +574,7 @@ class VersionRange:
         resolved, configured = self._combined_policy(other)
         new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary and other._admit_arbitrary
+
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
@@ -576,7 +586,7 @@ class VersionRange:
         return self._combine_literals(
             other,
             new_bounds,
-            intersect=True,
+            op=_SetOp.INTERSECTION,
             admit_arbitrary=combined_arb,
             prereleases=resolved,
             prereleases_configured=configured,
@@ -601,6 +611,7 @@ class VersionRange:
         resolved, configured = self._combined_policy(other)
         new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary or other._admit_arbitrary
+
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
@@ -609,11 +620,10 @@ class VersionRange:
                 prereleases_configured=configured,
             )
 
-        # One side carries ``===`` literals; resolve admit/reject per literal.
         return self._combine_literals(
             other,
             new_bounds,
-            intersect=False,
+            op=_SetOp.UNION,
             admit_arbitrary=combined_arb,
             prereleases=resolved,
             prereleases_configured=configured,
@@ -648,11 +658,13 @@ class VersionRange:
     def difference(self, other: VersionRange) -> VersionRange:
         """Range containing the versions in self but not in other.
 
-        Matches ``self & ~other`` on the version set, but the result carries
-        only ``self``'s pre-release policy; ``other`` is treated as an
-        exclusion and contributes no pre-release admission. Unlike
-        :meth:`intersection` and :meth:`union`, the operands need not share a
-        configured pre-release policy, since ``other``'s policy is discarded.
+        On the version set this matches ``self & ~other``, but the result keeps
+        only ``self``'s admissions and pre-release policy: a non-version string
+        or ``===`` literal is a member exactly when ``self`` admits it and
+        ``other`` does not. ``other`` is treated purely as an exclusion, so the
+        operands need not share a configured pre-release policy (unlike
+        :meth:`intersection` and :meth:`union`), and ``a - empty()`` returns a
+        range equal to ``a``.
 
         >>> a = SpecifierSet(">=1.0").to_range()
         >>> b = SpecifierSet(">=2.0").to_range()
@@ -660,16 +672,24 @@ class VersionRange:
         True
         >>> "2.0" in a.difference(b)
         False
+        >>> a.difference(VersionRange.empty()) == a
+        True
         """
         if not isinstance(other, VersionRange):
             raise TypeError(f"expected VersionRange, got {type(other).__name__}")
 
-        # Difference is intersection with ``other``'s complement, but the result
-        # keeps only ``self``'s policy; the excluded side contributes none.
-        complement = other.complement()
-        new_bounds = tuple(intersect_ranges(self._bounds, complement._bounds))
-        combined_arb = self._admit_arbitrary and complement._admit_arbitrary
-        if not self._has_literals() and not complement._has_literals():
+        # Bound complement is two-way, so subtracting other's versions is an
+        # intersection with its gaps.
+        new_bounds = tuple(
+            intersect_ranges(self._bounds, _complement_ranges(other._bounds))
+        )
+
+        # Complement is one-way for arbitrary strings and ``===`` literals, so
+        # read admission off other directly: a string survives when self admits
+        # it and other does not.
+        combined_arb = self._admit_arbitrary and not other._admit_arbitrary
+
+        if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
                 admit_arbitrary=combined_arb,
@@ -677,11 +697,10 @@ class VersionRange:
                 prereleases_configured=self._prereleases_configured,
             )
 
-        # One side carries ``===`` literals; resolve admit/reject per literal.
         return self._combine_literals(
-            complement,
+            other,
             new_bounds,
-            intersect=True,
+            op=_SetOp.DIFFERENCE,
             admit_arbitrary=combined_arb,
             prereleases=self._prereleases,
             prereleases_configured=self._prereleases_configured,
@@ -692,18 +711,28 @@ class VersionRange:
         other: VersionRange,
         new_bounds: tuple[_Interval, ...],
         *,
-        intersect: bool,
+        op: _SetOp,
         admit_arbitrary: bool,
         prereleases: bool | None,
         prereleases_configured: bool | None,
     ) -> VersionRange:
-        """Resolve admit/reject for ``self & other`` or ``self | other``."""
+        """Resolve admit/reject for ``self`` ``op`` ``other`` over their literals."""
         admits: set[str] = set()
         rejects: set[str] = set()
+
+        # Each literal is decided on its own: test it against both operands,
+        # then admit or reject it by the set operation.
         for literal in self._admit | self._reject | other._admit | other._reject:
             self_in = self._matches_literal(literal)
             other_in = other._matches_literal(literal)
-            want = (self_in and other_in) if intersect else (self_in or other_in)
+
+            if op is _SetOp.INTERSECTION:
+                want = self_in and other_in
+            elif op is _SetOp.UNION:
+                want = self_in or other_in
+            else:
+                want = self_in and not other_in
+
             if want:
                 admits.add(literal)
             else:

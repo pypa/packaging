@@ -306,6 +306,43 @@ class TestSetAlgebra:
         assert Version("2.0") not in (vr("===1.0") - vr("===2.0"))
         assert Version("1.0") in (vr("===1.0") - vr(">=2.0"))
 
+    def test_difference_with_empty_preserves_arbitrary(self) -> None:
+        # Regression: difference once routed through ``other.complement()``,
+        # which dropped the minuend's arbitrary-string admission even when
+        # nothing was subtracted. ``a - empty`` must round-trip the full range.
+        full = VersionRange.full()
+        assert (full - VersionRange.empty()) == full
+        assert "garbage" in (full - VersionRange.empty())
+
+    def test_difference_with_empty_preserves_literals(self) -> None:
+        # The same regression for ``===`` admission: a literal range minus the
+        # empty range keeps its literal.
+        wat = vr("===wat")
+        assert (wat - VersionRange.empty()) == wat
+        assert "wat" in (wat - VersionRange.empty())
+
+    def test_difference_excludes_only_named_literal(self) -> None:
+        # full() minus a ``===`` literal keeps every version and every other
+        # arbitrary string, dropping only the excluded literal.
+        d = VersionRange.full() - vr("===wat")
+        assert "wat" not in d
+        assert "garbage" in d
+        assert Version("1.0") in d
+
+    def test_difference_with_self_is_empty(self) -> None:
+        # ``a - a`` is empty for arbitrary-admitting and ``===`` ranges too.
+        assert (vr("===wat") - vr("===wat")).is_empty
+        assert (VersionRange.full() - VersionRange.full()).is_empty
+
+    def test_difference_minuend_with_reject_literal(self) -> None:
+        # Complementing a ``===`` range leaves a reject literal on the minuend;
+        # difference keeps honoring it through the literal-combining branch.
+        minuend = ~vr("===1.0")
+        d = minuend - vr("===2.0")
+        assert Version("3.0") in d
+        assert Version("1.0") not in d
+        assert Version("2.0") not in d
+
 
 class TestSetRelations:
     def test_disjoint_false(self) -> None:

@@ -37,7 +37,13 @@ from hypothesis import given
 
 from packaging.ranges import VersionRange
 
-from .strategies import SETTINGS, VERSION_POOL, pep440_versions, specifier_sets
+from .strategies import (
+    SETTINGS,
+    VERSION_POOL,
+    pep440_versions,
+    rich_specifier_sets,
+    specifier_sets,
+)
 
 if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
@@ -131,6 +137,21 @@ class TestQuoteSetOperationExamples:
             in_a_not_b = v in ra and v not in rb
             assert (v in difference) == in_a_not_b
             assert (v in operator_difference) == in_a_not_b
+
+    @given(spec_set=rich_specifier_sets(include_arbitrary=True))
+    @SETTINGS
+    def test_difference_with_empty_is_identity(self, spec_set: SpecifierSet) -> None:
+        """``A \\ ∅ == A``, including the arbitrary-string and ``===`` admissions
+        that subtracting through ``A ∩ ~∅`` used to drop."""
+        ra = spec_set.to_range()
+        assert ra - VersionRange.empty() == ra
+
+    @given(spec_set=rich_specifier_sets(include_arbitrary=True))
+    @SETTINGS
+    def test_difference_with_self_is_empty(self, spec_set: SpecifierSet) -> None:
+        """``A \\ A`` admits nothing, literals and arbitrary strings included."""
+        ra = spec_set.to_range()
+        assert (ra - ra).is_empty
 
     @given(a=specifier_sets(), b=specifier_sets())
     @SETTINGS
