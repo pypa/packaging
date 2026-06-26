@@ -1424,7 +1424,10 @@ class VersionRange:
         intervals; those return ``None``. The empty range maps to
         ``SpecifierSet("<0")`` (``"<0.dev0"`` when its resolved pre-release policy
         is ``True``); the full range maps to ``SpecifierSet("")`` when it admits
-        arbitrary strings, otherwise to ``SpecifierSet(">=0.dev0")``.
+        arbitrary strings, otherwise to ``SpecifierSet(">=0.dev0")``, except when
+        neither spelling's pre-release autodetect matches self's resolved policy
+        (an arbitrary full range resolving to ``True``, or a version-only one
+        resolving to ``None``), where it returns ``None`` instead.
 
         Every range built from a :class:`~packaging.specifiers.SpecifierSet`
         round-trips: feeding the result back through
@@ -1436,8 +1439,10 @@ class VersionRange:
         resolved policy: a prerelease-free spelling such as ``>3.8.post1`` or
         ``<3.14`` when that policy is ``None``, the ``.dev0``-bearing spelling
         otherwise. A no-op ``>=0.dev0`` floor is appended where a ``True`` policy
-        rode on a floor the clean encoding dropped. ``None`` is reserved for
-        ranges with no single-set form, such as those produced by set algebra.
+        rode on a floor the clean encoding dropped. ``None`` covers ranges with
+        no single-set form, such as those produced by set algebra, and ranges
+        that have a spelling but none whose pre-release autodetect matches their
+        resolved policy.
 
         >>> str(SpecifierSet(">=1.0,<2.0").to_range().to_specifier_set())
         '<2.0,>=1.0'
