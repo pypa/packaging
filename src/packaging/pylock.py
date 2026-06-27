@@ -105,7 +105,10 @@ def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
     """Get a value from the dictionary and verify it's the expected type."""
     if (value := d.get(key)) is None:
         return None
-    if not isinstance(value, expected_type):
+    if not isinstance(value, expected_type) or (
+        # Special case: bool is a subclass of int, but TOML distinguishes the two
+        expected_type is int and isinstance(value, bool)
+    ):
         raise PylockValidationError(
             f"Unexpected type {type(value).__name__} "
             f"(expected {expected_type.__name__})",
@@ -590,7 +593,10 @@ class Package:
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        distributions = bool(package.sdist) + len(package.wheels or [])
+        # The presence of the wheels key (even as an empty array) counts as wheels
+        # being specified, since ``[[packages.wheels]]`` is mutually exclusive with
+        # vcs, directory, and archive regardless of how many wheels it contains.
+        distributions = bool(package.sdist) + (package.wheels is not None)
         direct_urls = (
             bool(package.vcs) + bool(package.directory) + bool(package.archive)
         )

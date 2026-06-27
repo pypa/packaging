@@ -99,6 +99,33 @@ def test_pylock_unexpected_type() -> None:
     )
 
 
+def test_pylock_bool_rejected_for_int() -> None:
+    # TOML distinguishes booleans from integers, so a boolean must be rejected
+    # where an integer is expected even though bool is a subclass of int.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "path": "./example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                        "size": True,
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Unexpected type bool (expected int) in 'packages[0].wheels[0].size'"
+    )
+
+
 def test_pylock_missing_version() -> None:
     data = {
         "created-by": "pip",
@@ -203,6 +230,51 @@ def test_pylock_packages_with_archive_directory_and_vcs() -> None:
         "if sdist and wheels are not set "
         "in 'packages[0]'"
     )
+
+
+def test_pylock_empty_wheels_with_directory() -> None:
+    # An empty wheels array still counts as wheels being specified, so it is
+    # mutually exclusive with vcs, directory, and archive.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "wheels": [],
+                "directory": {
+                    "path": ".",
+                    "editable": False,
+                },
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "None of vcs, directory, archive must be set "
+        "if sdist or wheels are set "
+        "in 'packages[0]'"
+    )
+
+
+def test_pylock_empty_wheels_without_source() -> None:
+    # An empty wheels array on its own counts as wheels being specified, so no
+    # direct URL source is required and the lock validates.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                "wheels": [],
+            }
+        ],
+    }
+    pylock = Pylock.from_dict(data)
+    assert pylock.packages[0].wheels == []
 
 
 def test_pylock_basic_package() -> None:
