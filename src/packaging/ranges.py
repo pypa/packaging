@@ -5,8 +5,8 @@
 
 A set-algebra view of the versions accepted by a
 :class:`~packaging.specifiers.SpecifierSet`. Ranges support intersection,
-union, and complement; membership and filtering match the originating
-specifier set.
+union, complement, and difference; membership and filtering match the
+originating specifier set.
 
 .. testsetup::
 
@@ -17,6 +17,7 @@ specifier set.
 
 from __future__ import annotations
 
+import enum
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -58,6 +59,14 @@ __all__ = ["VersionRange"]
 T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
+
+class _SetOp(enum.Enum):
+    """The binary set operation ``_combine_literals`` resolves over ``===`` literals."""
+
+    INTERSECTION = enum.auto()
+    UNION = enum.auto()
+    DIFFERENCE = enum.auto()
 
 
 def __dir__() -> list[str]:
@@ -303,14 +312,17 @@ class VersionRange:
 
     Construct via :meth:`~packaging.specifiers.SpecifierSet.to_range`, or with
     the :meth:`full`, :meth:`empty`, and :meth:`singleton` class methods.
-    Compose with :meth:`intersection`, :meth:`union`, and :meth:`complement`
-    (or the ``&`` / ``|`` / ``~`` operators). Test membership with ``in`` or
-    :meth:`contains`, filter an iterable with :meth:`filter`.
+    Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`, and
+    :meth:`difference` (or the ``&`` / ``|`` / ``~`` / ``-`` operators). Test
+    membership with ``in`` or :meth:`contains`, filter an iterable with
+    :meth:`filter`.
 
     The configured pre-release policy of the originating specifier set carries
     onto the range and controls whether pre-releases are admitted under ``in``,
-    :meth:`contains`, and :meth:`filter`. :meth:`intersection` and
-    :meth:`union` require both operands to share the same policy.
+    :meth:`contains`, and :meth:`filter`. :meth:`intersection`,
+    :meth:`union`, and the :meth:`is_subset` / :meth:`is_superset` /
+    :meth:`is_disjoint` predicates require both operands to share the same
+    policy; set difference (``-``) does not.
 
     >>> r = SpecifierSet(">=1.0,<2.0").to_range()
     >>> "1.5" in r
@@ -424,6 +436,16 @@ class VersionRange:
         bounds; on narrower bounds it is metadata awaiting a later widening.
         """
         return self._admit_arbitrary and self._bounds == FULL_RANGE
+
+    def _is_plain(self) -> bool:
+        """True when membership is decided by ``_bounds`` alone, enabling the
+        bounds-only fast paths in :meth:`is_subset` and :meth:`is_disjoint`.
+        """
+        return (
+            not self._has_literals()
+            and not self._admit_arbitrary
+            and self._prereleases is not False
+        )
 
     def _check_policy_compat(self, other: VersionRange) -> None:
         """Refuse combining ranges with different pre-release policies."""
@@ -552,6 +574,7 @@ class VersionRange:
         resolved, configured = self._combined_policy(other)
         new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary and other._admit_arbitrary
+
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
@@ -563,7 +586,7 @@ class VersionRange:
         return self._combine_literals(
             other,
             new_bounds,
-            intersect=True,
+            op=_SetOp.INTERSECTION,
             admit_arbitrary=combined_arb,
             prereleases=resolved,
             prereleases_configured=configured,
@@ -588,6 +611,7 @@ class VersionRange:
         resolved, configured = self._combined_policy(other)
         new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
         combined_arb = self._admit_arbitrary or other._admit_arbitrary
+
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
@@ -596,11 +620,10 @@ class VersionRange:
                 prereleases_configured=configured,
             )
 
-        # One side carries ``===`` literals; resolve admit/reject per literal.
         return self._combine_literals(
             other,
             new_bounds,
-            intersect=False,
+            op=_SetOp.UNION,
             admit_arbitrary=combined_arb,
             prereleases=resolved,
             prereleases_configured=configured,
@@ -632,23 +655,84 @@ class VersionRange:
             prereleases_configured=self._prereleases_configured,
         )
 
+    def difference(self, other: VersionRange) -> VersionRange:
+        """Range containing the versions in self but not in other.
+
+        On the version set this matches ``self & ~other``, but the result keeps
+        only ``self``'s admissions and pre-release policy: a non-version string
+        or ``===`` literal is a member exactly when ``self`` admits it and
+        ``other`` does not. ``other`` is treated purely as an exclusion, so the
+        operands need not share a configured pre-release policy (unlike
+        :meth:`intersection` and :meth:`union`), and ``a - empty()`` returns a
+        range equal to ``a``.
+
+        >>> a = SpecifierSet(">=1.0").to_range()
+        >>> b = SpecifierSet(">=2.0").to_range()
+        >>> "1.5" in a.difference(b)
+        True
+        >>> "2.0" in a.difference(b)
+        False
+        >>> a.difference(VersionRange.empty()) == a
+        True
+        """
+        if not isinstance(other, VersionRange):
+            raise TypeError(f"expected VersionRange, got {type(other).__name__}")
+
+        # Bound complement is two-way, so subtracting other's versions is an
+        # intersection with its gaps.
+        new_bounds = tuple(
+            intersect_ranges(self._bounds, _complement_ranges(other._bounds))
+        )
+
+        # Complement is one-way for arbitrary strings and ``===`` literals, so
+        # read admission off other directly: a string survives when self admits
+        # it and other does not.
+        combined_arb = self._admit_arbitrary and not other._admit_arbitrary
+
+        if not self._has_literals() and not other._has_literals():
+            return self._build(
+                new_bounds,
+                admit_arbitrary=combined_arb,
+                prereleases=self._prereleases,
+                prereleases_configured=self._prereleases_configured,
+            )
+
+        return self._combine_literals(
+            other,
+            new_bounds,
+            op=_SetOp.DIFFERENCE,
+            admit_arbitrary=combined_arb,
+            prereleases=self._prereleases,
+            prereleases_configured=self._prereleases_configured,
+        )
+
     def _combine_literals(
         self,
         other: VersionRange,
         new_bounds: tuple[_Interval, ...],
         *,
-        intersect: bool,
+        op: _SetOp,
         admit_arbitrary: bool,
         prereleases: bool | None,
         prereleases_configured: bool | None,
     ) -> VersionRange:
-        """Resolve admit/reject for ``self & other`` or ``self | other``."""
+        """Resolve admit/reject for ``self`` ``op`` ``other`` over their literals."""
         admits: set[str] = set()
         rejects: set[str] = set()
+
+        # Each literal is decided on its own: test it against both operands,
+        # then admit or reject it by the set operation.
         for literal in self._admit | self._reject | other._admit | other._reject:
             self_in = self._matches_literal(literal)
             other_in = other._matches_literal(literal)
-            want = (self_in and other_in) if intersect else (self_in or other_in)
+
+            if op is _SetOp.INTERSECTION:
+                want = self_in and other_in
+            elif op is _SetOp.UNION:
+                want = self_in or other_in
+            else:
+                want = self_in and not other_in
+
             if want:
                 admits.add(literal)
             else:
@@ -690,6 +774,77 @@ class VersionRange:
     def __invert__(self) -> VersionRange:
         """Operator alias for :meth:`complement`."""
         return self.complement()
+
+    def __sub__(self, other: object) -> VersionRange:
+        """Operator alias for :meth:`difference`."""
+        if not isinstance(other, VersionRange):
+            return NotImplemented
+        return self.difference(other)
+
+    def is_subset(self, other: VersionRange) -> bool:
+        """Return whether every member of self is also a member of other.
+
+        Equivalent to ``(self & ~other).is_empty``. For ``===`` ranges and the
+        arbitrary-admitting full range, complement is one-way, so the result
+        matches :meth:`contains` for versions but not for the non-version
+        strings those ranges admit.
+
+        Both operands must share the same configured pre-release policy;
+        otherwise :exc:`ValueError` is raised.
+
+        >>> inner = SpecifierSet(">=1.5,<1.8").to_range()
+        >>> outer = SpecifierSet(">=1.0,<2.0").to_range()
+        >>> inner.is_subset(outer)
+        True
+        >>> outer.is_subset(inner)
+        False
+        >>> VersionRange.empty().is_subset(outer)
+        True
+        """
+        self._check_policy_compat(other)
+
+        # Plain ranges: subset reduces to bounds containment, no algebra needed.
+        if self._is_plain() and other._is_plain():
+            return not intersect_ranges(self._bounds, _complement_ranges(other._bounds))
+        return self.intersection(other.complement()).is_empty
+
+    def is_superset(self, other: VersionRange) -> bool:
+        """Return whether every member of other is also a member of self.
+
+        The mirror of :meth:`is_subset`: ``a.is_superset(b)`` is
+        ``b.is_subset(a)``.
+
+        Both operands must share the same configured pre-release policy;
+        otherwise :exc:`ValueError` is raised.
+
+        >>> outer = SpecifierSet(">=1.0,<2.0").to_range()
+        >>> outer.is_superset(SpecifierSet(">=1.5,<1.8").to_range())
+        True
+        """
+        # Type-guards a non-VersionRange other before delegating to is_subset.
+        self._check_policy_compat(other)
+        return other.is_subset(self)
+
+    def is_disjoint(self, other: VersionRange) -> bool:
+        """Return whether self and other share no member.
+
+        Equivalent to ``(self & other).is_empty``.
+
+        Both operands must share the same configured pre-release policy;
+        otherwise :exc:`ValueError` is raised.
+
+        >>> a = SpecifierSet(">=1.0,<2.0").to_range()
+        >>> a.is_disjoint(SpecifierSet(">=2.0,<3.0").to_range())
+        True
+        >>> a.is_disjoint(SpecifierSet(">=1.5,<2.5").to_range())
+        False
+        """
+        self._check_policy_compat(other)
+
+        # Plain ranges: disjointness is an empty bounds intersection.
+        if self._is_plain() and other._is_plain():
+            return not intersect_ranges(self._bounds, other._bounds)
+        return self.intersection(other).is_empty
 
     @typing.overload
     def filter(

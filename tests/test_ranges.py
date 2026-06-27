@@ -251,10 +251,205 @@ class TestSetAlgebra:
     def test_operator_wrong_type(self) -> None:
         assert vr(">=1.0").__and__("x") is NotImplemented
         assert vr(">=1.0").__or__("x") is NotImplemented
+        assert vr(">=1.0").__sub__("x") is NotImplemented
 
     def test_intersection_wrong_type_raises(self) -> None:
         with pytest.raises(TypeError, match="expected VersionRange"):
             vr(">=1.0").intersection("x")  # type: ignore[arg-type]
+
+    def test_difference_wrong_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            vr(">=1.0").difference("x")  # type: ignore[arg-type]
+
+    def test_difference(self) -> None:
+        d = vr(">=1.0") - vr(">=2.0")
+        assert Version("1.5") in d
+        assert Version("1.0") in d
+        assert Version("2.0") not in d
+        assert d == vr(">=1.0") & ~vr(">=2.0")
+
+    def test_difference_method_matches_operator(self) -> None:
+        assert vr(">=1.0").difference(vr(">=2.0")) == vr(">=1.0") - vr(">=2.0")
+
+    def test_difference_with_empty_is_self(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert (r - VersionRange.empty()) == r
+
+    def test_difference_with_full_is_empty(self) -> None:
+        assert (vr(">=1.0") - VersionRange.full()).is_empty
+
+    def test_difference_keeps_minuend_prerelease_policy(self) -> None:
+        # ``>=1.0`` admits no pre-releases; subtracting a pre-release-naming
+        # range must not grant pre-release admission.
+        no_pre = vr(">=1.0") - vr(">=2.0b1")
+        assert list(no_pre.filter(["2.0b1", "1.5a1", "1.0"])) == ["1.0"]
+        # A pre-release-admitting minuend keeps admitting its pre-releases.
+        keep = vr(">=2.0b1") - vr(">=3.0")
+        assert list(keep.filter(["2.5", "2.0b1"])) == ["2.5", "2.0b1"]
+
+    def test_difference_allows_mismatched_policy(self) -> None:
+        # Unlike intersection, difference discards the subtrahend's policy, so
+        # the operands need not share a configured policy.
+        d = vr(">=1.0") - vr(">=2.0", prereleases=True)
+        assert list(d.filter(["2.0b1", "1.5a1", "1.0"])) == ["1.0"]
+
+    def test_difference_punches_hole(self) -> None:
+        # Subtracting an interior range leaves two intervals.
+        d = vr(">=1.0") - vr(">=2.0,<3.0")
+        assert Version("1.5") in d
+        assert Version("2.5") not in d
+        assert Version("3.5") in d
+
+    def test_difference_with_literals(self) -> None:
+        # ``===`` literal ranges route through the literal-combining branch.
+        assert Version("1.0") in (vr("===1.0") - vr("===2.0"))
+        assert Version("2.0") not in (vr("===1.0") - vr("===2.0"))
+        assert Version("1.0") in (vr("===1.0") - vr(">=2.0"))
+
+    def test_difference_with_empty_preserves_arbitrary(self) -> None:
+        # Regression: difference once routed through ``other.complement()``,
+        # which dropped the minuend's arbitrary-string admission even when
+        # nothing was subtracted. ``a - empty`` must round-trip the full range.
+        full = VersionRange.full()
+        assert (full - VersionRange.empty()) == full
+        assert "garbage" in (full - VersionRange.empty())
+
+    def test_difference_with_empty_preserves_literals(self) -> None:
+        # The same regression for ``===`` admission: a literal range minus the
+        # empty range keeps its literal.
+        wat = vr("===wat")
+        assert (wat - VersionRange.empty()) == wat
+        assert "wat" in (wat - VersionRange.empty())
+
+    def test_difference_excludes_only_named_literal(self) -> None:
+        # full() minus a ``===`` literal keeps every version and every other
+        # arbitrary string, dropping only the excluded literal.
+        d = VersionRange.full() - vr("===wat")
+        assert "wat" not in d
+        assert "garbage" in d
+        assert Version("1.0") in d
+
+    def test_difference_with_self_is_empty(self) -> None:
+        # ``a - a`` is empty for arbitrary-admitting and ``===`` ranges too.
+        assert (vr("===wat") - vr("===wat")).is_empty
+        assert (VersionRange.full() - VersionRange.full()).is_empty
+
+    def test_difference_minuend_with_reject_literal(self) -> None:
+        # Complementing a ``===`` range leaves a reject literal on the minuend;
+        # difference keeps honoring it through the literal-combining branch.
+        minuend = ~vr("===1.0")
+        d = minuend - vr("===2.0")
+        assert Version("3.0") in d
+        assert Version("1.0") not in d
+        assert Version("2.0") not in d
+
+
+class TestSetRelations:
+    def test_disjoint_false(self) -> None:
+        assert not vr(">=1.0,<2.0").is_disjoint(vr(">=1.5,<2.5"))
+
+    def test_disjoint_higher_range_on_left(self) -> None:
+        # The receiver sits entirely above the argument, including when the
+        # argument spans several intervals.
+        assert vr(">=2.0,<3.0").is_disjoint(vr(">=1.0,<1.5"))
+        assert vr(">=5.0,<6.0").is_disjoint(vr(">=1.0,<2.0") | vr(">=3.0,<4.0"))
+
+    def test_disjoint_shared_inclusive_endpoint(self) -> None:
+        # ``[1, 2)`` and ``[2, 3)`` touch but share no version.
+        assert vr(">=1.0,<2.0").is_disjoint(vr(">=2.0,<3.0"))
+        # ``[1, 2]`` and ``[2, 3)`` both admit 2.0.
+        assert not vr(">=1.0,<=2.0").is_disjoint(vr(">=2.0,<3.0"))
+
+    def test_subset_true(self) -> None:
+        assert vr(">=1.5,<1.8").is_subset(vr(">=1.0,<2.0"))
+
+    def test_subset_false(self) -> None:
+        assert not vr(">=1.0,<2.0").is_subset(vr(">=1.5,<1.8"))
+
+    def test_subset_partial_overlap_false(self) -> None:
+        assert not vr(">=1.0,<2.0").is_subset(vr(">=1.5,<2.5"))
+
+    def test_subset_reflexive(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.is_subset(r)
+
+    def test_empty_is_subset_of_everything(self) -> None:
+        assert VersionRange.empty().is_subset(vr(">=1.0"))
+        assert VersionRange.empty().is_subset(VersionRange.empty())
+        assert VersionRange.empty().is_disjoint(vr(">=1.0"))
+
+    def test_nonempty_not_subset_of_empty(self) -> None:
+        assert not vr(">=1.0").is_subset(VersionRange.empty())
+
+    def test_everything_is_subset_of_full(self) -> None:
+        assert vr(">=1.0,<2.0").is_subset(VersionRange.full())
+
+    def test_superset_mirrors_subset(self) -> None:
+        outer, inner = vr(">=1.0,<2.0"), vr(">=1.5,<1.8")
+        assert outer.is_superset(inner)
+        assert not inner.is_superset(outer)
+        assert outer.is_superset(inner) == inner.is_subset(outer)
+
+    def test_multi_interval_subset(self) -> None:
+        # ``!=1.5`` splits ``[1, 2)`` into two pieces, still inside ``[1, 2)``.
+        gapped = vr(">=1.0,<2.0,!=1.5")
+        whole = vr(">=1.0,<2.0")
+        assert gapped.is_subset(whole)
+        assert not whole.is_subset(gapped)
+        assert not gapped.is_disjoint(whole)
+
+    def test_disjoint_nonempty_excludes_subset(self) -> None:
+        a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
+        assert a.is_disjoint(b)
+        assert not a.is_subset(b)
+
+    def test_literal_ranges_disjoint(self) -> None:
+        assert vr("===a").is_disjoint(vr("===b"))
+        assert not vr("===a").is_disjoint(vr("===a"))
+
+    def test_literal_range_subset_matches_algebra(self) -> None:
+        # ``===`` ranges take the fallback path; it equals the set algebra.
+        a, b = vr("===a"), vr("===a") | vr("===b")
+        assert a.is_subset(b) == (a & ~b).is_empty
+        assert a.is_subset(b)
+
+    def test_full_arbitrary_matches_algebra(self) -> None:
+        # ``full()`` carries the arbitrary-string flag, so it is not plain and
+        # both relations defer to the algebra.
+        f, b = VersionRange.full(), vr(">=1.0")
+        assert f.is_subset(b) == (f & ~b).is_empty
+        assert f.is_disjoint(b) == (f & b).is_empty
+        assert b.is_subset(f)
+
+    def test_prerelease_excluding_policy_matches_algebra(self) -> None:
+        # ``prereleases=False`` ranges are not plain, so both relations take
+        # the algebra fallback; pin concrete non-trivial answers there.
+        inner = vr(">=1.2,<1.8", prereleases=False)
+        outer = vr(">=1.0,<2.0", prereleases=False)
+        far = vr(">=5.0,<6.0", prereleases=False)
+        assert inner.is_subset(outer)
+        assert not outer.is_subset(inner)
+        assert inner.is_disjoint(far)
+        assert not inner.is_disjoint(outer)
+        for a, b in [(inner, outer), (outer, inner), (inner, far)]:
+            assert a.is_subset(b) == (a & ~b).is_empty
+            assert a.is_disjoint(b) == (a & b).is_empty
+
+    def test_policy_mismatch_raises(self) -> None:
+        with pytest.raises(ValueError, match="different"):
+            vr(">=1.0", prereleases=True).is_subset(vr("<2.0", prereleases=False))
+        with pytest.raises(ValueError, match="different"):
+            vr(">=1.0", prereleases=True).is_disjoint(vr("<2.0", prereleases=False))
+        with pytest.raises(ValueError, match="different"):
+            vr(">=1.0", prereleases=True).is_superset(vr("<2.0", prereleases=False))
+
+    def test_wrong_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            vr(">=1.0").is_subset("x")  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            vr(">=1.0").is_disjoint("x")  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            vr(">=1.0").is_superset("x")  # type: ignore[arg-type]
 
 
 class TestFilter:
