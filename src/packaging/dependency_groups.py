@@ -4,7 +4,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from .errors import _ErrorCollector
-from .requirements import Requirement
+from .requirements import InvalidRequirement, Requirement
 
 __all__ = [
     "CyclicDependencyGroup",
@@ -241,9 +241,12 @@ class DependencyGroupResolver:
         for item in raw_group:
             if isinstance(item, str):
                 # packaging.requirements.Requirement parsing ensures that this is a
-                # valid PEP 508 Dependency Specifier
-                # raises InvalidRequirement on failure
-                elements.append(Requirement(item))
+                # valid PEP 508 Dependency Specifier. Collect InvalidRequirement
+                # like every other failure in this loop: raising it raw would
+                # escape the aggregated "...was malformed" error group and drop
+                # any sibling errors already collected for this group.
+                with errors.collect(InvalidRequirement):
+                    elements.append(Requirement(item))
             elif isinstance(item, Mapping):
                 if tuple(item.keys()) != ("include-group",):
                     errors.error(

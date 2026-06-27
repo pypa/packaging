@@ -15,7 +15,7 @@ from packaging.dependency_groups import (
     resolve_dependency_groups,
 )
 from packaging.errors import ExceptionGroup
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 if TYPE_CHECKING:
     import sys
@@ -461,6 +461,30 @@ def test_non_unexpected_item_type() -> None:
 def test_dependency_group_include_repr() -> None:
     include = DependencyGroupInclude("test")
     assert repr(include) == "DependencyGroupInclude('test')"
+
+
+def test_resolution_collects_invalid_requirement_with_sibling_errors() -> None:
+    # A malformed PEP 508 requirement string used to raise InvalidRequirement
+    # raw, which both escaped the aggregated "...was malformed" error group and
+    # dropped any sibling errors already collected from the same group. It should
+    # now be collected like every other failure so co-occurring errors are all
+    # reported together.
+    groups: Any = {
+        "all": [
+            {},  # invalid object -> collected before the bad requirement string
+            "this is not a valid requirement!!!",
+        ],
+    }
+
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'all' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "all")
+
+    # the malformed requirement is aggregated rather than raised raw...
+    assert _group_contains(excinfo, InvalidRequirement)
+    # ...and the sibling error collected earlier in the same group is not dropped
+    assert _group_contains(excinfo, InvalidDependencyGroupObject)
 
 
 def test_resolution_can_capture_multiple_errors_at_once() -> None:
