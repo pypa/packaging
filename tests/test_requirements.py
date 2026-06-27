@@ -179,6 +179,18 @@ def test_normalized_requirements(input_req: str, norm_req: str) -> None:
     assert str(req) == norm_req
 
 
+def test_requirement_marker_with_embedded_double_quote_round_trips() -> None:
+    req_string = 'demo; \'a" == os_name or python_version >= "0" or "b\' == os_name'
+    req = Requirement(req_string)
+
+    assert str(req) == req_string
+    assert req.marker is not None
+    assert req.marker.evaluate() is False
+    round_tripped_marker = Requirement(str(req)).marker
+    assert round_tripped_marker is not None
+    assert round_tripped_marker.evaluate() is False
+
+
 class TestRequirementParsing:
     @pytest.mark.parametrize(
         "marker",
