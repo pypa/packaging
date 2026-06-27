@@ -343,9 +343,7 @@ class TestRequirementParsing:
         )
 
     @pytest.mark.parametrize("operator", ["==", "!="])
-    def test_error_when_prefix_match_uses_post_release(
-        self, operator: str
-    ) -> None:
+    def test_error_when_prefix_match_uses_post_release(self, operator: str) -> None:
         # GIVEN
         to_parse = f"name {operator} 1.2.3.post4.*"
         op_tilde = len(operator) * "~"
