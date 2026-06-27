@@ -342,6 +342,44 @@ class TestRequirementParsing:
             "           ~~~~~^"
         )
 
+    @pytest.mark.parametrize("operator", ["==", "!="])
+    def test_error_when_prefix_match_uses_post_release(self, operator: str) -> None:
+        # GIVEN
+        to_parse = f"name {operator} 1.2.3.post4.*"
+        op_tilde = len(operator) * "~"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            f"    name {operator} 1.2.3.post4.*\n"
+            f"         {op_tilde}~~~~~~~~~~~~~^"
+        )
+
+    def test_error_when_prefix_match_uses_post_release_without_spaces(
+        self,
+    ) -> None:
+        # GIVEN
+        to_parse = "name==1.2.3.post4.*"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            "    name==1.2.3.post4.*\n"
+            "        ~~~~~~~~~~~~~~^"
+        )
+
     @pytest.mark.parametrize("operator", [">=", "<=", ">", "<", "~="])
     def test_error_when_local_version_label_is_used_incorrectly(
         self, operator: str

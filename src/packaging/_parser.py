@@ -265,10 +265,19 @@ def _parse_version_many(tokenizer: Tokenizer) -> str:
     parsed_specifiers = ""
     while tokenizer.check("SPECIFIER"):
         span_start = tokenizer.position
-        parsed_specifiers += tokenizer.read().text
+        specifier = tokenizer.read().text
+        parsed_specifiers += specifier
         if tokenizer.check("VERSION_PREFIX_TRAIL", peek=True):
+            message = ".* suffix can only be used with `==` or `!=` operators"
+            if specifier.startswith("!=") or (
+                specifier.startswith("==") and not specifier.startswith("===")
+            ):
+                message = (
+                    ".* suffix cannot be used with pre-release, post-release, "
+                    "dev or local versions"
+                )
             tokenizer.raise_syntax_error(
-                ".* suffix can only be used with `==` or `!=` operators",
+                message,
                 span_start=span_start,
                 span_end=tokenizer.position + 1,
             )
