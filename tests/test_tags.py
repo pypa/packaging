@@ -1357,6 +1357,20 @@ class TestGenericTags:
             tags._generic_abi()
         assert "EXT_SUFFIX" in str(e.value)
 
+    # ".cpython.so" has no version component at all (would raise IndexError);
+    # ".cpython-.so" has a dash but an empty version (would build an invalid
+    # "cp" ABI). Both are malformed cpython soabis that should surface the same
+    # actionable SystemError as the other malformed EXT_SUFFIX cases.
+    @pytest.mark.parametrize("ext_suffix", [".cpython.so", ".cpython-.so"])
+    def test__generic_abi_cpython_missing_version(
+        self, ext_suffix: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config = {"EXT_SUFFIX": ext_suffix}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        with pytest.raises(SystemError) as e:
+            tags._generic_abi()
+        assert "EXT_SUFFIX" in str(e.value)
+
     def test__generic_abi_linux_pypy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # issue gh-606
         config = {
