@@ -232,6 +232,13 @@ def _get_required_sequence_of_objects(
     return result
 
 
+def _validate_url(value: str) -> str:
+    parsed = urlparse(str(value))
+    if not parsed.scheme or not parsed.netloc:
+        raise PylockValidationError(f"{value!r} is not a valid URL")
+    return value
+
+
 def _validate_normalized_name(name: str) -> NormalizedName:
     """Validate that a string is a NormalizedName."""
     if not is_normalized_name(name):
@@ -584,7 +591,7 @@ class Package:
             vcs=_get_object(d, PackageVcs, "vcs"),
             directory=_get_object(d, PackageDirectory, "directory"),
             archive=_get_object(d, PackageArchive, "archive"),
-            index=_get(d, str, "index"),
+            index=_validate_url(_get(d, str, "index")) if _get(d, str, "index") is not None else None,
             sdist=_get_object(d, PackageSdist, "sdist"),
             wheels=_get_sequence_of_objects(d, PackageWheel, "wheels"),
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
