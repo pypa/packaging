@@ -61,7 +61,6 @@ class InvalidSdistFilename(ValueError):
 _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
-_normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
@@ -123,7 +122,12 @@ def is_normalized_name(name: str) -> bool:
     >>> is_normalized_name("Django")
     False
     """
-    return _normalized_regex.fullmatch(name) is not None
+    return (
+        name == name.lower()
+        and "_" not in name
+        and "." not in name
+        and "--" not in name
+    )
 
 
 def canonicalize_version(
