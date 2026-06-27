@@ -244,6 +244,14 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
         raise PylockValidationError("path or url must be provided")
 
 
+def _validate_absolute_url(url: str | None, context: str) -> None:
+    if url is None:
+        return
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise PylockValidationError("URL must be absolute", context=context)
+
+
 def _path_name(path: str | None) -> str | None:
     if not path:
         return None
@@ -356,6 +364,7 @@ class PackageVcs:
             subdirectory=_get(d, str, "subdirectory"),
         )
         _validate_path_url(package_vcs.path, package_vcs.url)
+        _validate_absolute_url(package_vcs.url, "url")
         return package_vcs
 
 
@@ -424,6 +433,7 @@ class PackageArchive:
             subdirectory=_get(d, str, "subdirectory"),
         )
         _validate_path_url(package_archive.path, package_archive.url)
+        _validate_absolute_url(package_archive.url, "url")
         return package_archive
 
 
@@ -465,6 +475,7 @@ class PackageSdist:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_sdist.path, package_sdist.url)
+        _validate_absolute_url(package_sdist.url, "url")
         return package_sdist
 
     @property
@@ -514,6 +525,7 @@ class PackageWheel:
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_wheel.path, package_wheel.url)
+        _validate_absolute_url(package_wheel.url, "url")
         return package_wheel
 
     @property
@@ -603,6 +615,7 @@ class Package:
                 "Exactly one of vcs, directory, archive must be set "
                 "if sdist and wheels are not set"
             )
+        _validate_absolute_url(package.index, "index")
         for i, wheel in enumerate(package.wheels or []):
             try:
                 (name, version, _, _) = parse_wheel_filename(wheel.filename)
