@@ -20,6 +20,7 @@ from packaging.markers import (
     Marker,
     UndefinedComparison,
     UndefinedEnvironmentName,
+    _cached_default_environment,
     _format_full_version,
     default_environment,
 )
@@ -46,6 +47,14 @@ PEP_345_VARIABLES = [
     "platform.machine",
     "platform.python_implementation",
 ]
+
+
+@pytest.fixture(autouse=True)
+def _clear_default_environment_cache() -> None:
+    # default_environment() is cached, so tests that patch platform/sys must run
+    # against a fresh cache and must not leak their patched values to later tests.
+    _cached_default_environment.cache_clear()
+
 
 SETUPTOOLS_VARIABLES = ["python_implementation"]
 
@@ -474,6 +483,20 @@ class TestMarker:
     def test_python_full_version_untagged(self) -> None:
         with mock.patch("platform.python_version", return_value="3.11.1+"):
             assert Marker("python_full_version < '3.12'").evaluate()
+
+    def test_evaluate_does_not_mutate_cached_environment(self) -> None:
+        # An evaluate() call that overrides values (and adds "extra") must not
+        # leak those overrides into the cached environment used by later calls.
+        marker = Marker("os_name == 'magic'")
+        assert marker.evaluate({"os_name": "magic"})
+
+        cached = _cached_default_environment()
+        assert cached["os_name"] == os.name
+        assert "extra" not in cached
+
+        # A second evaluate with no overrides must not see the first call's
+        # overrides, confirming the cache was copied rather than mutated.
+        assert not marker.evaluate()
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     @pytest.mark.parametrize(
