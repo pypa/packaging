@@ -336,6 +336,8 @@ class VersionRange:
     (case-insensitive) rather than a set of versions. Ranges built from
     ``===`` specifiers still support membership and set operations; matching
     follows the literal-equality rule.
+
+    .. versionadded:: 26.3
     """
 
     __slots__ = (
