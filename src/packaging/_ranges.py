@@ -531,20 +531,23 @@ def filter_by_ranges(
     iterable: Iterable[Any],
     key: Callable[[Any], Version | str] | None,
     prereleases: bool | None,
+    region: Sequence[VersionRange] = (),
 ) -> Iterator[Any]:
     """Filter *iterable* against precomputed version *ranges*.
 
-    With ``prereleases=None``, the PEP 440 default applies: pre-releases
-    are excluded unless no final matches, in which case buffered
-    pre-releases come out at the end.
+    With ``prereleases=None``, the PEP 440 default applies: pre-releases are
+    excluded unless no final matches, in which case buffered pre-releases come
+    out at the end. A pre-release inside the opt-in ``region`` is the exception:
+    it is force-admitted in place, as ``prereleases=True`` would yield it. A
+    force-admitted pre-release is not a final, so it never suppresses the buffer.
     """
     if prereleases is None:
-        # PEP 440 default: yield finals immediately; buffer
-        # pre-releases until at least one final has been emitted.
         prerelease_buffer: list[Any] = []
         found_final = False
 
         if len(ranges) == 1:
+            # Hot path: most specifiers and small SpecifierSets reduce to
+            # a single contiguous range.
             lower, upper = ranges[0]
             above = lower._above
             below = upper._below
@@ -556,12 +559,13 @@ def filter_by_ranges(
                     continue
                 if below is not None and not below(parsed):
                     continue
-                if parsed.is_prerelease:
-                    if not found_final:
-                        prerelease_buffer.append(item)
-                else:
+                if not parsed.is_prerelease:
                     found_final = True
                     yield item
+                elif region and matches_bounds_only(region, parsed):
+                    yield item
+                elif not found_final:
+                    prerelease_buffer.append(item)
             if not found_final:
                 yield from prerelease_buffer
             return
@@ -576,12 +580,13 @@ def filter_by_ranges(
                     break
                 below = upper._below
                 if below is None or below(parsed):
-                    if parsed.is_prerelease:
-                        if not found_final:
-                            prerelease_buffer.append(item)
-                    else:
+                    if not parsed.is_prerelease:
                         found_final = True
                         yield item
+                    elif region and matches_bounds_only(region, parsed):
+                        yield item
+                    elif not found_final:
+                        prerelease_buffer.append(item)
                     break
         if not found_final:
             yield from prerelease_buffer

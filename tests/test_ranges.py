@@ -142,8 +142,11 @@ class TestToRange:
         assert vr("===1.0,>=2.0").is_empty
 
     def test_prerelease_autodetect(self) -> None:
-        assert vr(">=1.0a1")._prereleases is True
-        assert vr(">=1.0")._prereleases is None
+        # Autodetected admission is stored as a region (the spec's own bounds);
+        # a non-pre-release spec leaves the region empty.
+        assert vr(">=1.0a1")._pre_region == vr(">=1.0a1")._bounds
+        assert vr(">=1.0a1")._pre_region
+        assert vr(">=1.0")._pre_region == ()
 
     def test_explicit_prereleases(self) -> None:
         r = vr(">=1.0", prereleases=False)
@@ -204,9 +207,11 @@ class TestSetAlgebra:
         r = vr(">=1.0a1")
         assert list(r.filter(["1.3", "1.5a1"])) == ["1.3", "1.5a1"]
 
-        # Both orders keep the autodetected pre-release policy.
-        assert (r | VersionRange.full())._prereleases is True
-        assert (VersionRange.full() | r)._prereleases is True
+        # Both orders keep the autodetected opt-in as a region (here r's own
+        # bounds), so only the pre-releases r named are admitted, not every
+        # pre-release.
+        assert (r | VersionRange.full())._pre_region == r._bounds
+        assert (VersionRange.full() | r)._pre_region == r._bounds
 
         assert list((r | VersionRange.full()).filter(["1.3", "1.5a1"])) == [
             "1.3",
@@ -216,6 +221,10 @@ class TestSetAlgebra:
             "1.3",
             "1.5a1",
         ]
+
+        # The opt-in region is [1.0a1, +inf): a pre-release that sorts below it
+        # is not force-admitted by the union.
+        assert list((r | VersionRange.full()).filter(["0.5a1", "1.0"])) == ["1.0"]
 
     def test_arbitrary_flag_distinguishes_full(self) -> None:
         # nab contract: SpecifierSet("")-full differs from algebra-built full.
@@ -243,6 +252,29 @@ class TestSetAlgebra:
         # nab complements root ranges built from ``===`` requirements.
         r = vr("===custom")
         assert not (~r).is_empty
+
+    def test_empty_does_not_revive_arbitrary_admission(self) -> None:
+        # ``~full()`` is empty yet keeps an inert arbitrary flag so that
+        # ``~~full() == full()``. That flag must not revive and admit arbitrary
+        # strings once a later operation widens the bounds back to full.
+        full = VersionRange.full()
+        plain = VersionRange.full(admit_arbitrary=False)
+        assert ~~full == full  # the inert flag round-trips through complement
+        assert (full & ~full) == VersionRange.empty()
+        # The empty operand must not revive the flag from either side of a union,
+        # nor through a difference that later complements back to full bounds.
+        assert not (~full | plain).contains("garbage")
+        assert not (plain | ~full).contains("garbage")
+        assert (full & ~full) - full == VersionRange.empty()
+        assert not (full - plain).complement().contains("garbage")
+
+    def test_difference_by_empty_keeps_arbitrary_admission(self) -> None:
+        # ``~full()`` admits nothing (empty bounds, no literal, no region), so the
+        # difference short-circuit returns self untouched, keeping full's
+        # arbitrary admission (``full() - ~full() == full()``).
+        full = VersionRange.full()
+        assert (full - ~full) == full
+        assert (full - ~full).contains("garbage")
 
     def test_policy_mismatch_raises(self) -> None:
         with pytest.raises(ValueError, match="different"):
@@ -342,6 +374,279 @@ class TestSetAlgebra:
         assert Version("3.0") in d
         assert Version("1.0") not in d
         assert Version("2.0") not in d
+
+
+class TestPrereleaseRegion:
+    """The autodetected pre-release opt-in is stored as a range (``_pre_region``)
+    so it stays attached to the versions it came from across set algebra."""
+
+    def test_union_keeps_opt_in_scoped_to_originating_range(self) -> None:
+        # ``>=1.0 | >=2.0b1``: the opt-in came only from the ``>=2.0b1`` side, so
+        # a pre-release below 2.0b1 is not force-admitted, while pre-releases at
+        # or above it are.
+        u = vr(">=1.0") | vr(">=2.0b1")
+        assert list(u.filter(["1.0", "1.5b1", "2.0b1", "2.5", "2.5b1"])) == [
+            "1.0",
+            "2.0b1",
+            "2.5",
+            "2.5b1",
+        ]
+        assert u._pre_region == vr(">=2.0b1")._bounds
+
+    def test_raw_region_survives_narrowing_and_reexpands(self) -> None:
+        # The opt-in is stored raw (unclipped), so a narrowing intersection
+        # keeps it for later: widening the bounds back over it re-expands what
+        # filter force-admits, while the narrowed range itself does not.
+        inter = vr(">=1.0a1") & vr("<1.5")
+        # The raw region is [1.0a1, +inf), wider than the narrowed bounds.
+        assert inter._pre_region == vr(">=1.0a1")._bounds
+        assert inter._pre_region != inter._bounds
+        assert list(inter.filter(["1.2a1", "2.0a1", "2.5"])) == ["1.2a1"]
+        wide = inter | vr("<3.0")
+        assert list(wide.filter(["1.2a1", "2.0a1", "2.5"])) == ["1.2a1", "2.0a1", "2.5"]
+
+    def test_region_distributes_at_filter_level(self) -> None:
+        # Union distributes over intersection for the opt-in region, not just
+        # the bounds: the force-admitted pre-releases agree on both groupings.
+        # (contains ignores the region, so this needs a filter-level check.)
+        a, b, c = vr(">=1.0a1"), vr(">=2.0b1,<4.0"), vr(">=1.5,<3.0")
+        lhs = a | (b & c)
+        rhs = (a | b) & (a | c)
+        assert lhs == rhs
+        cand = ["1.0a1", "1.5b1", "2.0b1", "2.5", "2.5b1", "3.5b1"]
+        assert list(lhs.filter(cand)) == list(rhs.filter(cand))
+
+    def test_difference_of_two_region_bearing_ranges(self) -> None:
+        # Both operands carry an opt-in region; a - b still equals a & ~b.
+        a, b = vr(">=1.0a1,<5.0"), vr(">=2.0b1")
+        cand = ["1.0a1", "1.5b1", "2.0b1", "2.5b1", "4.0"]
+        assert (a - b) == (a & ~b)
+        assert list((a - b).filter(cand)) == list((a & ~b).filter(cand))
+
+    def test_intersection_with_complement_equals_difference(self) -> None:
+        # With the opt-in stored as a range, ``a & ~b`` renders b's opt-in inert
+        # (carried raw but now outside the result bounds) just as ``a - b`` does,
+        # so the two agree even when b names a pre-release.
+        a, b = vr(">=1.0"), vr(">=2.0b1")
+        cand = ["1.0", "1.5b1", "2.0b1", "2.5", "2.5b1"]
+        assert (a & ~b) == (a - b)
+        assert list((a & ~b).filter(cand)) == list((a - b).filter(cand))
+        assert list((a & ~b).filter(cand)) == ["1.0"]
+
+    def test_full_intersection_keeps_operand_opt_in(self) -> None:
+        # ``full() & req`` must preserve req's own opt-in region.
+        req = vr(">=2.0b1")
+        assert (VersionRange.full() & req)._pre_region == req._bounds
+        assert list((VersionRange.full() & req).filter(["2.0b1", "2.5"])) == [
+            "2.0b1",
+            "2.5",
+        ]
+
+    def test_union_filter_buffers_as_one_set(self) -> None:
+        # The union is a single range: an in-range final makes PEP 440 buffer
+        # away a non-opted pre-release, even though one operand alone (with no
+        # final) would have emitted it. The opted-in pre-release still shows.
+        u = vr(">=1.0,<1.8") | vr(">=1.5b1,<2.0")
+        assert list(u.filter(["1.2a1", "1.7b1", "1.9"])) == ["1.7b1", "1.9"]
+
+    def test_union_filter_emits_buffered_prerelease_when_no_final(self) -> None:
+        # Region narrower than bounds: a pre-release in bounds but outside the
+        # opt-in region is buffered, then emitted because no in-bounds final
+        # appears (the PEP 440 "only available" fallback). An in-bounds final
+        # then suppresses the buffer.
+        u = vr(">=1.0") | vr(">=2.0b1")  # bounds [1.0, inf), region [2.0b1, inf)
+        assert list(u.filter(["1.5b1", "1.2a1"])) == ["1.5b1", "1.2a1"]
+        assert list(u.filter(["1.5b1", "1.2a1", "1.3"])) == ["1.3"]
+
+    def test_double_complement_preserves_region_and_filtering(self) -> None:
+        r = vr(">=2.0b1")
+        assert ~~r == r
+        cand = ["1.5b1", "2.0b1", "2.5", "2.5b1"]
+        assert list((~~r).filter(cand)) == list(r.filter(cand))
+
+    def test_difference_minuend_with_literal_and_region(self) -> None:
+        # A minuend carrying both a ``===`` literal and an autodetected opt-in
+        # region keeps the literal (self-admits-and-not-other) and the region.
+        minuend = vr("===wat") | vr(">=2.0b1")
+        d = minuend - vr(">=3.0")
+        assert "wat" in d
+        assert list(d.filter(["2.0b1", "2.5b1", "2.9", "3.0"])) == [
+            "2.0b1",
+            "2.5b1",
+            "2.9",
+        ]
+
+    def test_difference_minuend_with_configured_policy(self) -> None:
+        # When the minuend carries an explicit configured policy it governs
+        # globally, so the difference keeps no opt-in region.
+        d = vr(">=1.0", prereleases=False) - vr(">=2.0b1")
+        assert d._pre_region == ()
+        assert list(d.filter(["1.5b1", "1.0"])) == ["1.0"]
+
+    def test_difference_equals_intersect_complement_universally(self) -> None:
+        # ``a - b`` builds the same opt-in region as ``a & ~b``, so the two
+        # agree even when ``b`` is complement-derived and revives a region into
+        # the result window (where a region-discarding difference would differ).
+        a = vr("<5.0")
+        b = vr(">=2.0b1").complement()
+        left, right = a & ~b, a - b
+        assert left._pre_region == right._pre_region
+        assert left == right
+        cand = ["2.5b1", "3.0", "2.0b1", "4.0"]
+        assert list(left.filter(cand)) == list(right.filter(cand))
+
+    def test_construction_region_matches_algebra(self) -> None:
+        # A multi-specifier set built directly carries the same opt-in region
+        # as one built by combining its specifiers (the region is the raw, not
+        # bounds-clipped, union), so the two stay equal under a later widening.
+        direct = vr(">=1.0a1,<3.0")
+        composed = vr(">=1.0a1") & vr("<3.0")
+        assert direct._pre_region == composed._pre_region
+        assert direct == composed
+        pool = ["1.0a1", "2.0b1", "2.9", "3.0b1", "4.5"]
+        wide = vr(">=2.0,<5.0")
+        assert list((direct | wide).filter(pool)) == list(
+            (composed | wide).filter(pool)
+        )
+
+        # Same congruence on the ``===`` (arbitrary) build path.
+        direct_arb = vr("===2.0,>=1.0a1")
+        composed_arb = vr("===2.0") & vr(">=1.0a1")
+        assert direct_arb._pre_region == composed_arb._pre_region
+        assert direct_arb == composed_arb
+
+    def test_named_literal_prerelease_is_force_admitted(self) -> None:
+        # A ``===`` literal naming a pre-release force-admits it under the default
+        # policy even when a final release in the union would otherwise buffer it
+        # away. contains agrees, and an explicit prereleases=False still drops it.
+        u = vr("===1.0a1") | vr(">=3.0")
+        assert list(u.filter(["1.0a1", "3.0"])) == ["1.0a1", "3.0"]
+        assert u.contains("1.0a1")
+        assert list(u.filter(["1.0a1", "3.0"], prereleases=False)) == ["3.0"]
+
+    def test_difference_by_empty_preserves_empty_self(self) -> None:
+        # ``a - empty()`` returns a unchanged even when a is itself empty but
+        # carries provenance: ``~full()`` keeps its arbitrary flag for involution,
+        # so subtracting a nothing-admitting set must not drop it.
+        nf = ~VersionRange.full()
+        assert (nf - VersionRange.empty()) == nf
+        assert (nf - nf) == nf  # ~full() admits nothing, so this is a no-op too
+
+    def test_difference_excludes_other_by_bounds_ignoring_policy(self) -> None:
+        # difference treats other as a bounds-only exclusion and ignores its
+        # configured policy, so subtracting a prereleases=False range excises the
+        # versions in its bounds and agrees with a & ~b there.
+        a = SpecifierSet(">=1.0", prereleases=False).to_range()
+        b = SpecifierSet(">=1.5,<2.0", prereleases=False).to_range()
+        assert (a - b) == (a & ~b)
+        assert "1.2" in (a - b)
+        assert "1.6" not in (a - b)
+
+    def test_empty_bounds_range_keeps_region_for_congruence(self) -> None:
+        # An empty-bounds range still records its raw opt-in region, so it is not
+        # equal to empty() and re-admits those pre-releases after a re-widening
+        # union. This provenance is what makes the raw region a congruence.
+        empty_region = vr(">=2.0a1") & vr("<1.0")
+        assert empty_region.is_empty
+        assert empty_region._pre_region == vr(">=2.0a1")._bounds
+        assert empty_region != VersionRange.empty()
+        assert hash(empty_region) != hash(VersionRange.empty())
+        assert list((empty_region | vr(">=0")).filter(["2.0a1", "3.0"])) == [
+            "2.0a1",
+            "3.0",
+        ]
+        assert list((VersionRange.empty() | vr(">=0")).filter(["2.0a1", "3.0"])) == [
+            "3.0"
+        ]
+
+    def test_multi_interval_region_force_admits(self) -> None:
+        # Disjoint multi-interval bounds plus a raw opt-in region exercise the
+        # multi-range path of filter_by_ranges: a pre-release in the second
+        # interval and inside the region is force-admitted.
+        r = vr(">=1.0a1,<2.0") | vr(">=3.0,<4.0")
+        assert len(r._bounds) == 2
+        assert list(r.filter(["1.5a1", "3.5a1", "3.5"])) == ["1.5a1", "3.5a1", "3.5"]
+
+    def test_region_upper_bound_clips_force_admit(self) -> None:
+        # The region has a finite upper bound (~=1.0a1 gives [1.0a1, 2.dev0)), so a
+        # pre-release in bounds but ABOVE the region is not force-admitted. After
+        # widening with >=2.5, 2.6a1 is in bounds yet above the region, so it is
+        # buffered and then suppressed by the in-bounds final 2.7.
+        r = vr("~=1.0a1") | vr(">=2.5")
+        assert list(r.filter(["1.5a1", "2.6a1", "2.7"])) == ["1.5a1", "2.7"]
+
+    def test_disjoint_region_does_not_force_admit_gap(self) -> None:
+        # A disjoint two-interval region whose bounds span the gap: a pre-release
+        # in the region gap (but in bounds) is buffered, not force-admitted, and
+        # an in-bounds final then suppresses it. The filler ``>=2.0,<5.0`` widens
+        # the bounds over the gap without adding to the region.
+        r = (vr("<2.0a5") | vr(">=5.0a1")) | vr(">=2.0,<5.0")
+        assert len(r._pre_region) == 2
+        assert list(r.filter(["1.0a1", "3.0a1", "6.0a1", "3.0"])) == [
+            "1.0a1",
+            "6.0a1",
+            "3.0",
+        ]
+
+    def test_force_admit_does_not_suppress_buffer(self) -> None:
+        # A region-admitted pre-release is not a final, so it does not suppress a
+        # separate buffered (out-of-region) pre-release when no final appears.
+        u = vr(">=1.0") | vr(">=2.0b1")  # region [2.0b1, inf)
+        assert list(u.filter(["2.5b1", "1.5b1"])) == ["2.5b1", "1.5b1"]
+
+    def test_region_force_admit_through_key(self) -> None:
+        # The region force-admit fires when filtering with a key callable too.
+        u = vr(">=1.0") | vr(">=2.0b1")
+        items = [{"v": "2.0b1"}, {"v": "1.5b1"}, {"v": "2.5"}]
+        assert list(u.filter(items, key=lambda d: d["v"])) == [
+            {"v": "2.0b1"},
+            {"v": "2.5"},
+        ]
+
+    def test_difference_region_keyed_on_self_not_other(self) -> None:
+        # A region-bearing autodetect minuend keeps its opt-in when subtracting a
+        # configured-policy subtrahend (difference reads only self's policy).
+        a = vr(">=2.0b1")  # autodetect, region [2.0b1, +inf)
+        b = SpecifierSet(">=5.0", prereleases=False).to_range()  # configured False
+        d = a - b
+        assert d._pre_region
+        assert list(d.filter(["2.0b1", "2.5b1", "4.9", "5.0"])) == [
+            "2.0b1",
+            "2.5b1",
+            "4.9",
+        ]
+
+    def test_difference_empty_bounds_region_other_reaches_merge(self) -> None:
+        # Subtracting an empty-bounds range that still carries a region must NOT
+        # short-circuit: the region has to reach the merge so a - b == a & ~b.
+        a = vr(">=0,<10.0")
+        b = vr(">=2.0a1") & vr("<1.0")  # empty bounds, raw region [2.0a1, +inf)
+        assert b.is_empty
+        assert not b._bounds
+        assert b._pre_region
+        cand = ["2.0a1", "2.5a1", "5.0"]
+        assert (a - b) == (a & ~b)
+        assert list((a - b).filter(cand)) == list((a & ~b).filter(cand))
+
+    def test_configured_policy_with_prerelease_spec_mirrors_specifier_set(self) -> None:
+        # A configured policy on a pre-release-naming set drops the opt-in region
+        # (the policy governs); filter and contains still mirror the set.
+        pool = ["1.0a1", "1.5", "2.0b1", "2.5"]
+        cases = [
+            (">=1.0a1", False),
+            (">=1.0a1", True),
+            ("~=2.0b1", True),
+            ("<=2.0b1", False),
+            ("===1.0a1", False),
+            ("===1.0a1", True),
+        ]
+        for spec, pre in cases:
+            ss = SpecifierSet(spec, prereleases=pre)
+            r = ss.to_range()
+            assert r._pre_region == ()
+            assert list(r.filter(pool)) == list(ss.filter(pool)), (spec, pre)
+            for v in pool:
+                assert r.contains(v) == ss.contains(v), (spec, pre, v)
 
 
 class TestSetRelations:
@@ -931,8 +1236,8 @@ class TestCoverageEdges:
 
     def test_ge_floor_is_canonical_full(self) -> None:
         # >=0.dev0 admits every version, so its bounds canonicalize to the full
-        # range (its complement is empty). It keeps its autodetected pre-release
-        # policy, so it is not equal to the policy-free full().
+        # range (its complement is empty). It still carries an opt-in region from
+        # its .dev0 bound, so it is not equal to the region-free full().
         r = vr(">=0.dev0")
         assert r._bounds == VersionRange.full()._bounds
         assert (~r).is_empty
@@ -953,10 +1258,10 @@ class TestCoverageEdges:
         assert Version("1.0") in r
 
     def test_eq_ranges_filter_identically(self) -> None:
-        # Two ranges with identical bounds but different resolved pre-release
-        # policy must NOT compare equal, so equal ranges always filter the same.
-        autodetect_true = vr(">=1.0a1") & vr(">=2.0")  # resolved True, [2.0, inf)
-        autodetect_none = vr(">=2.0")  # resolved None, [2.0, inf)
+        # Two ranges with identical bounds but a different opt-in region must NOT
+        # compare equal, so equal ranges always filter the same.
+        autodetect_true = vr(">=1.0a1") & vr(">=2.0")  # opt-in region [1.0a1, inf)
+        autodetect_none = vr(">=2.0")  # empty opt-in region
         assert autodetect_true._bounds == autodetect_none._bounds
         assert autodetect_true != autodetect_none
         assert hash(autodetect_true) != hash(autodetect_none)
@@ -964,8 +1269,10 @@ class TestCoverageEdges:
             autodetect_none.filter(["2.0", "2.5a1"])
         )
 
-    def test_eq_full_resolved_mismatch(self) -> None:
-        # The floor shape that exposed the substitutability bug.
+    def test_eq_full_region_mismatch(self) -> None:
+        # The floor shape that exposed the substitutability bug: same bounds,
+        # but ``>=0.dev0`` carries a full opt-in region and ``full()`` carries
+        # none, so the two must stay unequal.
         b = ~~vr(">=0.dev0")
         c = VersionRange.full(admit_arbitrary=False)
         assert b._bounds == c._bounds

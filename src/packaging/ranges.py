@@ -306,6 +306,13 @@ def _format_upper(bound: UpperBound) -> str:
     return f"{_bound_version_str(bound.version)}{bracket}"
 
 
+def _format_intervals(intervals: Sequence[_Interval]) -> str:
+    """Render a sorted interval list as ``lower, upper | lower, upper``."""
+    return " | ".join(
+        f"{_format_lower(lower)}, {_format_upper(upper)}" for lower, upper in intervals
+    )
+
+
 class VersionRange:
     """A set of :class:`~packaging.version.Version` values accepted by a
     :class:`~packaging.specifiers.SpecifierSet`.
@@ -319,10 +326,15 @@ class VersionRange:
 
     The configured pre-release policy of the originating specifier set carries
     onto the range and controls whether pre-releases are admitted under ``in``,
-    :meth:`contains`, and :meth:`filter`. :meth:`intersection`,
-    :meth:`union`, and the :meth:`is_subset` / :meth:`is_superset` /
-    :meth:`is_disjoint` predicates require both operands to share the same
-    policy; set difference (``-``) does not.
+    :meth:`contains`, and :meth:`filter`. With no configured policy,
+    :meth:`filter` also admits pre-releases in the autodetected opt-in region
+    (the versions a pre-release-naming specifier asked for). Set algebra keeps
+    that opt-in scoped to those versions, so unrelated pre-releases are not
+    admitted wholesale.
+
+    :meth:`intersection`, :meth:`union`, and the :meth:`is_subset` /
+    :meth:`is_superset` / :meth:`is_disjoint` predicates require both operands
+    to share the same configured policy.
 
     >>> r = SpecifierSet(">=1.0,<2.0").to_range()
     >>> "1.5" in r
@@ -335,7 +347,9 @@ class VersionRange:
     PEP 440's ``===`` operator matches a candidate string verbatim
     (case-insensitive) rather than a set of versions. Ranges built from
     ``===`` specifiers still support membership and set operations; matching
-    follows the literal-equality rule.
+    follows the literal-equality rule. A ``===`` literal that names a
+    pre-release is admitted under the default policy by both :meth:`contains`
+    and :meth:`filter`, since it was named outright.
 
     .. versionadded:: 26.3
     """
@@ -344,7 +358,7 @@ class VersionRange:
         "_admit",
         "_admit_arbitrary",
         "_bounds",
-        "_prereleases",
+        "_pre_region",
         "_prereleases_configured",
         "_reject",
     )
@@ -353,9 +367,11 @@ class VersionRange:
     _bounds: tuple[_Interval, ...]
 
     #: Whether this range matches non-version strings as well as versions.
-    #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. Set
-    #: algebra ANDs on intersection, ORs on union, and preserves on complement.
-    #: Part of equality, since membership reads it.
+    #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
+    #: rides set algebra but is inert except at full bounds (see
+    #: :meth:`_arbitrary_active`). A binary op that empties out drops it
+    #: (``full() & ~full()`` is plain empty); :meth:`complement` keeps it, so
+    #: ``~~full() == full()``. Part of equality, since membership reads it.
     _admit_arbitrary: bool
 
     #: Case-folded strings the range admits in addition to its bounds.
@@ -363,17 +379,25 @@ class VersionRange:
     _admit: frozenset[str]
 
     #: Case-folded strings the range rejects (overrides ``_admit`` and the
-    #: bounds). Populated only by :meth:`complement` of an admit-bearing range.
+    #: bounds). Populated by :meth:`complement` of an admit-bearing range and by
+    #: literal resolution in :meth:`_combine_literals`.
     _reject: frozenset[str]
 
-    #: Resolved pre-release policy used by :meth:`filter` and :meth:`contains`
-    #: when their ``prereleases`` argument is ``None``. Part of equality, so
-    #: two ranges that compare equal always filter the same versions.
-    _prereleases: bool | None
+    #: Sorted, disjoint intervals where pre-releases are force-admitted under
+    #: the PEP 440 default policy (a ``None`` ``prereleases`` argument and no
+    #: configured override). Set algebra (:meth:`union`, :meth:`intersection`,
+    #: :meth:`difference`) accumulates this autodetected opt-in raw (not clipped
+    #: to the result bounds), which keeps it distributive. It may reach past the
+    #: bounds, but :meth:`filter` only force-admits a pre-release that already
+    #: passed the bounds check, so the out-of-bounds part never fires. Equality
+    #: keys on the raw region, so it stays a congruence.
+    _pre_region: tuple[_Interval, ...]
 
-    #: Raw configured pre-release override of the originating specifier set.
-    #: Distinguishes autodetect-True from explicit-True. :meth:`intersection`
-    #: and :meth:`union` require it to match on both operands. Part of equality.
+    #: Raw configured pre-release override of the originating specifier set
+    #: (an explicit ``True`` / ``False``, else ``None``). When set, :meth:`_build`
+    #: forces ``_pre_region`` empty since the policy governs globally.
+    #: :meth:`intersection` and :meth:`union` require it to match on both
+    #: operands. Part of equality.
     _prereleases_configured: bool | None
 
     def __new__(cls, *args: object, **kwargs: object) -> VersionRange:  # noqa: PYI034
@@ -391,7 +415,7 @@ class VersionRange:
         reject: frozenset[str] = frozenset(),
         admit_arbitrary: bool = False,
         *,
-        prereleases: bool | None = None,
+        pre_region: tuple[_Interval, ...] = (),
         prereleases_configured: bool | None = None,
     ) -> VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
@@ -399,10 +423,12 @@ class VersionRange:
         Canonicalizes the bounds so equal version sets share one representation,
         then drops admit literals the bounds already admit and reject literals
         the bounds do not match anyway. Reject wins over admit on overlap. The
-        pre-release policy is set here, so a built range never has its policy
-        reassigned afterwards.
+        pre-release policy is set here and never reassigned afterwards;
+        ``pre_region`` is canonicalized like the bounds (never clipped to them),
+        or dropped when a configured policy makes it inert.
         """
         bounds = _canonicalize(bounds)
+
         if admit and reject:
             admit = admit - reject
         if admit:
@@ -423,8 +449,15 @@ class VersionRange:
         instance._admit = admit
         instance._reject = reject
         instance._admit_arbitrary = admit_arbitrary
-        instance._prereleases = prereleases
         instance._prereleases_configured = prereleases_configured
+
+        # A configured policy makes the region inert, so drop it. Otherwise fold
+        # least-successor bounds (_from_specifier_set passes the region unfolded),
+        # so ``>1.0a1`` and ``>=1.0a2.dev0`` carry the same region.
+        if prereleases_configured is not None or not pre_region:
+            instance._pre_region = ()
+        else:
+            instance._pre_region = _canonicalize(pre_region)
 
         return instance
 
@@ -446,7 +479,7 @@ class VersionRange:
         return (
             not self._has_literals()
             and not self._admit_arbitrary
-            and self._prereleases is not False
+            and self._prereleases_configured is not False
         )
 
     def _check_policy_compat(self, other: VersionRange) -> None:
@@ -460,24 +493,27 @@ class VersionRange:
                 f"and {other._prereleases_configured!r}"
             )
 
-    def _combined_policy(self, other: VersionRange) -> tuple[bool | None, bool | None]:
-        """The ``(resolved, configured)`` pre-release policy for ``self`` combined
-        with ``other``, ready to feed into :meth:`_build`.
+    def _merged_region(self, other: VersionRange) -> tuple[_Interval, ...]:
+        """Union of ``self`` and ``other``'s opt-in regions, kept raw.
 
-        Both operands share a configured policy by the time this is called (see
-        :meth:`_check_policy_compat`).
+        The same OR ``SpecifierSet`` autodetect runs across its specifiers; see
+        the ``_pre_region`` slot for why the union stays unclipped. It does not
+        check policy compatibility, since a configured operand carries an empty
+        region, so :meth:`difference` may pass an ``other`` whose policy differs.
         """
-        configured = self._prereleases_configured
-        if configured is not None:
-            resolved: bool | None = configured
-        elif self._prereleases is True or other._prereleases is True:
-            resolved = True
-        else:
-            resolved = None
-        return resolved, configured
+        # Reuse an operand's canonical tuple when only one side has a region;
+        # an empty side contributes nothing to the union.
+        if not other._pre_region:
+            return self._pre_region
+        if not self._pre_region:
+            return other._pre_region
+
+        # Both sides carry a region; merge them. _build re-canonicalizes, so the
+        # raw union is fine here.
+        return tuple(_union_ranges(self._pre_region, other._pre_region))
 
     def _with_policy(
-        self, *, resolved: bool | None, configured: bool | None
+        self, *, pre_region: tuple[_Interval, ...], configured: bool | None
     ) -> VersionRange:
         """A structural copy of this range carrying the given pre-release policy."""
         return self._build(
@@ -485,7 +521,7 @@ class VersionRange:
             admit=self._admit,
             reject=self._reject,
             admit_arbitrary=self._admit_arbitrary,
-            prereleases=resolved,
+            pre_region=pre_region,
             prereleases_configured=configured,
         )
 
@@ -498,9 +534,7 @@ class VersionRange:
         >>> "1.0" in VersionRange.empty()
         False
         """
-        return cls._build(
-            (), prereleases=prereleases, prereleases_configured=prereleases
-        )
+        return cls._build((), prereleases_configured=prereleases)
 
     @classmethod
     def full(
@@ -524,7 +558,6 @@ class VersionRange:
         return cls._build(
             FULL_RANGE,
             admit_arbitrary=admit_arbitrary,
-            prereleases=prereleases,
             prereleases_configured=prereleases,
         )
 
@@ -556,7 +589,6 @@ class VersionRange:
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
         return cls._build(
             _canonical_floor(((lower, upper),)),
-            prereleases=prereleases,
             prereleases_configured=prereleases,
         )
 
@@ -573,15 +605,22 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
-        resolved, configured = self._combined_policy(other)
+        configured = self._prereleases_configured
         new_bounds = tuple(intersect_ranges(self._bounds, other._bounds))
-        combined_arb = self._admit_arbitrary and other._admit_arbitrary
+        new_region = self._merged_region(other)
+
+        # An empty intersection (e.g. ``full() & ~full()``) is the empty range,
+        # so it drops the arbitrary flag rather than keeping an inert one that a
+        # later union could revive.
+        combined_arb = (
+            self._admit_arbitrary and other._admit_arbitrary and bool(new_bounds)
+        )
 
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
                 admit_arbitrary=combined_arb,
-                prereleases=resolved,
+                pre_region=new_region,
                 prereleases_configured=configured,
             )
 
@@ -590,7 +629,7 @@ class VersionRange:
             new_bounds,
             op=_SetOp.INTERSECTION,
             admit_arbitrary=combined_arb,
-            prereleases=resolved,
+            pre_region=new_region,
             prereleases_configured=configured,
         )
 
@@ -609,16 +648,22 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
-        # The merged pre-release policy rides along in (resolved, configured).
-        resolved, configured = self._combined_policy(other)
+        configured = self._prereleases_configured
         new_bounds = tuple(_union_ranges(self._bounds, other._bounds))
-        combined_arb = self._admit_arbitrary or other._admit_arbitrary
+        new_region = self._merged_region(other)
+
+        # An empty-bounds operand (e.g. ``~full()``) carries an inert arbitrary
+        # flag only to keep complement an involution; it admits nothing, so it
+        # must not revive arbitrary admission as the union re-widens the bounds.
+        combined_arb = (self._admit_arbitrary and bool(self._bounds)) or (
+            other._admit_arbitrary and bool(other._bounds)
+        )
 
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
                 admit_arbitrary=combined_arb,
-                prereleases=resolved,
+                pre_region=new_region,
                 prereleases_configured=configured,
             )
 
@@ -627,16 +672,21 @@ class VersionRange:
             new_bounds,
             op=_SetOp.UNION,
             admit_arbitrary=combined_arb,
-            prereleases=resolved,
+            pre_region=new_region,
             prereleases_configured=configured,
         )
 
     def complement(self) -> VersionRange:
         """Range containing every version not in self.
 
-        Preserves the configured pre-release policy. Within the PEP 440
-        universe (no ``===`` literals and no arbitrary admission) double
-        negation holds; for ``===`` ranges complement is one-way.
+        Preserves the configured pre-release policy. Double negation holds for a
+        range with no ``===`` literals (the arbitrary-string flag round-trips, so
+        ``~~full() == full()``); for ``===`` ranges complement is one-way.
+
+        The opt-in region rides through unchanged, not clipped to the new bounds,
+        so complement stays an involution. It is inert outside the bounds (see the
+        ``_pre_region`` slot), which is what lets ``a & ~b`` shed ``b``'s in-bounds
+        opt-in.
 
         >>> r = SpecifierSet(">=1.0").to_range()
         >>> "0.5" in r.complement()
@@ -647,26 +697,24 @@ class VersionRange:
         True
         """
         # Complement swaps literal admission: what the range rejects, its
-        # complement admits, and vice versa.
+        # complement admits.
         return self._build(
             tuple(_complement_ranges(self._bounds)),
             admit=self._reject,
             reject=self._admit,
             admit_arbitrary=self._admit_arbitrary,
-            prereleases=self._prereleases,
+            pre_region=self._pre_region,
             prereleases_configured=self._prereleases_configured,
         )
 
     def difference(self, other: VersionRange) -> VersionRange:
         """Range containing the versions in self but not in other.
 
-        On the version set this matches ``self & ~other``, but the result keeps
-        only ``self``'s admissions and pre-release policy: a non-version string
-        or ``===`` literal is a member exactly when ``self`` admits it and
-        ``other`` does not. ``other`` is treated purely as an exclusion, so the
-        operands need not share a configured pre-release policy (unlike
-        :meth:`intersection` and :meth:`union`), and ``a - empty()`` returns a
-        range equal to ``a``.
+        Matches ``self & ~other`` on the version set and opt-in region. They part
+        only on non-version-string admission, whose complement is one-way: a
+        ``===`` literal stays when ``self`` admits it and ``other`` does not, and
+        the arbitrary-string flag is kept from ``self``. ``other`` acts as a
+        bounds-only exclusion.
 
         >>> a = SpecifierSet(">=1.0").to_range()
         >>> b = SpecifierSet(">=2.0").to_range()
@@ -680,22 +728,36 @@ class VersionRange:
         if not isinstance(other, VersionRange):
             raise TypeError(f"expected VersionRange, got {type(other).__name__}")
 
+        # Subtracting a nothing-admitting set is a no-op. Short-circuit so an
+        # empty-bounds self (e.g. ``~full()``) keeps its provenance flag, which
+        # the general path would drop. An empty-bounds ``other`` with a region is
+        # excluded: it must reach the merge so ``a - b`` keeps matching ``a & ~b``.
+        if not other._bounds and not other._admit and not other._pre_region:
+            return self
+
         # Bound complement is two-way, so subtracting other's versions is an
         # intersection with its gaps.
         new_bounds = tuple(
             intersect_ranges(self._bounds, _complement_ranges(other._bounds))
         )
 
-        # Complement is one-way for arbitrary strings and ``===`` literals, so
-        # read admission off other directly: a string survives when self admits
-        # it and other does not.
-        combined_arb = self._admit_arbitrary and not other._admit_arbitrary
+        # Same opt-in region ``self & ~other`` would build: ``other``'s region
+        # only force-admits within ``new_bounds``, where ``~other`` would have
+        # revived it. A configured self keeps no region, so skip the merge there.
+        new_region: tuple[_Interval, ...] = ()
+        if self._prereleases_configured is None:
+            new_region = self._merged_region(other)
+
+        # Keep self's arbitrary admission. Other only removes it at full bounds,
+        # where nothing survives, so the empty result drops it (as in
+        # :meth:`intersection`) with no separate other-side test.
+        combined_arb = self._admit_arbitrary and bool(new_bounds)
 
         if not self._has_literals() and not other._has_literals():
             return self._build(
                 new_bounds,
                 admit_arbitrary=combined_arb,
-                prereleases=self._prereleases,
+                pre_region=new_region,
                 prereleases_configured=self._prereleases_configured,
             )
 
@@ -704,7 +766,7 @@ class VersionRange:
             new_bounds,
             op=_SetOp.DIFFERENCE,
             admit_arbitrary=combined_arb,
-            prereleases=self._prereleases,
+            pre_region=new_region,
             prereleases_configured=self._prereleases_configured,
         )
 
@@ -715,15 +777,14 @@ class VersionRange:
         *,
         op: _SetOp,
         admit_arbitrary: bool,
-        prereleases: bool | None,
+        pre_region: tuple[_Interval, ...],
         prereleases_configured: bool | None,
     ) -> VersionRange:
         """Resolve admit/reject for ``self`` ``op`` ``other`` over their literals."""
         admits: set[str] = set()
         rejects: set[str] = set()
 
-        # Each literal is decided on its own: test it against both operands,
-        # then admit or reject it by the set operation.
+        # Each literal is decided independently of the others.
         for literal in self._admit | self._reject | other._admit | other._reject:
             self_in = self._matches_literal(literal)
             other_in = other._matches_literal(literal)
@@ -745,7 +806,7 @@ class VersionRange:
             admit=frozenset(admits),
             reject=frozenset(rejects),
             admit_arbitrary=admit_arbitrary,
-            prereleases=prereleases,
+            pre_region=pre_region,
             prereleases_configured=prereleases_configured,
         )
 
@@ -786,10 +847,10 @@ class VersionRange:
     def is_subset(self, other: VersionRange) -> bool:
         """Return whether every member of self is also a member of other.
 
-        Equivalent to ``(self & ~other).is_empty``. For ``===`` ranges and the
-        arbitrary-admitting full range, complement is one-way, so the result
-        matches :meth:`contains` for versions but not for the non-version
-        strings those ranges admit.
+        Equivalent to ``(self & ~other).is_empty``. Complement is one-way for
+        ``===`` ranges and the arbitrary-admitting full range, so the result
+        tracks :meth:`contains` on versions but not on the non-version strings
+        those ranges admit.
 
         Both operands must share the same configured pre-release policy;
         otherwise :exc:`ValueError` is raised.
@@ -873,7 +934,10 @@ class VersionRange:
         """Yield items from iterable whose version falls inside the range.
 
         With prereleases ``None`` the PEP 440 default applies: pre-releases are
-        buffered and only emitted if no final release in iterable is in range.
+        buffered and only emitted if no final release in iterable is in range,
+        except that a pre-release inside the autodetected opt-in region, or named
+        outright by a ``===`` literal, is force-admitted in place (as
+        ``prereleases=True`` would yield it).
 
         The signature mirrors
         :meth:`~packaging.specifiers.SpecifierSet.filter`.
@@ -882,13 +946,25 @@ class VersionRange:
         >>> list(r.filter(["0.9", "1.5", "2.0"]))
         ['1.5']
         """
+        region: tuple[_Interval, ...] = ()
         if prereleases is None:
-            prereleases = self._prereleases
+            # The region applies only under the autodetect default; a configured
+            # policy governs instead (and then ``_pre_region`` is already empty).
+            prereleases = self._prereleases_configured
+            region = self._pre_region
 
         arbitrary_active = self._arbitrary_active()
         if not self._admit and not self._reject and not arbitrary_active:
-            return filter_by_ranges(self._bounds, iterable, key, prereleases)
-        return self._filter_with_admission(iterable, key, prereleases, arbitrary_active)
+            # A region spanning the whole bounds force-admits every in-bounds
+            # pre-release, i.e. ``prereleases=True``; take the cheaper no-buffer
+            # path. (Confined to this branch: the admission path orders arbitrary
+            # strings differently under True than under the region.)
+            if region and region == self._bounds:
+                return filter_by_ranges(self._bounds, iterable, key, True)
+            return filter_by_ranges(self._bounds, iterable, key, prereleases, region)
+        return self._filter_with_admission(
+            iterable, key, prereleases, arbitrary_active, region
+        )
 
     def _filter_with_admission(
         self,
@@ -896,38 +972,40 @@ class VersionRange:
         key: Callable[[Any], Version | str] | None,
         prereleases: bool | None,
         arbitrary_active: bool,
+        region: tuple[_Interval, ...],
     ) -> Iterator[Any]:
         """Filter for ranges with admit/reject literals or live arbitrary
         admission (including the universal ``SpecifierSet("")`` range)."""
         admit_set = self._admit
         reject_set = self._reject
 
-        def admit(item: Any) -> tuple[bool, Version | None]:  # noqa: ANN401
+        def admit(item: Any) -> tuple[bool, Version | None, bool]:  # noqa: ANN401
             raw: Version | str = item if key is None else key(item)
             raw_lower = str(raw).lower()
 
             if reject_set and raw_lower in reject_set:
-                return False, None
+                return False, None, False
             if admit_set and raw_lower in admit_set:
-                return True, coerce_version(raw)
+                # An explicit ``===`` literal names this version outright.
+                return True, coerce_version(raw), True
 
             parsed = coerce_version(raw)
             if parsed is None:
-                return arbitrary_active, None
+                return arbitrary_active, None, False
             if not matches_bounds_only(self._bounds, parsed):
-                return False, None
-            return True, parsed
+                return False, None, False
+            return True, parsed, False
 
         if prereleases is True:
             for item in iterable:
-                ok, _ = admit(item)
+                ok, _, _ = admit(item)
                 if ok:
                     yield item
             return
 
         if prereleases is False:
             for item in iterable:
-                ok, parsed = admit(item)
+                ok, parsed, _ = admit(item)
                 if not ok:
                     continue
                 if parsed is not None and parsed.is_prerelease:
@@ -935,11 +1013,14 @@ class VersionRange:
                 yield item
             return
 
+        # PEP 440 default: emit finals eagerly and buffer the other pre-releases,
+        # releasing the buffer only if no final ever matches.
         all_nonfinal: list[Any] = []
         arbitrary_strings: list[Any] = []
         found_final = False
+
         for item in iterable:
-            ok, parsed = admit(item)
+            ok, parsed, by_literal = admit(item)
             if not ok:
                 continue
 
@@ -956,6 +1037,13 @@ class VersionRange:
                     yield from arbitrary_strings
                     arbitrary_strings.clear()
                     found_final = True
+                yield item
+                continue
+
+            # A pre-release is force-admitted when it is named outright by a
+            # ``===`` literal or falls in the opt-in region, as ``prereleases=True``
+            # would yield it; otherwise the PEP 440 default buffers it.
+            if by_literal or (region and matches_bounds_only(region, parsed)):
                 yield item
                 continue
 
@@ -993,8 +1081,19 @@ class VersionRange:
                     )
                 result = result.intersection(operand)
 
+        # Each pre-release-naming specifier opts its own versions in; their raw
+        # union is the region, the same value _merged_region accumulates (so a set
+        # built directly equals one built from its specifiers).
+        region: list[_Interval] = []
+        if specifier_set._prereleases is None:  # a configured policy has no region
+            for spec in specifier_set:
+                # ``===`` literals are not a range; filter force-admits them.
+                if spec.operator != "===" and spec.prereleases:
+                    spec_bounds = _canonical_floor(tuple(spec._to_ranges()))
+                    region = _union_ranges(region, spec_bounds)
+
         return result._with_policy(
-            resolved=specifier_set.prereleases,
+            pre_region=tuple(region),
             configured=specifier_set._prereleases,
         )
 
@@ -1018,8 +1117,9 @@ class VersionRange:
         if self._arbitrary_active():
             return False
 
+        excludes_prereleases = self._prereleases_configured is False
         for literal in self._admit:
-            if self._prereleases is False:
+            if excludes_prereleases:
                 parsed = coerce_version(literal)
                 if parsed is not None and parsed.is_prerelease:
                     continue
@@ -1028,7 +1128,7 @@ class VersionRange:
         if not self._bounds:
             return True
 
-        return self._prereleases is False and ranges_are_prerelease_only(self._bounds)
+        return excludes_prereleases and ranges_are_prerelease_only(self._bounds)
 
     def contains(
         self,
@@ -1043,6 +1143,11 @@ class VersionRange:
             uses the range's own policy.
         :param installed: when ``True``, accept a pre-release item even if the
             range would not otherwise allow it.
+
+        Unlike :meth:`filter`, this does not consult the autodetected pre-release
+        opt-in region; it reads only the configured policy. This mirrors
+        :meth:`~packaging.specifiers.SpecifierSet.contains` versus
+        :meth:`~packaging.specifiers.SpecifierSet.filter`.
 
         Unparsable strings do not match, except where the full
         ``SpecifierSet`` would also match: the full range admits any string,
@@ -1108,20 +1213,22 @@ class VersionRange:
     def __eq__(self, other: object) -> bool:
         """Structural equality.
 
-        Two ranges compare equal when every input to :meth:`contains` and
-        :meth:`filter` agrees: the bounds, the ``===`` admit/reject literals,
-        the arbitrary-string flag, and both the configured and resolved
-        pre-release policies. Equal ranges therefore filter identically.
+        Compares the bounds, the ``===`` admit/reject literals, the
+        arbitrary-string flag, the configured pre-release policy, and the raw
+        opt-in region, not just the version set. Keying on the raw region makes
+        equality a congruence (equal ranges stay equal under further operations),
+        so equal implies same :meth:`contains` and :meth:`filter`, but not the
+        converse: an empty range keeps the inert region and flag it was built
+        with, so two empty ranges need not be equal.
 
-        Different specifiers for the same set fold to one canonical bound form,
-        so they compare equal. ``>1.0a1`` excludes ``1.0a1``'s post-releases, so
-        its smallest member is ``1.0a2.dev0``, the same set as ``>=1.0a2.dev0``:
+        Different specifiers for the same range fold to one canonical form:
 
         >>> SpecifierSet(">1.0a1").to_range() == SpecifierSet(">=1.0a2.dev0").to_range()
         True
 
-        The pre-release policy is still part of equality, so two ranges with the
-        same versions but different policies stay unequal:
+        The opt-in region is part of equality, so ``<=1.0`` (no pre-releases) and
+        ``<1.0.post0.dev0`` (autodetects a ``.dev`` opt-in) cover the same
+        versions yet compare unequal:
 
         >>> le, lt = SpecifierSet("<=1.0"), SpecifierSet("<1.0.post0.dev0")
         >>> le.to_range() == lt.to_range()
@@ -1139,7 +1246,7 @@ class VersionRange:
             and self._reject == other._reject
             and self._admit_arbitrary == other._admit_arbitrary
             and self._prereleases_configured == other._prereleases_configured
-            and self._prereleases == other._prereleases
+            and self._pre_region == other._pre_region
         )
 
     def __hash__(self) -> int:
@@ -1150,7 +1257,7 @@ class VersionRange:
                 self._reject,
                 self._admit_arbitrary,
                 self._prereleases_configured,
-                self._prereleases,
+                self._pre_region,
             )
         )
 
@@ -1164,24 +1271,25 @@ class VersionRange:
         >>> SpecifierSet(">=2.0,<1.0").to_range()
         <VersionRange '(empty)'>
         """
+        # Body: the bounds and any ``===``-admitted literals.
         parts: list[str] = []
         if self._bounds:
-            parts.append(
-                " | ".join(
-                    f"{_format_lower(lower)}, {_format_upper(upper)}"
-                    for lower, upper in self._bounds
-                )
-            )
+            parts.append(_format_intervals(self._bounds))
         if self._admit:
             parts.append("{" + ", ".join(sorted(self._admit)) + "}")
-
         body = " | ".join(parts) if parts else "(empty)"
+
+        # Rejected literals subtract from the body.
         if self._reject:
             body = f"{body} \\ {{{', '.join(sorted(self._reject))}}}"
 
+        # Tail: the policy flags carried alongside the version set.
         tail = ""
         if self._admit_arbitrary:
             tail += " arbitrary"
         if self._prereleases_configured is not None:
             tail += f" pre={self._prereleases_configured}"
+        if self._pre_region:
+            tail += f" pre-region={_format_intervals(self._pre_region)!r}"
+
         return f"<{self.__class__.__name__} {body!r}{tail}>"

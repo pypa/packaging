@@ -8,7 +8,7 @@ Each relation is pinned to its set-algebra definition (the oracle the methods
 optimize): ``is_disjoint`` to ``(a & b).is_empty`` and ``is_subset`` to
 ``(a & ~b).is_empty``. The plain strategy exercises the bounds-only fast path;
 the ``===`` strategy forces the algebra fallback, so the same oracle guards
-both code paths. Pointwise-membership and symmetry round out the checks.
+both code paths. Pointwise-membership and symmetry are also checked.
 """
 
 from __future__ import annotations
