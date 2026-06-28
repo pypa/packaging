@@ -52,6 +52,10 @@ class Requirement:
         The dedicated pickle support introduced in 26.2 did not preserve the
         specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
         override; it is now included again.
+
+        Equality and hashing normalize requirement names, extras, and
+        equivalent specifiers. The string representation still preserves the
+        parsed name and extras spelling.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
