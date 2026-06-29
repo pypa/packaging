@@ -65,7 +65,8 @@ _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
-_wheel_name_regex = re.compile(r"^[\w._]*$", re.UNICODE)
+# Requires at least one character so an empty project name is rejected.
+_wheel_name_regex = re.compile(r"^[\w._]+$", re.UNICODE)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
@@ -210,7 +211,8 @@ def parse_wheel_filename(
        The *validate_order* parameter.
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidWheelFilename` on empty tag set components.
+       Raises :class:`InvalidWheelFilename` on empty tag set components or an
+       empty project name.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -274,7 +276,8 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     :raises InvalidSdistFilename: If the filename does not end
         with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
         contain a dash separating the name and the version of the distribution,
-        or if the version portion is not a valid version.
+        if the project name is empty, or if the version portion is not a valid
+        version.
 
     >>> from packaging.utils import parse_sdist_filename
     >>> from packaging.version import Version
@@ -283,6 +286,9 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     'foo'
     >>> ver == Version('1.0')
     True
+
+    .. versionchanged:: 26.3
+       Raises :class:`InvalidSdistFilename` on an empty project name.
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
@@ -301,6 +307,10 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     name_part, sep, version_part = file_stem.rpartition("-")
     if not sep:
         raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
+    if not name_part:
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (empty project name): {filename!r}"
+        )
 
     name = canonicalize_name(name_part)
 
