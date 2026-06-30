@@ -385,12 +385,15 @@ class VersionRange:
 
     #: Sorted, disjoint intervals where pre-releases are force-admitted under
     #: the PEP 440 default policy (a ``None`` ``prereleases`` argument and no
-    #: configured override). Set algebra (:meth:`union`, :meth:`intersection`,
-    #: :meth:`difference`) accumulates this autodetected opt-in raw (not clipped
-    #: to the result bounds), which keeps it distributive. It may reach past the
-    #: bounds, but :meth:`filter` only force-admits a pre-release that already
-    #: passed the bounds check, so the out-of-bounds part never fires. Equality
-    #: keys on the raw region, so it stays a congruence.
+    #: configured override). The opt-in flows only from the pre-release-naming
+    #: specifiers that built the range. :meth:`union` and :meth:`intersection`
+    #: accumulate it raw (not clipped to the result bounds), which keeps it
+    #: distributive; :meth:`difference` keeps only the minuend's; and
+    #: :meth:`complement` drops it, since an exclusion grants no opt-in. The raw
+    #: union may reach past the bounds, but :meth:`filter` only force-admits a
+    #: pre-release that already passed the bounds check, so the out-of-bounds
+    #: part never fires. Equality keys on the raw region, so it stays a
+    #: congruence.
     _pre_region: tuple[_Interval, ...]
 
     #: Raw configured pre-release override of the originating specifier set
@@ -496,10 +499,9 @@ class VersionRange:
     def _merged_region(self, other: VersionRange) -> tuple[_Interval, ...]:
         """Union of ``self`` and ``other``'s opt-in regions, kept raw.
 
-        The same OR ``SpecifierSet`` autodetect runs across its specifiers; see
-        the ``_pre_region`` slot for why the union stays unclipped. It does not
-        check policy compatibility, since a configured operand carries an empty
-        region, so :meth:`difference` may pass an ``other`` whose policy differs.
+        Used by :meth:`union` and :meth:`intersection`; see the ``_pre_region``
+        slot for why the union stays unclipped. A configured operand carries an
+        empty region, so it contributes nothing to the merge.
         """
         # Reuse an operand's canonical tuple when only one side has a region;
         # an empty side contributes nothing to the union.
@@ -683,10 +685,12 @@ class VersionRange:
         range with no ``===`` literals (the arbitrary-string flag round-trips, so
         ``~~full() == full()``); for ``===`` ranges complement is one-way.
 
-        The opt-in region rides through unchanged, not clipped to the new bounds,
-        so complement stays an involution. It is inert outside the bounds (see the
-        ``_pre_region`` slot), which is what lets ``a & ~b`` shed ``b``'s in-bounds
-        opt-in.
+        The opt-in region is dropped: a complement is an exclusion, and an
+        exclusion expresses no pre-release preference. This is what lets
+        ``a & ~b`` shed ``b``'s opt-in, so an excluded ``b`` never force-admits a
+        pre-release into the result. Complement stays involutive on the version
+        set, but not on the opt-in region: ``~~r`` covers the same versions as
+        ``r`` yet force-admits none of its pre-releases.
 
         >>> r = SpecifierSet(">=1.0").to_range()
         >>> "0.5" in r.complement()
@@ -703,7 +707,7 @@ class VersionRange:
             admit=self._reject,
             reject=self._admit,
             admit_arbitrary=self._admit_arbitrary,
-            pre_region=self._pre_region,
+            pre_region=(),
             prereleases_configured=self._prereleases_configured,
         )
 
@@ -729,10 +733,9 @@ class VersionRange:
             raise TypeError(f"expected VersionRange, got {type(other).__name__}")
 
         # Subtracting a nothing-admitting set is a no-op. Short-circuit so an
-        # empty-bounds self (e.g. ``~full()``) keeps its provenance flag, which
-        # the general path would drop. An empty-bounds ``other`` with a region is
-        # excluded: it must reach the merge so ``a - b`` keeps matching ``a & ~b``.
-        if not other._bounds and not other._admit and not other._pre_region:
+        # empty-bounds self (e.g. ``~full()``) keeps its arbitrary-string flag,
+        # which the general path would drop.
+        if not other._bounds and not other._admit:
             return self
 
         # Bound complement is two-way, so subtracting other's versions is an
@@ -741,12 +744,12 @@ class VersionRange:
             intersect_ranges(self._bounds, _complement_ranges(other._bounds))
         )
 
-        # Same opt-in region ``self & ~other`` would build: ``other``'s region
-        # only force-admits within ``new_bounds``, where ``~other`` would have
-        # revived it. A configured self keeps no region, so skip the merge there.
+        # Match ``self & ~other`` on the opt-in region: a complement carries no
+        # opt-in, so only ``self``'s region survives. ``other`` acts as a
+        # bounds-only exclusion. A configured ``self`` keeps no region.
         new_region: tuple[_Interval, ...] = ()
         if self._prereleases_configured is None:
-            new_region = self._merged_region(other)
+            new_region = self._pre_region
 
         # Keep self's arbitrary admission. Other only removes it at full bounds,
         # where nothing survives, so the empty result drops it (as in

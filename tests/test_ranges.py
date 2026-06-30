@@ -458,11 +458,16 @@ class TestPrereleaseRegion:
         assert list(u.filter(["1.5b1", "1.2a1"])) == ["1.5b1", "1.2a1"]
         assert list(u.filter(["1.5b1", "1.2a1", "1.3"])) == ["1.3"]
 
-    def test_double_complement_preserves_region_and_filtering(self) -> None:
+    def test_double_complement_drops_region_keeps_versions(self) -> None:
+        # A complement is an exclusion and carries no opt-in, so a double
+        # complement covers the same versions as the original yet force-admits
+        # none of its pre-releases.
         r = vr(">=2.0b1")
-        assert ~~r == r
+        assert (~~r)._bounds == r._bounds
+        assert (~~r)._pre_region == ()
         cand = ["1.5b1", "2.0b1", "2.5", "2.5b1"]
-        assert list((~~r).filter(cand)) == list(r.filter(cand))
+        assert list(r.filter(cand)) == ["2.0b1", "2.5", "2.5b1"]
+        assert list((~~r).filter(cand)) == ["2.5"]
 
     def test_difference_minuend_with_literal_and_region(self) -> None:
         # A minuend carrying both a ``===`` literal and an autodetected opt-in
@@ -1270,10 +1275,11 @@ class TestCoverageEdges:
         )
 
     def test_eq_full_region_mismatch(self) -> None:
-        # The floor shape that exposed the substitutability bug: same bounds,
-        # but ``>=0.dev0`` carries a full opt-in region and ``full()`` carries
-        # none, so the two must stay unequal.
-        b = ~~vr(">=0.dev0")
+        # Same bounds and arbitrary flag but a different opt-in region must stay
+        # unequal, so the two never substitute for each other. ``>=0.dev0`` names
+        # a pre-release across the whole line, so it carries a full opt-in region;
+        # ``full(admit_arbitrary=False)`` carries none.
+        b = vr(">=0.dev0")
         c = VersionRange.full(admit_arbitrary=False)
         assert b._bounds == c._bounds
         assert b._admit_arbitrary == c._admit_arbitrary

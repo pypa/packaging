@@ -184,6 +184,10 @@ def test_lattice_laws_hold_with_pre_release_regions(
     pre-release-naming specifiers, so this runs the raw-region merge in
     ``_merged_region`` through commutativity, associativity, idempotence, double
     complement, De Morgan, and both distributive laws.
+
+    Double complement is involutive on the version set but not the opt-in region
+    (an exclusion grants no opt-in, so complement drops it), so it is checked
+    with ``eq_versions_only``. The other laws keep the region whole on both sides.
     """
     ra, rb, rc = a.to_range(), b.to_range(), c.to_range()
     assert ra | rb == rb | ra
@@ -192,7 +196,7 @@ def test_lattice_laws_hold_with_pre_release_regions(
     assert (ra & rb) & rc == ra & (rb & rc)
     assert ra | ra == ra
     assert ra & ra == ra
-    assert ~~ra == ra
+    assert eq_versions_only(~~ra, ra)
     assert ~(ra & rb) == ~ra | ~rb
     assert ~(ra | rb) == ~ra & ~rb
     assert ra.union(rb.intersection(rc)) == ra.union(rb).intersection(ra.union(rc))
