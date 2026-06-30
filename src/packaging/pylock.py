@@ -593,10 +593,7 @@ class Package:
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        # The presence of the wheels key (even as an empty array) counts as wheels
-        # being specified, since ``[[packages.wheels]]`` is mutually exclusive with
-        # vcs, directory, and archive regardless of how many wheels it contains.
-        distributions = bool(package.sdist) + (package.wheels is not None)
+        distributions = bool(package.sdist) + len(package.wheels or [])
         direct_urls = (
             bool(package.vcs) + bool(package.directory) + bool(package.archive)
         )
