@@ -287,11 +287,11 @@ class TestSetAlgebra:
         keep = vr(">=2.0b1") - vr(">=3.0")
         assert list(keep.filter(["2.5", "2.0b1"])) == ["2.5", "2.0b1"]
 
-    def test_difference_allows_mismatched_policy(self) -> None:
-        # Unlike intersection, difference discards the subtrahend's policy, so
-        # the operands need not share a configured policy.
-        d = vr(">=1.0") - vr(">=2.0", prereleases=True)
-        assert list(d.filter(["2.0b1", "1.5a1", "1.0"])) == ["1.0"]
+    def test_difference_requires_matching_policy(self) -> None:
+        # difference matches ``self & ~other``, which requires a shared
+        # configured policy, so a mismatch raises like intersection and union.
+        with pytest.raises(ValueError, match="different"):
+            vr(">=1.0") - vr(">=2.0", prereleases=True)
 
     def test_difference_punches_hole(self) -> None:
         # Subtracting an interior range leaves two intervals.

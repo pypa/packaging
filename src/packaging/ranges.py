@@ -660,13 +660,13 @@ class VersionRange:
     def difference(self, other: VersionRange) -> VersionRange:
         """Range containing the versions in self but not in other.
 
-        On the version set this matches ``self & ~other``, but the result keeps
+        On the version set this matches ``self & ~other``, and the result keeps
         only ``self``'s admissions and pre-release policy: a non-version string
         or ``===`` literal is a member exactly when ``self`` admits it and
-        ``other`` does not. ``other`` is treated purely as an exclusion, so the
-        operands need not share a configured pre-release policy (unlike
-        :meth:`intersection` and :meth:`union`), and ``a - empty()`` returns a
-        range equal to ``a``.
+        ``other`` does not. Both operands must share the same configured
+        pre-release policy (as :meth:`intersection` and :meth:`union` require);
+        otherwise :exc:`ValueError` is raised. ``a - empty()`` returns a range
+        equal to ``a``.
 
         >>> a = SpecifierSet(">=1.0").to_range()
         >>> b = SpecifierSet(">=2.0").to_range()
@@ -677,8 +677,7 @@ class VersionRange:
         >>> a.difference(VersionRange.empty()) == a
         True
         """
-        if not isinstance(other, VersionRange):
-            raise TypeError(f"expected VersionRange, got {type(other).__name__}")
+        self._check_policy_compat(other)
 
         # Bound complement is two-way, so subtracting other's versions is an
         # intersection with its gaps.
