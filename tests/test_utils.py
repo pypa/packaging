@@ -181,6 +181,10 @@ def test_parse_wheel_filename(
         ("-1.0-py3-none-any.whl"),  # Empty project name
         ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
+        ("foo-01.0.0-py3-none-any.whl"),  # Version is not normalized
+        ("foo-v1.0-py3-none-any.whl"),  # Version is not normalized
+        ("foo-1.0c1-py3-none-any.whl"),  # Version is not normalized
+        ("foo-1.0+AbC-py3-none-any.whl"),  # Version is not normalized
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)

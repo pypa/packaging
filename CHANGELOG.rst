@@ -33,6 +33,8 @@ Fixes:
 * Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
+* Reject wheel filenames whose version field is not already normalized
+  according to PEP 440. (:issue:`873`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~

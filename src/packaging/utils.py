@@ -248,6 +248,10 @@ def parse_wheel_filename(
         raise InvalidWheelFilename(
             f"Invalid wheel filename (invalid version): {filename!r}"
         ) from e
+    if parts[1] != str(version):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (version is not normalized): {filename!r}"
+        )
 
     if dashes == 5:
         build_part = parts[2]
