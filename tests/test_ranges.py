@@ -407,19 +407,29 @@ class TestSetRelations:
         assert vr("===a").is_disjoint(vr("===b"))
         assert not vr("===a").is_disjoint(vr("===a"))
 
-    def test_literal_range_subset_matches_algebra(self) -> None:
-        # ``===`` ranges take the fallback path; it equals the set algebra.
-        a, b = vr("===a"), vr("===a") | vr("===b")
-        assert a.is_subset(b) == (a & ~b).is_empty
-        assert a.is_subset(b)
+    def test_literal_range_subset(self) -> None:
+        # is_subset is ``self - other``, so a literal only ``self`` admits keeps
+        # it from being a subset. ``self & ~other`` would miss this, since
+        # complement is one-way for ``===`` literals.
+        a = vr("===a")
+        ab = vr("===a") | vr("===b")
+
+        assert a.is_subset(ab)
+        assert not ab.is_subset(a)
+
+        assert ab.is_superset(a)
+        assert not a.is_superset(ab)
 
     def test_full_arbitrary_matches_algebra(self) -> None:
         # ``full()`` carries the arbitrary-string flag, so it is not plain and
-        # both relations defer to the algebra.
+        # both relations take the non-plain path.
         f, b = VersionRange.full(), vr(">=1.0")
-        assert f.is_subset(b) == (f & ~b).is_empty
-        assert f.is_disjoint(b) == (f & b).is_empty
+
+        assert not f.is_subset(b)
         assert b.is_subset(f)
+
+        # Disjointness still mirrors the intersection algebra directly.
+        assert f.is_disjoint(b) == (f & b).is_empty
 
     def test_prerelease_excluding_policy_matches_algebra(self) -> None:
         # ``prereleases=False`` ranges are not plain, so both relations take

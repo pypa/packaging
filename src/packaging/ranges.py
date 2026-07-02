@@ -785,10 +785,10 @@ class VersionRange:
     def is_subset(self, other: VersionRange) -> bool:
         """Return whether every member of self is also a member of other.
 
-        Equivalent to ``(self & ~other).is_empty``. For ``===`` ranges and the
-        arbitrary-admitting full range, complement is one-way, so the result
-        matches :meth:`contains` for versions but not for the non-version
-        strings those ranges admit.
+        Equivalent to ``self.difference(other).is_empty``: self is a subset of
+        other when subtracting other leaves nothing behind. This holds for
+        ``===`` literals and arbitrary-admitting ranges too, since
+        :meth:`difference` resolves each admitted string against both operands.
 
         Both operands must share the same configured pre-release policy;
         otherwise :exc:`ValueError` is raised.
@@ -807,7 +807,9 @@ class VersionRange:
         # Plain ranges: subset reduces to bounds containment, no algebra needed.
         if self._is_plain() and other._is_plain():
             return not intersect_ranges(self._bounds, _complement_ranges(other._bounds))
-        return self.intersection(other.complement()).is_empty
+        # difference (unlike intersection with the one-way complement) resolves
+        # ``===`` literals against both operands, so it stays correct for them.
+        return self.difference(other).is_empty
 
     def is_superset(self, other: VersionRange) -> bool:
         """Return whether every member of other is also a member of self.
