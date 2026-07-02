@@ -17,15 +17,17 @@ if TYPE_CHECKING:
 
 
 def eq_versions_only(a: VersionRange, b: VersionRange) -> bool:
-    """Compare two ranges ignoring the arbitrary-string and pre-release
-    policy slots.
+    """Compare two ranges by bounds and ``===`` literals only, ignoring the
+    arbitrary-string flag and both pre-release slots.
 
     Complement preserves ``_admit_arbitrary`` (only the universal range
     admits non-version strings, never algebra), so ``r | ~r`` is never
     structurally equal to ``VersionRange.full()`` when neither ``r`` nor
-    ``~r`` is empty. The pre-release configured override mirrors
-    ``SpecifierSet.__and__`` rather than pure Boolean algebra. Use this
-    helper when the property is "same set of versions accepted".
+    ``~r`` is empty. The configured override mirrors ``SpecifierSet.__and__``
+    rather than pure Boolean algebra, and the opt-in region (``_pre_region``)
+    is part of equality, so ``==`` distinguishes ranges that accept the same
+    versions. Use this helper when the property is "same set of versions
+    accepted".
     """
     return a._bounds == b._bounds and a._admit == b._admit and a._reject == b._reject
 

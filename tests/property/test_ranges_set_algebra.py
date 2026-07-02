@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import pytest
 from hypothesis import given
 
+from packaging._ranges import intersect_ranges
 from packaging.ranges import VersionRange
 from packaging.specifiers import SpecifierSet
 
@@ -172,6 +173,85 @@ def test_union_distributes_over_intersect(
     assert lhs == rhs
 
 
+@given(a=rich_specifier_sets(), b=rich_specifier_sets(), c=rich_specifier_sets())
+@SETTINGS
+def test_lattice_laws_hold_with_pre_release_regions(
+    a: SpecifierSet, b: SpecifierSet, c: SpecifierSet
+) -> None:
+    """The surviving lattice laws hold structurally when operands name pre-releases.
+
+    ``specifier_sets`` builds only ``major.minor`` bounds, so the laws above
+    never carry a non-empty opt-in region. ``rich_specifier_sets`` draws
+    pre-release-naming specifiers, so this runs the clipped-region merge in
+    ``_merged_region`` through commutativity, associativity, idempotence, double
+    complement, De Morgan, and the ``& over |`` distributive law.
+
+    Double complement is involutive on the version set but not the opt-in region
+    (an exclusion grants no opt-in, so complement drops it), so it is checked
+    with ``eq_versions_only``. ``| over &`` (L10) is not asserted: it fails once
+    the region is clipped (see the negative locks in ``test_ranges.py``).
+    """
+    ra, rb, rc = a.to_range(), b.to_range(), c.to_range()
+    assert ra | rb == rb | ra
+    assert ra & rb == rb & ra
+    assert (ra | rb) | rc == ra | (rb | rc)
+    assert (ra & rb) & rc == ra & (rb & rc)
+    assert ra | ra == ra
+    assert ra & ra == ra
+    assert eq_versions_only(~~ra, ra)
+    assert ~(ra & rb) == ~ra | ~rb
+    assert ~(ra | rb) == ~ra & ~rb
+    assert ra.intersection(rb.union(rc)) == ra.intersection(rb).union(
+        ra.intersection(rc)
+    )
+
+
+@given(a=rich_specifier_sets(), b=rich_specifier_sets(), c=rich_specifier_sets())
+@SETTINGS
+def test_region_stays_within_bounds(
+    a: SpecifierSet, b: SpecifierSet, c: SpecifierSet
+) -> None:
+    """The opt-in region is a subset of the bounds across the op closure.
+
+    This is the clip invariant: clipping the region against the bounds is a
+    no-op precisely when the region already sits inside them.
+    """
+    ra, rb, rc = a.to_range(), b.to_range(), c.to_range()
+    composites = [
+        ra,
+        ~ra,
+        ra | rb,
+        ra & rb,
+        ra - rb,
+        ra | (rb & rc),
+        (ra | rb) & rc,
+        (ra - rb) | rc,
+    ]
+    for r in composites:
+        assert tuple(intersect_ranges(r._pre_region, r._bounds)) == r._pre_region
+
+
+@given(a=rich_specifier_sets(), b=rich_specifier_sets())
+@SETTINGS
+def test_difference_equals_intersect_complement(
+    a: SpecifierSet, b: SpecifierSet
+) -> None:
+    """``a - b == a & ~b`` over pre-release-naming pairs.
+
+    ``rich_specifier_sets`` draws pre/post/dev/local/epoch RHS versions (no
+    ``===`` and no configured policy), so the two agree on bounds and region.
+    They would diverge over ``===`` literals and the arbitrary-string flag, which
+    this strategy does not draw; a configured-policy mismatch (where difference
+    raises like intersection) is covered by the unit tests in ``test_ranges.py``.
+    """
+    ra, rb = a.to_range(), b.to_range()
+    intersect_complement = ra & ~rb
+    assert ra - rb == intersect_complement
+    assert list((ra - rb).filter(VERSION_POOL)) == list(
+        intersect_complement.filter(VERSION_POOL)
+    )
+
+
 @given(spec_set=specifier_sets())
 @SETTINGS
 def test_operator_aliases(spec_set: SpecifierSet) -> None:
@@ -272,10 +352,9 @@ def test_exact_equals_singleton_intersection(
 def test_full_range_is_identity_for_filter(spec_set: SpecifierSet) -> None:
     """``full()`` is the identity for ``&`` w.r.t. filtering.
 
-    Pre-release eligibility rides on ``_prereleases``, which ``==`` and
-    ``__contains__`` ignore by design, so the structural laws above can't see
-    it; only ``filter`` does. Folding ``full() & r1 & r2 & ...`` must never
-    erase a range's tag.
+    Pre-release eligibility rides on the opt-in region (``_pre_region``), which
+    ``__contains__`` ignores; only ``filter`` reads it. Folding
+    ``full() & r1 & r2 & ...`` must never erase a range's region.
     """
     r = spec_set.to_range()
     full = VersionRange.full()
@@ -289,15 +368,22 @@ def test_full_range_is_identity_for_filter(spec_set: SpecifierSet) -> None:
 def test_intersection_filter_matches_merged_set(
     a: SpecifierSet, b: SpecifierSet
 ) -> None:
-    """``to_range`` is a homomorphism w.r.t. filtering.
+    """``to_range`` is a homomorphism w.r.t. intersection.
 
-    ``(a.to_range() & b.to_range()).filter`` equals
-    ``(a & b).to_range().filter``, including pre-release eligibility (which
-    the structural ``==`` laws above cannot observe).
+    A set built directly and one built by combining its specifiers carry the
+    same opt-in region. The check is structural, not just today's filter output,
+    because only equal raw regions stay equal (and filter identically) under a
+    later widening union.
     """
-    composed = list((a.to_range() & b.to_range()).filter(VERSION_POOL))
-    merged = list((a & b).to_range().filter(VERSION_POOL))
+    composed = a.to_range() & b.to_range()
+    merged = (a & b).to_range()
     assert composed == merged
+    assert list(composed.filter(VERSION_POOL)) == list(merged.filter(VERSION_POOL))
+
+    wide = SpecifierSet(">=0").to_range()
+    assert list((composed | wide).filter(VERSION_POOL)) == list(
+        (merged | wide).filter(VERSION_POOL)
+    )
 
 
 @given(spec_set=rich_specifier_sets(include_arbitrary=True))
@@ -319,6 +405,23 @@ def test_to_range_filter_and_contains_mirror_specifier_set(
         )
     for item in pool:
         assert (item in r) == (item in spec_set)
+
+
+@given(spec_set=specifier_sets(vary_prereleases=True))
+@SETTINGS
+def test_configured_policy_mirrors_specifier_set(spec_set: SpecifierSet) -> None:
+    """A configured ``prereleases`` policy filters and contains the same on the
+    range as on the originating set.
+
+    ``rich_specifier_sets`` (used above) always autodetects, so the
+    ``prereleases = configured`` branch of ``filter`` and a configured
+    ``contains`` go uncovered there; ``vary_prereleases`` draws explicit
+    True/False/None policies to exercise them.
+    """
+    r = spec_set.to_range()
+    assert list(r.filter(VERSION_POOL)) == list(spec_set.filter(VERSION_POOL))
+    for v in VERSION_POOL:
+        assert r.contains(v) == (v in spec_set)
 
 
 @given(spec_set=rich_specifier_sets(include_arbitrary=True))
