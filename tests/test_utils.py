@@ -181,10 +181,6 @@ def test_parse_wheel_filename(
         ("-1.0-py3-none-any.whl"),  # Empty project name
         ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
-        ("foo-01.0.0-py3-none-any.whl"),  # Version is not normalized
-        ("foo-v1.0-py3-none-any.whl"),  # Version is not normalized
-        ("foo-1.0c1-py3-none-any.whl"),  # Version is not normalized
-        ("foo-1.0+AbC-py3-none-any.whl"),  # Version is not normalized
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
@@ -196,6 +192,42 @@ def test_parse_wheel_filename(
 def test_parse_wheel_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    ("filename", "version"),
+    [
+        ("foo-01.0.0-py3-none-any.whl", Version("1.0.0")),
+        ("foo-v1.0-py3-none-any.whl", Version("1.0")),
+        ("foo-1.0c1-py3-none-any.whl", Version("1.0rc1")),
+        ("foo-1.0+AbC-py3-none-any.whl", Version("1.0+abc")),
+    ],
+)
+def test_parse_wheel_non_normalized_version_valid_by_default(
+    filename: str, version: Version
+) -> None:
+    name, parsed_version, build, tags = parse_wheel_filename(filename)
+
+    assert name == "foo"
+    assert parsed_version == version
+    assert build == ()
+    assert tags == frozenset({Tag("py3", "none", "any")})
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "foo-01.0.0-py3-none-any.whl",
+        "foo-v1.0-py3-none-any.whl",
+        "foo-1.0c1-py3-none-any.whl",
+        "foo-1.0+AbC-py3-none-any.whl",
+    ],
+)
+def test_parse_wheel_non_normalized_version_invalid_with_strict(
+    filename: str,
+) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, strict=True)
 
 
 @pytest.mark.parametrize(

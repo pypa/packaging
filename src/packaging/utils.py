@@ -178,6 +178,7 @@ def parse_wheel_filename(
     filename: str,
     *,
     validate_order: bool = False,
+    strict: bool = False,
 ) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
     """
     This function takes the filename of a wheel file, and parses it,
@@ -195,10 +196,13 @@ def parse_wheel_filename(
 
     If **validate_order** is true, compressed tag set components are
     checked to be in sorted order as required by PEP 425.
+    If **strict** is true, the version component must already be
+    normalized according to PEP 440.
 
     :param str filename: The name of the wheel file.
     :param bool validate_order: Check whether compressed tag set components
         are in sorted order.
+    :param bool strict: Check whether the version component is normalized.
     :raises InvalidWheelFilename: If the filename in question
         does not follow the :ref:`wheel specification
         <pypug:binary-distribution-format>`.
@@ -221,7 +225,8 @@ def parse_wheel_filename(
 
     .. versionchanged:: 26.3
        Raises :class:`InvalidWheelFilename` on empty tag set components or an
-       empty project name.
+       empty project name, and adds the *strict* parameter to opt into
+       rejecting non-normalized version fields.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -248,7 +253,7 @@ def parse_wheel_filename(
         raise InvalidWheelFilename(
             f"Invalid wheel filename (invalid version): {filename!r}"
         ) from e
-    if parts[1] != str(version):
+    if strict and parts[1] != str(version):
         raise InvalidWheelFilename(
             f"Invalid wheel filename (version is not normalized): {filename!r}"
         )
