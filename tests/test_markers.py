@@ -465,6 +465,26 @@ class TestMarker:
         )
         assert marker.evaluate({"extra": "foo-bar", "python_version": "3.12"})
 
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    def test_membership_value_str_normalization(self, variable: str) -> None:
+        # PEP 685 (extras) / PEP 735 (dependency_groups): the set-membership literal
+        # is normalized at parse time, so __str__/__eq__/__hash__ stay consistent with
+        # evaluate() (which already canonicalizes both operands for these keys).
+        raw = Marker(f'"S_P__A_M" in {variable}')
+        normalized = Marker(f'"s-p-a-m" in {variable}')
+
+        assert str(raw) == f'"s-p-a-m" in {variable}'
+        assert raw == normalized
+        assert hash(raw) == hash(normalized)
+
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    def test_membership_value_str_normalization_negated(self, variable: str) -> None:
+        raw = Marker(f'"Foo_Bar" not in {variable}')
+
+        assert str(raw) == f'"foo-bar" not in {variable}'
+        assert raw == Marker(f'"foo-bar" not in {variable}')
+        assert hash(raw) == hash(Marker(f'"foo-bar" not in {variable}'))
+
     def test_python_full_version_untagged_user_provided(self) -> None:
         """A user-provided python_full_version ending with a + is also repaired."""
         assert Marker("python_full_version < '3.12'").evaluate(
