@@ -1136,9 +1136,9 @@ class SpecifierSet(BaseSpecifier):
         if not isinstance(other, SpecifierSet):
             raise TypeError("expected a SpecifierSet")
         if self._has_arbitrary or other._has_arbitrary:
-            raise ValueError("set relations do not support === specifiers")
+            raise ValueError("version set relations do not support === specifiers")
 
-    def is_subset(self, other: SpecifierSet) -> bool:
+    def is_version_subset(self, other: SpecifierSet) -> bool:
         """Return whether every version matching this set also matches other.
 
         :raises ValueError:
@@ -1147,9 +1147,9 @@ class SpecifierSet(BaseSpecifier):
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
-        >>> SpecifierSet(">=3.12,<3.13").is_subset(SpecifierSet(">=3.12"))
+        >>> SpecifierSet(">=3.12,<3.13").is_version_subset(SpecifierSet(">=3.12"))
         True
-        >>> SpecifierSet(">=3.12").is_subset(SpecifierSet(">=3.12,<3.13"))
+        >>> SpecifierSet(">=3.12").is_version_subset(SpecifierSet(">=3.12,<3.13"))
         False
 
         .. versionadded:: 26.3
@@ -1157,7 +1157,7 @@ class SpecifierSet(BaseSpecifier):
         self._check_relation_operand(other)
         return self.to_range().is_subset(other.to_range())
 
-    def is_superset(self, other: SpecifierSet) -> bool:
+    def is_version_superset(self, other: SpecifierSet) -> bool:
         """Return whether every version matching other also matches this set.
 
         :raises ValueError:
@@ -1166,7 +1166,7 @@ class SpecifierSet(BaseSpecifier):
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
-        >>> SpecifierSet(">=3.12").is_superset(SpecifierSet(">=3.12,<3.13"))
+        >>> SpecifierSet(">=3.12").is_version_superset(SpecifierSet(">=3.12,<3.13"))
         True
 
         .. versionadded:: 26.3
@@ -1174,7 +1174,7 @@ class SpecifierSet(BaseSpecifier):
         self._check_relation_operand(other)
         return self.to_range().is_superset(other.to_range())
 
-    def is_disjoint(self, other: SpecifierSet) -> bool:
+    def is_version_disjoint(self, other: SpecifierSet) -> bool:
         """Return whether this set and other share no matching versions.
 
         :raises ValueError:
@@ -1183,9 +1183,9 @@ class SpecifierSet(BaseSpecifier):
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
-        >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.12"))
+        >>> SpecifierSet("<3.12").is_version_disjoint(SpecifierSet(">=3.12"))
         True
-        >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.11"))
+        >>> SpecifierSet("<3.12").is_version_disjoint(SpecifierSet(">=3.11"))
         False
 
         .. versionadded:: 26.3
