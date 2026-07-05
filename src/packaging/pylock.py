@@ -14,7 +14,7 @@ from typing import (
     TypeVar,
     cast,
 )
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from .markers import (
     Environment,
@@ -261,7 +261,8 @@ def _url_name(url: str | None) -> str | None:
     if not url:
         return None
     url_path = urlparse(url).path
-    return url_path.rsplit("/", 1)[-1]
+    # The last path component is percent-encoded, so decode it to the file name
+    return unquote(url_path.rsplit("/", 1)[-1])
 
 
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:

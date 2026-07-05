@@ -384,6 +384,14 @@ def test_pylock_invalid_vcs() -> None:
             "example-1.0-py3-none-any.whl",
         ),
         (
+            # percent-encoded url file name is decoded
+            PackageWheel(
+                url="https://example.com/example-2.12.1%2Bcu130-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.12.1+cu130-py3-none-any.whl",
+        ),
+        (
             # name preferred over path
             PackageWheel(
                 name="example-2.0-py3-none-any.whl",
