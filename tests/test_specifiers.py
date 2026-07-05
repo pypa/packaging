@@ -2382,6 +2382,108 @@ class TestSpecifierSet:
         assert not SpecifierSet("==1.0") == 12
 
     @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">2", ">1", True),
+            (">1", ">2", False),
+            (">=3.12,<3.13", ">=3.12", True),
+            (">=3.12,<3.13", ">=3.11,<3.13", True),
+            (">=3.12,<3.13", ">=3.12,<3.13", True),
+            (">=3.12,<3.13", ">=3.12,<3.12.5", False),
+            (">=2.0,<1.0", ">=3.12", True),
+            ("", ">=3.12", False),
+        ],
+    )
+    def test_is_subset(self, left: str, right: str, expected: bool) -> None:
+        spec = SpecifierSet(left)
+        other = SpecifierSet(right)
+
+        assert spec.is_subset(other) is expected
+        assert spec.is_subset(other) == spec.to_range().is_subset(other.to_range())
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">1", ">2", True),
+            (">2", ">1", False),
+            (">=3.12", ">=3.12,<3.13", True),
+            (">=3.11,<3.13", ">=3.12,<3.13", True),
+            (">=3.12,<3.13", ">=3.12,<3.13", True),
+            (">=3.12,<3.12.5", ">=3.12,<3.13", False),
+            (">=3.12", ">=2.0,<1.0", True),
+            (">=3.12", "", False),
+        ],
+    )
+    def test_is_superset(self, left: str, right: str, expected: bool) -> None:
+        spec = SpecifierSet(left)
+        other = SpecifierSet(right)
+
+        assert spec.is_superset(other) is expected
+        assert spec.is_superset(other) == spec.to_range().is_superset(other.to_range())
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            ("<3.12", ">=3.12", True),
+            ("<3.12", ">=3.11", False),
+            (">=3.12,<3.13", ">=3.13", True),
+            (">=3.12,<3.13", "==3.12.1", False),
+            (">=2.0,<1.0", ">=3.12", True),
+            ("", ">=3.12", False),
+        ],
+    )
+    def test_is_disjoint(self, left: str, right: str, expected: bool) -> None:
+        spec = SpecifierSet(left)
+        other = SpecifierSet(right)
+
+        assert spec.is_disjoint(other) is expected
+        assert spec.is_disjoint(other) == spec.to_range().is_disjoint(other.to_range())
+
+    @pytest.mark.parametrize(
+        "method",
+        ["is_subset", "is_superset", "is_disjoint"],
+    )
+    def test_set_relations_raise_on_prerelease_policy_mismatch(
+        self, method: str
+    ) -> None:
+        spec = SpecifierSet(">=1.0", prereleases=True)
+        other = SpecifierSet(">=1.0", prereleases=False)
+
+        with pytest.raises(ValueError, match="pre-release"):
+            getattr(spec, method)(other)
+
+    @pytest.mark.parametrize(
+        "method",
+        ["is_subset", "is_superset", "is_disjoint"],
+    )
+    def test_set_relations_require_specifierset(self, method: str) -> None:
+        spec = SpecifierSet(">=1.0")
+
+        with pytest.raises(TypeError, match="SpecifierSet"):
+            getattr(spec, method)(">=1.0")  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "method",
+        ["is_subset", "is_superset", "is_disjoint"],
+    )
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            ("===1.0", "==1.0"),
+            ("==1.0", "===1.0"),
+            ("===foobar", ">=1.0"),
+        ],
+    )
+    def test_set_relations_reject_arbitrary_equality(
+        self, method: str, left: str, right: str
+    ) -> None:
+        spec = SpecifierSet(left)
+        other = SpecifierSet(right)
+
+        with pytest.raises(ValueError, match="==="):
+            getattr(spec, method)(other)
+
+    @pytest.mark.parametrize(
         ("version", "specifier", "expected"),
         [
             ("1.0.0+local", "==1.0.0", True),
