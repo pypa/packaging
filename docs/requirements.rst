@@ -81,8 +81,7 @@ Reference
 
     .. versionchanged:: 22.0
         Added equality (``__eq__``) and hashing (``__hash__``) so requirements
-        can be compared and stored in sets / dicts. ``__hash__`` is consistent
-        with ``__eq__``.
+        can be compared and stored in sets / dicts.
 
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
