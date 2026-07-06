@@ -605,6 +605,21 @@ def test_chaining_associativity_and_str() -> None:
     assert str(a) == str(b)
 
 
+def test_str_preserves_nested_group_precedence() -> None:
+    # A nested group must keep its parentheses so str(Marker(...)) round-trips.
+    m = Marker(
+        'python_version < "3.10" and '
+        '((sys_platform == "linux" or sys_platform == "darwin"))'
+    )
+    reparsed = Marker(str(m))
+    for env in (
+        {"python_version": "3.12", "sys_platform": "darwin"},
+        {"python_version": "3.12", "sys_platform": "linux"},
+        {"python_version": "3.9", "sys_platform": "darwin"},
+    ):
+        assert reparsed.evaluate(env) == m.evaluate(env)
+
+
 def test_hash_eq_for_combined_markers() -> None:
     assert hash(Marker('python_version >= "3.6" and os_name == "posix"')) == hash(
         Marker('python_version >= "3.6"') & Marker('os_name == "posix"')
