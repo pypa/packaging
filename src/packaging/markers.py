@@ -188,16 +188,14 @@ def _format_marker(
 ) -> str:
     assert isinstance(marker, (list, tuple, str))
 
-    # Sometimes we have a structure like [[...]] which is a single item list
-    # where the single item is itself it's own list. In that case we want skip
-    # the rest of this function so that we don't get extraneous () on the
-    # outside.
+    # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
+    # nested group keeps the parentheses its and/or precedence needs.
     if (
         isinstance(marker, list)
         and len(marker) == 1
         and isinstance(marker[0], (list, tuple))
     ):
-        return _format_marker(marker[0])
+        return _format_marker(marker[0], first=first)
 
     if isinstance(marker, list):
         inner = (_format_marker(m, first=False) for m in marker)
