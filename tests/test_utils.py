@@ -178,6 +178,8 @@ def test_parse_wheel_filename(
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
+        ("-1.0-py3-none-any.whl"),  # Empty project name
+        ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
@@ -230,6 +232,8 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
         ("foo-1.0.xz"),  # Incorrect extension
         ("foo1.0.tar.gz"),  # Missing separator
         ("foo-1.x.tar.gz"),  # Invalid version
+        ("-1.0.tar.gz"),  # Empty project name
+        ("-1.0.zip"),  # Empty project name (zip)
     ],
 )
 def test_parse_sdist_invalid_filename(filename: str) -> None:

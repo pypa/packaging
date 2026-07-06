@@ -73,8 +73,12 @@ class UndefinedComparison(ValueError):
     """
 
 
-class UndefinedEnvironmentName(ValueError):
-    """Raised when evaluating a marker that references a missing environment key."""
+class UndefinedEnvironmentName(KeyError):
+    """Raised when evaluating a marker that references a missing environment key.
+
+    Subclasses :class:`KeyError` so that code catching the bare ``KeyError`` that
+    a missing environment lookup historically produced keeps working.
+    """
 
 
 class Environment(TypedDict):
@@ -157,14 +161,16 @@ class Environment(TypedDict):
 def _normalize_extras(
     result: MarkerList | MarkerAtom | str,
 ) -> MarkerList | MarkerAtom | str:
+    if isinstance(result, list):
+        return [_normalize_extras(r) for r in result]
     if not isinstance(result, tuple):
         return result
 
     lhs, op, rhs = result
-    if isinstance(lhs, Variable) and lhs.value == "extra":
+    if isinstance(lhs, Variable) and lhs.value == "extra" and isinstance(rhs, Value):
         normalized_extra = canonicalize_name(rhs.value)
         rhs = Value(normalized_extra)
-    elif isinstance(rhs, Variable) and rhs.value == "extra":
+    elif isinstance(rhs, Variable) and rhs.value == "extra" and isinstance(lhs, Value):
         normalized_extra = canonicalize_name(lhs.value)
         lhs = Value(normalized_extra)
     return lhs, op, rhs
@@ -183,16 +189,14 @@ def _format_marker(
 ) -> str:
     assert isinstance(marker, (list, tuple, str))
 
-    # Sometimes we have a structure like [[...]] which is a single item list
-    # where the single item is itself it's own list. In that case we want skip
-    # the rest of this function so that we don't get extraneous () on the
-    # outside.
+    # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
+    # nested group keeps the parentheses its and/or precedence needs.
     if (
         isinstance(marker, list)
         and len(marker) == 1
         and isinstance(marker[0], (list, tuple))
     ):
-        return _format_marker(marker[0])
+        return _format_marker(marker[0], first=first)
 
     if isinstance(marker, list):
         inner = (_format_marker(m, first=False) for m in marker)
@@ -256,6 +260,15 @@ def _normalize(
     return lhs, rhs
 
 
+def _lookup_environment(
+    environment: dict[str, str | AbstractSet[str]], key: str
+) -> str | AbstractSet[str]:
+    try:
+        return environment[key]
+    except KeyError:
+        raise UndefinedEnvironmentName(key) from None
+
+
 def _evaluate_markers(
     markers: MarkerList, environment: dict[str, str | AbstractSet[str]]
 ) -> bool:
@@ -269,12 +282,12 @@ def _evaluate_markers(
 
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
-                lhs_value = environment[environment_key]
+                lhs_value = _lookup_environment(environment, environment_key)
                 rhs_value = rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
-                rhs_value = environment[environment_key]
+                rhs_value = _lookup_environment(environment, environment_key)
 
             assert isinstance(lhs_value, str), "lhs must be a string"
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
@@ -426,11 +439,19 @@ class Marker:
         raise TypeError(f"Cannot restore Marker from {state!r}")
 
     def __and__(self, other: Marker) -> Marker:
+        """Combine this marker with another using ``and``.
+
+        .. versionadded:: 26.1
+        """
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "and", other._markers])
 
     def __or__(self, other: Marker) -> Marker:
+        """Combine this marker with another using ``or``.
+
+        .. versionadded:: 26.1
+        """
         if not isinstance(other, Marker):
             return NotImplemented
         return self._from_markers([self._markers, "or", other._markers])

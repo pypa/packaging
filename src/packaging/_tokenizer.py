@@ -142,7 +142,7 @@ class Tokenizer:
     def expect(self, name: str, *, expected: str) -> Token:
         """Expect a certain token name next, failing with a syntax error otherwise.
 
-        The token is *not* read.
+        The token is read and returned.
         """
         if not self.check(name):
             raise self.raise_syntax_error(f"Expected {expected}")

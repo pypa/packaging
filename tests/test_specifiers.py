@@ -14,7 +14,7 @@ import typing
 import pytest
 
 from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
-from packaging.version import Version, parse
+from packaging.version import InvalidVersion, Version, parse
 
 from .test_version import VERSIONS
 
@@ -536,6 +536,8 @@ class TestSpecifier:
     )
     def test_specifiers(self, version: str, spec_str: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
+        # The range conversion must answer membership identically.
+        version_range = SpecifierSet(spec_str, prereleases=True).to_range()
 
         if expected:
             # Test that the plain string form works
@@ -545,6 +547,9 @@ class TestSpecifier:
             # Test that the version instance form works
             assert Version(version) in spec
             assert spec.contains(Version(version))
+
+            assert version in version_range
+            assert Version(version) in version_range
         else:
             # Test that the plain string form works
             assert version not in spec
@@ -553,6 +558,9 @@ class TestSpecifier:
             # Test that the version instance form works
             assert Version(version) not in spec
             assert not spec.contains(Version(version))
+
+            assert version not in version_range
+            assert Version(version) not in version_range
 
     @pytest.mark.parametrize(
         ("spec_str", "version", "expected"),
@@ -574,6 +582,9 @@ class TestSpecifier:
     def test_invalid_version(self, spec_str: str, version: str, expected: bool) -> None:
         spec = Specifier(spec_str, prereleases=True)
         assert spec.contains(version) == expected
+        # The ``===`` carve-out range answers via the literal match.
+        version_range = SpecifierSet(spec_str, prereleases=True).to_range()
+        assert (version in version_range) == expected
 
     @pytest.mark.parametrize(
         (
@@ -951,15 +962,23 @@ class TestSpecifier:
     ) -> None:
         if specifier_prereleases is None:
             spec = Specifier(specifier)
+            version_range = SpecifierSet(specifier).to_range()
         else:
             spec = Specifier(specifier, prereleases=specifier_prereleases)
+            version_range = SpecifierSet(
+                specifier, prereleases=specifier_prereleases
+            ).to_range()
 
         if prereleases is None:
             result = list(spec.filter(input))
+            range_result = list(version_range.filter(input))
         else:
             result = list(spec.filter(input, prereleases=prereleases))
+            range_result = list(version_range.filter(input, prereleases=prereleases))
 
         assert result == expected
+        # The range conversion must filter identically.
+        assert range_result == expected
 
     @pytest.mark.parametrize(
         ("specifier", "input", "expected"),
@@ -1603,13 +1622,18 @@ class TestSpecifierSet:
             spec = SpecifierSet(specifier)
         else:
             spec = SpecifierSet(specifier, prereleases=specifier_prereleases)
+        version_range = spec.to_range()
 
         if prereleases is None:
             result = list(spec.filter(input))
+            range_result = list(version_range.filter(input))
         else:
             result = list(spec.filter(input, prereleases=prereleases))
+            range_result = list(version_range.filter(input, prereleases=prereleases))
 
         assert result == expected
+        # The range conversion must filter identically.
+        assert range_result == expected
 
     @pytest.mark.parametrize(
         ("prereleases", "expected_indexes"),
@@ -2524,6 +2548,15 @@ class TestIsUnsatisfiable:
     """
 
     UNSATISFIABLE: typing.ClassVar[list[str]] = [
+        # Synthetic gaps: >V excludes V's post-releases, so the least version
+        # >1.0a1 admits is 1.0a2.dev0, which <1.0a2.dev0 excludes (#1267).
+        ">1.0a1,<1.0a2.dev0",
+        ">1!1.0a1,<1!1.0a2.dev0",
+        ">1.0b0,<1.0b1.dev0",
+        ">1.0,<1.0.post0.dev0",
+        # Floor: an exclusive upper at or below 0.dev0 strands an empty interval
+        "!=0.dev0,<0.dev1",
+        "!=0.dev0,<=0.dev0",
         # Crossed bounds
         ">=2.0,<1.0",
         ">=2.0,<2.0",
@@ -2807,6 +2840,10 @@ class TestIsUnsatisfiable:
         # === with parseable pre-release string
         "===1.0a1",
         "===1.0.dev0",
+        # Floor: only members are pre-releases (#1267)
+        "<0.dev1",
+        "<=0.dev0",
+        "<0a1",
         # Already unsatisfiable regardless of prereleases
         ">=2.0,<1.0",
     ]
@@ -2834,6 +2871,9 @@ class TestIsUnsatisfiable:
         # Inclusive upper at non-pre-release boundary
         ">=1.0rc1,<=1.0",
         ">=1.0.dev0,<=1.0",
+        # Pre-release-with-post lower: the final release still satisfies (#1267)
+        ">=1.0a1.post0,<=1.0",
+        ">=1.0.post0.dev0,<=1.0.post0",
     ]
 
     @pytest.mark.parametrize("spec_str", UNSATISFIABLE_NO_PRE)
@@ -2956,15 +2996,24 @@ class TestIsUnsatisfiable:
 
     def test_range_bounds_repr(self) -> None:
         [(lower, upper)] = Specifier(">=1.0")._to_ranges()
-        assert repr(lower) == "<_LowerBound [<Version('1.0')>>"
-        assert repr(upper) == "<_UpperBound None)>"
+        assert repr(lower) == "<LowerBound [<Version('1.0')>>"
+        assert repr(upper) == "<UpperBound None)>"
 
         [(lower2, upper2)] = Specifier(">1.0")._to_ranges()
         assert (
             repr(lower2)
-            == "<_LowerBound (_BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
+            == "<LowerBound (BoundaryVersion(<Version('1.0')>, AFTER_POSTS)>"
         )
-        assert repr(upper2) == "<_UpperBound None)>"
+        assert repr(upper2) == "<UpperBound None)>"
+
+    def test_range_bounds_reject_foreign_comparison(self) -> None:
+        # The bound classes only compare to their own kind; anything else
+        # returns NotImplemented so Python falls back to identity.
+        [(lower, upper)] = Specifier(">=1.0")._to_ranges()
+        assert lower.__eq__(object()) is NotImplemented
+        assert lower.__lt__(object()) is NotImplemented  # type: ignore[operator]
+        assert upper.__eq__(object()) is NotImplemented
+        assert upper.__lt__(object()) is NotImplemented  # type: ignore[operator]
 
 
 @pytest.mark.parametrize(
@@ -3431,3 +3480,117 @@ def test_specifierset_contains_reads_cached_bounds() -> None:
 
     ss._ranges = ()
     assert ss.contains("2.0") is False
+
+
+# Every shape ``SpecifierSet`` can take: each operator, wildcards, ``===``,
+# epochs, pre/post/dev/local boundaries, multi-spec sets, and unsatisfiable
+# sets. Used to prove ``to_range()`` preserves membership and filtering.
+_EQUIV_SPECS = [
+    "",
+    ">=1.0",
+    ">1.0",
+    "<=1.0",
+    "<1.0",
+    "==1.0",
+    "!=1.0",
+    "~=1.4.2",
+    "==1.2.*",
+    "!=1.2.*",
+    "==1.0+local",
+    "!=1.0+local",
+    ">=1.0a1",
+    "<1.0rc1",
+    ">2.0.post1",
+    "<=1.0.post2",
+    ">=1.0.dev1",
+    "==2!1.0",
+    ">=2!1.0,<2!2.0",
+    "===foobar",
+    "===1.0",
+    ">=1.0,<2.0",
+    ">=1.0,<2.0,!=1.5",
+    "!=1.4,!=1.6",
+    ">=1.0,<2.0,!=1.2.*",
+    "==1.0,!=1.0",
+    ">=2.0,<1.0",
+    "<0",
+]
+
+# Versions and arbitrary strings that stress every boundary the engine tracks.
+_EQUIV_ITEMS = [
+    "0.dev0",
+    "1.0.dev1",
+    "1.0a1",
+    "1.0rc1",
+    "1.0",
+    "1.0+local",
+    "1.0.post1",
+    "1.0.post2",
+    "1.0.post3",
+    "1.0.1",
+    "1.2",
+    "1.2.3",
+    "1.4.2",
+    "1.4.9",
+    "1.5",
+    "1.6",
+    "2.0",
+    "2.0.dev1",
+    "2!1.0",
+    "1.0.0",
+    "foobar",
+    "garbage",
+]
+
+
+def _parse_or_none(value: str) -> Version | None:
+    try:
+        return Version(value)
+    except InvalidVersion:
+        return None
+
+
+_EQUIV_VERSION_OBJS = [v for v in map(_parse_or_none, _EQUIV_ITEMS) if v is not None]
+
+
+class TestSpecifierSetToRangeEquivalence:
+    """``SpecifierSet.to_range()`` answers ``contains`` and ``filter``
+    identically to the originating :class:`SpecifierSet` for every shape,
+    item, and pre-release setting."""
+
+    @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
+    @pytest.mark.parametrize("configured", [None, True, False])
+    def test_contains_equivalent(self, spec_str: str, configured: bool | None) -> None:
+        spec_set = SpecifierSet(spec_str, prereleases=configured)
+        version_range = spec_set.to_range()
+        for item in _EQUIV_ITEMS:
+            assert (item in spec_set) == (item in version_range), (spec_str, item)
+            for prereleases in (None, True, False):
+                for installed in (None, True, False):
+                    assert spec_set.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ) == version_range.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ), (spec_str, item, prereleases, installed)
+
+    @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
+    @pytest.mark.parametrize("configured", [None, True, False])
+    def test_filter_equivalent(self, spec_str: str, configured: bool | None) -> None:
+        spec_set = SpecifierSet(spec_str, prereleases=configured)
+        version_range = spec_set.to_range()
+        for prereleases in (None, True, False):
+            assert list(spec_set.filter(_EQUIV_ITEMS, prereleases=prereleases)) == list(
+                version_range.filter(_EQUIV_ITEMS, prereleases=prereleases)
+            ), (spec_str, prereleases)
+
+    @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
+    def test_contains_equivalent_with_version_objects(self, spec_str: str) -> None:
+        # The same equivalence holds when the item is a ``Version`` instance.
+        spec_set = SpecifierSet(spec_str)
+        version_range = spec_set.to_range()
+        for version in _EQUIV_VERSION_OBJS:
+            assert (version in spec_set) == (version in version_range), (
+                spec_str,
+                version,
+            )
+            assert spec_set.contains(version) == version_range.contains(version)

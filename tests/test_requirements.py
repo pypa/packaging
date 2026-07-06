@@ -39,6 +39,11 @@ EQUIVALENT_DEPENDENCIES = [
         'foo[a]==1.0.0; python_version>="3.8"',
         'foo[a]==1.0.0.0; python_version>="3.8"',
     ),
+    # Extras that normalize to the same value are equivalent.
+    ("urllib3[secure]", "urllib3[SECURE]"),
+    ("fishtank[all-blue]", "fishtank[all_blue]"),
+    ("fishtank[all-blue]", "fishtank[all---blue]"),
+    ("fishtank[crazy-bunches]", "fishtank[cRazy_BUnches]"),
 ]
 
 DIFFERENT_DEPENDENCIES = [
@@ -337,6 +342,44 @@ class TestRequirementParsing:
             "           ~~~~~^"
         )
 
+    @pytest.mark.parametrize("operator", ["==", "!="])
+    def test_error_when_prefix_match_uses_post_release(self, operator: str) -> None:
+        # GIVEN
+        to_parse = f"name {operator} 1.2.3.post4.*"
+        op_tilde = len(operator) * "~"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            f"    name {operator} 1.2.3.post4.*\n"
+            f"         {op_tilde}~~~~~~~~~~~~~^"
+        )
+
+    def test_error_when_prefix_match_uses_post_release_without_spaces(
+        self,
+    ) -> None:
+        # GIVEN
+        to_parse = "name==1.2.3.post4.*"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            "    name==1.2.3.post4.*\n"
+            "        ~~~~~~~~~~~~~~^"
+        )
+
     @pytest.mark.parametrize("operator", [">=", "<=", ">", "<", "~="])
     def test_error_when_local_version_label_is_used_incorrectly(
         self, operator: str
@@ -471,6 +514,34 @@ class TestRequirementParsing:
             "    name; '3.7' <= invalid_name\n"
             "                   ^"
         )
+
+    @pytest.mark.parametrize(
+        ("to_parse", "expected"),
+        [
+            (
+                'name; os_name == "C:\\"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                '    name; os_name == "C:\\"\n'
+                "                     ~~~~~^",
+            ),
+            (
+                r'name; os_name == "\x"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                r'    name; os_name == "\x"'
+                "\n"
+                "                     ~~~~^",
+            ),
+        ],
+    )
+    def test_error_invalid_marker_malformed_quoted_string(
+        self, to_parse: str, expected: str
+    ) -> None:
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == expected
 
     def test_error_invalid_marker_notin_without_whitespace(self) -> None:
         # GIVEN

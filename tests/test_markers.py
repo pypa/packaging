@@ -19,6 +19,7 @@ from packaging.markers import (
     InvalidMarker,
     Marker,
     UndefinedComparison,
+    UndefinedEnvironmentName,
     _format_full_version,
     default_environment,
 )
@@ -197,6 +198,31 @@ class TestMarker:
     def test_parses_invalid(self, marker_string: str) -> None:
         with pytest.raises(InvalidMarker):
             Marker(marker_string)
+
+    @pytest.mark.parametrize(
+        ("marker_string", "expected"),
+        [
+            (
+                'os_name == "C:\\"',
+                "packaging.markers.InvalidMarker: Invalid quoted string\n"
+                '    os_name == "C:\\"\n'
+                "               ~~~~~^",
+            ),
+            (
+                r'os_name == "\x"',
+                "packaging.markers.InvalidMarker: Invalid quoted string\n"
+                r'    os_name == "\x"'
+                "\n"
+                "               ~~~~^",
+            ),
+        ],
+    )
+    def test_parses_invalid_malformed_quoted_string(
+        self, marker_string: str, expected: str
+    ) -> None:
+        with pytest.raises(InvalidMarker) as ctx:
+            Marker(marker_string)
+        assert ctx.exconly() == expected
 
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
@@ -422,6 +448,23 @@ class TestMarker:
         assert str(Marker(lhs)) == f'"{normalized_name}" == extra'
         assert str(Marker(rhs)) == f'extra == "{normalized_name}"'
 
+    def test_extra_compared_to_variable_not_normalized(self) -> None:
+        # A variable-vs-variable atom must not be rewritten into a string
+        # literal, even when one side is ``extra``.
+        assert str(Marker("extra == os_name")) == "extra == os_name"
+        assert str(Marker("os_name == extra")) == "os_name == extra"
+
+    def test_nested_extra_str_normalization(self) -> None:
+        marker = Marker(
+            '(extra == "Foo_Bar" or extra == "Baz") and python_version >= "3"'
+        )
+
+        assert (
+            str(marker)
+            == '(extra == "foo-bar" or extra == "baz") and python_version >= "3"'
+        )
+        assert marker.evaluate({"extra": "foo-bar", "python_version": "3.12"})
+
     def test_python_full_version_untagged_user_provided(self) -> None:
         """A user-provided python_full_version ending with a + is also repaired."""
         assert Marker("python_full_version < '3.12'").evaluate(
@@ -465,6 +508,17 @@ class TestMarker:
 
         with pytest.raises(KeyError):
             marker.evaluate(context="requirement")
+
+    def test_missing_environment_key_raises_undefined_environment_name(self) -> None:
+        marker = Marker('"foo" in extras')
+        with pytest.raises(UndefinedEnvironmentName) as ctx:
+            marker.evaluate()
+        assert ctx.value.args == ("extras",)
+        # UndefinedEnvironmentName subclasses KeyError, so the historical
+        # bare ``except KeyError`` for a missing environment key still works.
+        assert issubclass(UndefinedEnvironmentName, KeyError)
+        with pytest.raises(KeyError):
+            marker.evaluate()
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
@@ -549,6 +603,21 @@ def test_chaining_associativity_and_str() -> None:
     )
     assert a == b
     assert str(a) == str(b)
+
+
+def test_str_preserves_nested_group_precedence() -> None:
+    # A nested group must keep its parentheses so str(Marker(...)) round-trips.
+    m = Marker(
+        'python_version < "3.10" and '
+        '((sys_platform == "linux" or sys_platform == "darwin"))'
+    )
+    reparsed = Marker(str(m))
+    for env in (
+        {"python_version": "3.12", "sys_platform": "darwin"},
+        {"python_version": "3.12", "sys_platform": "linux"},
+        {"python_version": "3.9", "sys_platform": "darwin"},
+    ):
+        assert reparsed.evaluate(env) == m.evaluate(env)
 
 
 def test_hash_eq_for_combined_markers() -> None:

@@ -8,6 +8,16 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Features:
+
+* Add a public :class:`~packaging.ranges.VersionRange` API and
+  :meth:`SpecifierSet.to_range() <packaging.specifiers.SpecifierSet.to_range>`,
+  representing the versions a specifier set accepts as an interval set that
+  supports intersection, union, complement, membership tests, and filtering.
+  (:pull:`1267`)
+* Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
+  (:issue:`1220`)
+
 Behavior adaptations:
 
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
@@ -19,6 +29,7 @@ Fixes:
   trailing-zero-equivalent specifiers (e.g. ``foo==1.0.0`` and
   ``foo==1.0.0.0``), so equal requirements hash equal and deduplicate in
   sets and dicts. (:pull:`1232`)
+* Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 

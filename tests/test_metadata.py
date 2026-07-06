@@ -808,6 +808,7 @@ class TestMetadata:
             "LicenseRef-License with spaces",
             "LicenseRef-License_with_underscores",
             "LicenseRef-Foo+",
+            "LicenseRef-",
             "or",
             "and",
             "with",
@@ -833,6 +834,9 @@ class TestMetadata:
             "( ) or mit and ( )",
             "( ) with ( ) or mit",
             "mit with ( ) with ( ) or mit",
+            "mit WITH Classpath-exception-2.0 WITH GCC-exception-3.1",
+            "(mit) WITH Classpath-exception-2.0",
+            "(mit OR Apache-2.0) WITH Classpath-exception-2.0",
         ],
     )
     def test_invalid_license_expression(self, license_expression: str) -> None:

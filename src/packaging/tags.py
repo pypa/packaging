@@ -33,6 +33,7 @@ __all__ = [
     "InvalidTag",
     "PythonVersion",
     "Tag",
+    "TooManyTagsError",
     "UnsortedTagsError",
     "android_platforms",
     "compatible_tags",
@@ -56,7 +57,14 @@ def __dir__() -> list[str]:
 logger = logging.getLogger(__name__)
 
 PythonVersion = Sequence[int]
+"""
+A sequence of integers describing a Python version, e.g. ``(3, 13)``.
+"""
+
 AppleVersion = tuple[int, int]
+"""
+A ``(major, minor)`` integer pair describing an Apple OS version.
+"""
 _T = TypeVar("_T")
 
 INTERPRETER_SHORT_NAMES: dict[str, str] = {
@@ -88,6 +96,14 @@ class UnsortedTagsError(ValueError):
 class InvalidTag(ValueError):
     """
     Raised when a tag has an empty interpreter, ABI, or platform component.
+
+    .. versionadded:: 26.3
+    """
+
+
+class TooManyTagsError(ValueError):
+    """
+    Raised when a compressed tag set exceeds the configured limit.
 
     .. versionadded:: 26.3
     """
@@ -208,7 +224,9 @@ class Tag:
         raise TypeError(f"Cannot restore Tag from {state!r}")
 
 
-def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
+def parse_tag(
+    tag: str, *, validate_order: bool = False, limit: int | None = None
+) -> frozenset[Tag]:
     """
     Parses the provided tag (e.g. `py3-none-any`) into a frozenset of
     :class:`Tag` instances.
@@ -220,20 +238,33 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
     If **validate_order** is true, compressed tag set components are checked
     to be in sorted order as required by PEP 425.
 
+    If **limit** is not ``None``, the compressed tag set can generate at most
+    that many tags.
+
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
     :param bool validate_order: Check whether compressed tag set components
         are in sorted order.
+    :param int | None limit: The maximum number of tags to parse.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
     :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
         of a compressed tag set) is empty.
+    :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
+        set would generate more than **limit** tags.
+    :raises ValueError: If **limit** is negative.
 
     .. versionadded:: 26.1
        The *validate_order* parameter.
 
     .. versionadded:: 26.3
        Raises :class:`InvalidTag` on empty tag components.
+       Added the *limit* parameter. Raises :class:`TooManyTagsError` if the compressed
+       tag set would generate more than *limit* tags.
     """
+
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be non-negative")
+
     component_parts = [component.split(".") for component in tag.split("-")]
     for parts in component_parts:
         if "" in parts:
@@ -244,6 +275,16 @@ def parse_tag(tag: str, *, validate_order: bool = False) -> frozenset[Tag]:
             raise UnsortedTagsError(
                 f"Tag component {component!r} is not in sorted order per PEP 425"
             )
+
+    tag_count = 1
+    for parts in component_parts:
+        tag_count *= len(parts)
+
+    if limit is not None and tag_count > limit:
+        raise TooManyTagsError(
+            f"Compressed tag set would generate {tag_count} tags, exceeding "
+            f"limit {limit}"
+        )
 
     interpreters, abis, platforms = component_parts
     return frozenset(
@@ -434,7 +475,7 @@ def _generic_abi() -> list[str]:
     #                                               => graalpy_38_native
 
     ext_suffix = _get_config_var("EXT_SUFFIX", warn=True)
-    if not isinstance(ext_suffix, str) or ext_suffix[0] != ".":
+    if not isinstance(ext_suffix, str) or not ext_suffix.startswith("."):
         raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
     parts = ext_suffix.split(".")
     if len(parts) < 3:
@@ -661,7 +702,6 @@ def mac_platforms(
             for binary_format in binary_formats:
                 yield f"macosx_{major_version}_{minor_version}_{binary_format}"
 
-    if version >= (11, 0):
         # Mac OS 11 on x86_64 is compatible with binaries from previous releases.
         # Arm64 support was introduced in 11.0, so no Arm binaries from previous
         # releases exist.
@@ -897,7 +937,7 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     if interp_name == "cp":
         yield from cpython_tags(warn=warn)
     else:
-        yield from generic_tags()
+        yield from generic_tags(warn=warn)
 
     if interp_name == "pp":
         interp = "pp3"

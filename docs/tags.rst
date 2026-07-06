@@ -48,6 +48,8 @@ items that applications should need to reference, in order to parse and check ta
 
 .. autofunction:: create_compatible_tags_selector
 
+.. autoexception:: TooManyTagsError
+
 .. autoexception:: UnsortedTagsError
 
 .. autoexception:: InvalidTag
@@ -71,6 +73,11 @@ to the implementation to provide.
 
     A dictionary mapping interpreter names to their `abbreviation codes`_
     (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
+
+
+.. autodata:: PythonVersion
+
+.. autodata:: AppleVersion
 
 
 .. autofunction:: interpreter_name

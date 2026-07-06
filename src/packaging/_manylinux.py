@@ -140,11 +140,11 @@ def _glibc_version_string_ctypes() -> str | None:
         # glibc.
         return None
 
-    # Call gnu_get_libc_version, which returns a string like "2.5"
+    # Call gnu_get_libc_version, which returns a string like "2.5".
     gnu_get_libc_version.restype = ctypes.c_char_p
-    version_str: str = gnu_get_libc_version()
-    # py2 / py3 compatibility:
-    if not isinstance(version_str, str):
+    # A c_char_p restype comes back as bytes, so decode to text.
+    version_str: str | bytes = gnu_get_libc_version()
+    if isinstance(version_str, bytes):
         version_str = version_str.decode("ascii")
 
     return version_str
