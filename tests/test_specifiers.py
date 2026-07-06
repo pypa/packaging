@@ -2948,7 +2948,7 @@ class TestIsUnsatisfiable:
         """Range bounds are hashable and support equality."""
         a = Specifier(">1.0")._to_ranges()
         b = Specifier(">1.0")._to_ranges()
-        for (al, au), (bl, bu) in zip(a, b, strict=False):
+        for (al, au), (bl, bu) in zip(a, b, strict=True):
             hash(al)
             hash(au)
             assert al == bl
