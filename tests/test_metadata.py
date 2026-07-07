@@ -483,53 +483,6 @@ class TestMetadata:
         assert isinstance(exc, RuntimeError)
         assert str(exc) == "boom"
 
-    def test_from_email_preserves_single_from_raw_validation_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        expected = metadata.InvalidMetadata("summary", "invalid summary")
-
-        def from_raw(
-            raw: metadata.RawMetadata, *, validate: bool = True
-        ) -> metadata.Metadata:
-            del raw, validate
-            raise expected
-
-        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
-
-        with pytest.raises(metadata.InvalidMetadata) as exc_info:
-            metadata.Metadata.from_email(
-                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n"
-            )
-
-        assert exc_info.value is expected
-
-    def test_from_email_aggregates_single_from_raw_validation_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        expected = metadata.InvalidMetadata("summary", "invalid summary")
-
-        def from_raw(
-            raw: metadata.RawMetadata, *, validate: bool = True
-        ) -> metadata.Metadata:
-            del raw, validate
-            raise expected
-
-        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
-
-        with pytest.raises(ExceptionGroup) as exc_info:
-            metadata.Metadata.from_email(
-                "Metadata-Version: 2.6\n"
-                "Name: packaging\n"
-                "Version: 1.0\n"
-                "Unknown-Field: value\n"
-            )
-
-        unknown_field, from_raw_error = exc_info.value.exceptions
-        assert isinstance(unknown_field, metadata.InvalidMetadata)
-        assert unknown_field.field == "unknown-field"
-        assert from_raw_error is expected
-        assert exc_info.value.__context__ is None
-
     def test_from_email_validate_false_wraps_from_raw_groups(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

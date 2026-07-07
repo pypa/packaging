@@ -21,8 +21,6 @@ from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 
@@ -871,43 +869,28 @@ class Metadata:
 
         if validate:
             collector = _ErrorCollector()
-            unparsed_raw_fields: set[str] = set()
-            required_email_fields = {
-                _RAW_TO_EMAIL_MAPPING[field] for field in _REQUIRED_ATTRS
-            }
             for unparsed_key in unparsed:
                 if unparsed_key in _EMAIL_TO_RAW_MAPPING:
-                    unparsed_raw_fields.add(_EMAIL_TO_RAW_MAPPING[unparsed_key])
                     message = f"{unparsed_key!r} has invalid data"
                 else:
                     message = f"unrecognized field: {unparsed_key!r}"
                 collector.error(InvalidMetadata(unparsed_key, message))
-            from_raw_errors: Sequence[Exception] = ()
             try:
                 validated = cls.from_raw(raw, validate=validate)
-            except InvalidMetadata as exc:
-                if not collector.errors:
-                    raise
-                from_raw_errors = (exc,)
             except ExceptionGroup as exc_group:
-                from_raw_errors = exc_group.exceptions
-            else:
-                if collector.errors:
-                    raise ExceptionGroup(
-                        "invalid or unparsed metadata", collector.errors
-                    ) from None
-                return validated
-
-            for from_raw_error in from_raw_errors:
-                if isinstance(from_raw_error, InvalidMetadata):
-                    raw_field = _EMAIL_TO_RAW_MAPPING.get(from_raw_error.field)
+                for exc in exc_group.exceptions:
+                    # A required field reported above as unparsed is absent from
+                    # `raw`, so skip from_raw's duplicate "missing" complaint.
                     if (
-                        from_raw_error.field in required_email_fields
-                        and raw_field in unparsed_raw_fields
-                        and raw_field not in raw
+                        isinstance(exc, InvalidMetadata)
+                        and exc.field in unparsed
+                        and _EMAIL_TO_RAW_MAPPING.get(exc.field) not in raw
                     ):
                         continue
-                collector.error(from_raw_error)
+                    collector.error(exc)
+            else:
+                if not collector.errors:
+                    return validated
             raise ExceptionGroup(
                 "invalid or unparsed metadata", collector.errors
             ) from None
