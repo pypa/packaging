@@ -27,6 +27,8 @@ def __dir__() -> list[str]:
 class InvalidRequirement(ValueError):
     """
     An invalid requirement was found, users should refer to PEP 508.
+
+    .. versionadded:: 16.1
     """
 
 
@@ -36,6 +38,12 @@ class Requirement:
     Parse a given requirement string into its parts, such as name, specifier,
     URL, and extras. Raises InvalidRequirement on a badly-formed requirement
     string.
+
+    .. versionadded:: 16.1
+
+    .. versionchanged:: 22.0
+        Added equality (``__eq__``) and hashing (``__hash__``) so requirements
+        can be compared and stored in sets / dicts.
 
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
