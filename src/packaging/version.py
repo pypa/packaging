@@ -410,6 +410,9 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
+        if not isinstance(version, str):
+            raise InvalidVersion(f"Invalid version: {version!r}")
+
         if _SIMPLE_VERSION_INDICATORS.issuperset(version):
             try:
                 self._release = tuple(map(int, version.split(".")))
