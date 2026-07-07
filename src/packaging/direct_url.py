@@ -303,7 +303,7 @@ class DirectUrl:
                 )
             if not _file_url_has_absolute_path(parsed_url):
                 raise DirectUrlValidationError(
-                    "URL must be an absolute file URL when dir_info is present",
+                    "File URL must be absolute when dir_info is present",
                     context="url",
                 )
         # XXX subdirectory must be relative, can we, should we validate that here?

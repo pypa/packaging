@@ -247,7 +247,7 @@ def test_dir_info_url_file_absolute_case_insensitive(url: str) -> None:
 def test_dir_info_url_requires_absolute_file_url(url: str) -> None:
     with pytest.raises(
         DirectUrlValidationError,
-        match=r"URL must be an absolute file URL when dir_info is present",
+        match=r"File URL must be absolute when dir_info is present",
     ):
         DirectUrl.from_dict({"url": url, "dir_info": {}})
 
