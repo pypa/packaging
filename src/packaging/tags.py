@@ -484,7 +484,10 @@ def _generic_abi() -> list[str]:
     soabi = parts[1]
     if soabi.startswith("cpython"):
         # non-windows
-        abi = "cp" + soabi.split("-")[1]
+        cpython_parts = soabi.split("-")
+        if len(cpython_parts) < 2 or not cpython_parts[1]:
+            raise SystemError("invalid sysconfig.get_config_var('EXT_SUFFIX')")
+        abi = "cp" + cpython_parts[1]
     elif soabi.startswith("cp"):
         # windows
         abi = soabi.split("-")[0]
