@@ -410,9 +410,16 @@ class Version(_BaseVersion):
             If the ``version`` does not conform to PEP 440 in any way then this
             exception will be raised.
         """
-        if _SIMPLE_VERSION_INDICATORS.issuperset(version):
+        try:
+            is_simple = _SIMPLE_VERSION_INDICATORS.issuperset(version)
+        except TypeError:
+            raise InvalidVersion(f"Invalid version: {version!r}") from None
+
+        if is_simple:
             try:
                 self._release = tuple(map(int, version.split(".")))
+            except AttributeError:
+                raise InvalidVersion(f"Invalid version: {version!r}") from None
             except ValueError:
                 # Empty parts (from "1..2", ".1", etc.) are invalid versions.
                 # Any other ValueError (e.g. int str-digits limit) should
@@ -432,7 +439,10 @@ class Version(_BaseVersion):
             return
 
         # Validate the version and parse it into pieces
-        match = self._regex.fullmatch(version)
+        try:
+            match = self._regex.fullmatch(version)
+        except TypeError:
+            raise InvalidVersion(f"Invalid version: {version!r}") from None
         if not match:
             raise InvalidVersion(f"Invalid version: {version!r}")
         self._epoch = int(match.group("epoch")) if match.group("epoch") else 0
