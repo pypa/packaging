@@ -71,6 +71,8 @@ class Requirement:
     #       the thing as well as the version? What about the markers?
     # TODO: Can we normalize the name and extra name?
 
+    __slots__ = ("extras", "marker", "name", "specifier", "url")
+
     def __init__(self, requirement_string: str) -> None:
         try:
             parsed = _parse_requirement(requirement_string)
@@ -124,9 +126,10 @@ class Requirement:
         ):
             # New format (26.3+): (requirement string, specifier prereleases).
             requirement_string, prereleases = state
-        elif isinstance(state, dict):
+        elif isinstance(state, dict) and state.keys() >= set(self.__slots__):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
-            self.__dict__.update(state)
+            for key in self.__slots__:
+                setattr(self, key, state[key])
             return
         else:
             raise TypeError(f"Cannot restore Requirement from {state!r}")
