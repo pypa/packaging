@@ -242,9 +242,7 @@ class DependencyGroupResolver:
             if isinstance(item, str):
                 # packaging.requirements.Requirement parsing ensures that this is a
                 # valid PEP 508 Dependency Specifier. Collect InvalidRequirement
-                # like every other failure in this loop: raising it raw would
-                # escape the aggregated "...was malformed" error group and drop
-                # any sibling errors already collected for this group.
+                # if it throws that.
                 with errors.collect(InvalidRequirement):
                     elements.append(Requirement(item))
             elif isinstance(item, Mapping):
