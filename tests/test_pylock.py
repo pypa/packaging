@@ -868,7 +868,6 @@ def test_validate_attestation_identity_invalid_kind() -> None:
     )
 
 
-
 def test_pylock_invalid_index_url() -> None:
     """Package index must be a valid URL."""
     data = {
@@ -886,10 +885,14 @@ def test_pylock_valid_index_url() -> None:
         "name": "test-package",
         "version": "1.0.0",
         "index": "https://pypi.org/simple",
-        "wheels": [{"name": "test_package-1.0.0-py3-none-any.whl",
-                     "url": "https://example.com/wheel.whl",
-                     "size": 100,
-                     "hashes": {"sha256": "x" * 64}}],
+        "wheels": [
+            {
+                "name": "test_package-1.0.0-py3-none-any.whl",
+                "url": "https://example.com/wheel.whl",
+                "size": 100,
+                "hashes": {"sha256": "x" * 64},
+            }
+        ],
     }
     pkg = Package._from_dict(data)
     assert pkg.index == "https://pypi.org/simple"
@@ -900,10 +903,14 @@ def test_pylock_none_index_url() -> None:
     data = {
         "name": "test-package",
         "version": "1.0.0",
-        "wheels": [{"name": "test_package-1.0.0-py3-none-any.whl",
-                     "url": "https://example.com/wheel.whl",
-                     "size": 100,
-                     "hashes": {"sha256": "x" * 64}}],
+        "wheels": [
+            {
+                "name": "test_package-1.0.0-py3-none-any.whl",
+                "url": "https://example.com/wheel.whl",
+                "size": 100,
+                "hashes": {"sha256": "x" * 64},
+            }
+        ],
     }
     pkg = Package._from_dict(data)
     assert pkg.index is None
