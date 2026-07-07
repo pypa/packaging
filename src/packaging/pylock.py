@@ -105,7 +105,10 @@ def _get(d: Mapping[str, Any], expected_type: type[_T], key: str) -> _T | None:
     """Get a value from the dictionary and verify it's the expected type."""
     if (value := d.get(key)) is None:
         return None
-    if not isinstance(value, expected_type):
+    if not isinstance(value, expected_type) or (
+        # Special case: bool is a subclass of int, but TOML distinguishes the two
+        expected_type is int and isinstance(value, bool)
+    ):
         raise PylockValidationError(
             f"Unexpected type {type(value).__name__} "
             f"(expected {expected_type.__name__})",
