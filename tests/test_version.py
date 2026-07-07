@@ -215,10 +215,10 @@ class TestVersion:
         with pytest.raises(InvalidVersion):
             Version(version)
 
-    @pytest.mark.parametrize("version", [None, 1])
+    @pytest.mark.parametrize("version", [None, 1, ["1", ".", "0"], ("1",), b"1.0"])
     def test_non_string_versions_raise_invalid_version(self, version: object) -> None:
         with pytest.raises(InvalidVersion):
-            Version(version)
+            Version(version)  # type: ignore[arg-type]
 
     @pytest.mark.skipif(
         not hasattr(sys, "get_int_max_str_digits"),

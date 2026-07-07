@@ -3458,7 +3458,7 @@ def test_filter_keyed_none_version_is_skipped() -> None:
     """Non-string keyed versions are skipped like other invalid versions."""
     items = [{"v": "1.0"}, {"v": None}, {"v": "2.0"}]
     spec = SpecifierSet(">=1")
-    assert list(spec.filter(items, key=lambda x: x["v"])) == [
+    assert list(spec.filter(items, key=lambda x: x["v"])) == [  # type: ignore[index]
         {"v": "1.0"},
         {"v": "2.0"},
     ]
