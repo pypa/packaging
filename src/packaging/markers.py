@@ -220,6 +220,21 @@ _operators: dict[str, Operator] = {
     ">": lambda _lhs, _rhs: False,
 }
 
+_OPERATOR_MIRROR: dict[str, str] = {
+    "<": ">",
+    ">": "<",
+    "<=": ">=",
+    ">=": "<=",
+    "==": "==",
+    "!=": "!=",
+}
+
+def _reverse_op(op: Op) -> Op:
+    reversed_op_str = _OPERATOR_MIRROR.get(op.value)
+    if reversed_op_str:
+        return Op(value=reversed_op_str)
+    return op
+
 
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
     op_str = op.serialize()
@@ -284,9 +299,16 @@ def _evaluate_markers(
                 lhs_value = _lookup_environment(environment, environment_key)
                 rhs_value = rhs.value
             else:
-                lhs_value = lhs.value
+                # Marker variable is on the RHS - swap values and reverse operator
+                # (except for 'in'/'not in' which are not symmetric)
                 environment_key = rhs.value
-                rhs_value = _lookup_environment(environment, environment_key)
+                if op.value not in ("in", "not in"):
+                    lhs_value = _lookup_environment(environment, environment_key)
+                    rhs_value = lhs.value
+                    op = _reverse_op(op)
+                else:
+                    lhs_value = lhs.value
+                    rhs_value = _lookup_environment(environment, environment_key)
 
             if not isinstance(lhs_value, str):
                 raise UndefinedComparison(
