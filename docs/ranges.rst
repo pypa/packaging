@@ -102,7 +102,10 @@ Equality on a :class:`VersionRange` is structural: it compares the bounds, the
 ``===`` admit/reject literals, the arbitrary-string flag, the configured
 pre-release policy, and the opt-in region, not only the version set. Equal
 ranges therefore behave identically under :meth:`VersionRange.contains` and
-:meth:`VersionRange.filter`.
+:meth:`VersionRange.filter`. The guarantee is one-directional: ``==1.0`` and
+``>=1.0,<1.0.post0.dev0`` compare unequal (the second carries an opt-in
+region), yet no pre-release exists in that window, so they filter
+identically.
 
 For set relations use :meth:`VersionRange.is_subset`,
 :meth:`VersionRange.is_superset`, and :meth:`VersionRange.is_disjoint` rather

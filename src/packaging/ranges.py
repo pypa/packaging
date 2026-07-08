@@ -959,7 +959,8 @@ class VersionRange:
         buffered and only emitted if no final release in iterable is in range,
         except that a pre-release inside the autodetected opt-in region, or named
         outright by a ``===`` literal, is force-admitted in place (as
-        ``prereleases=True`` would yield it).
+        ``prereleases=True`` would yield it). A flushed buffer comes after
+        every in-place yield, so the output is not version-sorted.
 
         The signature mirrors
         :meth:`~packaging.specifiers.SpecifierSet.filter`.
