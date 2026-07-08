@@ -135,6 +135,17 @@ def test_complement_partitions(spec_set: SpecifierSet) -> None:
     assert eq_versions_only(r.union(c), VersionRange.full())
 
 
+@given(spec_set=specifier_sets())
+@SETTINGS
+def test_filter_nonemptiness_ignores_region(spec_set: SpecifierSet) -> None:
+    # The region changes which versions come out first, never whether any do.
+    r = _to_range(spec_set)
+    stripped = ~~r
+    assert bool(list(r.filter(VERSION_POOL))) == bool(
+        list(stripped.filter(VERSION_POOL))
+    )
+
+
 @given(a=specifier_sets(), b=specifier_sets())
 @SETTINGS
 def test_de_morgan_intersect(a: SpecifierSet, b: SpecifierSet) -> None:

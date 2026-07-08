@@ -770,6 +770,15 @@ class TestSetRelations:
     def test_everything_is_subset_of_full(self) -> None:
         assert vr(">=1.0,<2.0").is_subset(VersionRange.full())
 
+    def test_mutual_subset_despite_unequal_region(self) -> None:
+        # Same bounds, different opt-in region: unequal but mutually subset.
+        plain = vr(">=1.0")
+        opted = vr(">=1.0") & vr(">0.5a1")
+        assert plain != opted
+        assert plain.is_subset(opted)
+        assert opted.is_subset(plain)
+        assert not plain.is_disjoint(opted)
+
     def test_subset_arbitrary_admission(self) -> None:
         # ``full()`` admits non-version strings, which no bounds cover, so it
         # is not a subset of the version-only full range.
@@ -862,6 +871,48 @@ class TestSetRelations:
 class TestFilter:
     def test_filter_bounds(self) -> None:
         assert list(vr(">=1.0,<2.0").filter(["0.9", "1.5", "2.0"])) == ["1.5"]
+
+    @pytest.mark.parametrize(
+        ("dep", "constraint", "versions", "expected"),
+        [
+            ("==2.0.0b1", ">=1.0.0,<=3.0.0", ["1.0.0", "2.0.0b1"], ["2.0.0b1"]),
+            (
+                ">=2.0.0b1",
+                ">=1.0.0,<=3.0.0",
+                ["1.0.0", "2.0.0b1", "2.0.0b9"],
+                ["2.0.0b1", "2.0.0b9"],
+            ),
+            (
+                ">1.0.0,!=2.0.0b1,<2.0.0b5",
+                ">=1.0.0,<=3.0.0",
+                ["1.0.0", "2.0.0b1", "2.0.0b4", "2.0.0b5"],
+                ["2.0.0b4"],
+            ),
+        ],
+    )
+    def test_intersected_requirement_keeps_opt_in(
+        self, dep: str, constraint: str, versions: list[str], expected: list[str]
+    ) -> None:
+        # The opt-in survives intersection with a plain range; ``!=`` holes
+        # clip it.
+        assert list((vr(dep) & vr(constraint)).filter(versions)) == expected
+
+    def test_narrowing_excludes_every_final_flushes_buffer(self) -> None:
+        # The fallback is per filter call: narrowed past the last final, the
+        # buffer flushes.
+        wide = vr(">=1.0.0")
+        pool = ["1.0.0", "1.5.0a1", "2.0.0b1"]
+        assert list(wide.filter(pool)) == ["1.0.0"]
+        narrowed = (
+            wide & ~VersionRange.singleton("1.0.0") & ~VersionRange.singleton("2.0.0b1")
+        )
+        assert list(narrowed.filter(pool)) == ["1.5.0a1"]
+
+    def test_flush_follows_in_place_yields(self) -> None:
+        # Flushed pre-releases come after in-place yields: output is not
+        # version-sorted.
+        u = vr("~=1.0a1") | vr(">=2.5")
+        assert list(u.filter(["2.6a1", "1.5a1"])) == ["1.5a1", "2.6a1"]
 
     def test_filter_prereleases_default_buffers(self) -> None:
         assert list(vr(">=1.0").filter(["1.3", "1.5a1"])) == ["1.3"]
@@ -1335,6 +1386,30 @@ class TestCoverageEdges:
         assert Version("0.dev0") in r
         assert Version("1.0") in r
         assert Version("0.5") not in r
+
+    def test_floor_exclusive_upper_is_empty(self) -> None:
+        # ``<0.dev0`` excludes the smallest version: the canonical empty.
+        r = vr("<0.dev0")
+        assert r.is_empty
+        assert r == VersionRange.empty()
+        assert r._pre_region == ()
+
+    def test_exact_equals_successor_interval_bounds(self) -> None:
+        # ``==1.0`` and ``>=1.0,<1.0.post0.dev0`` share bounds; the dev
+        # spelling carries an opt-in region, so they stay unequal.
+        a, b = vr("==1.0"), vr(">=1.0,<1.0.post0.dev0")
+        assert a._bounds == b._bounds
+        assert a != b
+        assert a._pre_region == ()
+        assert b._pre_region != ()
+
+    def test_lte_and_post_dev_upper_same_bounds(self) -> None:
+        # ``<=1.0`` and ``<1.0.post0.dev0`` share bounds; only the opt-in
+        # region tells them apart.
+        a, b = vr("<=1.0"), vr("<1.0.post0.dev0")
+        assert a._bounds == b._bounds
+        assert list(a.filter(["1.0.dev1", "0.9"])) == ["0.9"]
+        assert list(b.filter(["1.0.dev1", "0.9"])) == ["1.0.dev1", "0.9"]
 
     def test_ge_floor_is_canonical_full(self) -> None:
         # >=0.dev0 admits every version, so its bounds canonicalize to the full
