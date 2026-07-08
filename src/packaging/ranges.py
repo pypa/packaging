@@ -48,10 +48,8 @@ from .version import Version
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
+    from ._ranges import Interval
     from .specifiers import SpecifierSet
-
-    #: A single contiguous interval as a (lower, upper) bound pair.
-    _Interval = tuple[LowerBound, UpperBound]
 
 
 __all__ = ["VersionRange"]
@@ -79,9 +77,9 @@ def __dir__() -> list[str]:
 
 
 def _union_ranges(
-    left: Sequence[_Interval],
-    right: Sequence[_Interval],
-) -> list[_Interval]:
+    left: Sequence[Interval],
+    right: Sequence[Interval],
+) -> list[Interval]:
     """Union two sorted, non-overlapping interval lists.
 
     A linear merge over the two pre-sorted inputs followed by a single
@@ -93,7 +91,7 @@ def _union_ranges(
     if not right:
         return list(left)
 
-    merged_input: list[_Interval] = []
+    merged_input: list[Interval] = []
     left_index = right_index = 0
     while left_index < len(left) and right_index < len(right):
         if left[left_index][0] <= right[right_index][0]:
@@ -105,7 +103,7 @@ def _union_ranges(
     merged_input.extend(left[left_index:])
     merged_input.extend(right[right_index:])
 
-    merged: list[_Interval] = [merged_input[0]]
+    merged: list[Interval] = [merged_input[0]]
     for lower, upper in merged_input[1:]:
         prev_lower, prev_upper = merged[-1]
 
@@ -133,7 +131,7 @@ def _union_ranges(
     return merged
 
 
-def _complement_ranges(ranges: Sequence[_Interval]) -> list[_Interval]:
+def _complement_ranges(ranges: Sequence[Interval]) -> list[Interval]:
     """Complement a sorted, non-overlapping interval list.
 
     Yields the gaps between intervals plus a leading gap before the first and
@@ -143,7 +141,7 @@ def _complement_ranges(ranges: Sequence[_Interval]) -> list[_Interval]:
     if not ranges:
         return list(FULL_RANGE)
 
-    result: list[_Interval] = []
+    result: list[Interval] = []
     prev_upper: UpperBound | None = None
 
     for lower, upper in ranges:
@@ -173,7 +171,7 @@ def _complement_ranges(ranges: Sequence[_Interval]) -> list[_Interval]:
     return result
 
 
-def _canonical_floor(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
+def _canonical_floor(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
     """Collapse the PEP 440 floor in a sorted interval list.
 
     Only the first interval can touch ``0.dev0`` (the minimum version). An
@@ -239,7 +237,7 @@ def _predecessor_boundary(version: Version) -> BoundaryVersion | None:
     return None
 
 
-def _canonicalize(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
+def _canonicalize(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
     """Fold least-successor bounds to their boundary form.
 
     ``>=1.0a2.dev0`` and ``>1.0a1`` denote the same set, so both must reduce to
@@ -248,7 +246,7 @@ def _canonicalize(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
     boundary; the engine's emptiness check has already dropped the synthetic
     gaps such intervals would otherwise leave.
     """
-    result: list[_Interval] = []
+    result: list[Interval] = []
     for lower, upper in bounds:
         new_lower, new_upper = lower, upper
 
@@ -267,7 +265,7 @@ def _canonicalize(bounds: tuple[_Interval, ...]) -> tuple[_Interval, ...]:
 
 
 def _struct_admits(
-    bounds: tuple[_Interval, ...], admit_arbitrary: bool, literal: str
+    bounds: tuple[Interval, ...], admit_arbitrary: bool, literal: str
 ) -> bool:
     """True when the bounds (plus arbitrary admission) admit ``literal``.
 
@@ -306,7 +304,7 @@ def _format_upper(bound: UpperBound) -> str:
     return f"{_bound_version_str(bound.version)}{bracket}"
 
 
-def _format_intervals(intervals: Sequence[_Interval]) -> str:
+def _format_intervals(intervals: Sequence[Interval]) -> str:
     """Render a sorted interval list as ``lower, upper | lower, upper``."""
     return " | ".join(
         f"{_format_lower(lower)}, {_format_upper(upper)}" for lower, upper in intervals
@@ -364,7 +362,7 @@ class VersionRange:
     )
 
     #: The disjoint, sorted, non-overlapping interval list.
-    _bounds: tuple[_Interval, ...]
+    _bounds: tuple[Interval, ...]
 
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
@@ -395,7 +393,7 @@ class VersionRange:
     #: regions and re-clip to the result bounds; :meth:`difference` keeps only
     #: the minuend's; and :meth:`complement` drops it, since an exclusion grants
     #: no opt-in. Equality keys on the clipped region, so it stays a congruence.
-    _pre_region: tuple[_Interval, ...]
+    _pre_region: tuple[Interval, ...]
 
     #: Raw configured pre-release override of the originating specifier set
     #: (an explicit ``True`` / ``False``, else ``None``). When set, :meth:`_build`
@@ -414,12 +412,12 @@ class VersionRange:
     @classmethod
     def _build(
         cls,
-        bounds: tuple[_Interval, ...],
+        bounds: tuple[Interval, ...],
         admit: frozenset[str] = frozenset(),
         reject: frozenset[str] = frozenset(),
         admit_arbitrary: bool = False,
         *,
-        pre_region: tuple[_Interval, ...] = (),
+        pre_region: tuple[Interval, ...] = (),
         prereleases_configured: bool | None = None,
     ) -> VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
@@ -500,7 +498,7 @@ class VersionRange:
                 f"and {other._prereleases_configured!r}"
             )
 
-    def _merged_region(self, other: VersionRange) -> tuple[_Interval, ...]:
+    def _merged_region(self, other: VersionRange) -> tuple[Interval, ...]:
         """Union of ``self`` and ``other``'s opt-in regions.
 
         Used by :meth:`union` and :meth:`intersection`; :meth:`_build` clips the
@@ -519,7 +517,7 @@ class VersionRange:
         return tuple(_union_ranges(self._pre_region, other._pre_region))
 
     def _with_policy(
-        self, *, pre_region: tuple[_Interval, ...], configured: bool | None
+        self, *, pre_region: tuple[Interval, ...], configured: bool | None
     ) -> VersionRange:
         """A structural copy of this range carrying the given pre-release policy."""
         return self._build(
@@ -758,7 +756,7 @@ class VersionRange:
         # Match ``self & ~other`` on the opt-in region: a complement carries no
         # opt-in, so only ``self``'s region survives. ``other`` acts as a
         # bounds-only exclusion. A configured ``self`` keeps no region.
-        new_region: tuple[_Interval, ...] = ()
+        new_region: tuple[Interval, ...] = ()
         if self._prereleases_configured is None:
             new_region = self._pre_region
 
@@ -787,11 +785,11 @@ class VersionRange:
     def _combine_literals(
         self,
         other: VersionRange,
-        new_bounds: tuple[_Interval, ...],
+        new_bounds: tuple[Interval, ...],
         *,
         op: _SetOp,
         admit_arbitrary: bool,
-        pre_region: tuple[_Interval, ...],
+        pre_region: tuple[Interval, ...],
         prereleases_configured: bool | None,
     ) -> VersionRange:
         """Resolve admit/reject for ``self`` ``op`` ``other`` over their literals."""
@@ -969,7 +967,7 @@ class VersionRange:
         >>> list(r.filter(["0.9", "1.5", "2.0"]))
         ['1.5']
         """
-        region: tuple[_Interval, ...] = ()
+        region: tuple[Interval, ...] = ()
         if prereleases is None:
             # The region applies only under the autodetect default; a configured
             # policy governs instead (and then ``_pre_region`` is already empty).
@@ -995,7 +993,7 @@ class VersionRange:
         key: Callable[[Any], Version | str] | None,
         prereleases: bool | None,
         arbitrary_active: bool,
-        region: tuple[_Interval, ...],
+        region: tuple[Interval, ...],
     ) -> Iterator[Any]:
         """Filter for ranges with admit/reject literals or live arbitrary
         admission (including the universal ``SpecifierSet("")`` range)."""
@@ -1108,7 +1106,7 @@ class VersionRange:
         # clipped to the set's bounds by _build, is the region. Clipping refolds
         # under intersection, so a set built directly equals one built by
         # intersecting its specifiers one at a time.
-        region: list[_Interval] = []
+        region: list[Interval] = []
         if specifier_set._prereleases is None:  # a configured policy has no region
             for spec in specifier_set:
                 # ``===`` literals are not a range; filter force-admits them.
