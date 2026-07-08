@@ -1278,6 +1278,13 @@ def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
     assert v == Version(string)
 
 
+def test_from_parts_rejects_non_str_pre_letter() -> None:
+    # A non-string pre letter must raise InvalidVersion rather than escaping
+    # as an AttributeError from the normalization step.
+    with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+        Version.from_parts(release=(1,), pre=(1, 1))  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     "version",
     [
