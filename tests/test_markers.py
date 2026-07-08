@@ -48,14 +48,6 @@ PEP_345_VARIABLES = [
     "platform.python_implementation",
 ]
 
-
-@pytest.fixture(autouse=True)
-def _clear_default_environment_cache() -> None:
-    # default_environment() is cached, so tests that patch platform/sys must run
-    # against a fresh cache and must not leak their patched values to later tests.
-    _cached_default_environment.cache_clear()
-
-
 SETUPTOOLS_VARIABLES = ["python_implementation"]
 
 OPERATORS = ["===", "==", ">=", "<=", "!=", "~=", ">", "<", "in", "not in"]

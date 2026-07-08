@@ -348,6 +348,12 @@ def default_environment() -> Environment:
     This is the base environment used by :meth:`Marker.evaluate`. A fresh copy
     is returned on every call so callers may freely mutate the result; a shallow
     copy suffices because all values are immutable strings.
+
+    .. versionchanged:: 26.3
+        The environment is computed once per process and cached, since it is
+        derived from process-constant data. Patching ``platform``/``sys``/``os``
+        after the first call has no effect; pass an explicit ``environment`` to
+        :meth:`Marker.evaluate` to evaluate against different values.
     """
     return cast("Environment", dict(_cached_default_environment()))
 
