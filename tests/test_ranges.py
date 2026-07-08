@@ -24,19 +24,19 @@ class TestConstruction:
     def test_full(self) -> None:
         r = VersionRange.full()
         assert Version("1.0") in r
-        assert "garbage" in r
+        assert "wat" in r
         assert not r.is_empty
 
     def test_full_no_arbitrary(self) -> None:
         r = VersionRange.full(admit_arbitrary=False)
         assert Version("1.0") in r
-        assert "garbage" not in r
+        assert "wat" not in r
 
     def test_empty(self) -> None:
         r = VersionRange.empty()
         assert r.is_empty
         assert Version("1.0") not in r
-        assert "garbage" not in r
+        assert "wat" not in r
 
     def test_empty_with_prereleases(self) -> None:
         r = VersionRange.empty(prereleases=True)
@@ -244,8 +244,8 @@ class TestSetAlgebra:
         assert "b" in u
 
     def test_full_intersect_arbitrary_keeps_literal(self) -> None:
-        r = VersionRange.full() & vr("===garbage")
-        assert "garbage" in r
+        r = VersionRange.full() & vr("===wat")
+        assert "wat" in r
         assert Version("1.0") not in r
 
     def test_complement_of_arbitrary_range(self) -> None:
@@ -263,10 +263,10 @@ class TestSetAlgebra:
         assert (full & ~full) == VersionRange.empty()
         # The empty operand must not revive the flag from either side of a union,
         # nor through a difference that later complements back to full bounds.
-        assert not (~full | plain).contains("garbage")
-        assert not (plain | ~full).contains("garbage")
+        assert not (~full | plain).contains("wat")
+        assert not (plain | ~full).contains("wat")
         assert (full & ~full) - full == VersionRange.empty()
-        assert not (full - plain).complement().contains("garbage")
+        assert not (full - plain).complement().contains("wat")
 
     def test_difference_by_empty_keeps_arbitrary_admission(self) -> None:
         # ``~full()`` admits nothing (empty bounds, no literal, no region), so the
@@ -274,7 +274,7 @@ class TestSetAlgebra:
         # arbitrary admission (``full() - ~full() == full()``).
         full = VersionRange.full()
         assert (full - ~full) == full
-        assert (full - ~full).contains("garbage")
+        assert (full - ~full).contains("wat")
 
     def test_policy_mismatch_raises(self) -> None:
         with pytest.raises(ValueError, match="different"):
@@ -344,7 +344,7 @@ class TestSetAlgebra:
         # nothing was subtracted. ``a - empty`` must round-trip the full range.
         full = VersionRange.full()
         assert (full - VersionRange.empty()) == full
-        assert "garbage" in (full - VersionRange.empty())
+        assert "wat" in (full - VersionRange.empty())
 
     def test_difference_with_empty_preserves_literals(self) -> None:
         # The same regression for ``===`` admission: a literal range minus the
@@ -358,7 +358,7 @@ class TestSetAlgebra:
         # arbitrary string, dropping only the excluded literal.
         d = VersionRange.full() - vr("===wat")
         assert "wat" not in d
-        assert "garbage" in d
+        assert "custom" in d
         assert Version("1.0") in d
 
     def test_difference_with_self_is_empty(self) -> None:
@@ -876,9 +876,9 @@ class TestFilter:
         assert list(r.filter(["1.5a1"])) == ["1.5a1"]
 
     def test_filter_admission_with_final(self) -> None:
-        r = VersionRange.full() & vr("===garbage")
+        r = VersionRange.full() & vr("===wat")
         # admit literal then a non-matching final
-        assert list(r.filter(["garbage", "1.0"])) == ["garbage"]
+        assert list(r.filter(["wat", "1.0"])) == ["wat"]
 
     def test_filter_admission_reject(self) -> None:
         r = ~vr("===1.0")
@@ -917,10 +917,10 @@ class TestContains:
         assert r.contains("1.0a1")
 
     def test_contains_unparsable_non_full(self) -> None:
-        assert not vr(">=1.0").contains("garbage")
+        assert not vr(">=1.0").contains("wat")
 
     def test_contains_unparsable_full(self) -> None:
-        assert VersionRange.full().contains("garbage")
+        assert VersionRange.full().contains("wat")
 
     def test_contains_reject(self) -> None:
         r = ~vr("===1.0")

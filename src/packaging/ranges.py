@@ -554,9 +554,9 @@ class VersionRange:
 
         >>> "1.0" in VersionRange.full()
         True
-        >>> "garbage" in VersionRange.full()
+        >>> "wat" in VersionRange.full()
         True
-        >>> "garbage" in VersionRange.full(admit_arbitrary=False)
+        >>> "wat" in VersionRange.full(admit_arbitrary=False)
         False
         """
         return cls._build(
