@@ -14,7 +14,7 @@ from typing import (
     TypeVar,
     cast,
 )
-from urllib.parse import urlparse
+from urllib.parse import urlparse, uses_netloc
 
 from .markers import (
     Environment,
@@ -245,6 +245,17 @@ def _validate_normalized_name(name: str) -> NormalizedName:
 def _validate_path_url(path: str | None, url: str | None) -> None:
     if not path and not url:
         raise PylockValidationError("path or url must be provided")
+
+
+def _validate_url(url: str) -> str:
+    parsed_url = urlparse(url)
+    if not parsed_url.scheme or (
+        parsed_url.scheme in uses_netloc
+        and parsed_url.scheme != "file"
+        and not parsed_url.netloc
+    ):
+        raise PylockValidationError(f"Invalid URL {url!r}")
+    return url
 
 
 def _path_name(path: str | None) -> str | None:
@@ -587,7 +598,7 @@ class Package:
             vcs=_get_object(d, PackageVcs, "vcs"),
             directory=_get_object(d, PackageDirectory, "directory"),
             archive=_get_object(d, PackageArchive, "archive"),
-            index=_get(d, str, "index"),
+            index=_get_as(d, str, _validate_url, "index"),
             sdist=_get_object(d, PackageSdist, "sdist"),
             wheels=_get_sequence_of_objects(d, PackageWheel, "wheels"),
             attestation_identities=_get_sequence(d, Mapping, "attestation-identities"),  # type: ignore[type-abstract]

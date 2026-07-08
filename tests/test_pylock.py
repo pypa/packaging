@@ -260,6 +260,29 @@ def test_pylock_basic_package() -> None:
     assert pylock.to_dict() == data
 
 
+def test_pylock_invalid_package_index_url() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "index": "not-a-url",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "url": "https://example.com/example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == "Invalid URL 'not-a-url' in 'packages[0].index'"
+
+
 def test_pylock_vcs_package() -> None:
     data = {
         "lock-version": "1.0",
