@@ -369,9 +369,11 @@ class VersionRange:
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
     #: rides set algebra but is inert except at full bounds (see
-    #: :meth:`_arbitrary_active`). A binary op that empties out drops it
-    #: (``full() & ~full()`` is plain empty); :meth:`complement` keeps it, so
-    #: ``~~full() == full()``. Part of equality, since membership reads it.
+    #: :meth:`_arbitrary_active`). An intersection or difference that empties
+    #: out the bounds drops it (``full() & ~full()`` is plain empty);
+    #: :meth:`complement` and a union of empty-bounds operands keep it, so
+    #: ``~~full() == full()`` and ``~full() | ~full() == ~full()``. Part of
+    #: equality, since membership reads it.
     _admit_arbitrary: bool
 
     #: Case-folded strings the range admits in addition to its bounds.
@@ -614,8 +616,8 @@ class VersionRange:
         new_region = self._merged_region(other)
 
         # An empty intersection (e.g. ``full() & ~full()``) is the empty range,
-        # so it drops the arbitrary flag rather than keeping an inert one that a
-        # later union could revive.
+        # so it drops the arbitrary flag, agreeing with difference when the
+        # subtrahend consumes the bounds.
         combined_arb = (
             self._admit_arbitrary and other._admit_arbitrary and bool(new_bounds)
         )
@@ -659,9 +661,13 @@ class VersionRange:
         # An empty-bounds operand (e.g. ``~full()``) carries an inert arbitrary
         # flag only to keep complement an involution; it admits nothing, so it
         # must not revive arbitrary admission as the union re-widens the bounds.
-        combined_arb = (self._admit_arbitrary and bool(self._bounds)) or (
-            other._admit_arbitrary and bool(other._bounds)
-        )
+        if new_bounds:
+            combined_arb = (self._admit_arbitrary and bool(self._bounds)) or (
+                other._admit_arbitrary and bool(other._bounds)
+            )
+        else:
+            # Nothing widened, so keeping the flags keeps ``r | r == r``.
+            combined_arb = self._admit_arbitrary or other._admit_arbitrary
 
         if not self._has_literals() and not other._has_literals():
             return self._build(

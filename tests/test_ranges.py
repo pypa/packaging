@@ -276,6 +276,18 @@ class TestSetAlgebra:
         assert (full - ~full) == full
         assert (full - ~full).contains("wat")
 
+    def test_union_of_empty_ranges_keeps_arbitrary_flag(self) -> None:
+        # A union whose result stays empty-bounds has no widening to revive
+        # admission through, so ``~full()`` keeps its inert flag and union is
+        # idempotent. Intersection always drops the flag at empty bounds, so
+        # neither ``r & r`` nor ``r & full()`` is ``r``.
+        r = ~VersionRange.full()
+        assert r | r == r
+        assert r | VersionRange.empty() == r
+        assert (~(r | r)).contains("wat")
+        assert r & r == VersionRange.empty()
+        assert r & VersionRange.full() == VersionRange.empty()
+
     def test_policy_mismatch_raises(self) -> None:
         with pytest.raises(ValueError, match="different"):
             vr(">=1.0", prereleases=True) & vr("<2.0", prereleases=False)
