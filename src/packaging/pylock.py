@@ -571,6 +571,12 @@ class Package:
         object.__setattr__(self, "directory", directory)
         object.__setattr__(self, "archive", archive)
         object.__setattr__(self, "index", index)
+        if index is not None:
+            parsed = urlparse(index)
+            if not parsed.scheme or not parsed.netloc:
+                raise PylockValidationError(
+                    f"index must be a valid URL, got {index!r}"
+                )
         object.__setattr__(self, "sdist", sdist)
         object.__setattr__(self, "wheels", wheels)
         object.__setattr__(self, "attestation_identities", attestation_identities)
