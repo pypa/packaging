@@ -283,6 +283,51 @@ def test_pylock_invalid_package_index_url() -> None:
     assert str(exc_info.value) == "Invalid URL 'not-a-url' in 'packages[0].index'"
 
 
+def test_pylock_valid_package_index_url() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "index": "https://example.com/simple/",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "url": "https://example.com/example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    pylock = Pylock.from_dict(data)
+    assert pylock.packages[0].index == "https://example.com/simple/"
+    assert pylock.to_dict() == data
+
+
+def test_pylock_missing_package_index_url() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "url": "https://example.com/example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                    }
+                ],
+            }
+        ],
+    }
+    pylock = Pylock.from_dict(data)
+    assert pylock.packages[0].index is None
+    assert pylock.to_dict() == data
+
+
 def test_pylock_vcs_package() -> None:
     data = {
         "lock-version": "1.0",

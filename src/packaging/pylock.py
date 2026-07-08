@@ -14,7 +14,7 @@ from typing import (
     TypeVar,
     cast,
 )
-from urllib.parse import urlparse, uses_netloc
+from urllib.parse import urlparse
 
 from .markers import (
     Environment,
@@ -63,6 +63,36 @@ def __dir__() -> list[str]:
 
 _T = TypeVar("_T")
 _T2 = TypeVar("_T2")
+
+_URL_SCHEMES_REQUIRING_NETLOC = frozenset(
+    {
+        "ftp",
+        "git",
+        "git+ssh",
+        "gopher",
+        "http",
+        "https",
+        "imap",
+        "itms-services",
+        "mms",
+        "nfs",
+        "nntp",
+        "prospero",
+        "rsync",
+        "rtsp",
+        "rtsps",
+        "rtspu",
+        "sftp",
+        "shttp",
+        "snews",
+        "svn",
+        "svn+ssh",
+        "telnet",
+        "wais",
+        "ws",
+        "wss",
+    }
+)
 
 
 class _FromMappingProtocol(Protocol):  # pragma: no cover
@@ -250,9 +280,7 @@ def _validate_path_url(path: str | None, url: str | None) -> None:
 def _validate_url(url: str) -> str:
     parsed_url = urlparse(url)
     if not parsed_url.scheme or (
-        parsed_url.scheme in uses_netloc
-        and parsed_url.scheme != "file"
-        and not parsed_url.netloc
+        parsed_url.scheme in _URL_SCHEMES_REQUIRING_NETLOC and not parsed_url.netloc
     ):
         raise PylockValidationError(f"Invalid URL {url!r}")
     return url
