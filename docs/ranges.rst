@@ -211,9 +211,36 @@ an operand carries an opt-in:
     >>> a & (a | b) == a
     False
 
-Intersection still distributes over union, ``a - b`` still equals ``a & ~b``,
-and every law holds on the version set as usual. Only the opt-in region makes
-the identities above differ, and only when a specifier named a pre-release.
+Intersection still distributes over union, ``a - b`` agrees with ``a & ~b`` on
+the version set and the opt-in region, and every law holds on the version set
+as usual. The opt-in region makes the identities above differ only when a
+specifier named a pre-release.
+
+The arbitrary-string flag has corners of its own. ``SpecifierSet("")`` matches
+even strings that are not PEP 440 versions, so its range,
+:meth:`VersionRange.full`, admits them too; pass ``admit_arbitrary=False`` for
+the versions-only full range. Only those ranges and ``===`` literals admit
+such strings: combining ranges never grants an admission the operands did not
+have, so ``~r`` stays version-only for any version-only ``r``. The flag rides
+along where that is harmless, keeping ``~~full() == full()`` and union
+idempotent, but an intersection or difference that empties out does not
+remember it:
+
+.. doctest::
+
+    >>> f = VersionRange.full()
+    >>> "wat" in f
+    True
+    >>> "wat" in VersionRange.full(admit_arbitrary=False)
+    False
+    >>> ~~f == f
+    True
+    >>> (~f | ~f) == ~f
+    True
+    >>> (f & ~f) == VersionRange.empty()
+    True
+    >>> (f & ~f) == ~f
+    False
 
 Reference
 ---------
