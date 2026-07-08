@@ -770,6 +770,17 @@ class TestSetRelations:
     def test_everything_is_subset_of_full(self) -> None:
         assert vr(">=1.0,<2.0").is_subset(VersionRange.full())
 
+    def test_subset_arbitrary_admission(self) -> None:
+        # ``full()`` admits non-version strings, which no bounds cover, so it
+        # is not a subset of the version-only full range.
+        full = VersionRange.full()
+        plain = VersionRange.full(admit_arbitrary=False)
+        assert not full.is_subset(plain)
+        assert plain.is_subset(full)
+        assert full.is_subset(full)
+        assert full.is_superset(plain)
+        assert not plain.is_superset(full)
+
     def test_superset_mirrors_subset(self) -> None:
         outer, inner = vr(">=1.0,<2.0"), vr(">=1.5,<1.8")
         assert outer.is_superset(inner)

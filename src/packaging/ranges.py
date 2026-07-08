@@ -861,10 +861,10 @@ class VersionRange:
     def is_subset(self, other: VersionRange) -> bool:
         """Return whether every member of self is also a member of other.
 
-        Equivalent to ``self.difference(other).is_empty``: self is a subset of
-        other when subtracting other leaves nothing behind. This holds for
-        ``===`` literals and arbitrary-admitting ranges too, since
-        :meth:`difference` resolves each admitted string against both operands.
+        On versions and ``===`` literals this is
+        ``self.difference(other).is_empty``: subtracting other leaves nothing
+        behind. A live arbitrary admission (the flag at full bounds) is only a
+        subset of another live one.
 
         Both operands must share the same configured pre-release policy;
         otherwise :exc:`ValueError` is raised.
@@ -880,9 +880,15 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
+        # A live arbitrary admission has non-version strings as members, which
+        # no bounds cover; only another live admission contains them.
+        if self._arbitrary_active() and not other._arbitrary_active():
+            return False
+
         # Plain ranges: subset reduces to bounds containment, no algebra needed.
         if self._is_plain() and other._is_plain():
             return not intersect_ranges(self._bounds, _complement_ranges(other._bounds))
+
         # difference (unlike intersection with the one-way complement) resolves
         # ``===`` literals against both operands, so it stays correct for them.
         return self.difference(other).is_empty
