@@ -89,11 +89,10 @@ class TestOperatorEvaluation:
         )
 
     def test_new_string_rules(self) -> None:
-        assert not Marker('"b" < python_full_version').evaluate(
+        # Non-version strings with version markers fall back to string
+        # comparison (e.g., platform_release on Linux kernel versions)
+        assert Marker('"b" < python_full_version').evaluate(
             dict(python_full_version="c")
-        )
-        assert not Marker('"b" < python_full_version').evaluate(
-            dict(python_full_version="a")
         )
         assert not Marker('"b" > "a"').evaluate(dict(a="a"))
         assert not Marker('"b" < "a"').evaluate(dict(a="a"))

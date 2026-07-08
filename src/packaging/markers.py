@@ -15,6 +15,7 @@ from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
+from .version import InvalidVersion, Version
 from .utils import canonicalize_name
 
 if TYPE_CHECKING:
@@ -229,11 +230,29 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
         except InvalidSpecifier:
             pass
         else:
-            return spec.contains(lhs, prereleases=True)
+            try:
+                Version(lhs)
+            except InvalidVersion:
+                pass
+            else:
+                return spec.contains(lhs, prereleases=True)
 
     oper: Operator | None = _operators.get(op_str)
     if oper is None:
         raise UndefinedComparison(f"Undefined {op!r} on {lhs!r} and {rhs!r}.")
+
+    # For non-version comparisons on version keys, use proper string comparison
+    # (e.g., platform_release on Linux may not be a valid PEP 440 version)
+    if key in MARKERS_REQUIRING_VERSION and not isinstance(rhs, AbstractSet):
+        assert isinstance(rhs, str)
+        if op_str == "<":
+            return lhs < rhs
+        elif op_str == "<=":
+            return lhs <= rhs
+        elif op_str == ">":
+            return lhs > rhs
+        elif op_str == ">=":
+            return lhs >= rhs
 
     return oper(lhs, rhs)
 
