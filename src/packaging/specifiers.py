@@ -46,7 +46,7 @@ if TYPE_CHECKING:
         from typing_extensions import TypeGuard
 
     from . import ranges
-    from ._ranges import VersionRange
+    from ._ranges import Interval
 
 
 __all__ = [
@@ -385,7 +385,7 @@ class Specifier(BaseSpecifier):
         self._spec_version: tuple[str, Version] | None = None
 
         # Version range cache (populated by _to_ranges)
-        self._ranges: Sequence[VersionRange] | None = None
+        self._ranges: Sequence[Interval] | None = None
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -409,7 +409,7 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> Sequence[VersionRange]:
+    def _to_ranges(self) -> Sequence[Interval]:
         """Convert this specifier to sorted, non-overlapping version ranges.
 
         Each standard operator maps to one or two ranges.  ``===`` is
@@ -422,7 +422,7 @@ class Specifier(BaseSpecifier):
         ver_str = self.version
 
         if op == "===":
-            result: Sequence[VersionRange] = FULL_RANGE
+            result: Sequence[Interval] = FULL_RANGE
         else:
             version = self._require_spec_version(ver_str.removesuffix(".*"))
             result = bounds_for_spec(op, ver_str, version)
@@ -821,7 +821,7 @@ class SpecifierSet(BaseSpecifier):
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
-        self._ranges: Sequence[VersionRange] | None = None
+        self._ranges: Sequence[Interval] | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -1031,7 +1031,7 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> Sequence[VersionRange]:
+    def _get_ranges(self) -> Sequence[Interval]:
         """Intersect all specifiers into a single sequence of version ranges.
 
         Empty when unsatisfiable. Callers must ensure ``self._specs``

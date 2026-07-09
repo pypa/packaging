@@ -225,12 +225,31 @@ def test_dir_info_url_scheme_file() -> None:
         "FILE:///home/myproject",
         "File:///home/myproject",
         "file:/home/myproject",
+        "file://localhost/home/myproject",
     ],
 )
-def test_dir_info_url_scheme_file_case_insensitive(url: str) -> None:
+def test_dir_info_url_file_absolute_case_insensitive(url: str) -> None:
     """Per RFC 3986 §3.1, URL schemes are case-insensitive; all variants of
-    the file scheme must be accepted when dir_info is present."""
+    absolute file URLs must be accepted when dir_info is present."""
     DirectUrl.from_dict({"url": url, "dir_info": {}})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:relative",
+        "file:./relative",
+        "file:",
+        "file://relative",
+        "file://localhost",
+    ],
+)
+def test_dir_info_url_requires_absolute_file_url(url: str) -> None:
+    with pytest.raises(
+        DirectUrlValidationError,
+        match=r"File URL must be absolute when dir_info is present",
+    ):
+        DirectUrl.from_dict({"url": url, "dir_info": {}})
 
 
 def test_missing_url() -> None:

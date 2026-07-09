@@ -27,6 +27,8 @@ def __dir__() -> list[str]:
 class InvalidRequirement(ValueError):
     """
     An invalid requirement was found, users should refer to PEP 508.
+
+    .. versionadded:: 16.1
     """
 
 
@@ -36,6 +38,12 @@ class Requirement:
     Parse a given requirement string into its parts, such as name, specifier,
     URL, and extras. Raises InvalidRequirement on a badly-formed requirement
     string.
+
+    .. versionadded:: 16.1
+
+    .. versionchanged:: 22.0
+        Added equality (``__eq__``) and hashing (``__hash__``) so requirements
+        can be compared and stored in sets / dicts.
 
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
@@ -62,6 +70,8 @@ class Requirement:
     #       If so how do we do that? Do we need to test against the _name_ of
     #       the thing as well as the version? What about the markers?
     # TODO: Can we normalize the name and extra name?
+
+    __slots__ = ("extras", "marker", "name", "specifier", "url")
 
     def __init__(self, requirement_string: str) -> None:
         try:
@@ -116,9 +126,10 @@ class Requirement:
         ):
             # New format (26.3+): (requirement string, specifier prereleases).
             requirement_string, prereleases = state
-        elif isinstance(state, dict):
+        elif isinstance(state, dict) and state.keys() >= set(self.__slots__):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
-            self.__dict__.update(state)
+            for key in self.__slots__:
+                setattr(self, key, state[key])
             return
         else:
             raise TypeError(f"Cannot restore Requirement from {state!r}")
