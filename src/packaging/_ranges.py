@@ -292,13 +292,13 @@ class UpperBound:
 
 
 if TYPE_CHECKING:
-    #: A single contiguous version range, as a (lower, upper) pair.
-    VersionRange = tuple[LowerBound, UpperBound]
+    #: A single contiguous interval as a (lower, upper) bound pair.
+    Interval = tuple[LowerBound, UpperBound]
 
 
 NEG_INF: Final[LowerBound] = LowerBound(None, False)
 POS_INF: Final[UpperBound] = UpperBound(None, False)
-FULL_RANGE: Final[tuple[VersionRange]] = ((NEG_INF, POS_INF),)
+FULL_RANGE: Final[tuple[Interval]] = ((NEG_INF, POS_INF),)
 
 
 def trim_release(release: tuple[int, ...]) -> tuple[int, ...]:
@@ -501,11 +501,11 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
 
 
 def intersect_ranges(
-    left: Sequence[VersionRange],
-    right: Sequence[VersionRange],
-) -> list[VersionRange]:
+    left: Sequence[Interval],
+    right: Sequence[Interval],
+) -> list[Interval]:
     """Intersect two sorted, non-overlapping range lists (two-pointer merge)."""
-    result: list[VersionRange] = []
+    result: list[Interval] = []
     left_index = right_index = 0
     while left_index < len(left) and right_index < len(right):
         left_lower, left_upper = left[left_index]
@@ -527,24 +527,27 @@ def intersect_ranges(
 
 
 def filter_by_ranges(
-    ranges: Sequence[VersionRange],
+    ranges: Sequence[Interval],
     iterable: Iterable[Any],
     key: Callable[[Any], Version | str] | None,
     prereleases: bool | None,
+    region: Sequence[Interval] = (),
 ) -> Iterator[Any]:
     """Filter *iterable* against precomputed version *ranges*.
 
-    With ``prereleases=None``, the PEP 440 default applies: pre-releases
-    are excluded unless no final matches, in which case buffered
-    pre-releases come out at the end.
+    With ``prereleases=None``, the PEP 440 default applies: pre-releases are
+    excluded unless no final matches, in which case buffered pre-releases come
+    out at the end. A pre-release inside the opt-in ``region`` is the exception:
+    it is force-admitted in place, as ``prereleases=True`` would yield it. A
+    force-admitted pre-release is not a final, so it never suppresses the buffer.
     """
     if prereleases is None:
-        # PEP 440 default: yield finals immediately; buffer
-        # pre-releases until at least one final has been emitted.
         prerelease_buffer: list[Any] = []
         found_final = False
 
         if len(ranges) == 1:
+            # Hot path: most specifiers and small SpecifierSets reduce to
+            # a single contiguous range.
             lower, upper = ranges[0]
             above = lower._above
             below = upper._below
@@ -556,12 +559,13 @@ def filter_by_ranges(
                     continue
                 if below is not None and not below(parsed):
                     continue
-                if parsed.is_prerelease:
-                    if not found_final:
-                        prerelease_buffer.append(item)
-                else:
+                if not parsed.is_prerelease:
                     found_final = True
                     yield item
+                elif region and matches_bounds_only(region, parsed):
+                    yield item
+                elif not found_final:
+                    prerelease_buffer.append(item)
             if not found_final:
                 yield from prerelease_buffer
             return
@@ -576,12 +580,13 @@ def filter_by_ranges(
                     break
                 below = upper._below
                 if below is None or below(parsed):
-                    if parsed.is_prerelease:
-                        if not found_final:
-                            prerelease_buffer.append(item)
-                    else:
+                    if not parsed.is_prerelease:
                         found_final = True
                         yield item
+                    elif region and matches_bounds_only(region, parsed):
+                        yield item
+                    elif not found_final:
+                        prerelease_buffer.append(item)
                     break
         if not found_final:
             yield from prerelease_buffer
@@ -658,7 +663,7 @@ def _lowest_release_at_or_above(value: Version | BoundaryVersion | None) -> Vers
     return _nearest_release_above_prerelease(value)
 
 
-def ranges_are_prerelease_only(ranges: Sequence[VersionRange]) -> bool:
+def ranges_are_prerelease_only(ranges: Sequence[Interval]) -> bool:
     """True when every range in *ranges* contains only pre-releases.
 
     Used to detect unsatisfiable specifier sets when ``prereleases=False``:
@@ -673,7 +678,7 @@ def ranges_are_prerelease_only(ranges: Sequence[VersionRange]) -> bool:
     return True
 
 
-def wildcard_ranges(op: str, base: Version) -> list[VersionRange]:
+def wildcard_ranges(op: str, base: Version) -> list[Interval]:
     """Ranges for ==V.* and !=V.*.
 
     ==1.2.* -> [1.2.dev0, 1.3.dev0);  !=1.2.* -> complement.
@@ -689,7 +694,7 @@ def wildcard_ranges(op: str, base: Version) -> list[VersionRange]:
     ]
 
 
-def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionRange]:
+def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval]:
     """Ranges for the standard PEP 440 operators (no wildcard, no ===).
 
     *has_local* indicates whether the spec string included a ``+local``
@@ -758,7 +763,7 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[VersionR
     raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
 
 
-def bounds_for_spec(op: str, version_str: str, version: Version) -> list[VersionRange]:
+def bounds_for_spec(op: str, version_str: str, version: Version) -> list[Interval]:
     """Ranges for one specifier's ``(op, version_str)``.
 
     Dispatches between the wildcard and standard builders. ``version`` is the
@@ -773,14 +778,14 @@ def bounds_for_spec(op: str, version_str: str, version: Version) -> list[Version
 
 
 def intersect_specifier_bounds(
-    per_specifier_ranges: Iterable[Sequence[VersionRange]],
-) -> Sequence[VersionRange]:
+    per_specifier_ranges: Iterable[Sequence[Interval]],
+) -> Sequence[Interval]:
     """Intersect each specifier's ranges into a single sequence.
 
     Short-circuits once the running intersection is empty, since no later
     specifier can revive it. Callers must pass at least one specifier.
     """
-    result: Sequence[VersionRange] | None = None
+    result: Sequence[Interval] | None = None
     for sub in per_specifier_ranges:
         if result is None:
             result = sub
@@ -795,7 +800,7 @@ def intersect_specifier_bounds(
     return result
 
 
-def matches_bounds_only(ranges: Sequence[VersionRange], version: Version) -> bool:
+def matches_bounds_only(ranges: Sequence[Interval], version: Version) -> bool:
     """Whether ``version`` falls within any of ``ranges``.
 
     The pure bounds membership test, for a single already-parsed version with

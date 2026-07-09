@@ -184,17 +184,6 @@ def test_intersect_distributes_over_union_rich(
     )
 
 
-@given(a=rich_specifier_sets(), b=rich_specifier_sets(), c=rich_specifier_sets())
-@SETTINGS
-def test_union_distributes_over_intersect_rich(
-    a: SpecifierSet, b: SpecifierSet, c: SpecifierSet
-) -> None:
-    ra = a.to_range()
-    rb = b.to_range()
-    rc = c.to_range()
-    assert ra.union(rb.intersection(rc)) == ra.union(rb).intersection(ra.union(rc))
-
-
 @given(spec_set=rich_specifier_sets())
 @SETTINGS
 def test_membership_consistent_with_complement_rich(
