@@ -34,7 +34,6 @@ repos:
           - 'pytest<9'
           - tomli
           - tomli_w
-          - types-invoke
           - 'typing_extensions>=4.15.0'
           - httpx
 

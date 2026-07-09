@@ -77,6 +77,12 @@ Reference
     This class abstracts handling the details of a requirement for a project.
     Each requirement will be parsed according to the specification.
 
+    .. versionadded:: 16.1
+
+    .. versionchanged:: 22.0
+        Added equality (``__eq__``) and hashing (``__hash__``) so requirements
+        can be compared and stored in sets / dicts.
+
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
 
@@ -125,3 +131,5 @@ Reference
 
     Raised when attempting to create a :class:`Requirement` with a string that
     does not conform to the specification.
+
+    .. versionadded:: 16.1

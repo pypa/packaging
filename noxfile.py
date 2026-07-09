@@ -37,6 +37,11 @@ nox.options.default_venv_backend = "uv|virtualenv"
 PYPROJECT = nox.project.load_toml("pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 
+# hypothesis 6.156+ ships as a maturin/pyo3 project without wheels for PyPy or
+# free-threaded CPython, so building from the sdist fails there. Restrict it to
+# binaries so uv/pip picks the newest version with a compatible wheel instead.
+HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
+
 
 @nox.session(
     python=[
@@ -56,7 +61,9 @@ def tests(session: nox.Session) -> None:
     """
     coverage = ["python", "-m", "coverage"]
 
-    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
+    session.install(
+        *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
+    )
     session.install("-e.")
     env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
 
@@ -92,7 +99,9 @@ def property_tests(session: nox.Session) -> None:
     """
     Run property-based tests (no coverage).
     """
-    session.install(*nox.project.dependency_groups(PYPROJECT, "test"))
+    session.install(
+        *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
+    )
     session.install("-e.")
     session.run(
         "python",

@@ -789,6 +789,15 @@ class TestRequirementBehaviour:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
 
 
+def test_requirement_slots() -> None:
+    # Requirement defines __slots__, so instances have no __dict__ and reject
+    # unknown attributes.
+    r = Requirement("requests>=2.0")
+    assert not hasattr(r, "__dict__")
+    with pytest.raises(AttributeError):
+        r.nonexistent = 1  # type: ignore[attr-defined]
+
+
 @pytest.mark.parametrize(
     "req_str",
     [

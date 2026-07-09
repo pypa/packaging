@@ -520,6 +520,17 @@ class TestMarker:
         with pytest.raises(KeyError):
             marker.evaluate()
 
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    @pytest.mark.parametrize("op", ["==", "!=", ">=", "<="])
+    def test_set_valued_marker_on_lhs_raises_undefined_comparison(
+        self, variable: str, op: str
+    ) -> None:
+        """Set-valued markers are only defined in the membership form, so using
+        one on the left-hand side of a comparison raises ``UndefinedComparison``."""
+        marker = Marker(f"{variable} {op} 'foo'")
+        with pytest.raises(UndefinedComparison):
+            marker.evaluate(context="lock_file")
+
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
