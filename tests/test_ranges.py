@@ -288,6 +288,20 @@ class TestSetAlgebra:
         assert r & r == VersionRange.empty()
         assert r & VersionRange.full() == VersionRange.empty()
 
+    def test_difference_shrink_forgets_arbitrary_admission(self) -> None:
+        # A difference that shrinks the bounds forgets the arbitrary flag, so
+        # a later widening union cannot revive an admission neither operand
+        # had, and ``full() - r`` agrees with ``full() & ~r``. A difference
+        # that removes no versions keeps it, so ``a - b == a`` whenever ``b``
+        # is disjoint from ``a``, empty-bounds minuends included.
+        full = VersionRange.full()
+        shrunk = full - vr(">=1.0")
+        assert not shrunk.contains("wat")
+        assert not (shrunk | vr(">=0.5")).contains("wat")
+        assert (shrunk | vr(">=0.5")) == VersionRange.full(admit_arbitrary=False)
+        assert shrunk == full & ~vr(">=1.0")
+        assert (~full - vr(">=1.0")) == ~full
+
     def test_policy_mismatch_raises(self) -> None:
         with pytest.raises(ValueError, match="different"):
             vr(">=1.0", prereleases=True) & vr("<2.0", prereleases=False)

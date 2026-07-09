@@ -367,11 +367,12 @@ class VersionRange:
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
     #: rides set algebra but is inert except at full bounds (see
-    #: :meth:`_arbitrary_active`). An intersection or difference that empties
-    #: out the bounds drops it (``full() & ~full()`` is plain empty);
-    #: :meth:`complement` and a union of empty-bounds operands keep it, so
-    #: ``~~full() == full()`` and ``~full() | ~full() == ~full()``. Part of
-    #: equality, since membership reads it.
+    #: :meth:`_arbitrary_active`). An intersection or difference that shrinks
+    #: the bounds drops it (``full() & ~full()`` is plain empty, and
+    #: ``full() - r == full() & ~r``); :meth:`complement` and a union of
+    #: empty-bounds operands keep it, so ``~~full() == full()`` and
+    #: ``~full() | ~full() == ~full()``. Part of equality, since membership
+    #: reads it.
     _admit_arbitrary: bool
 
     #: Case-folded strings the range admits in addition to its bounds.
@@ -473,7 +474,9 @@ class VersionRange:
         """True when ``_admit_arbitrary`` actually admits non-version strings.
 
         The flag rides through set algebra but only fires admission on full
-        bounds; on narrower bounds it is metadata awaiting a later widening.
+        bounds. Intersection and difference drop it when the bounds shrink, so
+        away from full bounds it survives only on empty-bounds ranges, where
+        it keeps ``~~full() == full()`` and union idempotent.
         """
         return self._admit_arbitrary and self._bounds == FULL_RANGE
 
@@ -721,11 +724,13 @@ class VersionRange:
     def difference(self, other: VersionRange) -> VersionRange:
         """Range containing the versions in self but not in other.
 
-        Matches ``self & ~other`` on both the version set and the opt-in region;
-        ``other`` acts as a bounds-only exclusion that grants no opt-in. They
-        part only on non-version-string admission, whose complement is one-way:
-        a ``===`` literal stays when ``self`` admits it and ``other`` does not,
-        and the arbitrary-string flag is kept from ``self``. Both operands must
+        Matches ``self & ~other`` on the version set and the opt-in region;
+        ``other`` acts as a bounds-only exclusion that grants no opt-in. The
+        arbitrary-string flag survives only when ``other`` removed no versions:
+        a difference that shrinks the bounds forgets it, as ``self & ~other``
+        would, so no later widening union can revive it. They still part on
+        ``===`` literals, whose complement is one-way: a ``===`` literal stays
+        when ``self`` admits it and ``other`` does not. Both operands must
         share the same configured pre-release policy (as :meth:`intersection`
         and :meth:`union` require); otherwise :exc:`ValueError` is raised.
         ``a - empty()`` returns a range equal to ``a``.
@@ -741,9 +746,7 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
-        # Subtracting a nothing-admitting set is a no-op. Short-circuit so an
-        # empty-bounds self (e.g. ``~full()``) keeps its arbitrary-string flag,
-        # which the general path would drop.
+        # Subtracting a nothing-admitting set is a no-op; return self unchanged.
         if not other._bounds and not other._admit:
             return self
 
@@ -760,10 +763,11 @@ class VersionRange:
         if self._prereleases_configured is None:
             new_region = self._pre_region
 
-        # Keep self's arbitrary admission. Other only removes it at full bounds,
-        # where nothing survives, so the empty result drops it (as in
-        # :meth:`intersection`) with no separate other-side test.
-        combined_arb = self._admit_arbitrary and bool(new_bounds)
+        # Keep self's arbitrary admission only when subtracting removed no
+        # versions. A difference that shrinks the bounds forgets the flag, as
+        # ``self & ~other`` would, so no later widening union can revive an
+        # admission neither operand had.
+        combined_arb = self._admit_arbitrary and new_bounds == self._bounds
 
         if not self._has_literals() and not other._has_literals():
             return self._build(
