@@ -226,8 +226,8 @@ the versions-only full range. Only those ranges and ``===`` literals admit
 such strings: combining ranges never grants an admission the operands did not
 have, so ``~r`` stays version-only for any version-only ``r``. The flag rides
 along where that is harmless, keeping ``~~full() == full()`` and union
-idempotent, but an intersection or difference that empties out does not
-remember it:
+idempotent, but an intersection or difference that shrinks the bounds does
+not remember it:
 
 .. doctest::
 
@@ -244,6 +244,11 @@ remember it:
     True
     >>> (f & ~f) == ~f
     False
+    >>> d = f - SpecifierSet(">=1.0").to_range()
+    >>> "wat" in (d | SpecifierSet(">=0.5").to_range())
+    False
+    >>> d == f & ~SpecifierSet(">=1.0").to_range()
+    True
 
 Reference
 ---------
