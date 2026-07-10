@@ -239,14 +239,22 @@ def rich_specifier_sets(
     draw: st.DrawFn,
     *,
     include_arbitrary: bool = False,
+    vary_prereleases: bool = False,
 ) -> SpecifierSet:
-    """1-3 specifiers from :func:`pep440_specifier_strings`, joined."""
+    """1-3 specifiers from :func:`pep440_specifier_strings`, joined.
+
+    With ``vary_prereleases=True`` the configured pre-release policy is drawn
+    from ``(None, True, False)``; otherwise it is left as ``None`` (autodetect).
+    """
     num = draw(st.integers(min_value=1, max_value=3))
     parts = [
         draw(pep440_specifier_strings(include_arbitrary=include_arbitrary))
         for _ in range(num)
     ]
-    return SpecifierSet(",".join(parts))
+    prereleases = (
+        draw(st.sampled_from([None, True, False])) if vary_prereleases else None
+    )
+    return SpecifierSet(",".join(parts), prereleases=prereleases)
 
 
 @st.composite
@@ -265,3 +273,73 @@ def related_version_triple(
         return Version(f"{base}{pre or ''}{post or ''}{dev or ''}")
 
     return (_build(draw), _build(draw), _build(draw))
+
+
+# Bases for adjacency chains, one per family (final, post, dev, floor, epoch).
+_ADJACENCY_BASES = [
+    Version(v)
+    for v in (
+        "0",
+        "1.0",
+        "1.0.post0",
+        "3.8",
+        "1!0",
+        "0.dev0",
+        "1.0.dev0",
+        "1!0.dev0",
+        # Non-floor release-dev bases a ``!=W.*`` lead can abut (W just below).
+        "2.dev0",
+        "3.dev0",
+    )
+]
+
+# Leads: a lower bound, a release-family wildcard the run can sit inside, or a
+# ``!=W.*`` wildcard exclusion the dev run can abut (driving wildcard-then-dev-run).
+_ADJACENCY_LEADS = [
+    "",
+    ">=0.dev0",
+    ">=1.0",
+    ">=1.0.post0",
+    "==1.0.*",
+    "==1!0.*",
+    "==3.8.*",
+    "==0.*",
+    "!=0.*",
+    "!=1.*",
+    "!=2.*",
+]
+
+
+def _next_adjacent(version: Version) -> Version:
+    """The immediate successor of *version* and its local family.
+
+    Independent of the production ``least_version_above`` so the strategy does
+    not validate the encoder against itself: a dev release steps its dev; any
+    other release steps to its next post at ``.dev0`` (``.post0.dev0`` for a
+    final release, ``.post(N+1).dev0`` for a ``.postN`` release).
+    """
+    if version.dev is not None:
+        return version.__replace__(dev=version.dev + 1, local=None)
+    next_post = (version.post + 1) if version.post is not None else 0
+    return version.__replace__(post=next_post, dev=0, local=None)
+
+
+@st.composite
+def adjacency_exclusion_sets(draw: st.DrawFn) -> SpecifierSet:
+    """An optional lower/wildcard lead plus a run of adjacent exclusions.
+
+    Excluding a version and several of its immediate successors removes a
+    contiguous block whose canonical bounds are a single merged gap. When the
+    lead and base line up, this drives the ``to_specifier_set`` ``!=`` chain,
+    dev-run, wildcard-then-dev-run, and epoch floor-run recovery paths that the
+    independent specifier strategies never reach by chance.
+    """
+    base = draw(st.sampled_from(_ADJACENCY_BASES))
+    points = [base]
+    for _ in range(draw(st.integers(min_value=0, max_value=4))):
+        points.append(_next_adjacent(points[-1]))
+
+    lead = draw(st.sampled_from(_ADJACENCY_LEADS))
+    parts = ([lead] if lead else []) + [f"!={point}" for point in points]
+    prereleases = draw(st.sampled_from([None, True, False]))
+    return SpecifierSet(",".join(parts), prereleases=prereleases)

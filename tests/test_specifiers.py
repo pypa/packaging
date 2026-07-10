@@ -3522,6 +3522,7 @@ _EQUIV_SPECS = [
     "!=1.4,!=1.6",
     ">=1.0,<2.0,!=1.2.*",
     "==1.0,!=1.0",
+    "<=1.0,!=1.0",
     ">=2.0,<1.0",
     "<0",
 ]
@@ -3592,6 +3593,43 @@ class TestSpecifierSetToRangeEquivalence:
             assert list(spec_set.filter(_EQUIV_ITEMS, prereleases=prereleases)) == list(
                 version_range.filter(_EQUIV_ITEMS, prereleases=prereleases)
             ), (spec_str, prereleases)
+
+    @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
+    @pytest.mark.parametrize("configured", [None, True, False])
+    def test_to_specifier_set_roundtrip_matches(
+        self, spec_str: str, configured: bool | None
+    ) -> None:
+        # When to_specifier_set() returns a non-None set, that set matches the
+        # same versions as the range. Under a None/True policy the recovery is an
+        # exact round trip, so it matches under every prereleases/installed
+        # override. A configured False policy admits no pre-releases, so its
+        # recovery need only match the releases the policy leaves observable;
+        # overrides that admit pre-releases (prereleases=True / installed=True)
+        # reinterpret the range cross-policy, which is unsound (see
+        # docs/ranges.rst), so they are checked only for the None/True policies.
+        version_range = SpecifierSet(spec_str, prereleases=configured).to_range()
+        recovered = version_range.to_specifier_set()
+        if recovered is None:
+            return
+        exact = configured is not False
+        pre_opts = (None, True, False) if exact else (None, False)
+        inst_opts = (None, True, False) if exact else (None, False)
+        for item in _EQUIV_ITEMS:
+            for prereleases in pre_opts:
+                for installed in inst_opts:
+                    assert version_range.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ) == recovered.contains(
+                        item, prereleases=prereleases, installed=installed
+                    ), (spec_str, configured, item, prereleases, installed)
+        for prereleases in pre_opts:
+            assert list(
+                version_range.filter(_EQUIV_ITEMS, prereleases=prereleases)
+            ) == list(recovered.filter(_EQUIV_ITEMS, prereleases=prereleases)), (
+                spec_str,
+                configured,
+                prereleases,
+            )
 
     @pytest.mark.parametrize("spec_str", _EQUIV_SPECS)
     def test_contains_equivalent_with_version_objects(self, spec_str: str) -> None:

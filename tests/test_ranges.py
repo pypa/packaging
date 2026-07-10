@@ -1060,8 +1060,488 @@ class TestEquality:
         assert "AFTER_POSTS" in repr(vr(">1.0"))
 
 
+class TestToSpecifierSet:
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            ">=1.0,<2.0",
+            "!=1.5",
+            "==1.2.*",
+            ">=1.0",
+            "<2.0",
+            ">1.0",
+            "<=1.0",
+            "~=1.4.2",
+            "==1.0",
+            "==1.0+local",
+            "!=1.5+local",
+            "",
+            ">=1.0,<2.0,!=1.4,!=1.6",
+            # Pre-release-bearing bounds that once failed to re-encode: a
+            # ``.dev0`` lower, a post-release boundary, and a dev0 upper.
+            ">=3.8.dev0,<3.14",
+            ">3.8.post1",
+            "<3.8.post1",
+            ">=3.8,<3.14.dev0",
+            # Family-base lowers recovered as ``>=P,!=P.*`` / ``!=P.*``.
+            ">=3,!=3.*",
+            ">=3.8,!=3.8.*",
+            "!=0.*",
+            "!=0.0.*",
+            "!=0.dev0",
+            # An AFTER_LOCALS(dev0) lower and a wildcard-chain + dev0-point gap.
+            "!=3.8.dev0,==3.8.*",
+            "!=3.9.dev0,!=3.8.*",
+        ],
+    )
+    def test_roundtrip(self, spec: str) -> None:
+        r = vr(spec)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
+    def test_empty(self) -> None:
+        assert str(vr(">=2.0,<1.0").to_specifier_set()) == "<0"
+
+    def test_empty_range_recovers_as_canonical_empty(self) -> None:
+        # An empty range carries no opt-in region under clipping, so an empty
+        # range that named a pre-release (``>=1.0,<=1.0a1``) recovers as the
+        # canonical ``<0`` (the same members: none).
+        r = vr(">=1.0,<=1.0a1")
+        assert r.is_empty
+        assert r._pre_region == ()
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "<0"
+        assert recovered.to_range().is_empty
+
+    def test_full_arbitrary(self) -> None:
+        assert str(SpecifierSet("").to_range().to_specifier_set()) == ""
+
+    def test_full_no_arbitrary_none(self) -> None:
+        # The only full-bounds spelling ``>=0.dev0`` opts pre-releases in
+        # (whole-bounds region), but this range has an empty opt-in region, so
+        # no candidate round-trips.
+        assert VersionRange.full(admit_arbitrary=False).to_specifier_set() is None
+
+    def test_full_bounds_partial_region_none(self) -> None:
+        # ``>=1.0a1 | ~>=1.0a1`` widens to full bounds but keeps the opt-in
+        # region ``[1.0a1, +inf)``. No single SpecifierSet pairs full bounds with
+        # a partial region (a pre-release specifier also bounds the range), so it
+        # has no single-set form.
+        r = vr(">=1.0a1") | ~vr(">=1.0a1")
+        assert r._bounds == VersionRange.full()._bounds
+        assert r._pre_region
+        assert r._pre_region != r._bounds
+        assert r.to_specifier_set() is None
+
+    def test_full_configured_false(self) -> None:
+        # ">=0.dev0" (not ">=0"): the floor must stay so the recovered set still
+        # admits 0.dev0 under a prereleases=True override, matching the range.
+        r = VersionRange.full(admit_arbitrary=False, prereleases=False)
+        assert str(r.to_specifier_set()) == ">=0.dev0"
+
+    def test_arbitrary_literal(self) -> None:
+        assert str(vr("===wat").to_specifier_set()) == "===wat"
+
+    def test_multiple_arbitrary_none(self) -> None:
+        assert (vr("===a") | vr("===b")).to_specifier_set() is None
+
+    def test_bounds_plus_literal_none(self) -> None:
+        r = VersionRange.singleton("1.0") | vr("===garbage")
+        assert r.to_specifier_set() is None
+
+    def test_singleton_none(self) -> None:
+        assert VersionRange.singleton("1.5").to_specifier_set() is None
+
+    def test_equals_singleton_recovers_as_equals(self) -> None:
+        # ``[V, AFTER_LOCALS(V)]`` is the natural ``==V``, not ``>=V,<=V``.
+        assert str(vr("==1.0").to_specifier_set()) == "==1.0"
+        assert str(vr("==1!2.3").to_specifier_set()) == "==1!2.3"
+        assert str(vr("==1.0.post1").to_specifier_set()) == "==1.0.post1"
+        # A pre-release singleton keeps its opt-in and still compacts.
+        assert str(vr("==1.0a1").to_specifier_set()) == "==1.0a1"
+        # A local segment keeps the existing ``==V+local`` compaction.
+        assert str(vr("==1.0+local").to_specifier_set()) == "==1.0+local"
+
+    def test_false_policy_recovers_release_equivalent(self) -> None:
+        # ``~(>=3.14)`` is ``(-inf, 3.14)``, whose exclusive final upper admits
+        # 3.14's pre-releases at the bounds level. Under ``prereleases=False``
+        # those are excluded, so it recovers as the terser release-equivalent
+        # ``<3.14``; the recovered set accepts the same releases.
+        r = ~vr(">=3.14", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "<3.14"
+        assert r._same_releases(recovered.to_range())
+        # None / True keep pre-releases, so the tightening is not equivalent and
+        # the exact ``!=3.14,<=3.14`` form stands.
+        assert str((~vr(">=3.14")).to_specifier_set()) == "!=3.14,<=3.14"
+        true_recovered = (~vr(">=3.14", prereleases=True)).to_specifier_set()
+        assert str(true_recovered) == "!=3.14,<=3.14"
+
+    def test_false_policy_no_tightening_when_unbounded_above(self) -> None:
+        # ``~(==3.14+local)`` extends to +inf, so its last upper is not a final
+        # exclusive bound; nothing is tightened and the exact ``!=`` form stands.
+        r = ~vr("==3.14+local", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=3.14+local"
+        assert recovered.to_range() == r
+
+    def test_false_policy_disjoint_union_stays_none(self) -> None:
+        # A disjoint union under ``prereleases=False`` has no single-set form, the
+        # same as under None/True. Tightening only the last (here pre-release dev0)
+        # upper avoids snapping the inner ``5)`` into a ``.dev0`` gap, which would
+        # otherwise fabricate a long ``!=5.*,...,!=999.*`` chain.
+        r = vr("<=5,!=5", prereleases=False) | vr("==1000.*", prereleases=False)
+        assert len(r._bounds) == 2
+        assert r.to_specifier_set() is None
+
+    def test_disjoint_none(self) -> None:
+        # Two intervals split by a whole-interval gap (not a ``!=`` exclusion)
+        # are two groups, which have no single-set form.
+        assert (vr(">=1,<2") | vr(">=4,<5")).to_specifier_set() is None
+
+    def test_disjoint_wildcards_roundtrip(self) -> None:
+        # ``==1.* | ==3.*`` is one span with an ``!=2.*`` hole: !=0.*,!=2.*,<4.
+        r = vr("==1.*") | vr("==3.*")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert str(recovered) == "!=0.*,!=2.*,<4"
+
+    def test_wide_wildcard_gap_none(self) -> None:
+        # A far-apart wildcard union would decompose into one ``!=N.*`` per family
+        # in the gap. Past ``_MAX_EXCLUSION_RUN`` that has no practical single-set
+        # form, so it returns None instead of an unbounded chain.
+        r = vr("==5.*") | vr("==1000000.*")
+        assert len(r._bounds) == 2
+        assert r.to_specifier_set() is None
+        # The budget is the total across the recursion, so a chain that stays
+        # narrow at the top level but widens (or deepens) below is bounded too.
+        assert (vr("==5.*") | vr("==7.200.*")).to_specifier_set() is None
+        wide = vr("==0.*") | vr("==" + ".".join(["128"] * 100) + ".*")
+        assert wide.to_specifier_set() is None
+        # Each level also costs at least one, so a deep run of zero-span levels
+        # (a valid version with hundreds of trailing components) is bounded and
+        # returns None rather than recursing past the interpreter's stack limit.
+        deep = vr("==0.*") | vr("==1." + ".".join(["0"] * 400) + ".1.*")
+        assert deep.to_specifier_set() is None
+
+    def test_specifier_set_exclusion_cap_returns_none(self) -> None:
+        # A plain specifier set that spells out a long exclusion run reaches the
+        # same cap: past ``_MAX_EXCLUSION_RUN`` families the recovery gives up. So
+        # a specifier-derived range can return None without any set algebra.
+        def excl(n: int) -> str:
+            return ",".join(f"!={k}.*" for k in range(1, n + 1))
+
+        assert SpecifierSet(excl(128)).to_range().to_specifier_set() is not None
+        assert SpecifierSet(excl(129)).to_range().to_specifier_set() is None
+
+    def test_recovery_caps_long_dev_runs(self) -> None:
+        # A ``.dev`` run longer than ``_MAX_EXCLUSION_RUN`` also has no practical
+        # single-set form. The bound encoders keep the terse ``>=V,!=V`` spelling
+        # or return None rather than spell out a huge ``!=`` chain from a short
+        # input. The four run sites, driven by an attacker-controlled dev number:
+        anchor = vr(">=1.dev200,!=1.dev200").to_specifier_set()
+        assert str(anchor) == "!=1.dev200,>=1.dev200"
+        assert (
+            str(vr(">=1!0.dev200,!=1!0.dev200,<1!1").to_specifier_set())
+            == "!=1!0.dev200,<1!1.dev0,>=1!0.dev200"
+        )
+        assert (~vr(">=1.0,<=1.0.post0.dev200")).to_specifier_set() is None
+        assert (~vr(">=1.dev0,<=2.dev200")).to_specifier_set() is None
+
+    def test_reject_none(self) -> None:
+        assert (~vr("===1.0")).to_specifier_set() is None
+
+    def test_arbitrary_admitting_empty_none(self) -> None:
+        # ``~vr("")`` is the empty set still tagged arbitrary-admitting. No
+        # SpecifierSet reproduces that shape (the empty ``<0`` admits no
+        # strings), so it returns None rather than the usual empty ``<0``.
+        r = ~vr("")
+        assert r.is_empty
+        assert r.to_specifier_set() is None
+
+    def test_complement_gt_none(self) -> None:
+        # (-inf, AFTER_POSTS] inclusive upper has no specifier form.
+        assert (~vr(">1.0")).to_specifier_set() is None
+
+    def test_complement_closed_interval_none(self) -> None:
+        # ~(>=2.3,<=2.7) is two disjoint intervals, NOT a single ``!=2.3``;
+        # the gap spans the whole [2.3, 2.7] interval so there is no form.
+        r = ~vr(">=2.3,<=2.7")
+        assert r.to_specifier_set() is None
+        assert Version("2.5") not in r
+        assert Version("2.3") not in r
+        assert Version("2.8") in r
+        assert Version("2.0") in r
+
+    def test_whole_region_recovers_with_floor(self) -> None:
+        # Bounds ``[2.0, +inf)`` with the whole range opted in (inherited from the
+        # ``>=1.0a1`` operand). Clean ``>=2.0`` alone carries no opt-in, so the
+        # no-op ``>=0.dev0`` floor is added to force-admit the in-bounds pre-releases.
+        r = vr(">=1.0a1") & vr(">=2.0")
+        assert r._pre_region == r._bounds
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert str(recovered) == ">=0.dev0,>=2.0"
+
+    def test_wildcard_with_exclusion(self) -> None:
+        r = vr("==1.*") & ~vr("==1.5.*")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
+    def test_explicit_policy_recovers(self) -> None:
+        # An explicit configured policy carries onto the recovered set, so a
+        # pre-release-naming range under ``prereleases=True`` still re-encodes.
+        r = vr(">=1.0a1,>=2.0", prereleases=True)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+
+    @pytest.mark.parametrize("prereleases", [None, True, False])
+    def test_dev0_span_roundtrips_every_policy(self, prereleases: bool | None) -> None:
+        # The reported regression: a ``.dev0`` lower with a wider-than-one-family
+        # span (``>=3.8.dev0,<3.14``) re-encodes under every pre-release policy.
+        r = vr(">=3.8.dev0,<3.14", prereleases=prereleases)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert str(recovered) == "<3.14.dev0,>=3.8.dev0"
+
+    @pytest.mark.parametrize(
+        ("spec", "expected"),
+        [
+            # Family-base ``.dev0`` lowers recover without a synthetic prerelease.
+            (">=3,!=3.*", "!=3.*,>=3"),
+            (">=3.8,!=3.8.*", "!=3.8.*,>=3.8"),
+            # At the floor the ``>=P`` half is redundant.
+            ("!=0.*", "!=0.*"),
+            ("!=0.0.*", "!=0.0.*"),
+            ("!=0.dev0", "!=0.dev0"),
+            # Post-release boundary and dev0 upper keep their clean spellings.
+            (">3.8.post1", ">3.8.post1"),
+            ("<3.8.post1", "<3.8.post1"),
+            # AFTER_LOCALS(dev0) lower, then a wildcard-chain + dev0-point gap.
+            ("!=3.8.dev0,==3.8.*", "!=3.7.*,!=3.8.dev0,<3.9,>=3.7"),
+            ("!=3.9.dev0,!=3.8.*", "!=3.8.*,!=3.9.dev0"),
+        ],
+    )
+    def test_prerelease_free_recovery_spelling(self, spec: str, expected: str) -> None:
+        # With an empty opt-in region the encoder must avoid a synthetic
+        # ``.dev0`` so the recovered set opts no pre-release in either.
+        recovered = vr(spec).to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == expected
+        assert recovered.to_range() == vr(spec)
+
+    def test_after_locals_final_lower_roundtrips(self) -> None:
+        # ``~(<=1.0)`` is ``(AFTER_LOCALS(1.0), +inf)``; a final-version
+        # AFTER_LOCALS lower has no clean family form, so it stays ``>=1.0,!=1.0``.
+        r = ~vr("<=1.0")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=1.0,>=1.0"
+        assert recovered.to_range() == r
+
+    def test_literal_sibling_dev_recovers_bare(self) -> None:
+        # ``>=3.8.dev0,===3.8`` intersects to the bare literal ``{3.8}`` (empty
+        # bounds), which carries no opt-in region under clipping, so it recovers
+        # as the plain ``===3.8`` with no restoring floor.
+        r = vr(">=3.8.dev0,===3.8")
+        assert r._admit == {"3.8"}
+        assert r._pre_region == ()
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "===3.8"
+        assert recovered.to_range() == r
+
+    def test_epoch_base_dev0_lower_none(self) -> None:
+        # ``[1!0.dev0, +inf)`` has no prerelease-free family form (``1!0`` cannot
+        # decrement), and ``>=1!0.dev0`` would opt pre-releases in (a whole-bounds
+        # region) that this range does not, so it returns None.
+        r = ~vr("<1!0")
+        assert not r.is_empty
+        assert r.to_specifier_set() is None
+
+    def test_after_locals_final_lower_recovers(self) -> None:
+        # Canonicalization folds ``[3.8.post0.dev0, +inf)`` to
+        # ``(AFTER_LOCALS(3.8), +inf)``. A final-release AFTER_LOCALS lower has
+        # no clean ``>`` form, so it recovers as ``>=3.8,!=3.8``.
+        r = ~vr("<3.8.post0")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=3.8,>=3.8"
+        assert recovered.to_range() == r
+
+    def test_undecomposable_chain_before_dev0_point_none(self) -> None:
+        # The gap before ``AFTER_LOCALS(1.3.dev0)`` starts at ``1.2.3.dev0``,
+        # whose wildcard chain to ``1.3.dev0`` is undecomposable, so the
+        # combined chain + ``!=1.3.dev0`` gap has no form.
+        r = ~vr(">=1.2.3.dev0,<=1.3.dev0")
+        assert not r.is_empty
+        assert r.to_specifier_set() is None
+
+    @pytest.mark.parametrize(
+        ("spec", "expected"),
+        [
+            # The epoch-zero family floor: 1!0.dev0 has no >=P,!=P.* spelling, so
+            # within its family it recovers as ==1!0.* trimmed by the upper.
+            ("==1!0.*,<=1!0", "<=1!0,==1!0.*"),
+            ("==1!0.*,<1!0.5", "<1!0.5,==1!0.*"),
+            ("==2!0.*,<=2!0", "<=2!0,==2!0.*"),
+            ("==1!0.0.*,<=1!0.0", "<=1!0.0,==1!0.*"),
+            # An AFTER_LOCALS(1!0.dev0) lower drops 1!0.dev0 from the family.
+            ("!=1!0.dev0,==1!0.*", "!=1!0.dev0,==1!0.*"),
+        ],
+    )
+    def test_epoch_zero_family_floor_roundtrips(self, spec: str, expected: str) -> None:
+        recovered = vr(spec).to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == expected
+        assert recovered.to_range() == vr(spec)
+
+    def test_arbitrary_literal_recovers_bare(self) -> None:
+        # ``{abc}`` (an arbitrary ``===`` string) carries no opt-in region under
+        # clipping, so it recovers as the plain ``===abc``, with no restoring
+        # floor to reject the non-version string.
+        r = (vr("===abc") & vr(">=1.0a1")) | vr("===abc")
+        assert "abc" in r
+        assert r._pre_region == ()
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "===abc"
+        assert recovered.to_range() == r
+
+    def test_epoch_dev0_with_post_is_not_a_family_floor(self) -> None:
+        # 1!0.post1.dev0 is an epoch-zero release with a post, not the family
+        # floor, so it recovers through the post-release path, not ==1!0.*.
+        r = ~vr("<1!0.post1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == ">1!0.post0"
+        assert recovered.to_range() == r
+
+    def test_epoch_floor_unencodable_upper_none(self) -> None:
+        # An epoch-floor lower inside its family, but the upper is an inclusive
+        # AFTER_POSTS boundary with no specifier form.
+        r = vr("==1!0.*") & ~vr(">1!0.5")
+        assert not r.is_empty
+        assert r.to_specifier_set() is None
+
+    def test_adjacent_not_equal_chain_roundtrips(self) -> None:
+        # Two adjacent exclusions (V and its immediate successor) share one gap
+        # that recovers as the ``!=`` chain.
+        r = vr("!=1.0,!=1.0.post0.dev0")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=1.0,!=1.0.post0.dev0"
+        assert recovered.to_range() == r
+
+    def test_long_not_equal_chain_roundtrips(self) -> None:
+        # Three adjacent exclusions collapse to one gap spanning a dev run.
+        r = vr(">=0.dev0,!=1.0,!=1.0.post0.dev0,!=1.0.post0.dev1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
+    def test_floor_dev_run_roundtrips(self) -> None:
+        # ``!=0.dev0,!=0.dev1`` excludes the two least versions, leaving the lone
+        # ``(AFTER_LOCALS(0.dev1), +inf)`` interval, which recovers the floor run.
+        r = vr("!=0.dev0,!=0.dev1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=0.dev0,!=0.dev1"
+        assert recovered.to_range() == r
+
+    def test_after_posts_inclusive_upper_roundtrips(self) -> None:
+        # ``<1.0a1.dev0`` folds to an inclusive ``AFTER_POSTS(1.0a0)]`` upper,
+        # which recovers as ``<`` its least successor.
+        r = vr("<1.0a1.dev0")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "<1.0a1.dev0"
+        assert recovered.to_range() == r
+
+    def test_final_after_posts_left_upper_none(self) -> None:
+        # A two-interval range whose left interval ends at an inclusive final
+        # ``AFTER_POSTS(1.0)]`` upper names no single point, so the gap is not a
+        # ``!=`` chain and the disjoint union has no specifier form.
+        r = ~vr(">1.0") | ~vr("<2.0")
+        assert len(r._bounds) == 2
+        assert r.to_specifier_set() is None
+
+    def test_epoch_prerelease_singleton_no_opt_in_none(self) -> None:
+        # ``~(!=1!0a0.dev0)`` holds just ``1!0a0.dev0`` and its locals, which
+        # ``==1!0a0.dev0`` also spells, but that spelling opts the pre-release in
+        # (whole-bounds region) while this range carries no opt-in, so None.
+        r = ~vr("!=1!0a0.dev0")
+        assert not r.is_empty
+        assert r._pre_region == ()
+        assert r.to_specifier_set() is None
+
+    def test_leading_interval_post_dev_collapse_recovers(self) -> None:
+        # Adjacent exclusions collapse into the leading interval's lower
+        # (``(AFTER_LOCALS(1.0.post0.dev0), +inf)``). Anchoring at the
+        # prerelease-free base 1.0 recovers ``>=1.0,!=1.0,!=1.0.post0.dev0``.
+        r = vr(">=1.0,!=1.0,!=1.0.post0.dev0")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=1.0,!=1.0.post0.dev0,>=1.0"
+        assert recovered.to_range() == r
+
+    def test_release_base_dev_floor_recovers(self) -> None:
+        # ``==1.0.*`` minus its two least dev releases leaves an
+        # ``AFTER_LOCALS(1.0.dev1)`` lower, recovered via the ``!=0.*`` family
+        # floor plus the dev run.
+        r = vr("==1.0.*,!=1.0.dev0,!=1.0.dev1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=0.*,!=1.0.dev0,!=1.0.dev1,<1.1"
+        assert recovered.to_range() == r
+
+    def test_epoch_floor_dev_run_recovers(self) -> None:
+        # An epoch>0 zero-family floor with a leading dev run recovers as
+        # ``==1!0.*`` plus the excluded dev releases.
+        r = vr("==1!0.*,!=1!0.dev0,!=1!0.dev1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=1!0.dev0,!=1!0.dev1,==1!0.*"
+        assert recovered.to_range() == r
+
+    def test_wildcard_then_adjacent_dev_run_roundtrips(self) -> None:
+        # A wildcard exclusion abutting a dev run of length 2+ shares one gap:
+        # the ``!=2.*`` family and then ``3.dev0,3.dev1`` in 3's own family.
+        r = vr("!=2.*,!=3.dev0,!=3.dev1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "!=2.*,!=3.dev0,!=3.dev1"
+        assert recovered.to_range() == r
+
+    def test_prerelease_dev_singleton_no_opt_in_none(self) -> None:
+        # ``~(!=1.0a1.dev1)`` is the singleton ``{1.0a1.dev1}`` with no opt-in
+        # region; every spelling of a pre-release singleton opts it in, so None.
+        r = ~vr("!=1.0a1.dev1")
+        assert not r.is_empty
+        assert r._pre_region == ()
+        assert r.to_specifier_set() is None
+
+    def test_epoch_prerelease_floor_lower_declines_family_form(self) -> None:
+        # An epoch>0 floor lower that names a pre-release (``1!0a0.dev0``) has no
+        # ``==1!0.*`` family form, so the encoder falls back to the generic
+        # ``>=,<`` spelling.
+        r = vr(">=1!0a0.dev0,<1!5")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert str(recovered) == "<1!5,>=1!0a0.dev0"
+        assert recovered.to_range() == r
+
+
 # Boundary-sensitive specs and versions exercising the union / complement /
-# empty-check edge branches deterministically.
+# empty-check / encoder edge branches deterministically.
 _GRID_SPECS = [
     "",
     ">=1.0,<2.0",
@@ -1160,6 +1640,27 @@ class TestAlgebraInvariants:
                 ab = a | b
                 for v in _GRID_VERSION_OBJS:
                     assert (v in ab) == ((v in a) or (v in b)), (a, b, v)
+
+    def test_to_specifier_set_roundtrips(self) -> None:
+        for r in _GRID_RANGES:
+            recovered = r.to_specifier_set()
+            if recovered is not None:
+                assert self._same_versions(recovered.to_range(), r), r
+
+    def test_complement_to_specifier_set_roundtrips(self) -> None:
+        for r in _GRID_RANGES:
+            comp = ~r
+            recovered = comp.to_specifier_set()
+            if recovered is not None:
+                assert self._same_versions(recovered.to_range(), comp), comp
+
+    def test_union_to_specifier_set_roundtrips(self) -> None:
+        for a in _GRID_RANGES:
+            for b in _GRID_RANGES:
+                ab = a | b
+                recovered = ab.to_specifier_set()
+                if recovered is not None:
+                    assert self._same_versions(recovered.to_range(), ab), ab
 
 
 class TestSyntheticEmptyGaps:
@@ -1362,6 +1863,47 @@ class TestCoverageEdges:
     def test_contains_literal_nonprerelease_false_policy(self) -> None:
         assert vr("===1.0", prereleases=False).contains("1.0")
 
+    def test_multi_wildcard_adjacent_roundtrips(self) -> None:
+        # ==2.0.* adjoins ==1.* (both touch 2.dev0), so the union is the single
+        # contiguous span [1.dev0, 2.1.dev0), recovered as !=0.*,<2.1.
+        r = vr("==1.*") | vr("==2.0.*")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert str(recovered) == "!=0.*,<2.1"
+
+    def test_multi_wildcard_with_exclusion_roundtrips(self) -> None:
+        # The span [1.dev0, 3.dev0) minus the 1.5 family is one set: !=0.*,!=1.5,<3.
+        r = (vr("==1.*") | vr("==2.*")) & ~vr("==1.5")
+        assert Version("1.5") not in r
+        assert Version("1.4") in r
+        assert Version("2.5") in r
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert str(recovered) == "!=0.*,!=1.5,<3"
+
+    def test_multi_wildcard_wildcard_exclusion_roundtrips(self) -> None:
+        # A ``==V.*`` outer with several ``!=P.*`` holes (including nested
+        # ``1.0.1.*`` / ``1.3.1.*``) re-encodes to a single set.
+        r = vr("==1.*,!=1.0.1.*,!=1.3.1.*,!=1.2.*")
+        assert Version("1.0.0") in r
+        assert Version("1.0.1") not in r
+        assert Version("1.2.5") not in r
+        assert Version("1.3.1") not in r
+        assert Version("1.4") in r
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
+    def test_not_equal_local_gap(self) -> None:
+        r = vr("!=1.0+local")
+        assert Version("1.0+local") not in r
+        assert Version("1.0") in r
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
     def test_after_posts_boundary_total_order_consistent(self) -> None:
         # ``AFTER_POSTS(1.0)`` and ``AFTER_POSTS(1.0.post1)`` mark the same point
         # on the version line, so equality must agree with the ordering:
@@ -1386,6 +1928,28 @@ class TestCoverageEdges:
         assert Version("1.0.dev0") in r
         assert Version("1.1") not in r
 
+    def test_encode_interval_undecomposable_dev0(self) -> None:
+        # [1.2.dev0, 3.dev0): not a clean wildcard family, falls through to the
+        # plain bounds encoding.
+        r = vr(">=1.2.dev0,<3")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
+    def test_wildcard_chain_cross_epoch_gap(self) -> None:
+        # !=V.* gap between two different-epoch wildcard families.
+        r = vr("==1!1.*") | vr("==2!1.*")
+        assert Version("1!1.5") in r
+        assert Version("2!1.5") in r
+        assert r.to_specifier_set() is None
+
+    def test_equal_wildcard_cross_epoch_interval(self) -> None:
+        # A single interval spanning two epochs is not a wildcard family.
+        r = vr(">=1!1.dev0,<2!1")
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
     def test_double_complement_min_boundary(self) -> None:
         # >=0.dev0 is already canonicalized to the full range at construction,
         # so ~~ round-trips it (full -> empty -> full).
@@ -1393,6 +1957,23 @@ class TestCoverageEdges:
         comp2 = ~~r
         for v in ["0.dev0", "0", "1.0", "2!1.0"]:
             assert (Version(v) in comp2) == (Version(v) in r)
+
+    def test_configured_false_lower_keeps_dev0(self) -> None:
+        # Under configured False the recovered set keeps the synthetic .dev0 so
+        # it matches the range under a prereleases=True override (no stripping).
+        r = ~vr("<1.5", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+        assert r.contains("1.5a1", prereleases=True) == recovered.contains(
+            "1.5a1", prereleases=True
+        )
+
+    def test_configured_false_upper_keeps_dev0(self) -> None:
+        r = ~vr(">1.0.post1", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
 
     def test_sub_minimum_union(self) -> None:
         # Union touching the 0.dev0 floor exercises the sub-minimum empty check.
@@ -1425,6 +2006,26 @@ class TestCoverageEdges:
         assert list(a.filter(["1.0.dev1", "0.9"])) == ["0.9"]
         assert list(b.filter(["1.0.dev1", "0.9"])) == ["1.0.dev1", "0.9"]
 
+    def test_strict_singleton_complement_no_form(self) -> None:
+        # ~singleton has an exclusive plain-version lower with no specifier form.
+        comp = ~VersionRange.singleton("1.0")
+        assert Version("1.0") not in comp
+        assert Version("2.0") in comp
+        assert comp.to_specifier_set() is None
+
+    def test_two_singletons_complement_no_form(self) -> None:
+        # Three intervals where a middle group fails to encode.
+        r = ~(VersionRange.singleton("1.0") | VersionRange.singleton("2.0"))
+        assert Version("1.5") in r
+        assert Version("1.0") not in r
+        assert r.to_specifier_set() is None
+
+    def test_configured_false_multi_bound_roundtrip(self) -> None:
+        r = vr(">=1.5,<3", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r
+
     def test_ge_floor_is_canonical_full(self) -> None:
         # >=0.dev0 admits every version, so its bounds canonicalize to the full
         # range (its complement is empty). It still carries an opt-in region from
@@ -1447,6 +2048,7 @@ class TestCoverageEdges:
         assert not r.is_empty
         assert Version("0.dev0") not in r
         assert Version("1.0") in r
+        assert r.to_specifier_set() is None
 
     def test_eq_ranges_filter_identically(self) -> None:
         # Two ranges with identical bounds but a different opt-in region must NOT
@@ -1513,3 +2115,9 @@ class TestCoverageEdges:
     def test_filter_admission_prerelease_after_final(self) -> None:
         r = vr(">=1.0") | vr("===wat")
         assert list(r.filter(["1.5", "2.5a1"])) == ["1.5"]
+
+    def test_configured_false_le_roundtrip(self) -> None:
+        r = vr("<=1.0", prereleases=False)
+        recovered = r.to_specifier_set()
+        assert recovered is not None
+        assert recovered.to_range() == r

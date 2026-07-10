@@ -45,6 +45,9 @@ Usage
     >>> # An unsatisfiable set produces the empty range
     >>> SpecifierSet(">=2.0,<1.0").to_range().is_empty
     True
+    >>> # Convert back to a SpecifierSet when possible
+    >>> str(r.to_specifier_set())
+    '<2.0,>=1.0'
 
 Pre-releases
 ------------
@@ -139,6 +142,15 @@ sets directly, so it is not affected by that opt-in difference:
 Like :meth:`VersionRange.intersection`, :meth:`VersionRange.union`, and
 :meth:`VersionRange.difference`, these predicates require both operands to share
 the same configured pre-release policy and raise :exc:`ValueError` otherwise.
+
+Because the operations refuse to mix policies, a range's version set is
+well-defined only under its own configured policy, and set relations stay sound
+only while that policy is held fixed. Reinterpreting a range, or a
+:class:`~packaging.specifiers.SpecifierSet` recovered from one, under a
+different ``prereleases`` value is therefore unsound: under ``prereleases=False``
+the ranges of ``<=1.0,!=1.0`` and ``<1.0`` accept the same releases (they differ
+only in ``1.0``'s pre-releases, which the policy excludes), but that equivalence
+is gone once the policy changes.
 
 Different specifiers that denote the same range, opt-in region included,
 canonicalize to one form, so they compare equal. ``>1.0a1`` excludes
