@@ -80,6 +80,7 @@ dynamc = "dynamc"
 notin = "notin"
 nd = "nd"
 tou = "tou"
+"itms" = "itms"
 
 [tool.coverage.run]
 branch = true

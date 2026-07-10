@@ -64,6 +64,8 @@ def __dir__() -> list[str]:
 _T = TypeVar("_T")
 _T2 = TypeVar("_T2")
 
+# Not documented, so frozen here:
+# urllib.parse.uses_netloc - {"", "file"}
 _URL_SCHEMES_REQUIRING_NETLOC = frozenset(
     {
         "ftp",
