@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import operator
 import os
 import platform
@@ -327,10 +328,14 @@ def _format_full_version(info: sys._version_info) -> str:
     return version
 
 
-def default_environment() -> Environment:
-    """Return the default marker environment for the current Python process.
+@functools.cache
+def _cached_default_environment() -> Environment:
+    """Build the default marker environment for the current Python process.
 
-    This is the base environment used by :meth:`Marker.evaluate`.
+    The values are derived from process-constant data (the running interpreter
+    and the host platform), so this is cached and built only once. The result is
+    shared between callers and must never be mutated; :func:`default_environment`
+    returns a fresh copy.
     """
     iver = _format_full_version(sys.implementation.version)
     implementation_name = sys.implementation.name
@@ -347,6 +352,22 @@ def default_environment() -> Environment:
         "python_version": ".".join(platform.python_version_tuple()[:2]),
         "sys_platform": sys.platform,
     }
+
+
+def default_environment() -> Environment:
+    """Return the default marker environment for the current Python process.
+
+    This is the base environment used by :meth:`Marker.evaluate`. A fresh copy
+    is returned on every call so callers may freely mutate the result; a shallow
+    copy suffices because all values are immutable strings.
+
+    .. versionchanged:: 26.3
+        The environment is computed once per process and cached, since it is
+        derived from process-constant data. Patching ``platform``/``sys``/``os``
+        after the first call has no effect; pass an explicit ``environment`` to
+        :meth:`Marker.evaluate` to evaluate against different values.
+    """
+    return cast("Environment", dict(_cached_default_environment()))
 
 
 class Marker:
