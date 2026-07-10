@@ -113,15 +113,24 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
 
 def is_normalized_name(name: str) -> bool:
     """
-    Check if a name is already normalized (i.e. :func:`canonicalize_name` would
-    roundtrip to the same value).
+    Check if a name is a normalized project name (i.e. a valid name that
+    :func:`canonicalize_name` would roundtrip to the same value).
+
+    The roundtrip only characterizes normalized names for *valid* names. A name
+    must start and end with an ASCII letter or digit, which
+    :func:`canonicalize_name` does not enforce: it leaves a leading or trailing
+    hyphen in place, so such a name roundtrips without being normalized.
 
     :param str name: The name to check.
 
-    >>> from packaging.utils import is_normalized_name
+    >>> from packaging.utils import canonicalize_name, is_normalized_name
     >>> is_normalized_name("requests")
     True
     >>> is_normalized_name("Django")
+    False
+    >>> canonicalize_name("_not_legal")
+    '-not-legal'
+    >>> is_normalized_name("-not-legal")  # roundtrips, but not a valid name
     False
     """
     return _normalized_regex.fullmatch(name) is not None
