@@ -881,26 +881,23 @@ class Metadata:
                 for exc in exc_group.exceptions:
                     # A required field reported above as unparsed is absent from
                     # `raw`, so skip from_raw's duplicate "missing" complaint.
-                    if (
+                    if not (
                         isinstance(exc, InvalidMetadata)
                         and exc.field in unparsed
                         and _EMAIL_TO_RAW_MAPPING.get(exc.field) not in raw
                     ):
-                        continue
-                    collector.error(exc)
+                        collector.error(exc)
             else:
                 if not collector.errors:
                     return validated
-            raise ExceptionGroup(
-                "invalid or unparsed metadata", collector.errors
-            ) from None
+            msg = "invalid or unparsed metadata"
+            raise ExceptionGroup(msg, collector.errors) from None
 
         try:
             return cls.from_raw(raw, validate=validate)
         except ExceptionGroup as exc_group:
-            raise ExceptionGroup(
-                "invalid or unparsed metadata", exc_group.exceptions
-            ) from None
+            msg = "invalid or unparsed metadata"
+            raise ExceptionGroup(msg, exc_group.exceptions) from None
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     """:external:ref:`core-metadata-metadata-version`
