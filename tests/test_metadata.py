@@ -498,6 +498,14 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw({"version": "a.b.c"}, validate=False)
         self._invalid_with_cause(meta, "version", version.InvalidVersion)
 
+    def test_invalid_version_with_placeholder_text(self) -> None:
+        # A user value containing the literal text "{field}" must survive
+        # unchanged in the error message.
+        meta = metadata.Metadata.from_raw({"version": "{field}"}, validate=False)
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            meta.version  # noqa: B018
+        assert str(exc_info.value) == "'{field}' is invalid for 'version'"
+
     def test_valid_summary(self) -> None:
         summary = "Hello"
         meta = metadata.Metadata.from_raw({"summary": summary}, validate=False)
