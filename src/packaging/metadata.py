@@ -878,7 +878,8 @@ class Metadata:
                 try:
                     validated = cls.from_raw(raw, validate=validate)
                 except ExceptionGroup as exc_group:
-                    for exc in exc_group.exceptions:
+                    # The no-branch pragmas cover arcs only seen by Python 3.9.
+                    for exc in exc_group.exceptions:  # pragma: no branch
                         # A required field reported above as unparsed is absent
                         # from `raw`, so skip from_raw's duplicate "missing"
                         # complaint.
@@ -889,7 +890,7 @@ class Metadata:
                         ):
                             collector.error(exc)
                 else:
-                    if not collector.errors:
+                    if not collector.errors:  # pragma: no branch
                         return validated
 
         return cls.from_raw(raw, validate=validate)
