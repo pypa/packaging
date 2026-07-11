@@ -466,6 +466,8 @@ class TestMetadata:
     def test_from_email_keeps_non_metadata_validation_errors(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # Synthetic scenario: from_raw only ever groups InvalidMetadata today,
+        # so this covers the defensive isinstance check in from_email.
         def from_raw(
             raw: metadata.RawMetadata, *, validate: bool = True
         ) -> metadata.Metadata:
