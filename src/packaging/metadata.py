@@ -643,11 +643,18 @@ class _Validator(Generic[T]):
         # The email parser can raise IndexError on malformed RFC 2231
         # parameters such as "text/plain; x*".
         except (ValueError, IndexError) as exc:
-            raise self._invalid_metadata(invalid_msg, cause=exc) from exc
+            raise self._invalid_metadata(
+                f"{value!r} is not a valid content type for {self.raw_name!r}",
+                cause=exc,
+            ) from exc
         content_type_header = message["content-type"]
         if content_type_header.defects:
             defect = content_type_header.defects[0]
-            raise self._invalid_metadata(invalid_msg, cause=defect) from defect
+            raise self._invalid_metadata(
+                f"{value!r} is not a valid content type for "
+                f"{self.raw_name!r}: {defect}",
+                cause=defect,
+            ) from defect
 
         content_type, parameters = (
             # Defaults to `text/plain` if parsing failed.

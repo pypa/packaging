@@ -380,6 +380,7 @@ class TestMetadata:
         assert isinstance(exc, metadata.InvalidMetadata)
         assert exc.field == "description-content-type"
         assert repr(description_content_type) in str(exc)
+        assert "is not a valid content type" in str(exc)
 
     def test_required_fields(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
