@@ -357,6 +357,16 @@ class TestMetadata:
             # Lacking all required fields.
             metadata.Metadata.from_email("Name: packaging", validate=True)
 
+    def test_from_email_description_content_type_lowercase_charset(self) -> None:
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.6\n"
+            "Name: packaging\n"
+            "Version: 1.0\n"
+            "Description-Content-Type: text/plain; charset=utf-8\n"
+        )
+
+        assert meta.description_content_type == "text/plain; charset=utf-8"
+
     def test_from_email_unparsed_valid_field_name(self) -> None:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_email(
@@ -575,6 +585,8 @@ class TestMetadata:
             "text/x-rst",
             "text/markdown",
             "text/plain; charset=UTF-8",
+            "text/plain; charset=utf-8",
+            "text/plain; charset=Utf-8",
             "text/x-rst; charset=UTF-8",
             "text/markdown; charset=UTF-8; variant=GFM",
             "text/markdown; charset=UTF-8; variant=CommonMark",
@@ -594,7 +606,6 @@ class TestMetadata:
         [
             "application/json",
             "text/plain; charset=ascii",
-            "text/plain; charset=utf-8",
             "text/markdown; variant=gfm",
             "text/markdown; variant=commonmark",
             "text/plain; {b}",
