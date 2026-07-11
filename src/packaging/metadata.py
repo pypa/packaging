@@ -52,6 +52,10 @@ class InvalidMetadata(ValueError):
         self.field = field
         super().__init__(message)
 
+    # Support pickling; ``args`` does not match ``__init__``'s signature.
+    def __reduce__(self) -> tuple[type[InvalidMetadata], tuple[str, str]]:
+        return (self.__class__, (self.field, self.args[0]))
+
 
 # The RawMetadata class attempts to make as few assumptions about the underlying
 # serialization formats as possible. The idea is that as long as a serialization
@@ -593,9 +597,7 @@ class _Validator(Generic[T]):
     def _invalid_metadata(
         self, msg: str, cause: Exception | None = None
     ) -> InvalidMetadata:
-        exc = InvalidMetadata(
-            self.raw_name, msg.format_map({"field": repr(self.raw_name)})
-        )
+        exc = InvalidMetadata(self.raw_name, msg)
         exc.__cause__ = cause
         return exc
 
@@ -607,62 +609,76 @@ class _Validator(Generic[T]):
 
     def _process_name(self, value: str) -> str:
         if not value:
-            raise self._invalid_metadata("{field} is a required field")
+            raise self._invalid_metadata(f"{self.raw_name!r} is a required field")
         # Validate the name as a side-effect.
         try:
             utils.canonicalize_name(value, validate=True)
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
+                f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
         else:
             return value
 
     def _process_version(self, value: str) -> Version:
         if not value:
-            raise self._invalid_metadata("{field} is a required field")
+            raise self._invalid_metadata(f"{self.raw_name!r} is a required field")
         try:
             return version_module.parse(value)
         except version_module.InvalidVersion as exc:
             raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
+                f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
 
     def _process_summary(self, value: str) -> str:
         """Check the field contains no newlines."""
         if "\n" in value:
-            raise self._invalid_metadata("{field} must be a single line")
+            raise self._invalid_metadata(f"{self.raw_name!r} must be a single line")
         return value
 
     def _process_description_content_type(self, value: str) -> str:
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
+        invalid_msg = (
+            f"{self.raw_name!r} must be one of {list(content_types)}, not {value!r}"
+        )
         message = email.message.EmailMessage()
-        message["content-type"] = value
+        try:
+            message["content-type"] = value
+        # The email parser can raise IndexError on malformed RFC 2231
+        # parameters such as "text/plain; x*".
+        except (ValueError, IndexError) as exc:
+            msg = f"{value!r} is not a valid content type for {self.raw_name!r}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
+        content_type_header = message["content-type"]
+        if content_type_header.defects:
+            defect = content_type_header.defects[0]
+            msg = (
+                f"{value!r} is not a valid content type for {self.raw_name!r}: {defect}"
+            )
+            raise self._invalid_metadata(msg, cause=defect) from defect
 
         content_type, parameters = (
             # Defaults to `text/plain` if parsing failed.
             message.get_content_type().lower(),
-            message["content-type"].params,
+            content_type_header.params,
         )
         # Check if content-type is valid or defaulted to `text/plain` and thus was
         # not parseable.
         if content_type not in content_types or content_type not in value.lower():
-            raise self._invalid_metadata(
-                f"{{field}} must be one of {list(content_types)}, not {value!r}"
-            )
+            raise self._invalid_metadata(invalid_msg)
 
         charset = parameters.get("charset", "UTF-8")
         if charset != "UTF-8":
             raise self._invalid_metadata(
-                f"{{field}} can only specify the UTF-8 charset, not {charset!r}"
+                f"{self.raw_name!r} can only specify the UTF-8 charset, not {charset!r}"
             )
 
         markdown_variants = {"GFM", "CommonMark"}
         variant = parameters.get("variant", "GFM")  # Use an acceptable default.
         if content_type == "text/markdown" and variant not in markdown_variants:
             raise self._invalid_metadata(
-                f"valid Markdown variants for {{field}} are {list(markdown_variants)}, "
-                f"not {variant!r}",
+                f"valid Markdown variants for {self.raw_name!r} are "
+                f"{list(markdown_variants)}, not {variant!r}",
             )
         return value
 
@@ -689,7 +705,7 @@ class _Validator(Generic[T]):
                 normalized_names.append(utils.canonicalize_name(name, validate=True))
         except utils.InvalidName as exc:
             raise self._invalid_metadata(
-                f"{name!r} is invalid for {{field}}", cause=exc
+                f"{name!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
         else:
             return normalized_names
@@ -699,7 +715,7 @@ class _Validator(Generic[T]):
             return specifiers.SpecifierSet(value)
         except specifiers.InvalidSpecifier as exc:
             raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
+                f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
 
     def _process_requires_dist(
@@ -712,7 +728,7 @@ class _Validator(Generic[T]):
                 reqs.append(requirements.Requirement(req))
         except requirements.InvalidRequirement as exc:
             raise self._invalid_metadata(
-                f"{req!r} is invalid for {{field}}", cause=exc
+                f"{req!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
         else:
             return reqs
@@ -722,7 +738,7 @@ class _Validator(Generic[T]):
             return licenses.canonicalize_license_expression(value)
         except ValueError as exc:
             raise self._invalid_metadata(
-                f"{value!r} is invalid for {{field}}", cause=exc
+                f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
 
     def _process_license_files(self, value: list[str]) -> list[str]:
@@ -730,23 +746,24 @@ class _Validator(Generic[T]):
         for path in value:
             if ".." in path:
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, "
+                    f"{path!r} is invalid for {self.raw_name!r}, "
                     "parent directory indicators are not allowed"
                 )
             if "*" in path:
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must be resolved"
+                    f"{path!r} is invalid for {self.raw_name!r}, paths must be resolved"
                 )
             if (
                 pathlib.PurePosixPath(path).is_absolute()
                 or pathlib.PureWindowsPath(path).is_absolute()
             ):
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must be relative"
+                    f"{path!r} is invalid for {self.raw_name!r}, paths must be relative"
                 )
             if pathlib.PureWindowsPath(path).as_posix() != path:
                 raise self._invalid_metadata(
-                    f"{path!r} is invalid for {{field}}, paths must use '/' delimiter"
+                    f"{path!r} is invalid for {self.raw_name!r}, "
+                    "paths must use '/' delimiter"
                 )
             paths.append(path)
         return paths
@@ -758,17 +775,17 @@ class _Validator(Generic[T]):
             for identifier in name.split("."):
                 if not identifier.isidentifier():
                     raise self._invalid_metadata(
-                        f"{name!r} is invalid for {{field}}; "
+                        f"{name!r} is invalid for {self.raw_name!r}; "
                         f"{identifier!r} is not a valid identifier"
                     )
                 elif keyword.iskeyword(identifier):
                     raise self._invalid_metadata(
-                        f"{name!r} is invalid for {{field}}; "
+                        f"{name!r} is invalid for {self.raw_name!r}; "
                         f"{identifier!r} is a keyword"
                     )
             if semicolon and private.lstrip() != "private":
                 raise self._invalid_metadata(
-                    f"{import_name!r} is invalid for {{field}}; "
+                    f"{import_name!r} is invalid for {self.raw_name!r}; "
                     "the only valid option is 'private'"
                 )
         return value
