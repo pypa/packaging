@@ -638,20 +638,34 @@ class _Validator(Generic[T]):
 
     def _process_description_content_type(self, value: str) -> str:
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
+        invalid_msg = (
+            f"{self.raw_name!r} must be one of {list(content_types)}, not {value!r}"
+        )
         message = email.message.EmailMessage()
-        message["content-type"] = value
+        try:
+            message["content-type"] = value
+        # The email parser can raise IndexError on malformed RFC 2231
+        # parameters such as "text/plain; x*".
+        except (ValueError, IndexError) as exc:
+            msg = f"{value!r} is not a valid content type for {self.raw_name!r}"
+            raise self._invalid_metadata(msg, cause=exc) from exc
+        content_type_header = message["content-type"]
+        if content_type_header.defects:
+            defect = content_type_header.defects[0]
+            msg = (
+                f"{value!r} is not a valid content type for {self.raw_name!r}: {defect}"
+            )
+            raise self._invalid_metadata(msg, cause=defect) from defect
 
         content_type, parameters = (
             # Defaults to `text/plain` if parsing failed.
             message.get_content_type().lower(),
-            message["content-type"].params,
+            content_type_header.params,
         )
         # Check if content-type is valid or defaulted to `text/plain` and thus was
         # not parseable.
         if content_type not in content_types or content_type not in value.lower():
-            raise self._invalid_metadata(
-                f"{self.raw_name!r} must be one of {list(content_types)}, not {value!r}"
-            )
+            raise self._invalid_metadata(invalid_msg)
 
         charset = parameters.get("charset", "UTF-8")
         if charset != "UTF-8":
