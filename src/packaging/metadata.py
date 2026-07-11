@@ -892,11 +892,7 @@ class Metadata:
                     if not collector.errors:
                         return validated
 
-        try:
-            return cls.from_raw(raw, validate=validate)
-        except ExceptionGroup as exc_group:
-            msg = "invalid or unparsed metadata"
-            raise ExceptionGroup(msg, exc_group.exceptions) from None
+        return cls.from_raw(raw, validate=validate)
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
     """:external:ref:`core-metadata-metadata-version`

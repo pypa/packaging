@@ -483,30 +483,6 @@ class TestMetadata:
         assert isinstance(exc, RuntimeError)
         assert str(exc) == "boom"
 
-    def test_from_email_validate_false_wraps_from_raw_groups(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        expected = metadata.InvalidMetadata("summary", "invalid summary")
-
-        def from_raw(
-            raw: metadata.RawMetadata, *, validate: bool = True
-        ) -> metadata.Metadata:
-            assert validate is False
-            del raw
-            raise ExceptionGroup("invalid metadata", [expected])
-
-        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
-
-        with pytest.raises(ExceptionGroup) as exc_info:
-            metadata.Metadata.from_email(
-                "Metadata-Version: 2.6\nName: packaging\nVersion: 1.0\n",
-                validate=False,
-            )
-
-        assert exc_info.value.message == "invalid or unparsed metadata"
-        assert list(exc_info.value.exceptions) == [expected]
-        assert exc_info.value.__suppress_context__ is True
-
     @pytest.mark.parametrize(
         ("data", "field"),
         [
