@@ -52,6 +52,10 @@ class InvalidMetadata(ValueError):
         self.field = field
         super().__init__(message)
 
+    # Support pickling; ``args`` does not match ``__init__``'s signature.
+    def __reduce__(self) -> tuple[type[InvalidMetadata], tuple[str, str]]:
+        return (self.__class__, (self.field, self.args[0]))
+
 
 # The RawMetadata class attempts to make as few assumptions about the underlying
 # serialization formats as possible. The idea is that as long as a serialization
