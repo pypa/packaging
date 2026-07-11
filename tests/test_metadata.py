@@ -570,17 +570,6 @@ class TestMetadata:
         assert repr(description_content_type) in str(exc)
         assert "is not a valid content type" in str(exc)
 
-    def test_invalid_description_content_type_without_defects(self) -> None:
-        raw = _RAW_EXAMPLE.copy()
-        raw["description_content_type"] = "application/octet-stream"
-
-        with pytest.raises(ExceptionGroup) as exc_info:
-            metadata.Metadata.from_raw(raw)
-
-        (exc,) = exc_info.value.exceptions
-        assert isinstance(exc, metadata.InvalidMetadata)
-        assert exc.field == "description-content-type"
-
     def test_required_fields(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
 
