@@ -61,6 +61,16 @@ T = TypeVar("T")
 UnparsedVersion = Union[Version, str]
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
+#: The most ``!=`` exclusion fragments (``!=V`` points or ``!=P.*`` prefixes)
+#: that :meth:`VersionRange.to_specifier_set` will materialize to spell a
+#: single gap or run. Every site that expands a version-number-driven chain
+#: charges it against this cap, and chains that spell one gap together share
+#: it (see :func:`_decompose_dev0_gap` and :func:`_detect_wildcards_then_dev0`),
+#: so no gap ever materializes more than this many exclusions. Past the cap
+#: the recovery returns ``None`` rather than emit the unbounded chain a range
+#: such as ``==5.* | ==1000000.*`` would otherwise drive.
+_MAX_EXCLUSION_RUN = 128
+
 
 class _SetOp(enum.Enum):
     """The binary set operation ``_combine_literals`` resolves over ``===`` literals."""
@@ -713,19 +723,12 @@ def _detect_not_equal(
         and last.dev >= second.dev
         and last.__replace__(dev=second.dev) == second
     ):
-        if last.dev - second.dev + 1 > _MAX_EXCLUSION_RUN:
+        # ``first`` and the run spell this gap together, so they share the cap.
+        if last.dev - second.dev + 2 > _MAX_EXCLUSION_RUN:
             return None
         run = (second.__replace__(dev=d) for d in range(second.dev, last.dev + 1))
         return [first, *run]
     return None
-
-
-#: The most ``!=`` points a single recovered specifier set will materialize. A
-#: gap wider than this at one level (or, for :func:`_decompose_dev0_gap`, summed
-#: across levels) has no practical single-set form, so the recovery gives up
-#: rather than emit an unbounded chain such as ``==5.* | ==1000000.*`` would
-#: otherwise drive.
-_MAX_EXCLUSION_RUN = 128
 
 
 def _decompose_dev0_gap(
@@ -840,18 +843,23 @@ def _detect_wildcards_then_dev0(
     if left_upper_v.epoch != upper_dev0.epoch or left_upper_v >= upper_dev0:
         return None
 
+    # The prefixes and the dev run spell this gap together, so they share one
+    # ``_MAX_EXCLUSION_RUN`` budget rather than getting a full cap each.
+    run_length = upper.dev + 1
+    if run_length > _MAX_EXCLUSION_RUN:
+        return None
+
     # The chain ``[L.dev0, U.dev0)`` decomposes into the ``==P.*`` prefixes.
     prefixes = _decompose_dev0_gap(
         trim_release(left_upper_v.release),
         trim_release(upper_dev0.release),
         left_upper_v.epoch,
+        _MAX_EXCLUSION_RUN - run_length,
     )
     if prefixes is None:
         return None
 
-    if upper.dev + 1 > _MAX_EXCLUSION_RUN:
-        return None
-    run = [upper.__replace__(dev=d) for d in range(upper.dev + 1)]
+    run = [upper.__replace__(dev=d) for d in range(run_length)]
     return prefixes, run
 
 
@@ -895,17 +903,19 @@ def _encode_grouped(
 
     for next_lower, next_upper in bounds[1:]:
         # Classify the gap to the next interval: an ``!=`` exclusion keeps the
-        # group open, anything else closes it.
-        not_equal = _detect_not_equal(group_upper, next_lower)
-        not_equal_wildcards = _detect_not_equal_wildcards(group_upper, next_lower)
-        wildcards_then_dev0 = _detect_wildcards_then_dev0(group_upper, next_lower)
-
-        if not_equal is not None:
+        # group open, anything else closes it. The detectors run in priority
+        # order and short-circuit, so a plain ``!=V`` gap never pays for the
+        # budgeted sweep in ``_detect_wildcards_then_dev0``.
+        if (not_equal := _detect_not_equal(group_upper, next_lower)) is not None:
             exclusions.extend(f"!={point}" for point in not_equal)
-        elif not_equal_wildcards is not None:
-            exclusions.extend(f"!={prefix}.*" for prefix in not_equal_wildcards)
-        elif wildcards_then_dev0 is not None:
-            chain, run = wildcards_then_dev0
+        elif (
+            wildcards := _detect_not_equal_wildcards(group_upper, next_lower)
+        ) is not None:
+            exclusions.extend(f"!={prefix}.*" for prefix in wildcards)
+        elif (
+            chain_run := _detect_wildcards_then_dev0(group_upper, next_lower)
+        ) is not None:
+            chain, run = chain_run
             exclusions.extend(f"!={prefix}.*" for prefix in chain)
             exclusions.extend(f"!={point}" for point in run)
         else:
@@ -1785,13 +1795,14 @@ class VersionRange:
         PEP 440 has no syntax for the strict singleton ``{V}`` (an exclusive
         plain-version bound), a disjoint union of two or more intervals, or a
         partial pre-release opt-in region, so ranges built by set algebra often
-        return ``None``. A gap spanning a very large number of release families
-        returns ``None`` too, rather than a pathologically long ``!=`` chain;
-        reaching that takes either set algebra or a specifier set that already
-        spells the gap out with hundreds of contiguous ``!=N.*`` exclusions. An
-        empty range maps to ``SpecifierSet("<0")``, unless it still carries the
-        arbitrary-string flag (which no set reproduces), and a full range that
-        admits arbitrary strings maps to ``SpecifierSet("")``.
+        return ``None``. A gap that takes more than ``_MAX_EXCLUSION_RUN``
+        (128) contiguous ``!=`` exclusions to spell returns ``None`` too,
+        rather than a pathologically long chain; reaching that cap takes either
+        set algebra or a specifier set that already spells the gap out with
+        over a hundred contiguous ``!=N.*`` exclusions. An empty range maps to
+        ``SpecifierSet("<0")``, unless it still carries the arbitrary-string
+        flag (which no set reproduces), and a full range that admits arbitrary
+        strings maps to ``SpecifierSet("")``.
 
         A range built from a :class:`~packaging.specifiers.SpecifierSet`
         re-encodes, short of that exclusion cap. The result is the simplest
@@ -1804,6 +1815,14 @@ class VersionRange:
         and under a ``prereleases=False`` policy the result need only match self's
         releases, so ``(-inf, 3.14)`` recovers as the tighter ``<3.14`` rather
         than ``!=3.14,<=3.14``.
+
+        Each call encodes a handful of candidate spellings and keeps the
+        simplest one that verifies, where verifying means parsing the candidate
+        and round-tripping it through
+        :meth:`~packaging.specifiers.SpecifierSet.to_range`. The work grows
+        with the number of intervals and exclusions in the range, and the
+        result is not cached, so convert once and reuse the returned set rather
+        than converting per candidate version in a hot loop.
 
         >>> str(SpecifierSet(">=1.0,<2.0").to_range().to_specifier_set())
         '<2.0,>=1.0'

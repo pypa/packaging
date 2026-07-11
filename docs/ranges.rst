@@ -177,6 +177,42 @@ while the second does not; they are not substitutable and compare unequal:
     >>> SpecifierSet("<1.0.post0.dev0").to_range() == SpecifierSet("<=1.0").to_range()
     False
 
+Recovering a specifier set
+--------------------------
+
+:meth:`VersionRange.to_specifier_set` converts a range back to a
+:class:`~packaging.specifiers.SpecifierSet`. Specifier syntax cannot express
+every range, so it returns the simplest set whose own
+:meth:`~packaging.specifiers.SpecifierSet.to_range` reproduces the range, or
+``None`` when no single set does:
+
+.. doctest::
+
+    >>> str(SpecifierSet(">=1.0,<2.0").to_range().to_specifier_set())
+    '<2.0,>=1.0'
+    >>> # A disjoint union usually has no single-set spelling
+    >>> a = SpecifierSet("<1").to_range()
+    >>> b = SpecifierSet(">=2").to_range()
+    >>> (a | b).to_specifier_set() is None
+    True
+    >>> # unless the gap between the pieces is expressible as exclusions
+    >>> u = SpecifierSet("==1.*").to_range() | SpecifierSet("==3.*").to_range()
+    >>> str(u.to_specifier_set())
+    '!=0.*,!=2.*,<4'
+    >>> # The strict singleton has no spelling: ==1.5 would also match 1.5+local
+    >>> VersionRange.singleton("1.5").to_specifier_set() is None
+    True
+
+The recovery also caps how many ``!=`` exclusions it will write out, returning
+``None`` past the cap; without it, some ranges would convert to pathologically
+large sets that are slow to build and to use:
+
+.. doctest::
+
+    >>> far = SpecifierSet("==1.*").to_range() | SpecifierSet("==1000000.*").to_range()
+    >>> far.to_specifier_set() is None
+    True
+
 Limits of the model
 -------------------
 

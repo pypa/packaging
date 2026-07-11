@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from packaging._ranges import BoundaryKind, BoundaryVersion
-from packaging.ranges import VersionRange
+from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
@@ -1221,7 +1221,7 @@ class TestToSpecifierSet:
         # The budget is the total across the recursion, so a chain that stays
         # narrow at the top level but widens (or deepens) below is bounded too.
         assert (vr("==5.*") | vr("==7.200.*")).to_specifier_set() is None
-        wide = vr("==0.*") | vr("==" + ".".join(["128"] * 100) + ".*")
+        wide = vr("==0.*") | vr("==" + ".".join(["99"] * 100) + ".*")
         assert wide.to_specifier_set() is None
         # Each level also costs at least one, so a deep run of zero-span levels
         # (a valid version with hundreds of trailing components) is bounded and
@@ -1236,22 +1236,47 @@ class TestToSpecifierSet:
         def excl(n: int) -> str:
             return ",".join(f"!={k}.*" for k in range(1, n + 1))
 
-        assert SpecifierSet(excl(128)).to_range().to_specifier_set() is not None
-        assert SpecifierSet(excl(129)).to_range().to_specifier_set() is None
+        at_cap = SpecifierSet(excl(_MAX_EXCLUSION_RUN)).to_range()
+        assert at_cap.to_specifier_set() is not None
+        over_cap = SpecifierSet(excl(_MAX_EXCLUSION_RUN + 1)).to_range()
+        assert over_cap.to_specifier_set() is None
+
+    def test_wildcards_then_dev_run_share_cap(self) -> None:
+        # A gap spelled by a ``!=P.*`` chain plus a trailing dev run charges
+        # both against one budget, so the pair caps at ``_MAX_EXCLUSION_RUN``
+        # total rather than getting a full cap each.
+        run = _MAX_EXCLUSION_RUN // 2
+
+        def spec(families: int) -> SpecifierSet:
+            prefixes = [f"!={k}.*" for k in range(1, families + 1)]
+            devs = [f"!={families + 1}.dev{d}" for d in range(run)]
+            return SpecifierSet(",".join(prefixes + devs))
+
+        at_cap = spec(_MAX_EXCLUSION_RUN - run).to_range()
+        assert at_cap.to_specifier_set() is not None
+        over_cap = spec(_MAX_EXCLUSION_RUN - run + 1).to_range()
+        assert over_cap.to_specifier_set() is None
+
+    def test_cross_epoch_dev_gap_none(self) -> None:
+        # A dev-run gap whose family sits in another epoch is not a
+        # wildcard-plus-run shape; the detector bails and the union stays two
+        # groups with no single-set form.
+        assert (vr("<1") | vr(">=1!0.dev1,!=1!0.dev1")).to_specifier_set() is None
 
     def test_recovery_caps_long_dev_runs(self) -> None:
         # A ``.dev`` run longer than ``_MAX_EXCLUSION_RUN`` also has no practical
         # single-set form. The bound encoders keep the terse ``>=V,!=V`` spelling
         # or return None rather than spell out a huge ``!=`` chain from a short
         # input. The four run sites, driven by an attacker-controlled dev number:
-        anchor = vr(">=1.dev200,!=1.dev200").to_specifier_set()
-        assert str(anchor) == "!=1.dev200,>=1.dev200"
+        dev = _MAX_EXCLUSION_RUN
+        anchor = vr(f">=1.dev{dev},!=1.dev{dev}").to_specifier_set()
+        assert str(anchor) == f"!=1.dev{dev},>=1.dev{dev}"
         assert (
-            str(vr(">=1!0.dev200,!=1!0.dev200,<1!1").to_specifier_set())
-            == "!=1!0.dev200,<1!1.dev0,>=1!0.dev200"
+            str(vr(f">=1!0.dev{dev},!=1!0.dev{dev},<1!1").to_specifier_set())
+            == f"!=1!0.dev{dev},<1!1.dev0,>=1!0.dev{dev}"
         )
-        assert (~vr(">=1.0,<=1.0.post0.dev200")).to_specifier_set() is None
-        assert (~vr(">=1.dev0,<=2.dev200")).to_specifier_set() is None
+        assert (~vr(f">=1.0,<=1.0.post0.dev{dev}")).to_specifier_set() is None
+        assert (~vr(f">=1.dev0,<=2.dev{dev}")).to_specifier_set() is None
 
     def test_reject_none(self) -> None:
         assert (~vr("===1.0")).to_specifier_set() is None
