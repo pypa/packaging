@@ -354,6 +354,33 @@ class TestMetadata:
                 "Project-URL: A, B\nProject-URL: A, C", validate=True
             )
 
+    @pytest.mark.parametrize(
+        "description_content_type",
+        [
+            "text/plain\n folded",
+            'text/plain; charset="unterminated',
+            "text/plain; {b}",
+            "text/plain; a}b",
+            "text/plain; x*",
+        ],
+    )
+    def test_from_email_wraps_description_content_type_parse_errors(
+        self,
+        description_content_type: str,
+    ) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                "Metadata-Version: 2.6\n"
+                "Name: packaging\n"
+                "Version: 1.0\n"
+                f"Description-Content-Type: {description_content_type}\n"
+            )
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "description-content-type"
+        assert repr(description_content_type) in str(exc)
+
     def test_required_fields(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
 
@@ -560,11 +587,22 @@ class TestMetadata:
             "text/plain; charset=utf-8",
             "text/markdown; variant=gfm",
             "text/markdown; variant=commonmark",
+            "text/plain; {b}",
+            "text/plain; a}b",
+            "text/plain; x*",
         ],
     )
     def test_invalid_description_content_type(self, content_type: str) -> None:
         meta = metadata.Metadata.from_raw(
             {"description_content_type": content_type}, validate=False
+        )
+
+        with pytest.raises(metadata.InvalidMetadata):
+            meta.description_content_type  # noqa: B018
+
+    def test_invalid_description_content_type_without_defects(self) -> None:
+        meta = metadata.Metadata.from_raw(
+            {"description_content_type": "application/octet-stream"}, validate=False
         )
 
         with pytest.raises(metadata.InvalidMetadata):
