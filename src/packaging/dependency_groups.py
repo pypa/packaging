@@ -54,6 +54,10 @@ class CyclicDependencyGroup(ValueError):
             f"{requested_group}: {reason}"
         )
 
+    # Support pickling; ``args`` does not match ``__init__``'s signature.
+    def __reduce__(self) -> tuple[type[CyclicDependencyGroup], tuple[str, str, str]]:
+        return (self.__class__, (self.requested_group, self.group, self.include_group))
+
 
 # in the PEP 735 spec, the tables in dependency group lists were described as
 # "Dependency Object Specifiers", but the only defined type of object was a

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import re
 import unittest.mock
 from typing import TYPE_CHECKING, Any
@@ -320,6 +321,15 @@ def test_cyclic_include_self() -> None:
             "group1 includes itself"
         ),
     )
+
+
+def test_cyclic_include_pickle_roundtrip() -> None:
+    exc = CyclicDependencyGroup("group1", "group2", "group1")
+    copy = pickle.loads(pickle.dumps(exc))
+    assert copy.requested_group == exc.requested_group
+    assert copy.group == exc.group
+    assert copy.include_group == exc.include_group
+    assert str(copy) == str(exc)
 
 
 def test_cyclic_include_ring_under_root() -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import email
 import inspect
 import pathlib
+import pickle
 import textwrap
 import typing
 
@@ -279,6 +280,14 @@ class TestRawMetadata:
         assert raw["description"] == "This description intentionally left blank.\n"
         assert raw["import_names"] == ["beaglevote", "_beaglevote ; private"]
         assert raw["import_namespaces"] == ["spam", "_bacon ; private"]
+
+
+class TestInvalidMetadata:
+    def test_pickle_roundtrip(self) -> None:
+        exc = metadata.InvalidMetadata("version", "'1.0.a' is invalid")
+        copy = pickle.loads(pickle.dumps(exc))
+        assert copy.field == exc.field
+        assert str(copy) == str(exc)
 
 
 class TestExceptionGroup:
