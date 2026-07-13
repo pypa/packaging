@@ -245,6 +245,14 @@ class TestRequirementParsing:
     # Start all method names with with `test_error_`
     # to make it easier to run these tests with `-k error`
 
+    def test_error_when_specifier_set_rejects_parsed_specifier(self) -> None:
+        # GIVEN
+        to_parse = "demo===x,y"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement, match="Invalid specifier: 'y'"):
+            Requirement(to_parse)
+
     def test_error_when_empty_string(self) -> None:
         # GIVEN
         to_parse = ""
@@ -839,11 +847,17 @@ def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
         r.__setstate__((1, 2, 3))
 
 
-def test_pickle_requirement_setstate_rejects_invalid_string() -> None:
+@pytest.mark.parametrize(
+    "invalid_requirement",
+    ["this is not a valid requirement", "demo===x,y"],
+)
+def test_pickle_requirement_setstate_rejects_invalid_string(
+    invalid_requirement: str,
+) -> None:
     # Cover the string branch where Requirement() raises InvalidRequirement.
     r = Requirement.__new__(Requirement)
     with pytest.raises(TypeError, match="Cannot restore Requirement"):
-        r.__setstate__("this is not a valid requirement")
+        r.__setstate__(invalid_requirement)
 
 
 # Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
 from .markers import Marker, _normalize_extra_values
-from .specifiers import SpecifierSet
+from .specifiers import InvalidSpecifier, SpecifierSet
 from .utils import canonicalize_name
 
 if TYPE_CHECKING:
@@ -82,7 +82,10 @@ class Requirement:
         self.name: str = parsed.name
         self.url: str | None = parsed.url or None
         self.extras: set[str] = set(parsed.extras)
-        self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+        try:
+            self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+        except InvalidSpecifier as e:
+            raise InvalidRequirement(str(e)) from e
         self.marker: Marker | None = None
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
