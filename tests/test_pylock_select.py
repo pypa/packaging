@@ -258,42 +258,26 @@ def test_yield_all_types() -> None:
     assert len(selected) == 5
 
 
-def test_sdist_fallback() -> None:
+def _pylock_with_wheel(
+    *, wheel_python_tag: str = "py3", include_sdist: bool = True
+) -> Pylock:
     pylock = Pylock(
         lock_version=Version("1.0"),
         created_by="some_tool",
         packages=[
             Package(
                 name=cast("NormalizedName", "foo"),
-                sdist=PackageSdist(
-                    path="foo-1.0.tar.gz",
-                    hashes={"sha256": "abc123"},
+                sdist=(
+                    PackageSdist(
+                        path="foo-1.0.tar.gz",
+                        hashes={"sha256": "abc123"},
+                    )
+                    if include_sdist
+                    else None
                 ),
                 wheels=[
                     PackageWheel(
-                        path="./foo-1.0-py5-none-any.whl",
-                        hashes={"sha256": "abc123"},
-                    )
-                ],
-            ),
-        ],
-    )
-    selected = list(pylock.select())
-    assert len(selected) == 1
-    assert isinstance(selected[0][1], PackageSdist)
-
-
-def test_missing_sdist_fallback() -> None:
-    pylock = Pylock(
-        lock_version=Version("1.0"),
-        created_by="some_tool",
-        packages=[
-            Package(
-                name=cast("NormalizedName", "foo"),
-                wheels=[
-                    PackageWheel(
-                        name="foo-1.0-py5-none-any.whl",
-                        path="./foo-1.0-py5-none-any.whl",
+                        path=f"./foo-1.0-{wheel_python_tag}-none-any.whl",
                         hashes={"sha256": "abc123"},
                     )
                 ],
@@ -301,10 +285,69 @@ def test_missing_sdist_fallback() -> None:
         ],
     )
     pylock.validate()
-    with pytest.raises(
-        PylockSelectError, match=r"No wheel found matching .* and no sdist available"
-    ):
-        list(pylock.select())
+    return pylock
+
+
+@pytest.mark.parametrize(
+    (
+        "wheel_python_tag",
+        "include_sdist",
+        "prefer_sdist",
+        "expected_type",
+    ),
+    [
+        ("py5", True, None, PackageSdist),
+        ("py3", True, None, PackageWheel),
+        ("py3", True, False, PackageWheel),
+        ("py3", True, True, PackageSdist),
+        ("py3", False, True, PackageWheel),
+        ("py5", False, None, PylockSelectError),
+        ("py5", False, True, PylockSelectError),
+    ],
+    ids=[
+        "incompatible-wheel-sdist-fallback",
+        "compatible-wheel-default",
+        "compatible-wheel-predicate-false",
+        "sdist-predicate-true",
+        "compatible-wheel-no-sdist",
+        "no-compatible-source-default",
+        "no-compatible-source-predicate-true",
+    ],
+)
+def test_wheel_sdist_selection(
+    wheel_python_tag: str,
+    include_sdist: bool,
+    prefer_sdist: bool | None,
+    expected_type: type[object],
+) -> None:
+    names: list[NormalizedName] = []
+
+    def predicate(name: NormalizedName) -> bool:
+        names.append(name)
+        assert prefer_sdist is not None
+        return prefer_sdist
+
+    selection = _pylock_with_wheel(
+        wheel_python_tag=wheel_python_tag,
+        include_sdist=include_sdist,
+    ).select(
+        tags=_py312_linux.tags,
+        environment=_py312_linux.environment,
+        prefer_sdist_predicate=predicate if prefer_sdist is not None else None,
+    )
+
+    if expected_type is PylockSelectError:
+        with pytest.raises(
+            PylockSelectError,
+            match=r"No wheel found matching .* and no sdist available",
+        ):
+            list(selection)
+    else:
+        selected = list(selection)
+        assert len(selected) == 1
+        assert isinstance(selected[0][1], expected_type)
+
+    assert names == (["foo"] if prefer_sdist is not None else [])
 
 
 @pytest.mark.parametrize(
