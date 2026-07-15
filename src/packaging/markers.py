@@ -237,12 +237,18 @@ _operators: dict[str, Operator] = {
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
     op_str = op.serialize()
     if key in MARKERS_REQUIRING_VERSION:
-        try:
-            spec = Specifier(f"{op_str}{rhs}")
-        except InvalidSpecifier:
-            pass
-        else:
-            return spec.contains(lhs, prereleases=True)
+        # The version marker can be on either side:
+        #   python_version >= "3.8"   → lhs=version, rhs=pattern
+        #   "3.8" <= python_version   → lhs=pattern, rhs=version
+        # Try constructing a Specifier from rhs first, then lhs.
+        for pattern, value in ((rhs, lhs), (lhs, rhs)):
+            if not isinstance(pattern, str):
+                continue
+            try:
+                spec = Specifier(f"{op_str}{pattern}")
+            except InvalidSpecifier:
+                continue
+            return spec.contains(value, prereleases=True)
 
     oper: Operator | None = _operators.get(op_str)
     if oper is None:
