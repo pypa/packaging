@@ -8,7 +8,7 @@ import pytest
 
 from packaging._ranges import BoundaryKind, BoundaryVersion
 from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 
@@ -1146,6 +1146,13 @@ class TestToSpecifierSet:
 
     def test_multiple_arbitrary_none(self) -> None:
         assert (vr("===a") | vr("===b")).to_specifier_set() is None
+
+    def test_arbitrary_literal_with_comma_none(self) -> None:
+        # A ``===`` literal may hold a comma (its arbitrary version excludes only
+        # whitespace, ``;`` and ``)``), which the set string splits on, so it has
+        # no single specifier-set spelling. It must return ``None``, not raise.
+        r = SpecifierSet([Specifier("===a,b")]).to_range()
+        assert r.to_specifier_set() is None
 
     def test_bounds_plus_literal_none(self) -> None:
         r = VersionRange.singleton("1.0") | vr("===garbage")

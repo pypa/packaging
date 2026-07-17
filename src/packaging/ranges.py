@@ -1767,7 +1767,7 @@ class VersionRange:
         >>> VersionRange.singleton("1.5").to_specifier_set() is None
         True
         """
-        from .specifiers import SpecifierSet  # noqa: PLC0415
+        from .specifiers import InvalidSpecifier, SpecifierSet  # noqa: PLC0415
 
         configured = self._prereleases_configured
 
@@ -1842,10 +1842,18 @@ class VersionRange:
                 candidates.append(f"{base},>=0.dev0" if base else ">=0.dev0")
 
             for spec_str in candidates:
+                # A ``===`` literal can hold a comma (its arbitrary version
+                # excludes only whitespace, ``;`` and ``)``), which the set
+                # string splits on. Such a literal has no single specifier-set
+                # spelling, so drop the unparsable candidate and let the range
+                # fall through to ``None`` rather than raise.
+                try:
+                    recovered = SpecifierSet(spec_str, prereleases=configured)
+                except InvalidSpecifier:
+                    continue
                 # Fewest fragments, then shortest string. Rank before the round
                 # trip so a candidate that cannot beat the best skips the check
                 # (its ``==`` and, under ``False``, two ``difference`` calls).
-                recovered = SpecifierSet(spec_str, prereleases=configured)
                 key = (len(recovered), len(str(recovered)))
                 if best is not None and key >= best_key:
                     continue
