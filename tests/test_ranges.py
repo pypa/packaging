@@ -1200,7 +1200,7 @@ class TestToSpecifierSet:
 
     def test_disjoint_none(self) -> None:
         # Two intervals split by a whole-interval gap (not a ``!=`` exclusion)
-        # are two groups, which have no single-set form.
+        # are a disjoint union, which has no single-set form.
         assert (vr(">=1,<2") | vr(">=4,<5")).to_specifier_set() is None
 
     def test_disjoint_wildcards_roundtrip(self) -> None:
@@ -1259,8 +1259,8 @@ class TestToSpecifierSet:
 
     def test_cross_epoch_dev_gap_none(self) -> None:
         # A dev-run gap whose family sits in another epoch is not a
-        # wildcard-plus-run shape; the detector bails and the union stays two
-        # groups with no single-set form.
+        # wildcard-plus-run shape; the gap has no exclusion spelling and the
+        # disjoint union has no single-set form.
         assert (vr("<1") | vr(">=1!0.dev1,!=1!0.dev1")).to_specifier_set() is None
 
     def test_recovery_caps_long_dev_runs(self) -> None:
@@ -2039,7 +2039,8 @@ class TestCoverageEdges:
         assert comp.to_specifier_set() is None
 
     def test_two_singletons_complement_no_form(self) -> None:
-        # Three intervals where a middle group fails to encode.
+        # The strict-point gaps have no ``!=`` spelling (``!=1.0`` would also
+        # drop 1.0's locals), so the three intervals cannot fuse.
         r = ~(VersionRange.singleton("1.0") | VersionRange.singleton("2.0"))
         assert Version("1.5") in r
         assert Version("1.0") not in r

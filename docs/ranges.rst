@@ -202,6 +202,14 @@ every range, so it returns the simplest set whose own
     >>> # The strict singleton has no spelling: ==1.5 would also match 1.5+local
     >>> VersionRange.singleton("1.5").to_specifier_set() is None
     True
+    >>> # Neither does the full range built by algebra: it opts no pre-release
+    >>> # in, while its only spelling, >=0.dev0, opts them all in
+    >>> r = SpecifierSet(">=2").to_range()
+    >>> (r | ~r).to_specifier_set() is None
+    True
+    >>> # full() itself admits arbitrary strings, which the empty set spells
+    >>> str(VersionRange.full().to_specifier_set())
+    ''
 
 The recovery also caps how many ``!=`` exclusions it will write out, returning
 ``None`` past the cap; without it, some ranges would convert to pathologically

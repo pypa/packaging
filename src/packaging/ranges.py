@@ -65,7 +65,7 @@ UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 #: that :meth:`VersionRange.to_specifier_set` will materialize to spell a
 #: single gap or run. Every site that expands a version-number-driven chain
 #: charges it against this cap, and chains that spell one gap together share
-#: it (see :func:`_decompose_dev0_gap` and :func:`_detect_wildcards_then_dev0`),
+#: it (see :func:`_decompose_dev0_gap` and :func:`_encode_gap`),
 #: so no gap ever materializes more than this many exclusions. Past the cap
 #: the recovery returns ``None`` rather than emit the unbounded chain a range
 #: such as ``==5.* | ==1000000.*`` would otherwise drive.
@@ -326,10 +326,10 @@ def _format_intervals(intervals: Sequence[Interval]) -> str:
 
 # ``to_specifier_set`` recovery: encode a range's interval list back into
 # specifier fragments. Each helper returns ``None`` when its shape has no
-# PEP 440 form. The ``prereleases`` argument threaded through is a spelling
-# mode, not a policy: ``None`` emits a prerelease-free form (no synthetic
-# ``.dev0``, so the recovered range has an empty opt-in region), ``True`` keeps
-# the ``.dev0`` markers (so the range opts its bounds in).
+# PEP 440 form. The ``keep_dev0`` argument threaded through is a spelling
+# mode, not a pre-release policy: false emits a prerelease-free form (no
+# synthetic ``.dev0``, so the recovered range has an empty opt-in region),
+# true keeps the ``.dev0`` markers (so the range opts its bounds in).
 # ``to_specifier_set`` encodes in both modes and keeps whichever round-trips.
 #
 # Bound and interval encoding: turn one interval's bounds into fragments.
@@ -350,7 +350,7 @@ def _clean_lower(version: Version) -> list[str] | None:
 
     Several ``[V`` lowers come from an operator whose own spelling carries no
     synthetic ``.dev0``. Recovering that spelling gives the range an empty opt-in
-    region, so it is offered in the ``prereleases is None`` spelling mode (see
+    region, so it is offered in the prerelease-free spelling mode (see
     :meth:`VersionRange.to_specifier_set`).
     """
     if version.dev != 0 or version.pre is not None or version.local is not None:
@@ -447,13 +447,13 @@ def _dev_family_anchor(family: Version) -> list[str] | None:
     return None
 
 
-def _encode_lower(lower: LowerBound, prereleases: bool | None) -> list[str] | None:
+def _encode_lower(lower: LowerBound, keep_dev0: bool) -> list[str] | None:
     """Encode a lower bound as specifier fragments, or ``None``.
 
     ``[]`` for ``-inf``. An ``AFTER_POSTS(V)`` lower is ``>V``. An
     ``AFTER_LOCALS(V)`` lower is the set ``[successor, ..)`` and emits ``>=V,!=V``,
-    except in the prerelease-free spelling mode (``prereleases`` is ``None``),
-    where it recovers a spelling with no synthetic ``.dev0`` when one exists:
+    except in the prerelease-free spelling mode (``keep_dev0`` false), where it
+    recovers a spelling with no synthetic ``.dev0`` when one exists:
     ``>3.8.post1`` for a post release, or a dev family's anchor plus the dev run
     up to V for a ``.dev`` release.
     """
@@ -473,7 +473,7 @@ def _encode_lower(lower: LowerBound, prereleases: bool | None) -> list[str] | No
         # An ``(AFTER_LOCALS(V), ..)`` lower is the set ``[successor, ..)``. In
         # the prerelease-free mode, recover a spelling with no synthetic ``.dev0``
         # so the range's opt-in region stays empty.
-        if prereleases is None:
+        if not keep_dev0:
             if inner.dev is not None:
                 # A ``.dev`` V makes ``[successor, ..)`` its dev family's
                 # prerelease-free anchor minus the finite dev run up to ``V``
@@ -505,20 +505,20 @@ def _encode_lower(lower: LowerBound, prereleases: bool | None) -> list[str] | No
         return None
 
     # In the prerelease-free mode a ``.dev0`` lower prefers its clean spelling.
-    if prereleases is None:
+    if not keep_dev0:
         clean = _clean_lower(lower_version)
         if clean is not None:
             return clean
     return [f">={lower_version}"]
 
 
-def _encode_upper(upper: UpperBound, prereleases: bool | None) -> list[str] | None:
+def _encode_upper(upper: UpperBound, keep_dev0: bool) -> list[str] | None:
     """Encode an upper bound as specifier fragments, or ``None``.
 
-    ``[]`` for ``+inf``. In the prerelease-free spelling mode (``prereleases`` is
-    ``None``) the ``<X`` spelling is used for the ``X.dev0`` upper that ``<X``
-    builds; in the ``True`` mode the synthetic ``.dev0`` is kept so the range
-    opts its bounds in.
+    ``[]`` for ``+inf``. In the prerelease-free spelling mode (``keep_dev0``
+    false) the ``<X`` spelling is used for the ``X.dev0`` upper that ``<X``
+    builds; otherwise the synthetic ``.dev0`` is kept so the range opts its
+    bounds in.
     """
     upper_version = upper.version
     if upper_version is None:
@@ -530,7 +530,7 @@ def _encode_upper(upper: UpperBound, prereleases: bool | None) -> list[str] | No
         if upper_version.kind == BoundaryKind.AFTER_LOCALS:
             inner = upper_version.version
             if (
-                prereleases is None
+                not keep_dev0
                 and inner.pre is None
                 and inner.post is not None
                 and inner.dev is None
@@ -557,7 +557,7 @@ def _encode_upper(upper: UpperBound, prereleases: bool | None) -> list[str] | No
             and upper_version.pre is None
             and upper_version.local is None
         ):
-            if prereleases is None:
+            if not keep_dev0:
                 return [f"<{upper_version.__replace__(dev=None)}"]
             return [f"<{upper_version}"]
         # ``V`` (exclusive) upper, including V's pre-releases.
@@ -600,7 +600,7 @@ def _detect_equal_wildcard(lower: LowerBound, upper: UpperBound) -> Version | No
 
 
 def _encode_interval(
-    lower: LowerBound, upper: UpperBound, prereleases: bool | None
+    lower: LowerBound, upper: UpperBound, keep_dev0: bool
 ) -> list[str] | None:
     """Encode one interval as specifier fragments, or ``None``.
 
@@ -639,7 +639,7 @@ def _encode_interval(
 
     # A ``[E!0.dev0`` lower has no prerelease-free ``>=`` spelling; within its own
     # family it is ``==E!0.*`` trimmed by the upper.
-    floor = _epoch_floor_lower(lower, upper) if prereleases is None else None
+    floor = _epoch_floor_lower(lower, upper) if not keep_dev0 else None
     if floor is not None:
         family, excluded_devs, upper_at_cap = floor
         if excluded_devs > _MAX_EXCLUSION_RUN:
@@ -649,25 +649,25 @@ def _encode_interval(
 
         # ``==E!0.*`` already caps at the next family; add the upper only if tighter.
         if not upper_at_cap:
-            upper_parts = _encode_upper(upper, prereleases)
+            upper_parts = _encode_upper(upper, keep_dev0)
             if upper_parts is None:
                 return None
             parts.extend(upper_parts)
 
         return parts
 
-    lower_parts = _encode_lower(lower, prereleases)
+    lower_parts = _encode_lower(lower, keep_dev0)
     if lower_parts is None:
         return None
 
-    upper_parts = _encode_upper(upper, prereleases)
+    upper_parts = _encode_upper(upper, keep_dev0)
     if upper_parts is None:
         return None
 
     return lower_parts + upper_parts
 
 
-# Gap detection: classify the gap between two adjacent intervals.
+# Gap encoding: spell the gap between two adjacent intervals as exclusions.
 
 
 def _detect_not_equal(
@@ -784,155 +784,91 @@ def _decompose_dev0_gap(
     return fragments + tail
 
 
-def _detect_not_equal_wildcards(
-    left_upper: UpperBound, right_lower: LowerBound
-) -> list[Version] | None:
-    """Decompose a ``[L.dev0, U.dev0)`` gap into a chain of ``!=P.*`` prefixes."""
-    left_upper_v = left_upper.version
-    right_lower_v = right_lower.version
+def _encode_gap(left_upper: UpperBound, right_lower: LowerBound) -> list[str] | None:
+    """Encode the gap between two adjacent intervals as ``!=`` fragments.
 
-    if not isinstance(left_upper_v, Version) or not isinstance(right_lower_v, Version):
-        return None
-    if left_upper.inclusive or not right_lower.inclusive:
-        return None
-    if not (_is_dev0_version(left_upper_v) and _is_dev0_version(right_lower_v)):
-        return None
-    if left_upper_v.epoch != right_lower_v.epoch:
-        return None
-
-    return _decompose_dev0_gap(
-        trim_release(left_upper_v.release),
-        trim_release(right_lower_v.release),
-        left_upper_v.epoch,
-    )
-
-
-def _detect_wildcards_then_dev0(
-    left_upper: UpperBound, right_lower: LowerBound
-) -> tuple[list[Version], list[Version]] | None:
-    """Split a ``[L.dev0, AFTER_LOCALS(U.dev(k))]`` gap into ``!=P.*`` + a dev run.
-
-    A leading ``!=U.dev0,...,!=U.dev(k)`` run sitting just above an excluded
-    ``!=family.*`` chain leaves the right interval at ``AFTER_LOCALS(U.dev(k))``:
-    one gap covers the wildcard families ``[L.dev0, U.dev0)`` and then a contiguous
-    dev run in U's own family. Returns the ``!=P.*`` chain prefixes and the
-    ``U.dev0..U.dev(k)`` run, or ``None``.
+    A point chain becomes ``!=V`` fragments and a dev0 family span becomes
+    ``!=P.*`` prefixes, followed by a leading dev run in the last family when
+    the gap ends inside it. Any other gap has no exclusion form and returns
+    ``None``.
     """
-    left_upper_v = left_upper.version
-    right_lower_v = right_lower.version
+    # Cheapest first: a plain ``!=V`` chain never pays for the budgeted
+    # wildcard sweep below.
+    points = _detect_not_equal(left_upper, right_lower)
+    if points is not None:
+        return [f"!={point}" for point in points]
 
-    # The gap runs from an exclusive ``L.dev0`` up to ``AFTER_LOCALS(U.dev(k))``.
-    if not isinstance(left_upper_v, Version):
-        return None
-    if not isinstance(right_lower_v, BoundaryVersion):
-        return None
-    if right_lower_v.kind != BoundaryKind.AFTER_LOCALS:
-        return None
-    if left_upper.inclusive or right_lower.inclusive:
+    # Both wildcard shapes start at an exclusive family base ``L.dev0``.
+    left_v = left_upper.version
+    if (
+        not isinstance(left_v, Version)
+        or left_upper.inclusive
+        or not _is_dev0_version(left_v)
+    ):
         return None
 
-    # ``L`` is a dev0 family base; ``U`` is a release base bearing a ``.dev`` run
-    # (``U.dev0`` for a single point, higher for a run), both in the same epoch.
+    right_v = right_lower.version
+    if isinstance(right_v, Version) and right_lower.inclusive:
+        # ``[L.dev0, U.dev0)`` is a pure ``!=P.*`` chain up to U's family.
+        upper_dev0 = right_v
+        run_length = 0
+        budget = _MAX_EXCLUSION_RUN
+    elif (
+        isinstance(right_v, BoundaryVersion)
+        and right_v.kind == BoundaryKind.AFTER_LOCALS
+        and not right_lower.inclusive
+    ):
+        # ``[L.dev0, AFTER_LOCALS(U.dev(k))]`` ends inside U's family: the
+        # ``!=P.*`` chain, then the ``U.dev0..U.dev(k)`` run. Both spell the
+        # gap together, so they share one ``_MAX_EXCLUSION_RUN`` budget.
+        upper = right_v.version
+        if upper.dev is None or upper.dev + 1 > _MAX_EXCLUSION_RUN:
+            return None
+        upper_dev0 = upper.__replace__(dev=0)
+        run_length = upper.dev + 1
+        budget = _MAX_EXCLUSION_RUN - run_length
+    else:
+        return None
+
+    # ``U`` must be a plain release base in L's epoch, above L.
     # ``_is_dev0_version`` on ``U.dev0`` rejects any pre/post/local on ``U``.
-    upper = right_lower_v.version
-    if upper.dev is None:
+    if not _is_dev0_version(upper_dev0):
         return None
-    upper_dev0 = upper.__replace__(dev=0)
-    if not (_is_dev0_version(left_upper_v) and _is_dev0_version(upper_dev0)):
-        return None
-    if left_upper_v.epoch != upper_dev0.epoch or left_upper_v >= upper_dev0:
+    if left_v.epoch != upper_dev0.epoch or left_v >= upper_dev0:
         return None
 
-    # The prefixes and the dev run spell this gap together, so they share one
-    # ``_MAX_EXCLUSION_RUN`` budget rather than getting a full cap each.
-    run_length = upper.dev + 1
-    if run_length > _MAX_EXCLUSION_RUN:
-        return None
-
-    # The chain ``[L.dev0, U.dev0)`` decomposes into the ``==P.*`` prefixes.
     prefixes = _decompose_dev0_gap(
-        trim_release(left_upper_v.release),
+        trim_release(left_v.release),
         trim_release(upper_dev0.release),
-        left_upper_v.epoch,
-        _MAX_EXCLUSION_RUN - run_length,
+        left_v.epoch,
+        budget,
     )
     if prefixes is None:
         return None
 
-    run = [upper.__replace__(dev=d) for d in range(run_length)]
-    return prefixes, run
+    exclusions = [f"!={prefix}.*" for prefix in prefixes]
+    exclusions.extend(f"!={upper_dev0.__replace__(dev=d)}" for d in range(run_length))
+    return exclusions
 
 
-# Group assembly: encode each group of intervals as one fragment list.
+def _encode_gaps(bounds: Sequence[Interval]) -> list[str] | None:
+    """Encode every between-interval gap as ``!=`` fragments, or ``None``.
 
-
-def _close_group(
-    group_lower: LowerBound,
-    group_upper: UpperBound,
-    exclusions: list[str],
-    prereleases: bool | None,
-) -> list[str] | None:
-    """Encode one accumulated group as specifier fragments, or ``None``.
-
-    A group is a single contiguous interval (its members joined through ``!=``
-    gaps), never a disjoint union: a multi-family dev0 span such as
-    ``[3.8.dev0, 3.14.dev0)`` is the contiguous ``>=3.8.dev0,<3.14``. Genuinely
-    disjoint families land in separate groups, which
-    :meth:`VersionRange.to_specifier_set` rejects by group count. The outer span
-    itself may still have no PEP 440 form, in which case this returns ``None``.
+    When each gap has an exclusion spelling, the intervals fuse into one
+    contiguous span (``==1.* | ==3.*`` is ``!=0.*,!=2.*,<4``): the outer
+    interval across all the bounds plus these exclusions. A gap with no
+    exclusion spelling makes the bounds a disjoint union, which no single
+    set expresses.
     """
-    outer = _encode_interval(group_lower, group_upper, prereleases)
-    if outer is None:
-        return None
-
-    return outer + exclusions
-
-
-def _encode_grouped(
-    bounds: list[Interval], prereleases: bool | None
-) -> list[list[str]] | None:
-    """Split bounds into disjoint groups, encoding each as fragments.
-
-    Consecutive intervals whose gap is an ``!=V`` / ``!=V+local`` / ``!=V.*``
-    exclusion stay in one group; any other gap starts a new group. Returns one
-    fragment list per group, or ``None`` if any group has no PEP 440 form.
-    """
-    groups: list[list[str]] = []
-    group_lower, group_upper = bounds[0]
     exclusions: list[str] = []
 
-    for next_lower, next_upper in bounds[1:]:
-        # Classify the gap to the next interval: an ``!=`` exclusion keeps the
-        # group open, anything else closes it. The detectors run in priority
-        # order and short-circuit, so a plain ``!=V`` gap never pays for the
-        # budgeted sweep in ``_detect_wildcards_then_dev0``.
-        if (not_equal := _detect_not_equal(group_upper, next_lower)) is not None:
-            exclusions.extend(f"!={point}" for point in not_equal)
-        elif (
-            wildcards := _detect_not_equal_wildcards(group_upper, next_lower)
-        ) is not None:
-            exclusions.extend(f"!={prefix}.*" for prefix in wildcards)
-        elif (
-            chain_run := _detect_wildcards_then_dev0(group_upper, next_lower)
-        ) is not None:
-            chain, run = chain_run
-            exclusions.extend(f"!={prefix}.*" for prefix in chain)
-            exclusions.extend(f"!={point}" for point in run)
-        else:
-            closed = _close_group(group_lower, group_upper, exclusions, prereleases)
-            if closed is None:
-                return None
-            groups.append(closed)
-            group_lower, exclusions = next_lower, []
+    for index in range(1, len(bounds)):
+        gap = _encode_gap(bounds[index - 1][1], bounds[index][0])
+        if gap is None:
+            return None
+        exclusions.extend(gap)
 
-        group_upper = next_upper
-
-    closed = _close_group(group_lower, group_upper, exclusions, prereleases)
-    if closed is None:
-        return None
-    groups.append(closed)
-
-    return groups
+    return exclusions
 
 
 def _tighten_no_prereleases(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
@@ -1796,7 +1732,7 @@ class VersionRange:
         plain-version bound), a disjoint union of two or more intervals, or a
         partial pre-release opt-in region, so ranges built by set algebra often
         return ``None``. A gap that takes more than ``_MAX_EXCLUSION_RUN``
-        (128) contiguous ``!=`` exclusions to spell returns ``None`` too,
+        contiguous ``!=`` exclusions to spell returns ``None`` too,
         rather than a pathologically long chain; reaching that cap takes either
         set algebra or a specifier set that already spells the gap out with
         over a hundred contiguous ``!=N.*`` exclusions. An empty range maps to
@@ -1845,13 +1781,13 @@ class VersionRange:
             # rides along it.
             return SpecifierSet("<0", prereleases=configured)
 
-        admit_pieces = [f"==={literal}" for literal in sorted(self._admit)]
         if not self._bounds:
             # Pure ``===`` literals; only a single literal has a single-set form.
-            if len(admit_pieces) != 1:
+            if len(self._admit) != 1:
                 return None
-            bases = [admit_pieces[0]]
-        elif admit_pieces:
+            (literal,) = self._admit
+            bases = [f"==={literal}"]
+        elif self._admit:
             # Bounds plus literals cannot be one set.
             return None
         elif self._bounds == FULL_RANGE:
@@ -1869,13 +1805,27 @@ class VersionRange:
 
             # Encode each layout in both spelling modes: prerelease-free, then
             # keeping the synthetic ``.dev0`` markers. Which spelling reproduces
-            # self is settled by the round trip below, not up front.
+            # self is settled by the round trip below, not up front. The gap
+            # exclusions do not depend on the mode, so they encode once.
             bases = []
             for layout in layouts:
-                for mode in (None, True):
-                    groups = _encode_grouped(list(layout), mode)
-                    if groups is not None and len(groups) == 1:
-                        bases.append(",".join(groups[0]))
+                exclusions = _encode_gaps(layout)
+                if exclusions is None:
+                    continue
+
+                for keep_dev0 in (False, True):
+                    outer = _encode_interval(layout[0][0], layout[-1][1], keep_dev0)
+                    if outer is None:
+                        continue
+                    base = ",".join(outer + exclusions)
+                    if base not in bases:
+                        bases.append(base)
+
+        # A trailing no-op ``>=0.dev0`` floor restores a ``True`` opt-in that
+        # rode on a floor the clean encoding dropped (e.g. ``>=0.dev0,!=1.0``).
+        # It always recovers the whole bounds as the opt-in region, so it can
+        # only round-trip when self opts everything in.
+        add_floor = configured is None and self._pre_region == self._bounds
 
         # Keep the simplest candidate that recovers self. ``==`` compares bounds,
         # literals, and the opt-in region, so a candidate that would filter
@@ -1885,19 +1835,13 @@ class VersionRange:
         # unobservable), which admits the tightened spellings above.
         best: SpecifierSet | None = None
         best_key = (0, 0)
-        seen: set[str] = set()
 
         for base in bases:
-            # Offer each base with the no-op ``>=0.dev0`` floor too, which
-            # restores a ``True`` opt-in that rode on a floor the clean encoding
-            # dropped (e.g. ``>=0.dev0,!=1.0``).
-            floored = f"{base},>=0.dev0" if base else ">=0.dev0"
+            candidates = [base]
+            if add_floor:
+                candidates.append(f"{base},>=0.dev0" if base else ">=0.dev0")
 
-            for spec_str in (base, floored):
-                if spec_str in seen:
-                    continue
-                seen.add(spec_str)
-
+            for spec_str in candidates:
                 # Fewest fragments, then shortest string. Rank before the round
                 # trip so a candidate that cannot beat the best skips the check
                 # (its ``==`` and, under ``False``, two ``difference`` calls).
