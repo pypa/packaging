@@ -45,6 +45,9 @@ Usage
     >>> # An unsatisfiable set produces the empty range
     >>> SpecifierSet(">=2.0,<1.0").to_range().is_empty
     True
+    >>> # Convert back to a SpecifierSet when possible
+    >>> str(r.to_specifier_set())
+    '<2.0,>=1.0'
 
 Pre-releases
 ------------
@@ -140,6 +143,15 @@ Like :meth:`VersionRange.intersection`, :meth:`VersionRange.union`, and
 :meth:`VersionRange.difference`, these predicates require both operands to share
 the same configured pre-release policy and raise :exc:`ValueError` otherwise.
 
+Because the operations refuse to mix policies, a range's version set is
+well-defined only under its own configured policy, and set relations stay sound
+only while that policy is held fixed. Reinterpreting a range, or a
+:class:`~packaging.specifiers.SpecifierSet` recovered from one, under a
+different ``prereleases`` value is therefore unsound: under ``prereleases=False``
+the ranges of ``<=1.0,!=1.0`` and ``<1.0`` accept the same releases (they differ
+only in ``1.0``'s pre-releases, which the policy excludes), but that equivalence
+is gone once the policy changes.
+
 Different specifiers that denote the same range, opt-in region included,
 canonicalize to one form, so they compare equal. ``>1.0a1`` excludes
 ``1.0a1``'s post-releases per PEP 440, so its smallest member is ``1.0a2.dev0``,
@@ -164,6 +176,50 @@ while the second does not; they are not substitutable and compare unequal:
 
     >>> SpecifierSet("<1.0.post0.dev0").to_range() == SpecifierSet("<=1.0").to_range()
     False
+
+Recovering a specifier set
+--------------------------
+
+:meth:`VersionRange.to_specifier_set` converts a range back to a
+:class:`~packaging.specifiers.SpecifierSet`. Specifier syntax cannot express
+every range, so it returns the simplest set whose own
+:meth:`~packaging.specifiers.SpecifierSet.to_range` reproduces the range, or
+``None`` when no single set does:
+
+.. doctest::
+
+    >>> str(SpecifierSet(">=1.0,<2.0").to_range().to_specifier_set())
+    '<2.0,>=1.0'
+    >>> # A disjoint union usually has no single-set spelling
+    >>> a = SpecifierSet("<1").to_range()
+    >>> b = SpecifierSet(">=2").to_range()
+    >>> (a | b).to_specifier_set() is None
+    True
+    >>> # unless the gap between the pieces is expressible as exclusions
+    >>> u = SpecifierSet("==1.*").to_range() | SpecifierSet("==3.*").to_range()
+    >>> str(u.to_specifier_set())
+    '!=0.*,!=2.*,<4'
+    >>> # The strict singleton has no spelling: ==1.5 would also match 1.5+local
+    >>> VersionRange.singleton("1.5").to_specifier_set() is None
+    True
+    >>> # Neither does the full range built by algebra: it opts no pre-release
+    >>> # in, while its only spelling, >=0.dev0, opts them all in
+    >>> r = SpecifierSet(">=2").to_range()
+    >>> (r | ~r).to_specifier_set() is None
+    True
+    >>> # full() itself admits arbitrary strings, which the empty set spells
+    >>> str(VersionRange.full().to_specifier_set())
+    ''
+
+The recovery also caps how many ``!=`` exclusions it will write out, returning
+``None`` past the cap; without it, some ranges would convert to pathologically
+large sets that are slow to build and to use:
+
+.. doctest::
+
+    >>> far = SpecifierSet("==1.*").to_range() | SpecifierSet("==1000000.*").to_range()
+    >>> far.to_specifier_set() is None
+    True
 
 Limits of the model
 -------------------

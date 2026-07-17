@@ -6,7 +6,8 @@
 
 PEP 440 epochs partition the version order into disjoint cohorts; an
 ``==1.0`` predicate in epoch 0 never overlaps an ``==1.0`` predicate in
-epoch 1. The lattice laws still hold across cohorts.
+epoch 1. The lattice laws still hold across cohorts, and round-tripping
+through :meth:`to_specifier_set` must preserve the epoch on every side.
 """
 
 from __future__ import annotations
@@ -80,3 +81,32 @@ def test_membership_consistent_across_epochs(
     ra, rb = a.to_range(), b.to_range()
     assert (v in (ra & rb)) == ((v in ra) and (v in rb))
     assert (v in (ra | rb)) == ((v in ra) or (v in rb))
+
+
+@given(spec_set=rich_specifier_sets())
+@SETTINGS
+def test_single_set_round_trip_preserves_epoch(spec_set: SpecifierSet) -> None:
+    """``to_specifier_set`` round-trips epochs when the single-set form exists.
+
+    When the conversion returns a single set, feeding it back through
+    ``to_range`` must accept exactly the same versions; in particular any
+    cross-epoch boundary in the source survives.
+    """
+    r = spec_set.to_range()
+    converted = r.to_specifier_set()
+    if converted is None:
+        return
+    recovered = converted.to_range()
+    # Membership on a cross-epoch probe set must round-trip.
+    probes = [
+        "0.5",
+        "1.0",
+        "1.0a1",
+        "1!0.5",
+        "1!1.0",
+        "2!0.5",
+        "2!1.0",
+        "3!1.0",
+    ]
+    for probe in probes:
+        assert (probe in r) == (probe in recovered)

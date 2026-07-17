@@ -10,7 +10,9 @@ Features:
   :meth:`SpecifierSet.to_range() <packaging.specifiers.SpecifierSet.to_range>`,
   representing the versions a specifier set accepts as an interval set that
   supports intersection, union, complement, membership tests, and filtering.
-  (:pull:`1267`)
+  :meth:`~packaging.ranges.VersionRange.to_specifier_set` converts a range back
+  to a :class:`~packaging.specifiers.SpecifierSet` where a PEP 440 form exists.
+  (:pull:`1267`, :pull:`1270`)
 * Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
   (:issue:`1220`)
 
