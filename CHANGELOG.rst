@@ -25,6 +25,9 @@ Fixes:
   trailing-zero-equivalent specifiers (e.g. ``foo==1.0.0`` and
   ``foo==1.0.0.0``), so equal requirements hash equal and deduplicate in
   sets and dicts. (:pull:`1232`)
+* Percent-decode ``pylock`` artifact file names derived from a ``url`` so that
+  local versions (e.g. a wheel with ``2.12.1+cu130`` encoded as ``2.12.1%2Bcu130``)
+  yield a valid file name.
 * Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
