@@ -211,7 +211,15 @@ PROJECTS = {
         # argcomplete is an optional dep that several tests import at collection.
         install=("-e.", "--group=test", "argcomplete"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
-        pytest_args=("-m", "not integration"),
+        # test_schema_tombi_lint lints tox's own pyproject.toml against the
+        # schemastore schema, which references partial schemas tombi cannot
+        # resolve offline; tombi 1.2.1 made --error-on-warnings fail on that.
+        # Unrelated to packaging.
+        pytest_args=(
+            "-m",
+            "not integration",
+            "--deselect=tests/session/cmd/test_schema.py::test_schema_tombi_lint",
+        ),
         # In CI, tox appends a pip-freeze line to command output, which several
         # output-asserting tests do not expect. Unset every variable its is_ci()
         # (tox/util/ci.py) checks that GitHub Actions sets.
