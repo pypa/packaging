@@ -668,7 +668,7 @@ class _Validator(Generic[T]):
             raise self._invalid_metadata(invalid_msg)
 
         charset = parameters.get("charset", "UTF-8")
-        if charset.casefold() != "utf-8":
+        if charset.lower() != "utf-8":
             raise self._invalid_metadata(
                 f"{self.raw_name!r} can only specify the UTF-8 charset, not {charset!r}"
             )
