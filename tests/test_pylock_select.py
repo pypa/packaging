@@ -308,7 +308,7 @@ def test_missing_sdist_fallback() -> None:
 
 
 def _pylock_with_wheel(
-    *, wheel_python_tag: str = "py3", include_sdist: bool = True
+    *, wheel_python_tag: str | None = "py3", include_sdist: bool = True
 ) -> Pylock:
     pylock = Pylock(
         lock_version=Version("1.0"),
@@ -324,12 +324,16 @@ def _pylock_with_wheel(
                     if include_sdist
                     else None
                 ),
-                wheels=[
-                    PackageWheel(
-                        path=f"./foo-1.0-{wheel_python_tag}-none-any.whl",
-                        hashes={"sha256": "abc123"},
-                    )
-                ],
+                wheels=(
+                    [
+                        PackageWheel(
+                            path=f"./foo-1.0-{wheel_python_tag}-none-any.whl",
+                            hashes={"sha256": "abc123"},
+                        )
+                    ]
+                    if wheel_python_tag is not None
+                    else []
+                ),
             ),
         ],
     )
@@ -344,16 +348,18 @@ def _pylock_with_wheel(
         ("py3", True, True, PackageSdist, True),
         ("py5", True, True, PackageSdist, True),
         ("py3", False, True, PackageWheel, False),
+        (None, True, False, PackageSdist, True),
     ],
     ids=[
         "compatible-wheel-predicate-false",
         "sdist-predicate-true",
         "sdist-predicate-true-incompatible-wheel",
         "compatible-wheel-no-sdist",
+        "sdist-only-predicate-false",
     ],
 )
 def test_prefer_sdist_predicate(
-    wheel_python_tag: str,
+    wheel_python_tag: str | None,
     include_sdist: bool,
     prefer_sdist: bool,
     expected_type: type[object],
