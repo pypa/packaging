@@ -3127,6 +3127,9 @@ def test_pickle_specifier_setstate_rejects_malformed_legacy_state() -> None:
 def test_pickle_specifierset_setstate_rejects_malformed_legacy_state() -> None:
     # Verify validation catches malformed legacy slot-dict and dict formats.
     ss = SpecifierSet.__new__(SpecifierSet)
+    # _specs contains an invalid specifier string (new tuple format).
+    with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
+        ss.__setstate__((("not a specifier",), None))
     # _specs contains non-Specifier items (legacy slot-dict format).
     with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
         ss.__setstate__((None, {"_specs": {1, 2}, "_prereleases": None}))
