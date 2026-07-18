@@ -465,6 +465,28 @@ def test_missing_wheel_filename() -> None:
     assert str(exc_info.value) == "Cannot determine wheel filename"
 
 
+@pytest.mark.parametrize("dist_type", [PackageSdist, PackageWheel])
+@pytest.mark.parametrize(
+    ("encoded_filename", "decoded_filename"),
+    [
+        ("example%2F..%2Fevil.whl", "example/../evil.whl"),
+        ("example%5C..%5Cevil.whl", "example\\..\\evil.whl"),
+        ("example%00evil.whl", "example\0evil.whl"),
+    ],
+)
+def test_url_filename_must_be_single_path_component(
+    dist_type: type[PackageSdist | PackageWheel],
+    encoded_filename: str,
+    decoded_filename: str,
+) -> None:
+    dist = dist_type(url=f"https://example.com/{encoded_filename}", hashes={})
+    with pytest.raises(PylockValidationError) as exc_info:
+        _ = dist.filename
+    assert str(exc_info.value) == (
+        f"URL filename {decoded_filename!r} must be a single path component"
+    )
+
+
 def test_pylock_invalid_wheel_filename() -> None:
     data = {
         "lock-version": "1.0",
