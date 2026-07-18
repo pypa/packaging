@@ -771,10 +771,10 @@ class Pylock:
         The *dependency_groups* parameter represents the groups to install. If
         unspecified, the default groups are used.
 
-        The *prefer_sdist_predicate* parameter can be used to select a source
-        distribution before attempting wheel compatibility for selected package
-        names. If no source distribution is available, wheel selection proceeds as
-        usual without calling the predicate.
+        The *prefer_sdist_predicate* parameter is called for packages with a source
+        distribution. If it returns ``True``, the source distribution is selected
+        before attempting wheel compatibility. If no source distribution is
+        available, wheel selection proceeds as usual without calling the predicate.
 
         This method must be used on valid Pylock instances (i.e. one obtained
         from :meth:`Pylock.from_dict` or if constructed manually, after calling
@@ -896,8 +896,7 @@ class Pylock:
             # - Else if source preference selects an available
             #   :ref:`pylock-packages-sdist`:
             elif (
-                package.wheels
-                and package.sdist is not None
+                package.sdist is not None
                 and prefer_sdist_predicate is not None
                 and prefer_sdist_predicate(package.name)
             ):
