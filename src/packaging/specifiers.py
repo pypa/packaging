@@ -785,7 +785,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __init__(
         self,
-        specifiers: str | Iterable[Specifier] = "",
+        specifiers: str | Iterable[str | Specifier] = "",
         prereleases: bool | None = None,
     ) -> None:
         """Initialize a SpecifierSet instance.
@@ -793,8 +793,9 @@ class SpecifierSet(BaseSpecifier):
         :param specifiers:
             The string representation of a specifier or a comma-separated list of
             specifiers which will be parsed and normalized before use.
-            May also be an iterable of ``Specifier`` instances, which will be used
-            as is.
+            May also be an iterable of individual specifier strings or ``Specifier``
+            instances. Strings will be parsed and normalized, while ``Specifier``
+            instances will be used as is.
         :param prereleases:
             This tells the SpecifierSet if it should accept prerelease versions if
             applicable or not. The default of ``None`` will autodetect it from the
@@ -814,9 +815,12 @@ class SpecifierSet(BaseSpecifier):
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
         else:
-            self._specs = tuple(specifiers)
+            self._specs = tuple(
+                Specifier(specifier) if isinstance(specifier, str) else specifier
+                for specifier in specifiers
+            )
             # Substring check works for both Specifier objects and plain
-            # strings (setuptools passes lists of strings).
+            # strings (including legacy pickle state).
             self._has_arbitrary = any("===" in str(s) for s in self._specs)
 
         self._canonicalized = len(self._specs) <= 1
@@ -870,34 +874,40 @@ class SpecifierSet(BaseSpecifier):
         self._ranges = None
         self._is_unsatisfiable = None
 
+        def normalize_specs(value: object) -> tuple[Specifier, ...] | None:
+            if isinstance(value, frozenset):
+                value = tuple(sorted(value, key=str))
+            if not isinstance(value, tuple) or not all(
+                isinstance(specifier, (str, Specifier)) for specifier in value
+            ):
+                return None
+            try:
+                return tuple(
+                    Specifier(specifier) if isinstance(specifier, str) else specifier
+                    for specifier in value
+                )
+            except InvalidSpecifier:
+                return None
+
         if isinstance(state, tuple):
             if len(state) == 2:
                 # New format (26.2+): (specs, prereleases)
                 specs, prereleases = state
-                if (
-                    isinstance(specs, tuple)
-                    and all(isinstance(s, Specifier) for s in specs)
-                    and _validate_pre(prereleases)
-                ):
-                    self._specs = specs
+                normalized_specs = normalize_specs(specs)
+                if normalized_specs is not None and _validate_pre(prereleases):
+                    self._specs = normalized_specs
                     self._prereleases = prereleases
-                    self._canonicalized = len(specs) <= 1
-                    self._has_arbitrary = any("===" in str(s) for s in specs)
+                    self._canonicalized = len(normalized_specs) <= 1
+                    self._has_arbitrary = any("===" in str(s) for s in normalized_specs)
                     return
             if len(state) == 2 and isinstance(state[1], dict):
                 # Format (packaging 26.0-26.1): (None, {slot: value}).
                 _, slot_dict = state
                 specs = slot_dict.get("_specs", ())
                 prereleases = slot_dict.get("_prereleases")
-                # Convert frozenset to tuple (26.0 stored as frozenset)
-                if isinstance(specs, frozenset):
-                    specs = tuple(sorted(specs, key=str))
-                if (
-                    isinstance(specs, tuple)
-                    and all(isinstance(s, Specifier) for s in specs)
-                    and _validate_pre(prereleases)
-                ):
-                    self._specs = specs
+                normalized_specs = normalize_specs(specs)
+                if normalized_specs is not None and _validate_pre(prereleases):
+                    self._specs = normalized_specs
                     self._prereleases = prereleases
                     self._canonicalized = len(self._specs) <= 1
                     self._has_arbitrary = any("===" in str(s) for s in self._specs)
@@ -906,15 +916,9 @@ class SpecifierSet(BaseSpecifier):
             # Old format (packaging <= 25.x, no __slots__): state is a plain dict.
             specs = state.get("_specs", ())
             prereleases = state.get("_prereleases")
-            # Convert frozenset to tuple (26.0 stored as frozenset)
-            if isinstance(specs, frozenset):
-                specs = tuple(sorted(specs, key=str))
-            if (
-                isinstance(specs, tuple)
-                and all(isinstance(s, Specifier) for s in specs)
-                and _validate_pre(prereleases)
-            ):
-                self._specs = specs
+            normalized_specs = normalize_specs(specs)
+            if normalized_specs is not None and _validate_pre(prereleases):
+                self._specs = normalized_specs
                 self._prereleases = prereleases
                 self._canonicalized = len(self._specs) <= 1
                 self._has_arbitrary = any("===" in str(s) for s in self._specs)

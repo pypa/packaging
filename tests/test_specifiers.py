@@ -1320,6 +1320,19 @@ class TestSpecifierSet:
         spec = SpecifierSet(iter(specs))
         assert set(spec) == set(specs)
 
+    def test_create_from_specifier_strings(self) -> None:
+        spec_strs = [">=1.0", "!=1.1", "<2.0"]
+        spec = SpecifierSet(iter(spec_strs))
+        expected = SpecifierSet(",".join(spec_strs))
+
+        assert all(isinstance(item, Specifier) for item in spec)
+        assert spec == expected
+        assert spec.prereleases == expected.prereleases
+        assert spec.contains("1.5") == expected.contains("1.5")
+        assert spec.is_unsatisfiable() == expected.is_unsatisfiable()
+        assert spec.to_range() == expected.to_range()
+        assert pickle.loads(pickle.dumps(spec)) == expected
+
     def test_match_args(self) -> None:
         assert SpecifierSet.__match_args__ == ("_str",)
         assert SpecifierSet(">=1.0,<2")._str == str(SpecifierSet(">=1.0,<2"))
@@ -3120,6 +3133,25 @@ def test_pickle_specifierset_setstate_rejects_malformed_legacy_state() -> None:
     # _specs contains non-Specifier items (legacy dict format).
     with pytest.raises(TypeError, match="Cannot restore SpecifierSet"):
         ss.__setstate__({"_specs": {1, 2}, "_prereleases": None})
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        ((">=1.0", "<2.0"), None),
+        (None, {"_specs": frozenset({">=1.0", "<2.0"}), "_prereleases": None}),
+        {"_specs": frozenset({">=1.0", "<2.0"}), "_prereleases": None},
+    ],
+)
+def test_pickle_specifierset_normalizes_iterable_string_state(state: object) -> None:
+    ss = SpecifierSet.__new__(SpecifierSet)
+    ss.__setstate__(state)
+
+    assert all(isinstance(item, Specifier) for item in ss)
+    assert ss == SpecifierSet(">=1.0,<2.0")
+    assert ss.contains("1.5")
+    assert not ss.is_unsatisfiable()
+    assert ss.to_range() == SpecifierSet(">=1.0,<2.0").to_range()
 
 
 def test_pickle_specifierset_setstate_on_initialized_instance() -> None:
