@@ -57,9 +57,14 @@ Validation
 ----------
 
 :meth:`Pylock.from_dict` and :meth:`Pylock.validate` check the structure of
-the lock file against the specification: required fields, field types, and
-cross-field consistency, such as wheel and sdist filenames matching the
-package name and version.
+the lock file against the specification. Required fields must be present,
+fields must have the expected types, package and extra names must be
+normalized, and versions, specifiers and markers must parse. Each package
+must have exactly one source: distribution files (``sdist`` or ``wheels``),
+or one of ``vcs``, ``directory`` or ``archive``. Wheel and sdist filenames
+must be parseable (see :func:`~packaging.utils.parse_wheel_filename` and
+:func:`~packaging.utils.parse_sdist_filename`) and match the package name
+and version.
 
 Validation stops at the structure. URL and path fields, including
 ``packages.index``, are stored as-is. They are not checked to be valid URLs
