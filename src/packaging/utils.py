@@ -221,8 +221,11 @@ def parse_wheel_filename(
 
     .. versionchanged:: 26.3
        Raises :class:`InvalidWheelFilename` on empty tag set components or an
-       empty project name.
+       empty project name, path separators, or null bytes.
     """
+    if "/" in filename or "\\" in filename or "\0" in filename:
+        raise InvalidWheelFilename(f"Invalid wheel filename: {filename!r}")
+
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
             f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
@@ -297,10 +300,14 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     True
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidSdistFilename` on an empty project name.
+       Raises :class:`InvalidSdistFilename` on an empty project name, path
+       separators, or null bytes.
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
+    if "/" in filename or "\\" in filename or "\0" in filename:
+        raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
+
     if filename.endswith(".tar.gz"):
         file_stem = filename[: -len(".tar.gz")]
     elif filename.endswith(".zip"):

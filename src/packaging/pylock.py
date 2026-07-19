@@ -265,12 +265,7 @@ def _url_name(url: str | None) -> str | None:
         return None
     url_path = urlparse(url).path
     # The last path component is percent-encoded, so decode it to the file name
-    filename = unquote(url_path.rsplit("/", 1)[-1])
-    if "/" in filename or "\\" in filename or "\0" in filename:
-        raise PylockValidationError(
-            f"URL filename {filename!r} must be a single path component"
-        )
-    return filename
+    return unquote(url_path.rsplit("/", 1)[-1])
 
 
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:

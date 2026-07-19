@@ -188,6 +188,9 @@ def test_parse_wheel_filename(
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
         ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
+        ("path/foo-1.0-py3-none-any.whl"),  # POSIX path separator
+        ("path\\foo-1.0-py3-none-any.whl"),  # Windows path separator
+        ("foo-1.0-py3-none-any.whl\0"),  # Null byte
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:
@@ -235,6 +238,9 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
         ("foo-1.x.tar.gz"),  # Invalid version
         ("-1.0.tar.gz"),  # Empty project name
         ("-1.0.zip"),  # Empty project name (zip)
+        ("path/foo-1.0.tar.gz"),  # POSIX path separator
+        ("path\\foo-1.0.tar.gz"),  # Windows path separator
+        ("foo-1.0.tar.gz\0"),  # Null byte
     ],
 )
 def test_parse_sdist_invalid_filename(filename: str) -> None:
