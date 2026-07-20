@@ -307,6 +307,86 @@ def test_missing_sdist_fallback() -> None:
         list(pylock.select())
 
 
+def _pylock_with_wheel_and_sdist(
+    *, wheel_python_tag: str | None = "py3", include_sdist: bool = True
+) -> Pylock:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[
+            Package(
+                name=cast("NormalizedName", "foo"),
+                sdist=(
+                    PackageSdist(
+                        path="foo-1.0.tar.gz",
+                        hashes={"sha256": "abc123"},
+                    )
+                    if include_sdist
+                    else None
+                ),
+                wheels=(
+                    [
+                        PackageWheel(
+                            path=f"./foo-1.0-{wheel_python_tag}-none-any.whl",
+                            hashes={"sha256": "abc123"},
+                        )
+                    ]
+                    if wheel_python_tag is not None
+                    else []
+                ),
+            ),
+        ],
+    )
+    pylock.validate()
+    return pylock
+
+
+@pytest.mark.parametrize(
+    ("wheel_python_tag", "include_sdist", "prefer_sdist", "expected_type", "called"),
+    [
+        ("py3", True, False, PackageWheel, True),
+        ("py3", True, True, PackageSdist, True),
+        ("py5", True, True, PackageSdist, True),
+        ("py3", False, True, PackageWheel, False),
+        (None, True, False, PackageSdist, True),
+    ],
+    ids=[
+        "compatible-wheel-predicate-false",
+        "sdist-predicate-true",
+        "sdist-predicate-true-incompatible-wheel",
+        "compatible-wheel-no-sdist",
+        "sdist-only-predicate-false",
+    ],
+)
+def test_prefer_sdist_predicate(
+    wheel_python_tag: str | None,
+    include_sdist: bool,
+    prefer_sdist: bool,
+    expected_type: type[object],
+    called: bool,
+) -> None:
+    names: list[NormalizedName] = []
+
+    def predicate(name: NormalizedName) -> bool:
+        names.append(name)
+        return prefer_sdist
+
+    selected = list(
+        _pylock_with_wheel_and_sdist(
+            wheel_python_tag=wheel_python_tag,
+            include_sdist=include_sdist,
+        ).select(
+            tags=_py312_linux.tags,
+            environment=_py312_linux.environment,
+            prefer_sdist_predicate=predicate,
+        )
+    )
+
+    assert len(selected) == 1
+    assert isinstance(selected[0][1], expected_type)
+    assert names == (["foo"] if called else [])
+
+
 @pytest.mark.parametrize(
     ("extras", "dependency_groups", "expected"),
     [
