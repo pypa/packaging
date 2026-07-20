@@ -288,7 +288,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     :raises InvalidSdistFilename: If the filename does not end
         with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
         contain a dash separating the name and the version of the distribution,
-        if the project name is empty, or if the version portion is not a valid
+        if the project name is invalid, or if the version portion is not a valid
         version.
 
     >>> from packaging.utils import parse_sdist_filename
@@ -300,14 +300,10 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     True
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidSdistFilename` on an empty project name, path
-       separators, or null bytes.
+       Raises :class:`InvalidSdistFilename` on an invalid project name.
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    if "/" in filename or "\\" in filename or "\0" in filename:
-        raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
-
     if filename.endswith(".tar.gz"):
         file_stem = filename[: -len(".tar.gz")]
     elif filename.endswith(".zip"):
@@ -323,12 +319,10 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     name_part, sep, version_part = file_stem.rpartition("-")
     if not sep:
         raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
-    if not name_part:
-        raise InvalidSdistFilename(
-            f"Invalid sdist filename (empty project name): {filename!r}"
-        )
-
-    name = canonicalize_name(name_part)
+    try:
+        name = canonicalize_name(name_part, validate=True)
+    except InvalidName as e:
+        raise InvalidSdistFilename(f"Invalid project name: {filename!r}") from e
 
     try:
         version = Version(version_part)
