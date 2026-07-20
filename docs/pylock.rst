@@ -53,6 +53,29 @@ Usage
     for package, artifact in pylock.select():
         print(f"Install {package.name} from {artifact}")
 
+Validation
+----------
+
+:meth:`Pylock.from_dict` and :meth:`Pylock.validate` check the structure of
+the lock file against the specification. Required fields must be present,
+fields must have the expected types, package and extra names must be
+normalized, and versions, specifiers and markers must parse. Each package
+must have exactly one source: distribution files (``sdist`` or ``wheels``),
+or one of ``vcs``, ``directory`` or ``archive``. Wheel and sdist filenames
+must be parseable (see :func:`~packaging.utils.parse_wheel_filename` and
+:func:`~packaging.utils.parse_sdist_filename`) and match the package name
+and version.
+
+Validation stops at the structure. URL and path fields, including
+``packages.index``, are stored as-is. They are not checked to be valid URLs
+or paths, and relative paths are not resolved against the location of the
+lock file. A wheel or sdist entry with no ``name`` takes its filename from
+the last component of its ``path`` or ``url``; nothing else is read from
+these fields. ``hashes`` tables must be non-empty and their values must be
+strings, but algorithm names and digest formats are not checked. Nothing is
+downloaded, so checking hashes and sizes against the actual artifacts is up
+to the caller.
+
 Reference
 ---------
 
