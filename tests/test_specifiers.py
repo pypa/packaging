@@ -2394,14 +2394,12 @@ class TestSpecifierSet:
             ("", ">=3.12", False),
         ],
     )
-    def test_is_version_subset(self, left: str, right: str, expected: bool) -> None:
+    def test_is_subset(self, left: str, right: str, expected: bool) -> None:
         spec = SpecifierSet(left)
         other = SpecifierSet(right)
 
-        assert spec.is_version_subset(other) is expected
-        assert spec.is_version_subset(other) == spec.to_range().is_subset(
-            other.to_range()
-        )
+        assert spec.is_subset(other) is expected
+        assert spec.is_subset(other) == spec.to_range().is_subset(other.to_range())
 
     @pytest.mark.parametrize(
         ("left", "right", "expected"),
@@ -2416,14 +2414,12 @@ class TestSpecifierSet:
             (">=3.12", "", False),
         ],
     )
-    def test_is_version_superset(self, left: str, right: str, expected: bool) -> None:
+    def test_is_superset(self, left: str, right: str, expected: bool) -> None:
         spec = SpecifierSet(left)
         other = SpecifierSet(right)
 
-        assert spec.is_version_superset(other) is expected
-        assert spec.is_version_superset(other) == spec.to_range().is_superset(
-            other.to_range()
-        )
+        assert spec.is_superset(other) is expected
+        assert spec.is_superset(other) == spec.to_range().is_superset(other.to_range())
 
     @pytest.mark.parametrize(
         ("left", "right", "expected"),
@@ -2436,18 +2432,16 @@ class TestSpecifierSet:
             ("", ">=3.12", False),
         ],
     )
-    def test_is_version_disjoint(self, left: str, right: str, expected: bool) -> None:
+    def test_is_disjoint(self, left: str, right: str, expected: bool) -> None:
         spec = SpecifierSet(left)
         other = SpecifierSet(right)
 
-        assert spec.is_version_disjoint(other) is expected
-        assert spec.is_version_disjoint(other) == spec.to_range().is_disjoint(
-            other.to_range()
-        )
+        assert spec.is_disjoint(other) is expected
+        assert spec.is_disjoint(other) == spec.to_range().is_disjoint(other.to_range())
 
     @pytest.mark.parametrize(
         "method",
-        ["is_version_subset", "is_version_superset", "is_version_disjoint"],
+        ["is_subset", "is_superset", "is_disjoint"],
     )
     def test_set_relations_raise_on_prerelease_policy_mismatch(
         self, method: str
@@ -2460,17 +2454,17 @@ class TestSpecifierSet:
 
     @pytest.mark.parametrize(
         "method",
-        ["is_version_subset", "is_version_superset", "is_version_disjoint"],
+        ["is_subset", "is_superset", "is_disjoint"],
     )
     def test_set_relations_require_specifierset(self, method: str) -> None:
         spec = SpecifierSet(">=1.0")
 
         with pytest.raises(TypeError, match="SpecifierSet"):
-            getattr(spec, method)(">=1.0")
+            getattr(spec, method)(">=1.0")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
         "method",
-        ["is_version_subset", "is_version_superset", "is_version_disjoint"],
+        ["is_subset", "is_superset", "is_disjoint"],
     )
     @pytest.mark.parametrize(
         ("left", "right"),
