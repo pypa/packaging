@@ -307,7 +307,7 @@ def test_missing_sdist_fallback() -> None:
         list(pylock.select())
 
 
-def _pylock_with_wheel(
+def _pylock_with_wheel_and_sdist(
     *, wheel_python_tag: str | None = "py3", include_sdist: bool = True
 ) -> Pylock:
     pylock = Pylock(
@@ -372,7 +372,7 @@ def test_prefer_sdist_predicate(
         return prefer_sdist
 
     selected = list(
-        _pylock_with_wheel(
+        _pylock_with_wheel_and_sdist(
             wheel_python_tag=wheel_python_tag,
             include_sdist=include_sdist,
         ).select(
