@@ -140,6 +140,13 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
         ),
         (
+            "foo-1.0-1+vendor-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1, "+vendor"),
+            {Tag("py3", "none", "any")},
+        ),
+        (
             "pyvirtualcam-0.13.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
             "pyvirtualcam",
             Version("0.13.0"),
@@ -191,6 +198,9 @@ def test_parse_wheel_filename(
         ("foo-1.0-1/../evil-py3-none-any.whl"),  # POSIX separator in build tag
         ("foo-1.0-1\\..\\evil-py3-none-any.whl"),  # Windows separator in build
         ("foo-1.0-1\0-py3-none-any.whl"),  # Null byte in build tag
+        (
+            "foo-1.0-\N{ARABIC-INDIC DIGIT ONE}foo-py3-none-any.whl"
+        ),  # Non-ASCII build number
         ("foo-1.0-py3-none-any/evil.whl"),  # Separator in platform tag
     ],
 )

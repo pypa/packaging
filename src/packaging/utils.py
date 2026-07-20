@@ -62,8 +62,10 @@ _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
-# PEP 427: The build number must start with a digit.
-_build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+# PEP 427: The build number must start with an ASCII digit; its optional
+# remainder is otherwise free-form. Reject only characters that would turn the
+# component into a path (or terminate it at the OS boundary).
+_build_tag_regex = re.compile(r"(\d+)([^/\\\0]*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
@@ -220,12 +222,9 @@ def parse_wheel_filename(
        The *validate_order* parameter.
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidWheelFilename` on empty tag set components or an
-       empty project name, path separators, or null bytes.
+       Raises :class:`InvalidWheelFilename` on invalid tag set components,
+       build tags, or an empty project name.
     """
-    if "/" in filename or "\\" in filename or "\0" in filename:
-        raise InvalidWheelFilename(f"Invalid wheel filename: {filename!r}")
-
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
             f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
@@ -254,7 +253,7 @@ def parse_wheel_filename(
 
     if dashes == 5:
         build_part = parts[2]
-        build_match = _build_tag_regex.match(build_part)
+        build_match = _build_tag_regex.fullmatch(build_part)
         if build_match is None:
             raise InvalidWheelFilename(
                 f"Invalid build number: {build_part} in {filename!r}"
@@ -270,10 +269,10 @@ def parse_wheel_filename(
             f"Invalid wheel filename (compressed tag set components must be in "
             f"sorted order per PEP 425): {filename!r}"
         ) from None
-    except InvalidTag:
+    except InvalidTag as e:
         raise InvalidWheelFilename(
-            f"Invalid wheel filename (empty tag component): {filename!r}"
-        ) from None
+            f"Invalid wheel filename (invalid tag): {filename!r}"
+        ) from e
     return (name, version, build, tags)
 
 
