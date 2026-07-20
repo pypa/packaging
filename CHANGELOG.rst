@@ -1,38 +1,161 @@
 Changelog
 ---------
 
-*unreleased*
-~~~~~~~~~~~~
+26.3 - 2026-07-20
+~~~~~~~~~~~~~~~~~
 
 Features:
 
 * Add a public :class:`~packaging.ranges.VersionRange` API and
   :meth:`SpecifierSet.to_range() <packaging.specifiers.SpecifierSet.to_range>`,
   representing the versions a specifier set accepts as an interval set that
-  supports intersection, union, complement, membership tests, and filtering.
+  supports intersection, union, difference, complement, set relations,
+  membership tests, and filtering.
   :meth:`~packaging.ranges.VersionRange.to_specifier_set` converts a range back
   to a :class:`~packaging.specifiers.SpecifierSet` where a PEP 440 form exists.
-  (:pull:`1267`, :pull:`1270`)
+  (:pull:`1267`, :pull:`1270`, :pull:`1298`)
+* PEP 808: accept ``Metadata-Version: 2.6``. (:pull:`1194`)
 * Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
   (:issue:`1220`)
+* Add a ``prefer_source`` argument to ``Pylock.select()`` to prefer source
+  distributions over wheels. (:pull:`1334`)
 
 Behavior adaptations:
 
+* Drop support for Python 3.8; packaging now requires Python 3.9 or later.
+  (:pull:`1157`)
 * Prefer native ``linux_*`` platform tags over ``manylinux`` and ``musllinux``
   tags on Linux. (:issue:`160`)
 
-Fixes:
+Fixes for versions and specifiers:
+
+* Raise ``InvalidVersion`` instead of ``TypeError`` when ``Version`` is given a
+  non-string. (:pull:`1319`)
+* Raise ``InvalidVersion`` for non-string pre-release letters passed to
+  ``Version.from_parts``. (:pull:`1241`)
+* Fix an ``AttributeError`` when hashing internally trimmed versions.
+  (:pull:`1242`)
+* Fix ``SpecifierSet.is_unsatisfiable`` for post-release boundary
+  intersections. (:pull:`1257`)
+
+Fixes for requirements and markers:
 
 * Make ``Requirement.__hash__`` consistent with ``__eq__`` for
   trailing-zero-equivalent specifiers (e.g. ``foo==1.0.0`` and
   ``foo==1.0.0.0``), so equal requirements hash equal and deduplicate in
   sets and dicts. (:pull:`1232`)
-* Percent-decode ``pylock`` artifact file names derived from a ``url`` so that
-  local versions (e.g. a wheel with ``2.12.1+cu130`` encoded as ``2.12.1%2Bcu130``)
-  yield a valid file name.
-* Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
+* Normalize requested extra names before comparing or hashing requirements.
+  (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
+* Raise ``InvalidRequirement`` instead of ``InvalidSpecifier`` when a
+  requirement contains an invalid specifier. (:pull:`1332`)
+* Clarify the error for post-release prefix wildcards like ``==1.0.post1.*``.
+  (:pull:`1299`)
+* Preserve quoting semantics when serializing marker values, so round-tripped
+  markers parse back to the same marker. (:pull:`1213`)
+* Keep the parentheses of a nested group when serializing markers.
+  (:pull:`1316`)
+* Normalize ``extra`` and ``dependency_groups`` values in nested markers at
+  parse time. (:pull:`1246`, :pull:`1310`)
+* Raise ``UndefinedComparison`` when a set-valued variable like ``extras`` is
+  used outside the membership form. (:pull:`1265`)
+* Raise ``UndefinedEnvironmentName`` (a ``KeyError`` subclass) for missing
+  environment keys during marker evaluation. (:pull:`1276`)
+* Wrap malformed string literal errors in ``InvalidMarker`` /
+  ``InvalidRequirement`` instead of leaking a low-level error. (:pull:`1249`)
+
+Fixes for metadata and licenses:
+
+* Collect all ``from_email`` validation errors into one ``ExceptionGroup``
+  instead of raising the first. (:pull:`1268`)
+* Accept the UTF-8 charset case-insensitively in email payloads.
+  (:pull:`1330`)
+* Reject malformed ``Description-Content-Type`` values. (:pull:`1329`)
+* Don't rewrite user values that contain ``{field}`` placeholders in error
+  messages. (:pull:`1327`)
+* Route multipart email payloads to ``unparsed`` instead of asserting.
+  (:pull:`1247`)
+* Make ``InvalidMetadata`` and ``CyclicDependencyGroup`` picklable.
+  (:pull:`1328`)
+* Raise ``InvalidLicenseExpression`` for misplaced ``WITH`` clauses and empty
+  ``LicenseRef-`` names. (:pull:`1266`)
+* Raise ``InvalidLicenseExpression`` instead of ``KeyError`` for a
+  ``LicenseRef-`` with a ``+`` suffix. (:pull:`1219`)
+
+Fixes for tags and filenames:
+
+* Raise ``InvalidTag`` from ``parse_tag()`` for tags with the wrong number of
+  components. (:pull:`1238`)
+* Reject empty tag components in ``parse_wheel_filename()`` and
+  ``parse_tag()``. (:pull:`1234`)
+* Reject an empty project name in the wheel and sdist filename parsers.
+  (:pull:`1305`)
+* Reject wheel filenames with a trailing newline. (:pull:`1341`)
+* ``is_normalized_name`` now rejects names with collapsed double hyphens like
+  ``a--b``. (:pull:`1230`)
+* Fix duplicate explicit ``abi3t`` tags. (:pull:`1245`)
+* Forward the ``warn`` argument to ``generic_tags()`` in ``sys_tags()``.
+  (:pull:`1264`)
+* Raise ``SystemError`` for an empty or malformed CPython ``EXT_SUFFIX``.
+  (:pull:`1271`, :pull:`1301`)
+* Fix a typo in the macOS ``fat3`` architecture name (was ``fat32``).
+  (:pull:`1199`)
+
+Fixes for pylock, direct URLs, and dependency groups:
+
+* Percent-decode ``pylock`` artifact file names derived from a ``url`` so that
+  local versions (e.g. a wheel with ``2.12.1+cu130`` encoded as ``2.12.1%2Bcu130``)
+  yield a valid file name. (:pull:`1314`)
+* Fix ``Pylock.select()`` on Python builds that report a non-PEP 440
+  ``python_full_version`` (e.g. ``3.15.0+``). (:pull:`1179`)
+* Reject TOML booleans where integers are expected in ``pylock`` files.
+  (:pull:`1244`)
+* Add ``PylockSelectError`` to ``packaging.pylock.__all__``. (:pull:`1202`)
+* Fix ``DirectUrl`` credential stripping for passwords containing ``@``.
+  (:pull:`1218`)
+* Parse the URL scheme case-insensitively when checking for file URLs in
+  ``direct_url``. (:pull:`1240`)
+* Require absolute file URLs for local directories in ``direct_url``.
+  (:pull:`1297`)
+* Collect ``InvalidRequirement`` errors while resolving dependency groups
+  instead of leaking them. (:pull:`1302`)
+* Don't cache malformed dependency group parses. (:pull:`1248`)
+
+Performance:
+
+* Implement ``Specifier`` and ``SpecifierSet`` filtering with the new range
+  engine. (:pull:`1120`, :pull:`1259`)
+* Cache the default marker environment. (:pull:`1250`)
+* Cache the ``_manylinux`` module lookup process-wide. (:pull:`1254`)
+* Add ``__slots__`` to ``Requirement`` and the token classes. (:pull:`1320`,
+  :pull:`1258`)
+* Keep range caches across canonicalization, precompile the wheel project-name
+  pattern, simplify ``parse_tag()``, and skip ``platform.mac_ver()`` when the
+  version and arch are given. (:pull:`1253`, :pull:`1256`, :pull:`1236`,
+  :pull:`1255`)
+
+Documentation:
+
+* Describe the validation scope of ``packaging.pylock``. (:pull:`1339`)
+* Document ``RFC822Policy`` in the low-level ``packaging.metadata`` interface.
+  (:pull:`1222`)
+* Enable nitpicky mode and render missing classes and fields in the API
+  reference. (:pull:`1196`, :pull:`1225`, :pull:`1277`)
+* Add missing ``versionadded`` / ``versionchanged`` directives and many small
+  docstring fixes across the API reference. (:pull:`1205`, :pull:`1207`,
+  :pull:`1208`, :pull:`1209`, :pull:`1211`, :pull:`1216`, :pull:`1217`,
+  :pull:`1223`, :pull:`1272`, :pull:`1273`, :pull:`1274`, :pull:`1291`,
+  :pull:`1300`, :pull:`1303`, :pull:`1317`)
+
+Internal:
+
+* Add Python 3.15 to the test matrix. (:pull:`1190`)
+* Add a musl/Alpine test job and make the test suite pass on musl.
+  (:pull:`1226`, :pull:`1227`)
+* Expand the downstream test matrix by ten projects. (:pull:`1261`)
+* Update to mypy 2. (:pull:`1191`)
+* Use nox's uv integration. (:pull:`1057`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~
