@@ -2460,7 +2460,7 @@ class TestSpecifierSet:
         spec = SpecifierSet(">=1.0")
 
         with pytest.raises(TypeError, match="SpecifierSet"):
-            getattr(spec, method)(">=1.0")  # type: ignore[arg-type]
+            getattr(spec, method)(">=1.0")
 
     @pytest.mark.parametrize(
         "method",
