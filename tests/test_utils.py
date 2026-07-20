@@ -177,6 +177,7 @@ def test_parse_wheel_filename(
         ("foo-1.0.whl"),  # Missing tags
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
+        ("foo\n-1.0-py3-none-any.whl"),  # Invalid name (`\n`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
         ("-1.0-py3-none-any.whl"),  # Empty project name
         ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
