@@ -34,8 +34,9 @@ Fixes:
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
 * Add a ``strict`` option to ``parse_wheel_filename()`` so callers can opt
-  into rejecting non-normalized version fields while keeping the default
-  parser lenient for legacy wheel filenames. (:issue:`873`)
+  into rejecting non-normalized project names, versions, and compressed tag
+  sets while keeping the default parser lenient for legacy wheel filenames.
+  (:issue:`873`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~

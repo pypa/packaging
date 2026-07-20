@@ -196,13 +196,13 @@ def parse_wheel_filename(
 
     If **validate_order** is true, compressed tag set components are
     checked to be in sorted order as required by PEP 425.
-    If **strict** is true, the version component must already be
-    normalized according to PEP 440.
+    If **strict** is true, the project name, version, and compressed tag sets
+    must already be normalized according to their respective specifications.
 
     :param str filename: The name of the wheel file.
     :param bool validate_order: Check whether compressed tag set components
         are in sorted order.
-    :param bool strict: Check whether the version component is normalized.
+    :param bool strict: Check whether normalized filename components are used.
     :raises InvalidWheelFilename: If the filename in question
         does not follow the :ref:`wheel specification
         <pypug:binary-distribution-format>`.
@@ -226,7 +226,7 @@ def parse_wheel_filename(
     .. versionchanged:: 26.3
        Raises :class:`InvalidWheelFilename` on empty tag set components or an
        empty project name, and adds the *strict* parameter to opt into
-       rejecting non-normalized version fields.
+       rejecting non-normalized filename components.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -246,6 +246,10 @@ def parse_wheel_filename(
     if "__" in name_part or _wheel_name_regex.match(name_part) is None:
         raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
     name = canonicalize_name(name_part)
+    if strict and name_part != name.replace("-", "_"):
+        raise InvalidWheelFilename(
+            f"Invalid wheel filename (project name is not normalized): {filename!r}"
+        )
 
     try:
         version = Version(parts[1])
@@ -270,7 +274,7 @@ def parse_wheel_filename(
         build = ()
     tag_str = parts[-1]
     try:
-        tags = parse_tag(tag_str, validate_order=validate_order)
+        tags = parse_tag(tag_str, validate_order=validate_order or strict)
     except UnsortedTagsError:
         raise InvalidWheelFilename(
             f"Invalid wheel filename (compressed tag set components must be in "

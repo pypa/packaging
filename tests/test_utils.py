@@ -214,6 +214,15 @@ def test_parse_wheel_non_normalized_version_valid_by_default(
     assert tags == frozenset({Tag("py3", "none", "any")})
 
 
+def test_parse_wheel_non_normalized_name_valid_by_default() -> None:
+    name, version, build, tags = parse_wheel_filename("Foo.Bar-1.0-py3-none-any.whl")
+
+    assert name == "foo-bar"
+    assert version == Version("1.0")
+    assert build == ()
+    assert tags == frozenset({Tag("py3", "none", "any")})
+
+
 @pytest.mark.parametrize(
     "filename",
     [
@@ -228,6 +237,11 @@ def test_parse_wheel_non_normalized_version_invalid_with_strict(
 ) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename, strict=True)
+
+
+def test_parse_wheel_non_normalized_name_invalid_with_strict() -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename("Foo.Bar-1.0-py3-none-any.whl", strict=True)
 
 
 @pytest.mark.parametrize(
@@ -249,9 +263,13 @@ def test_parse_wheel_unsorted_tags_valid_by_default(filename: str) -> None:
         "foo-1.0-py3.py2-none-any.whl",
     ],
 )
-def test_parse_wheel_unsorted_tags_invalid_with_validate(filename: str) -> None:
+def test_parse_wheel_unsorted_tags_invalid_with_validate_or_strict(
+    filename: str,
+) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename, validate_order=True)
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, strict=True)
 
 
 @pytest.mark.parametrize(
