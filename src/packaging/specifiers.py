@@ -254,10 +254,11 @@ class Specifier(BaseSpecifier):
                 # but included entirely as an escape hatch.
                 ===  # Only match for the identity operator
                 \s*
-                [^\s;)]*  # The arbitrary version can be just about anything,
-                          # we match everything except for whitespace, a
-                          # semi-colon for marker support, and a closing paren
-                          # since versions can be enclosed in them.
+                [^\s;,)]*  # The arbitrary version can be just about anything,
+                           # we match everything except for whitespace, a
+                           # semi-colon for marker support, a closing paren,
+                           # and a comma (used by SpecifierSet as a separator)
+                           # since versions can be enclosed in them.
             )
             |
             (?:
