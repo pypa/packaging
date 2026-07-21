@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Collection
-from typing import NewType, Union, cast
+from typing import TYPE_CHECKING, NewType, Union, cast
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 __all__ = [
     "BuildTag",
