@@ -89,7 +89,7 @@ DEFAULT_RULES: dict[str, re.Pattern[str]] = {
     "VERSION_PREFIX_TRAIL": re.compile(r"\.\*"),
     "VERSION_LOCAL_LABEL_TRAIL": re.compile(r"\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*"),
     "WS": re.compile(r"[ \t]+"),
-    "END": re.compile(r"$"),
+    "END": re.compile(r"\Z"),
 }
 
 
