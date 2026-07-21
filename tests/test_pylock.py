@@ -494,6 +494,12 @@ def test_missing_wheel_filename() -> None:
         ),
         (
             "wheels",
+            "example-1.0-1%3Aevil-py3-none-any.whl",
+            "example-1.0-1:evil-py3-none-any.whl",
+            "Invalid wheel filename",
+        ),
+        (
+            "wheels",
             "example-1.0-py3-none-any%2Fevil.whl",
             "example-1.0-py3-none-any/evil.whl",
             "Invalid wheel filename",

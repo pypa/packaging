@@ -198,6 +198,7 @@ def test_parse_wheel_filename(
         ("foo-1.0-1/../evil-py3-none-any.whl"),  # POSIX separator in build tag
         ("foo-1.0-1\\..\\evil-py3-none-any.whl"),  # Windows separator in build
         ("foo-1.0-1\0-py3-none-any.whl"),  # Null byte in build tag
+        ("foo-1.0-1:evil-py3-none-any.whl"),  # NTFS stream delimiter in build
         (
             "foo-1.0-\N{ARABIC-INDIC DIGIT ONE}foo-py3-none-any.whl"
         ),  # Non-ASCII build number

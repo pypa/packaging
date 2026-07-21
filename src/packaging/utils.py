@@ -64,8 +64,9 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with an ASCII digit; its optional
 # remainder is otherwise free-form. Reject only characters that would turn the
-# component into a path (or terminate it at the OS boundary).
-_build_tag_regex = re.compile(r"(\d+)([^/\\\0]*)", re.ASCII)
+# component into a path or NTFS alternate data stream (or terminate it at the
+# OS boundary).
+_build_tag_regex = re.compile(r"(\d+)([^:/\\\0]*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
