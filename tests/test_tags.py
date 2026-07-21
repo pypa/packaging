@@ -1490,6 +1490,41 @@ class TestGenericTags:
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
 
+class TestPurePythonTags:
+    def test_python_version(self) -> None:
+        result = list(tags.pure_python_tags((3, 3)))
+        assert result == [
+            tags.Tag("py33", "none", "any"),
+            tags.Tag("py3", "none", "any"),
+            tags.Tag("py32", "none", "any"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_major_only_python_version(self) -> None:
+        assert list(tags.pure_python_tags((3,))) == [tags.Tag("py3", "none", "any")]
+
+    def test_empty_python_version(self) -> None:
+        with pytest.raises(ValueError, match="must contain at least one item"):
+            list(tags.pure_python_tags(()))
+
+    def test_default_python_version(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(sys, "version_info", (3, 1))
+        assert list(tags.pure_python_tags()) == [
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py3", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_does_not_query_platforms(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            tags,
+            "platform_tags",
+            lambda: pytest.fail("pure_python_tags() queried the running platform"),
+        )
+        assert list(tags.pure_python_tags((3,))) == [tags.Tag("py3", "none", "any")]
+
+
 class TestCompatibleTags:
     def test_all_args(self) -> None:
         result = list(tags.compatible_tags((3, 3), "cp33", ["plat1", "plat2"]))

@@ -94,6 +94,8 @@ to the implementation to provide.
 
 .. autofunction:: compatible_tags
 
+.. autofunction:: pure_python_tags
+
 .. autofunction:: cpython_tags
 
 .. autofunction:: generic_tags
