@@ -30,19 +30,20 @@ def read_fully(f: WheelArchiveFile, amount: int) -> None:
         pass
 
 
+@pytest.fixture(scope="module")
+def valid_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    path = tmp_path_factory.mktemp("reader") / "test-1.0-py2.py3-none-any.whl"
+    with ZipFile(path, "w") as zf:
+        zf.writestr("hello/héllö.py", 'print("Héllö, world!")\n')
+        zf.writestr(
+            "test-1.0.dist-info/RECORD",
+            "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25",
+        )
+
+    return path
+
+
 class TestWheelReader:
-    @pytest.fixture(scope="class")
-    def valid_wheel(self, tmp_path_factory: pytest.TempPathFactory) -> Path:
-        path = tmp_path_factory.mktemp("reader") / "test-1.0-py2.py3-none-any.whl"
-        with ZipFile(path, "w") as zf:
-            zf.writestr("hello/héllö.py", 'print("Héllö, world!")\n')
-            zf.writestr(
-                "test-1.0.dist-info/RECORD",
-                "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25",
-            )
-
-        return path
-
     def test_properties(self, valid_wheel: Path) -> None:
         with WheelReader(valid_wheel) as reader:
             assert reader.dist_info_dir == "test-1.0.dist-info"
