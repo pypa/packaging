@@ -18,7 +18,6 @@ import stat
 import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from email.message import Message
@@ -26,11 +25,9 @@ from email.policy import EmailPolicy
 from io import BytesIO, StringIO, UnsupportedOperation
 from os import PathLike
 from pathlib import Path, PurePath
-from types import TracebackType
-from typing import IO, NamedTuple
+from typing import IO, TYPE_CHECKING, NamedTuple
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
-from .tags import Tag
 from .utils import (
     BuildTag,
     InvalidWheelFilename,
@@ -38,6 +35,18 @@ from .utils import (
     parse_wheel_filename,
 )
 from .version import Version
+
+if TYPE_CHECKING:  # pragma: no cover
+    import sys
+    from collections.abc import Iterable, Iterator
+    from types import TracebackType
+
+    from .tags import Tag
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 _exclude_filenames = ("RECORD", "RECORD.jws", "RECORD.p7s")
 _default_timestamp = datetime(1980, 1, 1, tzinfo=timezone.utc)
@@ -88,7 +97,7 @@ class WheelError(Exception):
 class WheelArchiveFile:
     def __init__(
         self, fp: IO[bytes], arcname: str, record_entry: WheelRecordEntry | None
-    ):
+    ) -> None:
         self._fp = fp
         self._arcname = arcname
         self._record_entry = record_entry
@@ -106,7 +115,7 @@ class WheelArchiveFile:
             self._num_bytes_read += len(data)
 
         if amount < 0 or len(data) < amount:
-            # The file has been read in full – check that hash and file size match
+            # The file has been read in full - check that hash and file size match
             # with the entry in RECORD
             if self._num_bytes_read != self._record_entry.filesize:
                 raise WheelError(
@@ -123,14 +132,14 @@ class WheelArchiveFile:
 
         return data
 
-    def __enter__(self) -> WheelArchiveFile:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self._fp.close()
 
@@ -146,7 +155,7 @@ class WheelReader:
     _data_dir: str
     _record_entries: OrderedDict[str, WheelRecordEntry]
 
-    def __init__(self, path_or_fd: str | PathLike[str] | IO[bytes]):
+    def __init__(self, path_or_fd: str | PathLike[str] | IO[bytes]) -> None:
         self.path_or_fd = path_or_fd
 
         if isinstance(path_or_fd, (str, PathLike)):
@@ -156,7 +165,7 @@ class WheelReader:
             except InvalidWheelFilename as exc:
                 raise WheelError(str(exc)) from None
 
-    def __enter__(self) -> WheelReader:
+    def __enter__(self) -> Self:
         self._zip = ZipFile(self.path_or_fd, "r")
 
         # See if the expected .dist-info directory is in place by searching for RECORD
@@ -178,24 +187,7 @@ class WheelReader:
         # archive's file names for any .dist-info directory containing a RECORD file.
         if dist_info_dir is None:
             try:
-                for zinfo in reversed(self._zip.infolist()):
-                    if zinfo.filename.endswith(".dist-info/RECORD"):
-                        dist_info_dir = zinfo.filename.rsplit("/", 1)[0]
-                        namever = dist_info_dir.rsplit(".", 1)[0]
-                        name, version = namever.rpartition("-")[::2]
-                        if name and version:
-                            self.name = NormalizedName(name)
-                            self.version = Version(version)
-                            self._dist_info_dir = dist_info_dir
-                            self._data_dir = dist_info_dir.replace(
-                                ".dist-info", ".data"
-                            )
-                            break
-                else:
-                    raise WheelError(
-                        "Cannot find a valid .dist-info directory. "
-                        "Is this really a wheel file?"
-                    )
+                self._find_dist_info_dir()
             except BaseException:
                 self._zip.close()
                 raise
@@ -203,11 +195,28 @@ class WheelReader:
         self._record_entries = self._read_record()
         return self
 
+    def _find_dist_info_dir(self) -> None:
+        for zinfo in reversed(self._zip.infolist()):
+            if zinfo.filename.endswith(".dist-info/RECORD"):
+                dist_info_dir = zinfo.filename.rsplit("/", 1)[0]
+                namever = dist_info_dir.rsplit(".", 1)[0]
+                name, version = namever.rpartition("-")[::2]
+                if name and version:
+                    self.name = NormalizedName(name)
+                    self.version = Version(version)
+                    self._dist_info_dir = dist_info_dir
+                    self._data_dir = dist_info_dir.replace(".dist-info", ".data")
+                    return
+
+        raise WheelError(
+            "Cannot find a valid .dist-info directory. Is this really a wheel file?"
+        )
+
     def __exit__(
         self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self._zip.close()
         self._record_entries.clear()
@@ -375,7 +384,7 @@ class WheelWriter:
         root_is_purelib: bool = True,
         compress: bool = True,
         hash_algorithm: str = "sha256",
-    ):
+    ) -> None:
         self.path_or_fd = path_or_fd
         self.generator = generator
         self.root_is_purelib = root_is_purelib
@@ -402,15 +411,15 @@ class WheelWriter:
         self._record_path = f"{self._dist_info_dir}/RECORD"
         self._record_entries: dict[str, WheelRecordEntry] = OrderedDict()
 
-    def __enter__(self) -> WheelWriter:
+    def __enter__(self) -> Self:
         self._zip = ZipFile(self.path_or_fd, "w", compression=self._compress_type)
         return self
 
     def __exit__(
         self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         try:
             if not exc_type:
@@ -450,11 +459,11 @@ class WheelWriter:
     def write_metadata(self, items: Iterable[tuple[str, str]]) -> None:
         msg = Message(policy=_email_policy)
         for key, value in items:
-            key = key.title()
-            if key == "Description":
+            title_key = key.title()
+            if title_key == "Description":
                 msg.set_payload(value.encode("utf-8"))
             else:
-                msg.add_header(key, value)
+                msg.add_header(title_key, value)
 
         if "Metadata-Version" not in msg:
             msg["Metadata-Version"] = "2.3"

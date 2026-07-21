@@ -3,8 +3,6 @@
 # for complete details.
 from __future__ import annotations
 
-from __future__ import annotations
-
 import pytest
 
 from packaging.tags import Tag

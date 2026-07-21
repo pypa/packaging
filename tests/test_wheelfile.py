@@ -8,10 +8,9 @@ from textwrap import dedent
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
-from pytest import MonkeyPatch, TempPathFactory
 
 from packaging.utils import InvalidWheelFilename
-from packaging.wheelfile import WheelError, WheelReader, WheelWriter
+from packaging.wheelfile import WheelArchiveFile, WheelError, WheelReader, WheelWriter
 
 
 @pytest.fixture
@@ -19,9 +18,14 @@ def wheel_path(tmp_path: Path) -> Path:
     return tmp_path / "test-1.0-py2.py3-none-any.whl"
 
 
+def read_fully(f: WheelArchiveFile, amount: int) -> None:
+    while f.read(amount):
+        pass
+
+
 class TestWheelReader:
     @pytest.fixture(scope="class")
-    def valid_wheel(self, tmp_path_factory: TempPathFactory) -> Path:
+    def valid_wheel(self, tmp_path_factory: pytest.TempPathFactory) -> Path:
         path = tmp_path_factory.mktemp("reader") / "test-1.0-py2.py3-none-any.whl"
         with ZipFile(path, "w") as zf:
             zf.writestr("hello/héllö.py", 'print("Héllö, world!")\n')
@@ -63,15 +67,17 @@ class TestWheelReader:
         with ZipFile(wheel_path, "w") as zf:
             zf.writestr("hello/héllö.py", 'print("Héllö, w0rld!")\n')
 
-        with pytest.raises(
-            WheelError,
-            match=(
-                r"^Cannot find a valid .dist-info directory. Is this really a wheel "
-                r"file\?$"
+        with (
+            pytest.raises(
+                WheelError,
+                match=(
+                    r"^Cannot find a valid .dist-info directory. Is this really "
+                    r"a wheel file\?$"
+                ),
             ),
+            WheelReader(wheel_path),
         ):
-            with WheelReader(wheel_path):
-                pass
+            pass
 
     def test_unsupported_hash_algorithm(self, wheel_path: Path) -> None:
         with ZipFile(wheel_path, "w") as zf:
@@ -81,12 +87,14 @@ class TestWheelReader:
                 "hello/héllö.py,sha000=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25",
             )
 
-        with pytest.raises(WheelError, match="^Unsupported hash algorithm: sha000$"):
-            with WheelReader(wheel_path):
-                pass
+        with (
+            pytest.raises(WheelError, match=r"^Unsupported hash algorithm: sha000$"),
+            WheelReader(wheel_path),
+        ):
+            pass
 
     @pytest.mark.parametrize(
-        "algorithm, digest",
+        ("algorithm", "digest"),
         [
             pytest.param("md5", "4J-scNa2qvSgy07rS4at-Q", id="md5"),
             pytest.param("sha1", "QjCnGu5Qucb6-vir1a6BVptvOA4", id="sha1"),
@@ -100,15 +108,20 @@ class TestWheelReader:
             zf.writestr("hello/héllö.py", 'print("Héllö, w0rld!")\n')
             zf.writestr("test-1.0.dist-info/RECORD", f"hello/héllö.py,{hash_string},25")
 
-        with pytest.raises(
-            WheelError,
-            match=rf"^Weak hash algorithm \({algorithm}\) is not permitted by PEP 427$",
+        with (
+            pytest.raises(
+                WheelError,
+                match=(
+                    rf"^Weak hash algorithm \({algorithm}\) is not permitted "
+                    r"by PEP 427$"
+                ),
+            ),
+            WheelReader(wheel_path),
         ):
-            with WheelReader(wheel_path):
-                pass
+            pass
 
     @pytest.mark.parametrize(
-        "algorithm, digest",
+        ("algorithm", "digest"),
         [
             ("sha256", "bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo"),
             (
@@ -140,7 +153,8 @@ class TestWheelReader:
             zf.writestr("test-1.0.dist-info/RECORD", "")
 
         with WheelReader(wheel_path) as wf:
-            exc = pytest.raises(WheelError, wf.validate_record)
+            with pytest.raises(WheelError) as exc:
+                wf.validate_record()
             exc.match("^No hash found for file 'hello/héllö.py'$")
 
     def test_validate_record_bad_hash(self, wheel_path: Path) -> None:
@@ -152,7 +166,8 @@ class TestWheelReader:
             )
 
         with WheelReader(wheel_path) as wf:
-            exc = pytest.raises(WheelError, wf.validate_record)
+            with pytest.raises(WheelError) as exc:
+                wf.validate_record()
             exc.match(
                 "hello/héllö.py: hash mismatch: "
                 "6eff9057745c8900b6bf7ccbf14be177f6aba78d09e40f719b2b9b377e0e570a in "
@@ -195,19 +210,17 @@ class TestWheelReader:
                 "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25",
             )
 
-        with pytest.raises(
-            WheelError,
-            match=(
-                "^hello/héllö.py: hash mismatch: "
-                "6eff9057745c8900b6bf7ccbf14be177f6aba78d09e40f719b2b9b377e0e570a in "
-                "RECORD, "
-                "1eac82375d38fdb8a4c653c6c2b3c363058d5c193cf24bafcd1df040d344597e in "
-                "archive$"
-            ),
-        ), WheelReader(wheel_path) as wf, wf.open("hello/héllö.py") as f:
+        with WheelReader(wheel_path) as wf, wf.open("hello/héllö.py") as f:
             assert repr(f) == "WheelArchiveFile('hello/héllö.py')"
-            while f.read(amount):
-                pass
+            expected = (
+                r"^hello/héllö\.py: hash mismatch: "
+                r"6eff9057745c8900b6bf7ccbf14be177f6aba78d09e40f719b2b9b377e0e570a"
+                r" in RECORD, "
+                r"1eac82375d38fdb8a4c653c6c2b3c363058d5c193cf24bafcd1df040d344597e"
+                r" in archive$"
+            )
+            with pytest.raises(WheelError, match=expected):
+                read_fully(f, amount)
 
     @pytest.mark.parametrize(
         "amount",
@@ -224,15 +237,13 @@ class TestWheelReader:
                 "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,24",
             )
 
-        with pytest.raises(
-            WheelError,
-            match=(
-                "^hello/héllö.py: file size mismatch: 24 bytes in RECORD, 25 bytes in "
-                "archive$"
-            ),
-        ), WheelReader(wheel_path) as wf, wf.open("hello/héllö.py") as f:
-            while f.read(amount):
-                pass
+        with WheelReader(wheel_path) as wf, wf.open("hello/héllö.py") as f:
+            expected = (
+                r"^hello/héllö\.py: file size mismatch: 24 bytes in RECORD, "
+                r"25 bytes in archive$"
+            )
+            with pytest.raises(WheelError, match=expected):
+                read_fully(f, amount)
 
     def test_read_data_file(self, wheel_path: Path) -> None:
         with ZipFile(wheel_path, "w") as zf:
@@ -273,7 +284,7 @@ class TestWheelReader:
                 assert repr(element) == "WheelContentElement('hello/héllö.py', size=25)"
 
     def test_extractall(
-        self, valid_wheel: Path, tmp_path_factory: TempPathFactory
+        self, valid_wheel: Path, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         dest_dir = tmp_path_factory.mktemp("wheel_contents")
         with WheelReader(valid_wheel) as wf:
@@ -303,7 +314,7 @@ class TestWheelReader:
 
 class TestWheelWriter:
     @pytest.mark.parametrize(
-        "filename, reason",
+        ("filename", "reason"),
         [
             pytest.param("test.whl", "wrong number of parts"),
             pytest.param("test-1.0.whl", "wrong number of parts"),
@@ -417,9 +428,9 @@ class TestWheelWriter:
 
     def test_timestamp(
         self,
-        tmp_path_factory: TempPathFactory,
+        tmp_path_factory: pytest.TempPathFactory,
         wheel_path: Path,
-        monkeypatch: MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # An environment variable can be used to influence the timestamp on
         # TarInfo objects inside the zip.  See issue #143.
@@ -442,7 +453,7 @@ class TestWheelWriter:
         sys.platform == "win32", reason="Windows does not support UNIX-like permissions"
     )
     def test_attributes(
-        self, tmp_path_factory: TempPathFactory, wheel_path: Path
+        self, tmp_path_factory: pytest.TempPathFactory, wheel_path: Path
     ) -> None:
         # With the change from ZipFile.write() to .writestr(), we need to manually
         # set member attributes.
@@ -478,18 +489,22 @@ class TestWheelWriter:
         self, wheel_path: Path, tmp_path: Path
     ) -> None:
         source_dir = tmp_path / "nonexistent"
-        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            with pytest.raises(WheelError, match=f"{source_dir} does not exist"):
-                wf.write_files_from_directory(source_dir)
+        with (
+            WheelWriter(wheel_path, generator="generator 1.0") as wf,
+            pytest.raises(WheelError, match=f"{source_dir} does not exist"),
+        ):
+            wf.write_files_from_directory(source_dir)
 
     def test_write_files_from_dir_source_not_dir(
         self, wheel_path: Path, tmp_path: Path
     ) -> None:
         source_dir = tmp_path / "file"
         source_dir.touch()
-        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            with pytest.raises(WheelError, match=f"{source_dir} is not a directory"):
-                wf.write_files_from_directory(source_dir)
+        with (
+            WheelWriter(wheel_path, generator="generator 1.0") as wf,
+            pytest.raises(WheelError, match=f"{source_dir} is not a directory"),
+        ):
+            wf.write_files_from_directory(source_dir)
 
     def test_repr(self, wheel_path: Path) -> None:
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
