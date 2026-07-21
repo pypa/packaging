@@ -59,11 +59,15 @@ logger = logging.getLogger(__name__)
 PythonVersion = Sequence[int]
 """
 A sequence of integers describing a Python version, e.g. ``(3, 13)``.
+
+.. versionadded:: 20.0
 """
 
 AppleVersion = tuple[int, int]
 """
 A ``(major, minor)`` integer pair describing an Apple OS version.
+
+.. versionadded:: 24.2
 """
 _T = TypeVar("_T")
 
@@ -419,6 +423,8 @@ def cpython_tags(
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     if not python_version:
         python_version = sys.version_info[:2]
@@ -536,6 +542,8 @@ def generic_tags(
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     if not interpreter:
         interp_name = interpreter_name()
@@ -587,6 +595,8 @@ def compatible_tags(
                             ``"cp38"``. Defaults to the current interpreter.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
+
+    .. versionadded:: 20.0
     """
     if not python_version:
         python_version = sys.version_info[:2]
@@ -665,6 +675,8 @@ def mac_platforms(
         - On Windows, platform compatibility is statically specified
         - On Linux, code must be run on the system itself to determine
           compatibility
+
+    .. versionadded:: 20.0
     """
     if version is None or arch is None:
         version_str, _, cpu_arch = platform.mac_ver()
@@ -749,6 +761,8 @@ def ios_platforms(
     .. note::
         Behavior of this method is undefined if invoked on non-iOS platforms
         without providing explicit version and multiarch arguments.
+
+    .. versionadded:: 24.2
     """
     if version is None:
         # if iOS is the current platform, ios_ver *must* be defined. However,
@@ -808,6 +822,8 @@ def android_platforms(
         e.g. ``arm64_v8a``. Defaults to the current system's ABI , as returned by
         ``sysconfig.get_platform``. Hyphens and periods will be replaced with
         underscores.
+
+    .. versionadded:: 25.0
     """
     if platform.system() != "Android" and (api_level is None or abi is None):
         raise TypeError(
@@ -866,6 +882,8 @@ def _generic_platforms() -> Iterator[str]:
 def platform_tags() -> Iterator[str]:
     """
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
+
+    .. versionadded:: 21.1
     """
     if platform.system() == "Darwin":
         return mac_platforms()
@@ -889,6 +907,8 @@ def interpreter_name() -> str:
     be returned when appropriate.
 
     This typically acts as the prefix to the :attr:`~Tag.interpreter` tag.
+
+    .. versionadded:: 20.0
     """
     name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
@@ -901,6 +921,8 @@ def interpreter_version(*, warn: bool = False) -> str:
     This typically acts as the suffix to the :attr:`~Tag.interpreter` tag.
 
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     version = _get_config_var("py_version_nodot", warn=warn)
     return str(version) if version else _version_nodot(sys.version_info[:2])
