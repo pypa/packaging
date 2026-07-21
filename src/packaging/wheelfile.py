@@ -235,13 +235,25 @@ class WheelReader:
             quotechar='"',
             lineterminator="\n",
         )
+        record_path = f"{self._dist_info_dir}/RECORD"
         for row in reader:
             if not row:
                 break
 
-            path, hash_digest, filesize = row
+            try:
+                path, hash_digest, filesize = row
+            except ValueError:
+                raise WheelError(
+                    f"Invalid RECORD row in {record_path}: {row!r}"
+                ) from None
+
             if hash_digest:
-                algorithm, hash_digest = hash_digest.split("=")
+                try:
+                    algorithm, hash_digest = hash_digest.split("=")
+                except ValueError:
+                    raise WheelError(
+                        f"Invalid RECORD hash in {record_path}: {hash_digest!r}"
+                    ) from None
                 try:
                     hashlib.new(algorithm)
                 except ValueError:
@@ -558,7 +570,7 @@ class WheelWriter:
         *,
         timestamp: datetime = _default_timestamp,
     ) -> None:
-        archive_path = self._dist_info_dir + "/" + filename.strip()
+        archive_path = self._dist_info_dir + "/" + filename.strip("/")
         self.write_file(archive_path, contents, timestamp=timestamp)
 
     def __repr__(self) -> str:

@@ -71,7 +71,6 @@ _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
-_dist_name_re = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
 
 
 def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
