@@ -150,6 +150,18 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             },
         ),
         (
+            "foo-2-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "foo",
+            Version("2"),
+            (),
+            {
+                Tag("py2", "none", "manylinux_2_17_x86_64"),
+                Tag("py2", "none", "manylinux2014_x86_64"),
+                Tag("py3", "none", "manylinux_2_17_x86_64"),
+                Tag("py3", "none", "manylinux2014_x86_64"),
+            },
+        ),
+        (
             "foo_bár-1.0-py3-none-any.whl",
             "foo-bár",
             Version("1.0"),
