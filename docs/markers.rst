@@ -67,6 +67,33 @@ when building markers dynamically from separate conditions.
 
 .. versionadded:: 26.1
 
+Evaluating ``extra`` markers against a set of extras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Installers usually select several extras at once. Passing a set of extra names
+(or an :class:`ExtraSet` instance) as the ``extra`` environment value evaluates
+the marker against the whole set: ``extra == "name"`` matches if ``name`` is
+one of the selected extras, and ``extra != "name"`` matches only if it is not.
+Evaluating once per selected extra instead would make negated markers match
+too broadly.
+
+.. doctest::
+
+    >>> from packaging.markers import Marker
+    >>> marker = Marker('extra == "gpu"')
+    >>> marker.evaluate(environment={"extra": {"gpu", "docs"}})
+    True
+    >>> negated = Marker('extra != "gpu"')
+    >>> negated.evaluate(environment={"extra": {"gpu", "docs"}})
+    False
+    >>> negated.evaluate(environment={"extra": {"docs"}})
+    True
+    >>> # An empty set behaves like no selected extra
+    >>> marker.evaluate(environment={"extra": set()})
+    False
+
+.. versionadded:: 26.4
+
 
 Reference
 ---------
