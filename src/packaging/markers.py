@@ -20,7 +20,10 @@ from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Mapping
+
+    from typing_extensions import Self
+
 
 __all__ = [
     "Environment",
@@ -167,7 +170,7 @@ class Environment(TypedDict):
     """
 
 
-class ExtraSet(AbstractSet[str]):
+class ExtraSet(frozenset[str]):
     """Represents the set of extras selected for a requirement.
 
     Passing an ``ExtraSet`` instance (or any set of strings, which
@@ -187,38 +190,38 @@ class ExtraSet(AbstractSet[str]):
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_members",)
+    __slots__ = ()
 
-    def __init__(self, extras: Iterable[str]) -> None:
+    def __new__(cls, extras: Iterable[str]) -> Self:
         if isinstance(extras, str):
-            raise TypeError(
-                "extras must be an iterable of strings, not a single string"
-            )
-        self._members = frozenset(canonicalize_name(extra) for extra in extras)
+            msg = "extras must be an iterable of strings, not a single string"
+            raise TypeError(msg)
+        return super().__new__(cls, (canonicalize_name(extra) for extra in extras))
 
     def __contains__(self, other: object) -> bool:
         if not isinstance(other, str):
             return False
-        return canonicalize_name(other) in self._members
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._members)
-
-    def __len__(self) -> int:
-        return len(self._members)
+        return super().__contains__(canonicalize_name(other))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
-            return canonicalize_name(other) in (self._members or {""})
+            return canonicalize_name(other) in (self or {""})
         if isinstance(other, AbstractSet):
-            return self._members == other
+            return frozenset(self) == other
         return NotImplemented
+
+    def __ne__(self, other: object) -> bool:
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
 
     # Equality with a string is membership, so a consistent hash is impossible.
     __hash__ = None  # type: ignore[assignment]
 
+    # Sorted output
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({sorted(self._members)!r})"
+        return f"{self.__class__.__name__}({sorted(self)!r})"
 
 
 def _normalize_extras(

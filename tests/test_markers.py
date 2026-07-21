@@ -959,6 +959,7 @@ class TestExtras:
 
     def test_eq_other_types_not_implemented(self) -> None:
         assert ExtraSet({"a"}).__eq__(3) is NotImplemented
+        assert ExtraSet({"a"}).__ne__(3) is NotImplemented
 
     def test_unhashable(self) -> None:
         with pytest.raises(TypeError):
