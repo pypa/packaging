@@ -637,6 +637,14 @@ class Specifier(BaseSpecifier):
         False
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
         True
+
+        .. versionchanged:: 26.0
+
+            With ``prereleases=None``, a prerelease now matches. A single
+            version has no alternatives, so the :pep:`440` rule to accept
+            prereleases when nothing else satisfies the specifier applies.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         # ``===`` compares the raw string, so a Version parse here would
         # be wasted.
@@ -1184,6 +1192,14 @@ class SpecifierSet(BaseSpecifier):
         False
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.3.0a1", prereleases=True)
         True
+
+        .. versionchanged:: 26.0
+
+            With ``prereleases=None``, a prerelease now matches. A single
+            version has no alternatives, so the :pep:`440` rule to accept
+            prereleases when nothing else satisfies the specifiers applies.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         version = coerce_version(item)
 
@@ -1296,6 +1312,11 @@ class SpecifierSet(BaseSpecifier):
         ['1.3', '1.5a1']
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
+
+        .. versionchanged:: 26.0
+
+            Prerelease filtering now follows the PEP 440 recommendation of
+            yielding prereleases only when no final release is present.
 
         .. versionchanged:: 26.1
 

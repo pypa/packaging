@@ -11,6 +11,8 @@ the ``[dependency-groups]`` table.
 This module provides tools for resolving group names to lists of requirements,
 most notably expanding ``include-group`` directives.
 
+.. versionadded:: 26.1
+
 Usage
 -----
 

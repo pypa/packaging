@@ -45,6 +45,12 @@ class Requirement:
         Added equality (``__eq__``) and hashing (``__hash__``) so requirements
         can be compared and stored in sets / dicts.
 
+    .. versionchanged:: 23.2
+        Equality and hashing began canonicalizing requirement names, so
+        requirements whose names differ only by normalization (e.g.
+        ``Requirement("Foo")`` vs ``Requirement("foo")``) now compare and hash
+        equal.
+
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
 
