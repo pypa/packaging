@@ -126,6 +126,16 @@ class TestOperatorEvaluation:
         with pytest.raises(UndefinedComparison):
             Marker("'2.7.0' ~= os_name").evaluate()
 
+    def test_arbitrary_equality_on_non_version_key_is_undefined(self) -> None:
+        # ``===`` has no entry in ``_operators`` and the version-specifier path
+        # only runs for ``MARKERS_REQUIRING_VERSION`` keys, so evaluating ``===``
+        # against a non-version key raises ``UndefinedComparison``. This pins the
+        # post-#939 behavior (``packaging`` <= 25.0 evaluated it as plain string
+        # equality); see #1239.
+        for marker in ("os_name === 'posix'", "sys_platform === 'linux'"):
+            with pytest.raises(UndefinedComparison):
+                Marker(marker).evaluate()
+
     def test_allows_prerelease(self) -> None:
         assert Marker('python_full_version > "3.6.2"').evaluate(
             {"python_full_version": "3.11.0a5"}
