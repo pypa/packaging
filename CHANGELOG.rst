@@ -30,6 +30,9 @@ Fixes:
 * Percent-decode ``pylock`` artifact file names derived from a ``url`` so that
   local versions (e.g. a wheel with ``2.12.1+cu130`` encoded as ``2.12.1%2Bcu130``)
   yield a valid file name.
+* Reject invalid wheel and sdist filename components, including path separators
+  and null bytes, and make ``parse_tag()`` reject invalid tag components.
+  (:pull:`1337`)
 * Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)

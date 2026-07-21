@@ -140,6 +140,13 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
         ),
         (
+            "foo-1.0-1+vendor-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1, "+vendor"),
+            {Tag("py3", "none", "any")},
+        ),
+        (
             "pyvirtualcam-0.13.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
             "pyvirtualcam",
             Version("0.13.0"),
@@ -188,6 +195,14 @@ def test_parse_wheel_filename(
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
         ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
+        ("foo-1.0-1/../evil-py3-none-any.whl"),  # POSIX separator in build tag
+        ("foo-1.0-1\\..\\evil-py3-none-any.whl"),  # Windows separator in build
+        ("foo-1.0-1\0-py3-none-any.whl"),  # Null byte in build tag
+        ("foo-1.0-1:evil-py3-none-any.whl"),  # NTFS stream delimiter in build
+        (
+            "foo-1.0-\N{ARABIC-INDIC DIGIT ONE}foo-py3-none-any.whl"
+        ),  # Non-ASCII build number
+        ("foo-1.0-py3-none-any/evil.whl"),  # Separator in platform tag
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:
@@ -235,8 +250,19 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
         ("foo-1.x.tar.gz"),  # Invalid version
         ("-1.0.tar.gz"),  # Empty project name
         ("-1.0.zip"),  # Empty project name (zip)
+        ("foo#bar-1.0.tar.gz"),  # Invalid project name
+        ("path/foo-1.0.tar.gz"),  # POSIX path separator
+        ("path\\foo-1.0.tar.gz"),  # Windows path separator
+        ("foo\0-1.0.tar.gz"),  # Null byte in project name
     ],
 )
 def test_parse_sdist_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
+
+
+def test_parse_sdist_invalid_project_name_cause() -> None:
+    with pytest.raises(InvalidSdistFilename, match="Invalid project name") as exc_info:
+        parse_sdist_filename("foo\0-1.0.tar.gz")
+
+    assert isinstance(exc_info.value.__cause__, InvalidName)

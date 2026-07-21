@@ -95,8 +95,8 @@ class UnsortedTagsError(ValueError):
 
 class InvalidTag(ValueError):
     """
-    Raised when a tag has an empty interpreter, ABI, or platform component, or
-    does not have exactly three components.
+    Raised when a tag has an invalid interpreter, ABI, or platform component,
+    or does not have exactly three components.
 
     .. versionadded:: 26.3
     """
@@ -108,6 +108,9 @@ class TooManyTagsError(ValueError):
 
     .. versionadded:: 26.3
     """
+
+
+_tag_component_regex = re.compile(r"\w+", re.ASCII)
 
 
 class Tag:
@@ -249,8 +252,8 @@ def parse_tag(
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
     :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
-        of a compressed tag set) is empty, or the tag does not have exactly three
-        components.
+        of a compressed tag set) is empty or contains invalid characters, or the
+        tag does not have exactly three components.
     :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
         set would generate more than **limit** tags.
     :raises ValueError: If **limit** is negative.
@@ -259,8 +262,8 @@ def parse_tag(
        The *validate_order* parameter.
 
     .. versionadded:: 26.3
-       Raises :class:`InvalidTag` on empty tag components, or a tag that does
-       not have exactly three components.
+       Raises :class:`InvalidTag` on empty or invalid tag components, or a tag
+       that does not have exactly three components.
        Added the *limit* parameter. Raises :class:`TooManyTagsError` if the compressed
        tag set would generate more than *limit* tags.
     """
@@ -273,6 +276,9 @@ def parse_tag(
         if "" in parts:
             component = ".".join(parts)
             raise InvalidTag(f"Tag {tag!r} has an empty component: {component!r}")
+        for part in parts:
+            if _tag_component_regex.fullmatch(part) is None:
+                raise InvalidTag(f"Tag {tag!r} has an invalid component: {part!r}")
         if validate_order and parts != sorted(parts):
             component = ".".join(parts)
             raise UnsortedTagsError(

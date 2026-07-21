@@ -465,6 +465,88 @@ def test_missing_wheel_filename() -> None:
     assert str(exc_info.value) == "Cannot determine wheel filename"
 
 
+@pytest.mark.parametrize(
+    ("distribution", "encoded_filename", "decoded_filename", "error"),
+    [
+        (
+            "sdist",
+            "example%2F..%2Fevil-1.0.tar.gz",
+            "example/../evil-1.0.tar.gz",
+            "Invalid sdist filename",
+        ),
+        (
+            "sdist",
+            "example%00-1.0.tar.gz",
+            "example\0-1.0.tar.gz",
+            "Invalid sdist filename",
+        ),
+        (
+            "wheels",
+            "example-1.0-1%5C..%5Cevil-py3-none-any.whl",
+            "example-1.0-1\\..\\evil-py3-none-any.whl",
+            "Invalid wheel filename",
+        ),
+        (
+            "wheels",
+            "example-1.0-1%00-py3-none-any.whl",
+            "example-1.0-1\0-py3-none-any.whl",
+            "Invalid wheel filename",
+        ),
+        (
+            "wheels",
+            "example-1.0-1%3Aevil-py3-none-any.whl",
+            "example-1.0-1:evil-py3-none-any.whl",
+            "Invalid wheel filename",
+        ),
+        (
+            "wheels",
+            "example-1.0-py3-none-any%2Fevil.whl",
+            "example-1.0-py3-none-any/evil.whl",
+            "Invalid wheel filename",
+        ),
+    ],
+)
+def test_url_filename_must_be_single_path_component(
+    distribution: str,
+    encoded_filename: str,
+    decoded_filename: str,
+    error: str,
+) -> None:
+    dist_type = PackageSdist if distribution == "sdist" else PackageWheel
+    dist = dist_type(url=f"https://example.com/{encoded_filename}", hashes={})
+    assert dist.filename == decoded_filename
+
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(
+            {
+                "lock-version": "1.0",
+                "created-by": "pip",
+                "packages": [
+                    {
+                        "name": "example",
+                        distribution: (
+                            {
+                                "url": f"https://example.com/{encoded_filename}",
+                                "hashes": {"sha256": "f" * 64},
+                            }
+                            if distribution == "sdist"
+                            else [
+                                {
+                                    "url": f"https://example.com/{encoded_filename}",
+                                    "hashes": {"sha256": "f" * 64},
+                                }
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
+    context = f"packages[0].{distribution}"
+    if distribution == "wheels":
+        context += "[0]"
+    assert str(exc_info.value) == f"{error} {decoded_filename!r} in {context!r}"
+
+
 def test_pylock_invalid_wheel_filename() -> None:
     data = {
         "lock-version": "1.0",
