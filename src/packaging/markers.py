@@ -20,11 +20,12 @@ from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Iterator, Mapping
 
 __all__ = [
     "Environment",
     "EvaluateContext",
+    "ExtraSet",
     "InvalidMarker",
     "Marker",
     "UndefinedComparison",
@@ -166,6 +167,60 @@ class Environment(TypedDict):
     """
 
 
+class ExtraSet(AbstractSet[str]):
+    """Represents the set of extras selected for a requirement.
+
+    Passing an ``ExtraSet`` instance (or any set of strings, which
+    :meth:`Marker.evaluate` wraps into one) as the ``extra`` environment value
+    evaluates ``extra`` markers against the whole set, following the
+    :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`:
+    ``extra == "name"`` matches if ``name`` is one of the selected extras,
+    while ``extra != "name"`` matches only if it is not.
+
+    Extra names are normalized on construction. An empty ``ExtraSet`` behaves
+    like the empty string, matching how ``extra`` markers evaluate when no
+    extras are selected.
+
+    :param extras: An iterable of extra names.
+    :raises TypeError: If ``extras`` is itself a string.
+
+    .. versionadded:: 26.4
+    """
+
+    __slots__ = ("_members",)
+
+    def __init__(self, extras: Iterable[str]) -> None:
+        if isinstance(extras, str):
+            raise TypeError(
+                "extras must be an iterable of strings, not a single string"
+            )
+        self._members = frozenset(canonicalize_name(extra) for extra in extras)
+
+    def __contains__(self, other: object) -> bool:
+        if not isinstance(other, str):
+            return False
+        return canonicalize_name(other) in self._members
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._members)
+
+    def __len__(self) -> int:
+        return len(self._members)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            return canonicalize_name(other) in (self._members or {""})
+        if isinstance(other, AbstractSet):
+            return self._members == other
+        return NotImplemented
+
+    # Equality with a string is membership, so a consistent hash is impossible.
+    __hash__ = None  # type: ignore[assignment]
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({sorted(self._members)!r})"
+
+
 def _normalize_extras(
     result: MarkerList | MarkerAtom | str,
 ) -> MarkerList | MarkerAtom | str:
@@ -240,8 +295,21 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
+# Operators whose set-wide evaluation must hold for every selected extra
+# rather than for at least one (De Morgan: a negated any-match).
+_NEGATED_OPS = frozenset({"!=", "not in"})
+
+
+def _eval_op(
+    lhs: str | ExtraSet, op: Op, rhs: str | AbstractSet[str], *, key: str
+) -> bool:
     op_str = op.serialize()
+    if isinstance(lhs, ExtraSet):
+        # An empty selection evaluates like the empty string, matching how
+        # metadata markers evaluate when no extra is requested.
+        members: AbstractSet[str] = lhs or frozenset({""})
+        results = (_eval_op(member, op, rhs, key=key) for member in members)
+        return all(results) if op_str in _NEGATED_OPS else any(results)
     if key in MARKERS_REQUIRING_VERSION:
         try:
             spec = Specifier(f"{op_str}{rhs}")
@@ -258,17 +326,20 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
 
 
 def _normalize(
-    lhs: str, rhs: str | AbstractSet[str], key: str
-) -> tuple[str, str | AbstractSet[str]]:
+    lhs: str | ExtraSet, rhs: str | AbstractSet[str], key: str
+) -> tuple[str | ExtraSet, str | AbstractSet[str]]:
     # PEP 685 - Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
-        assert isinstance(rhs, str), "extra value must be a string"
-        # Both sides are normalized at this point already
+        # Both sides are normalized at this point already: literals at parse
+        # time, ExtraSet members at construction.
         return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
+        # An ExtraSet lhs cannot reach here; _evaluate_markers only allows it
+        # for the "extra" key.
+        lhs = cast("str", lhs)
         if isinstance(rhs, str):  # pragma: no cover
             return (canonicalize_name(lhs), canonicalize_name(rhs))
         else:
@@ -307,7 +378,13 @@ def _evaluate_markers(
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
 
-            if not isinstance(lhs_value, str):
+            # Set-wide evaluation is only defined for ``extra``; the set-valued
+            # lock-file markers are restricted to the membership form with the
+            # variable on the right-hand side, so an ExtraSet value does not make
+            # them usable on the left.
+            if not isinstance(lhs_value, str) and not (
+                environment_key == "extra" and isinstance(lhs_value, ExtraSet)
+            ):
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
@@ -527,6 +604,11 @@ class Marker:
         .. versionchanged:: 25.0
             Added the ``context`` parameter, which influences which marker names
             are considered valid.
+
+        .. versionchanged:: 26.4
+            ``environment`` may map ``"extra"`` to a set of extra names (or an
+            :class:`ExtraSet` instance) to evaluate ``extra`` markers against the
+            whole selected set.
         """
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()
@@ -542,11 +624,17 @@ class Marker:
         if environment is not None:
             current_environment |= environment
             if "extra" in current_environment:
-                # The API used to allow setting extra to None. We need to handle
-                # this case for backwards compatibility. Also skip running
-                # normalize name if extra is empty.
-                extra = cast("str | None", current_environment["extra"])
-                current_environment["extra"] = canonicalize_name(extra) if extra else ""
+                extra = current_environment["extra"]
+                if isinstance(extra, AbstractSet):
+                    # A set of selected extras evaluates set-wide.
+                    current_environment["extra"] = ExtraSet(extra)
+                else:
+                    # The API used to allow setting extra to None. We need to
+                    # handle this case for backwards compatibility. Also skip
+                    # running normalize name if extra is empty.
+                    current_environment["extra"] = (
+                        canonicalize_name(extra) if extra else ""
+                    )
 
         return _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)
