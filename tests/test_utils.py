@@ -18,7 +18,7 @@ from packaging.utils import (
     parse_sdist_filename,
     parse_wheel_filename,
 )
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 
 @pytest.mark.parametrize(
@@ -144,14 +144,46 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             {Tag("py3", "none", "any")},
             id="complexbuildtag",
         ),
+        pytest.param(
+            "foo-1.4.0.0.0-py3-none-any.whl",
+            "foo",
+            "1.4.0.0.0",
+            (),
+            {Tag("py3", "none", "any")},
+            id="stringkeepstrailingzeros",
+        ),
+        pytest.param(
+            "foo-1.0+local.1-py3-none-any.whl",
+            "foo",
+            "1.0+local-1",
+            (),
+            {Tag("py3", "none", "any")},
+            id="stringnormalizeslocal",
+        ),
     ],
 )
 def test_make_wheel_filename(
-    expected_filename: str, name: str, version: Version, build: BuildTag, tags: set[Tag]
+    expected_filename: str,
+    name: str,
+    version: str | Version,
+    build: BuildTag,
+    tags: set[Tag],
 ) -> None:
     assert (
         make_wheel_filename(name, version, tags, build_tag=build) == expected_filename
     )
+
+
+def test_make_wheel_filename_roundtrips() -> None:
+    filename = make_wheel_filename("foo", "1.0+local-1", {Tag("py3", "none", "any")})
+    parsed_name, parsed_version = parse_wheel_filename(filename)[:2]
+    assert parsed_name == "foo"
+    assert parsed_version == Version("1.0+local-1")
+
+
+def test_make_wheel_filename_invalid_version() -> None:
+    with pytest.raises(InvalidVersion):
+        make_wheel_filename("foo", "not a version", {Tag("py3", "none", "any")})
 
 
 def test_make_wheel_filename_no_tags() -> None:
