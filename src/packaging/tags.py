@@ -353,9 +353,8 @@ def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and threading
 
 
-def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
+def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> Iterator[str]:
     py_version = tuple(py_version)  # To allow for version comparison.
-    abis = []
     version = _version_nodot(py_version[:2])
     threading = debug = pymalloc = ucs4 = ""
     with_debug = _get_config_var("Py_DEBUG", warn)
@@ -378,12 +377,11 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
                 ucs4 = "u"
-    elif debug:
+    yield f"cp{version}{threading}{debug}{pymalloc}{ucs4}"
+    if py_version >= (3, 8) and debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
-        abis.append(f"cp{version}{threading}")
-    abis.insert(0, f"cp{version}{threading}{debug}{pymalloc}{ucs4}")
-    return abis
+        yield f"cp{version}{threading}"
 
 
 def cpython_tags(
@@ -465,9 +463,9 @@ def cpython_tags(
                     yield Tag(interpreter, "abi3t", platform_)
 
 
-def _generic_abi() -> list[str]:
+def _generic_abi() -> Iterator[str]:
     """
-    Return the ABI tag based on EXT_SUFFIX.
+    Yield the ABI tag based on EXT_SUFFIX.
     """
     # The following are examples of `EXT_SUFFIX`.
     # We want to keep the parts which are related to the ABI and remove the
@@ -486,7 +484,8 @@ def _generic_abi() -> list[str]:
     parts = ext_suffix.split(".")
     if len(parts) < 3:
         # CPython3.7 and earlier uses ".pyd" on Windows.
-        return _cpython_abis(sys.version_info[:2])
+        yield from _cpython_abis(sys.version_info[:2])
+        return
     soabi = parts[1]
     if soabi.startswith("cpython"):
         # non-windows
@@ -505,8 +504,8 @@ def _generic_abi() -> list[str]:
         # pyston, ironpython, others?
         abi = soabi
     else:
-        return []
-    return [_normalize_string(abi)]
+        return
+    yield _normalize_string(abi)
 
 
 def generic_tags(
@@ -541,7 +540,7 @@ def generic_tags(
         interp_name = interpreter_name()
         interp_version = interpreter_version(warn=warn)
         interpreter = f"{interp_name}{interp_version}"
-    abis = _generic_abi() if abis is None else list(abis)
+    abis = list(_generic_abi()) if abis is None else list(abis)
     platforms = list(platforms or platform_tags())
     if "none" not in abis:
         abis.append("none")
