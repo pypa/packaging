@@ -643,7 +643,8 @@ class Specifier(BaseSpecifier):
             With ``prereleases=None``, a prerelease now matches. A single
             version has no alternatives, so the :pep:`440` rule to accept
             prereleases when nothing else satisfies the specifier applies.
-            Earlier versions rejected it.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         # ``===`` compares the raw string, so a Version parse here would
         # be wasted.
@@ -1197,7 +1198,8 @@ class SpecifierSet(BaseSpecifier):
             With ``prereleases=None``, a prerelease now matches. A single
             version has no alternatives, so the :pep:`440` rule to accept
             prereleases when nothing else satisfies the specifiers applies.
-            Earlier versions rejected it.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         version = coerce_version(item)
 
