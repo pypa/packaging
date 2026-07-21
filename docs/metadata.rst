@@ -38,9 +38,9 @@ Selective validation
 
 :meth:`Metadata.from_raw` and :meth:`Metadata.from_email` validate every field
 by default. If an application only relies on selected fields, it can disable
-that eager pass and access the required attributes explicitly. This is useful
-for otherwise usable legacy metadata containing a field that is invalid under
-newer metadata rules.
+that eager pass and access the attributes it needs explicitly. This is useful
+for otherwise usable legacy metadata containing a field introduced in a later
+metadata version than the one declared.
 
 .. doctest::
 
