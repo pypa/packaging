@@ -17,7 +17,7 @@ Features:
 * PEP 808: accept ``Metadata-Version: 2.6``. (:pull:`1194`)
 * Add a ``limit`` argument to ``parse_tag()`` for compressed tag sets.
   (:issue:`1220`)
-* Add a ``prefer_source`` argument to ``Pylock.select()`` to prefer source
+* Add a ``prefer_sdist_predicate`` argument to ``Pylock.select()`` to prefer source
   distributions over wheels. (:pull:`1334`)
 
 Behavior adaptations:
