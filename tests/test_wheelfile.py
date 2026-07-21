@@ -86,6 +86,24 @@ class TestWheelReader:
         ):
             pass
 
+    @pytest.mark.parametrize(
+        "record",
+        [
+            pytest.param("onlyonecolumn\n", id="too-few-columns"),
+            pytest.param("a,b,c,d\n", id="too-many-columns"),
+            pytest.param("m.txt,sha256=ab=cd,4\n", id="malformed-hash"),
+        ],
+    )
+    def test_malformed_record(self, wheel_path: Path, record: str) -> None:
+        with ZipFile(wheel_path, "w") as zf:
+            zf.writestr("test-1.0.dist-info/RECORD", record)
+
+        with (
+            pytest.raises(WheelError, match=r"^Invalid RECORD"),
+            WheelReader(wheel_path),
+        ):
+            pass
+
     def test_unsupported_hash_algorithm(self, wheel_path: Path) -> None:
         with ZipFile(wheel_path, "w") as zf:
             zf.writestr("hello/héllö.py", 'print("Héllö, w0rld!")\n')
@@ -338,9 +356,11 @@ class TestWheelReader:
             )
 
         dest_dir = tmp_path_factory.mktemp("extract")
-        with WheelReader(wheel_path) as wf:
-            with pytest.raises(WheelError, match="escapes the destination directory"):
-                wf.extractall(dest_dir)
+        with (
+            WheelReader(wheel_path) as wf,
+            pytest.raises(WheelError, match="escapes the destination directory"),
+        ):
+            wf.extractall(dest_dir)
 
         assert not (dest_dir.parent / "evil.txt").exists()
 
