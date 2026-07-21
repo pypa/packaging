@@ -230,6 +230,17 @@ class TestMarker:
         with pytest.raises(InvalidMarker):
             Marker(marker_string)
 
+    @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
+    def test_parses_invalid_trailing_line_break(self, line_break: str) -> None:
+        with pytest.raises(InvalidMarker):
+            Marker('python_version >= "3"' + line_break)
+
+    @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
+    def test_parses_trailing_horizontal_whitespace(self, whitespace: str) -> None:
+        assert Marker('python_version >= "3"' + whitespace) == Marker(
+            'python_version >= "3"'
+        )
+
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
         [
