@@ -316,8 +316,14 @@ class WheelReader:
         elif not basedir.is_dir():
             raise WheelError(f"{basedir} is not a directory")
 
+        resolved_base = basedir.resolve()
         for fname in self._zip.namelist():
             target_path = basedir.joinpath(fname)
+            # Reject members that would land outside the destination, whether via
+            # ".." components or an absolute path (PEP 427 forbids both).
+            if not target_path.resolve().is_relative_to(resolved_base):
+                raise WheelError(f"{fname!r} escapes the destination directory")
+
             target_path.parent.mkdir(0o755, True, True)
             with self.open(fname) as infile, target_path.open("wb") as outfile:
                 while True:

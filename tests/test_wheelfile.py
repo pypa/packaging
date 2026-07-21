@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os.path
 import sys
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path, PurePath
 from textwrap import dedent
@@ -10,7 +11,13 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 
 from packaging.utils import InvalidWheelFilename
-from packaging.wheelfile import WheelArchiveFile, WheelError, WheelReader, WheelWriter
+from packaging.wheelfile import (
+    WheelArchiveFile,
+    WheelError,
+    WheelReader,
+    WheelWriter,
+    _encode_hash_value,
+)
 
 
 @pytest.fixture
@@ -310,6 +317,32 @@ class TestWheelReader:
         assert Path(dirpath).joinpath(filenames[0]).read_text() == (
             "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25"
         )
+
+    @pytest.mark.parametrize(
+        "arcname",
+        [
+            pytest.param("../evil.txt", id="parent"),
+            pytest.param("sub/../../evil.txt", id="nested-parent"),
+        ],
+    )
+    def test_extractall_rejects_escaping_paths(
+        self, wheel_path: Path, tmp_path_factory: pytest.TempPathFactory, arcname: str
+    ) -> None:
+        payload = b"pwned\n"
+        digest = _encode_hash_value(sha256(payload).digest())
+        with ZipFile(wheel_path, "w") as zf:
+            zf.writestr(arcname, payload)
+            zf.writestr(
+                "test-1.0.dist-info/RECORD",
+                f"{arcname},sha256={digest},{len(payload)}\n",
+            )
+
+        dest_dir = tmp_path_factory.mktemp("extract")
+        with WheelReader(wheel_path) as wf:
+            with pytest.raises(WheelError, match="escapes the destination directory"):
+                wf.extractall(dest_dir)
+
+        assert not (dest_dir.parent / "evil.txt").exists()
 
 
 class TestWheelWriter:
