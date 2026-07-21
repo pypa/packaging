@@ -75,11 +75,14 @@ The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
 versions that supports intersection, union, complement, and difference. See
 :doc:`ranges` for details.
 
-The relation helpers accept another ``SpecifierSet`` and delegate to
-``VersionRange``. Comparing sets with incompatible pre-release policies raises
-:exc:`ValueError`. Sets containing ``===`` specifiers are not supported by these
-helpers; convert to ``VersionRange`` directly if you need lower-level arbitrary
-equality handling.
+The relation helpers take another :class:`~packaging.specifiers.SpecifierSet`
+and compare the versions the two sets accept, not the specifier objects
+themselves. Both sets must have been given the same ``prereleases`` argument,
+not just the same derived
+:attr:`~packaging.specifiers.SpecifierSet.prereleases` value, or the
+comparison raises :exc:`ValueError`. Sets containing ``===`` specifiers are
+rejected; call :meth:`~packaging.specifiers.SpecifierSet.to_range` on both
+sides for those.
 
 
 Reference

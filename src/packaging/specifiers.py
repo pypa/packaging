@@ -1142,8 +1142,9 @@ class SpecifierSet(BaseSpecifier):
         """Return whether every version matching this set also matches other.
 
         :raises ValueError:
-            If the two sets use ``===`` specifiers or incompatible pre-release
-            policies.
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
@@ -1161,8 +1162,9 @@ class SpecifierSet(BaseSpecifier):
         """Return whether every version matching other also matches this set.
 
         :raises ValueError:
-            If the two sets use ``===`` specifiers or incompatible pre-release
-            policies.
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
@@ -1178,8 +1180,9 @@ class SpecifierSet(BaseSpecifier):
         """Return whether this set and other share no matching versions.
 
         :raises ValueError:
-            If the two sets use ``===`` specifiers or incompatible pre-release
-            policies.
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
         :raises TypeError:
             If other is not a :class:`SpecifierSet`.
 
