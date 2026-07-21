@@ -304,19 +304,42 @@ class TestInterpreterVersion:
         assert tags.interpreter_version() == version_str
 
 
-class TestInterpreterTag:
-    def test_interpreter_tag_cpython(self, monkeypatch: pytest.MonkeyPatch) -> None:
+class TestPythonTag:
+    @pytest.mark.parametrize(
+        ("implementation", "version", "expected"),
+        [
+            (True, True, "cp311"),
+            (True, False, "cp3"),
+            (False, True, "py311"),
+            (False, False, "py3"),
+        ],
+    )
+    def test_python_tag_cpython(
+        self,
+        implementation: bool,
+        version: bool,
+        expected: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
         monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
-        assert tags.interpreter_tag() == "cp311"
+        assert (
+            tags.python_tag(implementation=implementation, version=version) == expected
+        )
 
-    def test_interpreter_tag_pypy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_python_tag_pypy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
-        assert tags.interpreter_tag() == "pp3"
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert tags.python_tag() == "pp311"
+        assert tags.python_tag(version=False) == "pp3"
 
-    def test_interpreter_tag_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(tags, "interpreter_name", lambda: "unknown")
-        assert tags.interpreter_tag() is None
+    def test_python_tag_other_interpreter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "graalpy")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert tags.python_tag() == "graalpy311"
+        assert tags.python_tag(implementation=False) == "py311"
 
 
 class TestMacOSPlatforms:
