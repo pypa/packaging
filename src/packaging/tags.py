@@ -46,6 +46,7 @@ __all__ = [
     "mac_platforms",
     "parse_tag",
     "platform_tags",
+    "pure_python_tags",
     "sys_tags",
 ]
 
@@ -565,6 +566,30 @@ def _py_interpreter_range(py_version: PythonVersion) -> Iterator[str]:
             yield f"py{_version_nodot((py_version[0], minor))}"
 
 
+def pure_python_tags(
+    python_version: PythonVersion | None = None,
+) -> Iterator[Tag]:
+    """
+    Yields the pure-Python tags compatible with ``python_version``.
+
+    The tags use the ``"none"`` ABI and ``"any"`` platform, so their
+    generation does not depend on the running platform.
+
+    .. versionadded:: 26.3
+
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 compatible version of Python. Defaults to
+                                 ``sys.version_info[:2]``.
+    :raises ValueError: If ``python_version`` is an empty sequence.
+    """
+    if python_version is None:
+        python_version = sys.version_info[:2]
+    elif not python_version:
+        raise ValueError("python_version must contain at least one item")
+    for version in _py_interpreter_range(python_version):
+        yield Tag(version, "none", "any")
+
+
 def compatible_tags(
     python_version: PythonVersion | None = None,
     interpreter: str | None = None,
@@ -596,8 +621,7 @@ def compatible_tags(
             yield Tag(version, "none", platform_)
     if interpreter:
         yield Tag(interpreter, "none", "any")
-    for version in _py_interpreter_range(python_version):
-        yield Tag(version, "none", "any")
+    yield from pure_python_tags(python_version)
 
 
 def _mac_arch(arch: str, is_32bit: bool = _32_BIT_INTERPRETER) -> str:
