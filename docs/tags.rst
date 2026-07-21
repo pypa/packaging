@@ -46,6 +46,8 @@ items that applications should need to reference, in order to parse and check ta
 
 .. autofunction:: sys_tags
 
+.. autofunction:: python_tag
+
 .. autofunction:: create_compatible_tags_selector
 
 .. autoexception:: TooManyTagsError

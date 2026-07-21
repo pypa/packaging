@@ -46,6 +46,7 @@ __all__ = [
     "mac_platforms",
     "parse_tag",
     "platform_tags",
+    "python_tag",
     "sys_tags",
 ]
 
@@ -910,6 +911,28 @@ def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
 
 
+def python_tag(
+    *, implementation: bool = True, version: bool = True, warn: bool = False
+) -> str:
+    """
+    Returns a :pep:`425` python tag for the running interpreter.
+
+    :param bool implementation: Whether the tag should be specific to the
+        running interpreter (e.g. ``cp311`` or ``pp311``) instead of using the
+        generic ``py`` prefix (e.g. ``py311``). Defaults to ``True``.
+    :param bool version: Whether the tag should include the full interpreter
+        version (e.g. ``cp311``) instead of only the major version
+        (e.g. ``cp3``). Defaults to ``True``.
+    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 26.3
+    """
+    prefix = interpreter_name() if implementation else "py"
+    if version:
+        return prefix + interpreter_version(warn=warn)
+    return prefix + str(sys.version_info.major)
+
+
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     """
     Yields the sequence of tag triples that the running interpreter supports.
@@ -949,9 +972,9 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
         yield from generic_tags(warn=warn)
 
     if interp_name == "pp":
-        interp = "pp3"
+        interp = python_tag(version=False)
     elif interp_name == "cp":
-        interp = "cp" + interpreter_version(warn=warn)
+        interp = python_tag(warn=warn)
     else:
         interp = None
     yield from compatible_tags(interpreter=interp)
