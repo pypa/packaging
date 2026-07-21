@@ -25,7 +25,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     TypeVar,
-    Union,
 )
 
 from ._ranges import (
@@ -58,7 +57,7 @@ if TYPE_CHECKING:
 __all__ = ["VersionRange"]
 
 T = TypeVar("T")
-UnparsedVersion = Union[Version, str]
+UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
 #: The most ``!=`` exclusion fragments (``!=V`` points or ``!=P.*`` prefixes)

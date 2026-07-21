@@ -9,7 +9,6 @@ import pathlib
 import typing
 from typing import (
     Any,
-    Callable,
     Generic,
     Literal,
     TypedDict,
@@ -21,6 +20,8 @@ from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 

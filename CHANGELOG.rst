@@ -4,6 +4,10 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Removals:
+
+* Drop support for EOL Python 3.9. (:pull:`1263`)
+
 Features:
 
 * Add a public :class:`~packaging.ranges.VersionRange` API and
