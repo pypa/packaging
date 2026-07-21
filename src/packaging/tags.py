@@ -919,8 +919,8 @@ def interpreter_abi() -> str:
     for the running interpreter.
     """
     if interpreter_name() == "cp":
-        return _cpython_abis(sys.version_info[:2])[0]
-    return _generic_abi()[0]
+        return next(iter(_cpython_abis(sys.version_info[:2])))
+    return next(iter(_generic_abi()))
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
