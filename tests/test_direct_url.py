@@ -289,6 +289,67 @@ def test_validate_error() -> None:
 
 
 @pytest.mark.parametrize(
+    "subdirectory",
+    ["", ".", "./src", "src/pkg", "src\\pkg", "src/../pkg", "src\\..\\pkg"],
+)
+def test_subdirectory_accepts_paths_within_source_root(subdirectory: str) -> None:
+    direct_url = DirectUrl.from_dict(
+        {
+            "url": "https://g.c/user/repo.git",
+            "vcs_info": {"vcs": "git", "commit_id": "a" * 40},
+            "subdirectory": subdirectory,
+        }
+    )
+
+    assert direct_url.subdirectory == subdirectory
+
+
+@pytest.mark.parametrize(
+    "subdirectory",
+    [
+        "/outside",
+        "\\outside",
+        "C:outside",
+        "C:/outside",
+        "C:\\outside",
+        "//server/share",
+        "\\\\server\\share",
+        "..",
+        "../outside",
+        "..\\outside",
+        "src/../../outside",
+        "src\\..\\..\\outside",
+    ],
+)
+def test_subdirectory_rejects_paths_outside_source_root(subdirectory: str) -> None:
+    with pytest.raises(
+        DirectUrlValidationError,
+        match=(
+            r"Path must be relative to and remain within the source root "
+            r"in 'subdirectory'"
+        ),
+    ):
+        DirectUrl.from_dict(
+            {
+                "url": "https://g.c/user/repo.git",
+                "vcs_info": {"vcs": "git", "commit_id": "a" * 40},
+                "subdirectory": subdirectory,
+            }
+        )
+
+
+def test_validate_rejects_out_of_root_subdirectory() -> None:
+    direct_url = DirectUrl(
+        url="https://g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+        subdirectory="../outside",
+    )
+
+    with pytest.raises(DirectUrlValidationError, match="in 'subdirectory'"):
+        direct_url.validate()
+
+
+@pytest.mark.parametrize(
     ("url", "safe_user_passwords", "expected_url"),
     [
         ("https://g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),

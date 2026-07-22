@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import ntpath
 import re
 import urllib.parse
 from collections.abc import Mapping
@@ -112,6 +113,24 @@ def _strip_url(url: str, safe_user_passwords: Collection[str]) -> str:
 
 def _file_url_has_absolute_path(parsed_url: SplitResult) -> bool:
     return parsed_url.path.startswith("/")
+
+
+def _subdirectory_is_within_source_root(subdirectory: str) -> bool:
+    drive, _ = ntpath.splitdrive(subdirectory)
+    if drive or subdirectory.startswith(("/", "\\")):
+        return False
+
+    depth = 0
+    for part in re.split(r"[/\\]+", subdirectory):
+        if not part or part == ".":
+            continue
+        if part == "..":
+            if depth == 0:
+                return False
+            depth -= 1
+        else:
+            depth += 1
+    return True
 
 
 class DirectUrlValidationError(Exception):
@@ -306,7 +325,14 @@ class DirectUrl:
                     "File URL must be absolute when dir_info is present",
                     context="url",
                 )
-        # XXX subdirectory must be relative, can we, should we validate that here?
+        if (
+            direct_url.subdirectory is not None
+            and not _subdirectory_is_within_source_root(direct_url.subdirectory)
+        ):
+            raise DirectUrlValidationError(
+                "Path must be relative to and remain within the source root",
+                context="subdirectory",
+            )
         return direct_url
 
     @classmethod
