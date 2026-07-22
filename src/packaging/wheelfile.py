@@ -226,7 +226,8 @@ class WheelReader:
         entries = OrderedDict()
         try:
             contents = self.read_dist_info("RECORD")
-        except WheelError:
+        except WheelError:  # pragma: no cover
+            # __enter__ sets _dist_info_dir only after confirming RECORD exists.
             raise WheelError(f"Missing {self._dist_info_dir}/RECORD file") from None
 
         reader = csv.reader(

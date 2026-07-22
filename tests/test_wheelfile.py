@@ -14,6 +14,7 @@ from packaging.utils import InvalidWheelFilename
 from packaging.wheelfile import (
     WheelArchiveFile,
     WheelError,
+    WheelMetadata,
     WheelReader,
     WheelWriter,
     _encode_hash_value,
@@ -365,6 +366,53 @@ class TestWheelReader:
 
         assert not (dest_dir.parent / "evil.txt").exists()
 
+    def test_dist_info_dir_without_name_version(self, wheel_path: Path) -> None:
+        # A .dist-info directory whose stem has no name-version split cannot be
+        # used, so scanning falls through to the "not a wheel" error.
+        with ZipFile(wheel_path, "w") as zf:
+            zf.writestr("noversion.dist-info/RECORD", "")
+
+        with (
+            pytest.raises(WheelError, match=r"^Cannot find a valid .dist-info"),
+            WheelReader(wheel_path),
+        ):
+            pass
+
+    def test_filenames(self, valid_wheel: Path) -> None:
+        with WheelReader(valid_wheel) as wf:
+            assert set(wf.filenames) == {
+                PurePath("hello/héllö.py"),
+                PurePath("test-1.0.dist-info/RECORD"),
+            }
+
+    def test_read_dist_info_missing(self, valid_wheel: Path) -> None:
+        with (
+            WheelReader(valid_wheel) as wf,
+            pytest.raises(WheelError, match=r"not found$"),
+        ):
+            wf.read_dist_info("NONEXISTENT")
+
+    def test_extractall_dest_missing(self, valid_wheel: Path, tmp_path: Path) -> None:
+        dest = tmp_path / "nope"
+        with (
+            WheelReader(valid_wheel) as wf,
+            pytest.raises(WheelError, match="does not exist"),
+        ):
+            wf.extractall(dest)
+
+    def test_extractall_dest_not_dir(self, valid_wheel: Path, tmp_path: Path) -> None:
+        dest = tmp_path / "file"
+        dest.touch()
+        with (
+            WheelReader(valid_wheel) as wf,
+            pytest.raises(WheelError, match="is not a directory"),
+        ):
+            wf.extractall(dest)
+
+    def test_repr(self, valid_wheel: Path) -> None:
+        with WheelReader(valid_wheel) as wf:
+            assert repr(wf) == f"WheelReader({valid_wheel})"
+
 
 class TestWheelWriter:
     @pytest.mark.parametrize(
@@ -563,3 +611,74 @@ class TestWheelWriter:
     def test_repr(self, wheel_path: Path) -> None:
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
             assert repr(wf) == f"WheelWriter({wheel_path}, generator='generator 1.0')"
+
+    def test_explicit_metadata_with_build_tag(self, wheel_path: Path) -> None:
+        metadata = WheelMetadata.from_filename("test-1.0-3-py2.py3-none-any.whl")
+        with WheelWriter(
+            wheel_path, generator="generator 1.0", metadata=metadata
+        ) as wf:
+            wf.write_file("hello.py", "x = 1\n")
+
+        with ZipFile(wheel_path, "r") as zf:
+            wheel = zf.read("test-1.0.dist-info/WHEEL").decode("utf-8")
+
+        assert "Build: 3" in wheel
+
+    def test_no_path_requires_metadata(self) -> None:
+        with pytest.raises(WheelError, match="path_or_fd is not a path"):
+            WheelWriter(BytesIO(), generator="generator 1.0")
+
+    def test_exception_skips_record(self, wheel_path: Path) -> None:
+        def build_and_fail() -> None:
+            with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+                wf.write_file("hello.py", "x = 1\n")
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            build_and_fail()
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert "test-1.0.dist-info/RECORD" not in zf.namelist()
+
+    def test_manual_wheel_file_kept(self, wheel_path: Path) -> None:
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_distinfo_file("WHEEL", "Wheel-Version: 1.0\n")
+
+        with ZipFile(wheel_path, "r") as zf:
+            wheel = zf.read("test-1.0.dist-info/WHEEL").decode("utf-8")
+
+        assert wheel == "Wheel-Version: 1.0\n"
+
+    def test_write_metadata_keeps_provided_headers(self, wheel_path: Path) -> None:
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_metadata(
+                [
+                    ("Metadata-Version", "2.1"),
+                    ("Name", "othername"),
+                    ("Version", "9.9"),
+                ]
+            )
+
+        with ZipFile(wheel_path, "r") as zf:
+            metadata = zf.read("test-1.0.dist-info/METADATA").decode("utf-8")
+
+        assert "Metadata-Version: 2.1" in metadata
+        assert "Name: othername" in metadata
+        assert "Version: 9.9" in metadata
+
+    def test_write_files_from_directory_skips_record(
+        self, wheel_path: Path, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        build_dir = tmp_path_factory.mktemp("build")
+        build_dir.joinpath("test-1.0.dist-info").mkdir()
+        build_dir.joinpath("test-1.0.dist-info", "RECORD").write_text("stale\n")
+        build_dir.joinpath("hello.py").write_text("x = 1\n")
+
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_files_from_directory(build_dir)
+
+        with ZipFile(wheel_path, "r") as zf:
+            record = zf.read("test-1.0.dist-info/RECORD").decode("utf-8")
+
+        assert "stale" not in record
+        assert "hello.py" in record
