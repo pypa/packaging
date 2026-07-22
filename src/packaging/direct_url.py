@@ -154,7 +154,10 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
 
 @dataclasses.dataclass(frozen=True, init=False)
 class VcsInfo:
-    """The version control information of a :class:`DirectUrl`."""
+    """The version control information of a :class:`DirectUrl`.
+
+    .. versionadded:: 26.1
+    """
 
     vcs: str
     commit_id: str
@@ -183,7 +186,10 @@ class VcsInfo:
 
 @dataclasses.dataclass(frozen=True, init=False)
 class ArchiveInfo:
-    """The archive information of a :class:`DirectUrl`."""
+    """The archive information of a :class:`DirectUrl`.
+
+    .. versionadded:: 26.1
+    """
 
     hashes: Mapping[str, str] | None = None
 
@@ -231,7 +237,10 @@ class ArchiveInfo:
 
 @dataclasses.dataclass(frozen=True, init=False)
 class DirInfo:
-    """The local directory information of a :class:`DirectUrl`."""
+    """The local directory information of a :class:`DirectUrl`.
+
+    .. versionadded:: 26.1
+    """
 
     editable: bool | None = None
 
