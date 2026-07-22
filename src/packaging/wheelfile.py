@@ -78,7 +78,10 @@ class WheelContentElement(NamedTuple):
     stream: IO[bytes]
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({str(self.path)!r}, size={self.size!r})"
+        # Archive paths are always posix; keep the repr stable across platforms.
+        return (
+            f"{self.__class__.__name__}({self.path.as_posix()!r}, size={self.size!r})"
+        )
 
 
 def _encode_hash_value(hash_value: bytes) -> str:

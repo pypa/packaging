@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os.path
+import re
 import sys
 from hashlib import sha256
 from io import BytesIO
@@ -327,14 +328,14 @@ class TestWheelReader:
         assert dirpath.endswith("hello")
         assert filenames == ["héllö.py"]
         assert (
-            Path(dirpath).joinpath(filenames[0]).read_text()
+            Path(dirpath).joinpath(filenames[0]).read_text(encoding="utf-8")
             == 'print("Héllö, world!")\n'
         )
 
         dirpath, dirnames, filenames = next(iterator)
         assert dirpath.endswith("test-1.0.dist-info")
         assert filenames == ["RECORD"]
-        assert Path(dirpath).joinpath(filenames[0]).read_text() == (
+        assert Path(dirpath).joinpath(filenames[0]).read_text(encoding="utf-8") == (
             "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25"
         )
 
@@ -593,7 +594,7 @@ class TestWheelWriter:
         source_dir = tmp_path / "nonexistent"
         with (
             WheelWriter(wheel_path, generator="generator 1.0") as wf,
-            pytest.raises(WheelError, match=f"{source_dir} does not exist"),
+            pytest.raises(WheelError, match=re.escape(f"{source_dir} does not exist")),
         ):
             wf.write_files_from_directory(source_dir)
 
@@ -604,7 +605,9 @@ class TestWheelWriter:
         source_dir.touch()
         with (
             WheelWriter(wheel_path, generator="generator 1.0") as wf,
-            pytest.raises(WheelError, match=f"{source_dir} is not a directory"),
+            pytest.raises(
+                WheelError, match=re.escape(f"{source_dir} is not a directory")
+            ),
         ):
             wf.write_files_from_directory(source_dir)
 
