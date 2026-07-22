@@ -40,6 +40,7 @@ __all__ = [
     "cpython_tags",
     "create_compatible_tags_selector",
     "generic_tags",
+    "interpreter_abi",
     "interpreter_name",
     "interpreter_version",
     "ios_platforms",
@@ -908,6 +909,18 @@ def interpreter_version(*, warn: bool = False) -> str:
 
 def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
+
+
+def interpreter_abi() -> str:
+    """
+    Returns the running interpreter's ABI tag.
+
+    This typically acts as the :attr:`~Tag.abi` tag of the most specific tag
+    for the running interpreter.
+    """
+    if interpreter_name() == "cp":
+        return next(iter(_cpython_abis(sys.version_info[:2])))
+    return next(iter(_generic_abi()))
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:

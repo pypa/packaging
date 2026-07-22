@@ -2114,3 +2114,19 @@ def test_create_compatible_tags_selector(
 
     selector = tags.create_compatible_tags_selector([t_to_tag(t) for t in supported])
     assert list(selector([(t, t_to_tags(t)) for t in things])) == expected
+
+
+def test_interpreter_abi(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        {"EXT_SUFFIX": ".pypy39-pp73-x86_64-linux-gnu.so"}.get,
+    )
+    assert tags.interpreter_abi() == "pypy39_pp73"
+
+    monkeypatch.setattr(sysconfig, "get_config_var", {"Py_DEBUG": 0}.get)
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+    assert (
+        tags.interpreter_abi() == f"cp{sys.version_info.major}{sys.version_info.minor}"
+    )
