@@ -208,6 +208,56 @@ def test_parse_wheel_invalid_filename(filename: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("filename", "version"),
+    [
+        ("foo-01.0.0-py3-none-any.whl", Version("1.0.0")),
+        ("foo-v1.0-py3-none-any.whl", Version("1.0")),
+        ("foo-1.0c1-py3-none-any.whl", Version("1.0rc1")),
+        ("foo-1.0+AbC-py3-none-any.whl", Version("1.0+abc")),
+    ],
+)
+def test_parse_wheel_non_normalized_version_valid_by_default(
+    filename: str, version: Version
+) -> None:
+    name, parsed_version, build, tags = parse_wheel_filename(filename)
+
+    assert name == "foo"
+    assert parsed_version == version
+    assert build == ()
+    assert tags == frozenset({Tag("py3", "none", "any")})
+
+
+def test_parse_wheel_non_normalized_name_valid_by_default() -> None:
+    name, version, build, tags = parse_wheel_filename("Foo.Bar-1.0-py3-none-any.whl")
+
+    assert name == "foo-bar"
+    assert version == Version("1.0")
+    assert build == ()
+    assert tags == frozenset({Tag("py3", "none", "any")})
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "foo-01.0.0-py3-none-any.whl",
+        "foo-v1.0-py3-none-any.whl",
+        "foo-1.0c1-py3-none-any.whl",
+        "foo-1.0+AbC-py3-none-any.whl",
+    ],
+)
+def test_parse_wheel_non_normalized_version_invalid_with_strict(
+    filename: str,
+) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, strict=True)
+
+
+def test_parse_wheel_non_normalized_name_invalid_with_strict() -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename("Foo.Bar-1.0-py3-none-any.whl", strict=True)
+
+
+@pytest.mark.parametrize(
     "filename",
     [
         "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
@@ -226,9 +276,13 @@ def test_parse_wheel_unsorted_tags_valid_by_default(filename: str) -> None:
         "foo-1.0-py3.py2-none-any.whl",
     ],
 )
-def test_parse_wheel_unsorted_tags_invalid_with_validate(filename: str) -> None:
+def test_parse_wheel_unsorted_tags_invalid_with_validate_or_strict(
+    filename: str,
+) -> None:
     with pytest.raises(InvalidWheelFilename):
         parse_wheel_filename(filename, validate_order=True)
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, strict=True)
 
 
 @pytest.mark.parametrize(
