@@ -808,8 +808,9 @@ class Metadata:
     def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> Metadata:
         """Create an instance from :class:`RawMetadata`.
 
-        If *validate* is true, all metadata will be validated. All exceptions
-        related to validation will be gathered and raised as an :class:`ExceptionGroup`.
+        If *validate* is true, all metadata will be validated and all related
+        exceptions will be gathered and raised as an :class:`ExceptionGroup`;
+        otherwise, validation happens per attribute when it is accessed.
         """
         ins = cls()
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.

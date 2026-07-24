@@ -33,42 +33,6 @@ Usage
     <Version('24.0')>
 
 
-Selective validation
-''''''''''''''''''''
-
-:meth:`Metadata.from_raw` and :meth:`Metadata.from_email` validate every field
-by default. If an application only relies on selected fields, it can disable
-that eager pass and access the attributes it needs explicitly. This is useful
-for otherwise usable legacy metadata containing a field introduced in a later
-metadata version than the one declared.
-
-.. doctest::
-
-    >>> legacy = (
-    ...     "Metadata-Version: 2.1\nName: example\n"
-    ...     "Version: 1.0\nLicense-File: LICENSE"
-    ... )
-    >>> raw, unparsed = parse_email(legacy)
-    >>> unparsed
-    {}
-    >>> metadata = Metadata.from_raw(raw, validate=False)
-    >>> metadata.metadata_version
-    '2.1'
-    >>> metadata.name
-    'example'
-    >>> metadata.version
-    <Version('1.0')>
-
-Accessing an attribute still validates and converts that individual value. It
-does not validate fields that are not accessed, collect all validation errors,
-or perform the eager metadata-version eligibility checks. Callers should only
-use this mode when they deliberately own validation of the fields they consume.
-
-When malformed or unrecognized email headers matter, call :func:`parse_email`
-directly and inspect its ``unparsed`` result, as above. That information is not
-available from ``Metadata.from_email(..., validate=False)``.
-
-
 Reference
 ---------
 
