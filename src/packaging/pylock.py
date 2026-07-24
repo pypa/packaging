@@ -786,7 +786,9 @@ class Pylock:
         .. versionchanged:: 26.3
             Added the *prefer_sdist_predicate* parameter.
         """
-        compatible_tags_selector = create_compatible_tags_selector(tags or sys_tags())
+        compatible_tags_selector = create_compatible_tags_selector(
+            tags if tags is not None else sys_tags()
+        )
 
         # #. Gather the extras and dependency groups to install and set ``extras`` and
         #    ``dependency_groups`` for marker evaluation, respectively.
