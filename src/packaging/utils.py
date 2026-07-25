@@ -62,8 +62,11 @@ _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
-# PEP 427: The build number must start with a digit.
-_build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+# PEP 427: The build number must start with an ASCII digit; its optional
+# remainder is otherwise free-form. Reject only characters that would turn the
+# component into a path or NTFS alternate data stream (or terminate it at the
+# OS boundary).
+_build_tag_regex = re.compile(r"(\d+)([^:/\\\0]*)", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
@@ -220,8 +223,8 @@ def parse_wheel_filename(
        The *validate_order* parameter.
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidWheelFilename` on empty tag set components or an
-       empty project name.
+       Raises :class:`InvalidWheelFilename` on invalid tag set components,
+       build tags, or an empty project name.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -251,7 +254,7 @@ def parse_wheel_filename(
 
     if dashes == 5:
         build_part = parts[2]
-        build_match = _build_tag_regex.match(build_part)
+        build_match = _build_tag_regex.fullmatch(build_part)
         if build_match is None:
             raise InvalidWheelFilename(
                 f"Invalid build number: {build_part} in {filename!r}"
@@ -267,10 +270,10 @@ def parse_wheel_filename(
             f"Invalid wheel filename (compressed tag set components must be in "
             f"sorted order per PEP 425): {filename!r}"
         ) from None
-    except InvalidTag:
+    except InvalidTag as e:
         raise InvalidWheelFilename(
-            f"Invalid wheel filename (empty tag component): {filename!r}"
-        ) from None
+            f"Invalid wheel filename (invalid tag): {filename!r}"
+        ) from e
     return (name, version, build, tags)
 
 
@@ -285,7 +288,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     :raises InvalidSdistFilename: If the filename does not end
         with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
         contain a dash separating the name and the version of the distribution,
-        if the project name is empty, or if the version portion is not a valid
+        if the project name is invalid, or if the version portion is not a valid
         version.
 
     >>> from packaging.utils import parse_sdist_filename
@@ -297,7 +300,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     True
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidSdistFilename` on an empty project name.
+       Raises :class:`InvalidSdistFilename` on an invalid project name.
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
@@ -316,12 +319,10 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     name_part, sep, version_part = file_stem.rpartition("-")
     if not sep:
         raise InvalidSdistFilename(f"Invalid sdist filename: {filename!r}")
-    if not name_part:
-        raise InvalidSdistFilename(
-            f"Invalid sdist filename (empty project name): {filename!r}"
-        )
-
-    name = canonicalize_name(name_part)
+    try:
+        name = canonicalize_name(name_part, validate=True)
+    except InvalidName as e:
+        raise InvalidSdistFilename(f"Invalid project name: {filename!r}") from e
 
     try:
         version = Version(version_part)
