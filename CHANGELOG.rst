@@ -33,6 +33,8 @@ Fixes:
 * Normalize requested extra names before comparing or hashing requirements (:issue:`644`)
 * Preserve a ``Requirement``'s specifier ``prereleases`` override across a
   pickle round trip. (:issue:`1204`)
+* Reject wheel tags whose interpreter component is not an identifier.
+  (:issue:`577`)
 
 26.2 - 2026-04-24
 ~~~~~~~~~~~~~~~~~

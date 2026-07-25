@@ -200,6 +200,7 @@ def test_parse_wheel_filename(
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
         ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
+        ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:

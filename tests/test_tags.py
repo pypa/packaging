@@ -237,6 +237,25 @@ class TestParseTag:
     @pytest.mark.parametrize(
         "tag",
         [
+            "2-none-any",
+            "2.7.6-none-any",
+            "py3.2-none-any",
+            "py+3-none-any",
+        ],
+    )
+    def test_invalid_interpreter_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="invalid interpreter"):
+            tags.parse_tag(tag)
+
+    @pytest.mark.parametrize("interpreter", ["sillywalk", "graalpy311", "_custom"])
+    def test_identifier_interpreter_is_valid(self, interpreter: str) -> None:
+        assert tags.parse_tag(f"{interpreter}-none-any") == {
+            tags.Tag(interpreter, "none", "any")
+        }
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
             "py3-none",
             "py3-none-any-extra",
         ],
