@@ -95,8 +95,8 @@ class UnsortedTagsError(ValueError):
 
 class InvalidTag(ValueError):
     """
-    Raised when a tag has an invalid or empty interpreter, ABI, or platform
-    component, or does not have exactly three components.
+    Raised when an interpreter component is not an identifier, a tag component
+    is empty, or a tag does not have exactly three components.
 
     .. versionadded:: 26.3
     """
@@ -259,8 +259,9 @@ def parse_tag(
        The *validate_order* parameter.
 
     .. versionadded:: 26.3
-       Raises :class:`InvalidTag` on invalid interpreter components, empty tag
-       components, or a tag that does not have exactly three components.
+       Raises :class:`InvalidTag` when an interpreter component is not an
+       identifier, a tag component is empty, or a tag does not have exactly
+       three components.
        Added the *limit* parameter. Raises :class:`TooManyTagsError` if the compressed
        tag set would generate more than *limit* tags.
     """
