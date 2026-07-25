@@ -307,6 +307,34 @@ def test_missing_sdist_fallback() -> None:
         list(pylock.select())
 
 
+def test_empty_tags_selects_sdist_instead_of_host_compatible_wheel() -> None:
+    pylock = _pylock_with_wheel_and_sdist()
+
+    selected = list(
+        pylock.select(
+            tags=[],
+            environment=_py312_linux.environment,
+        )
+    )
+
+    assert len(selected) == 1
+    assert isinstance(selected[0][1], PackageSdist)
+
+
+def test_empty_tags_rejects_wheel_only_lock() -> None:
+    pylock = _pylock_with_wheel_and_sdist(include_sdist=False)
+
+    with pytest.raises(
+        PylockSelectError, match=r"No wheel found matching .* and no sdist available"
+    ):
+        list(
+            pylock.select(
+                tags=[],
+                environment=_py312_linux.environment,
+            )
+        )
+
+
 def _pylock_with_wheel_and_sdist(
     *, wheel_python_tag: str | None = "py3", include_sdist: bool = True
 ) -> Pylock:
