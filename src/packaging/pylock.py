@@ -75,6 +75,45 @@ _FromMappingProtocolT = TypeVar("_FromMappingProtocolT", bound=_FromMappingProto
 
 _PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
+_PYLOCK_1_0_KEYS = frozenset(
+    {
+        "lock-version",
+        "environments",
+        "requires-python",
+        "extras",
+        "dependency-groups",
+        "default-groups",
+        "created-by",
+        "packages",
+        "tool",
+    }
+)
+_PACKAGE_KEYS = frozenset(
+    {
+        "name",
+        "version",
+        "marker",
+        "requires-python",
+        "dependencies",
+        "vcs",
+        "directory",
+        "archive",
+        "index",
+        "sdist",
+        "wheels",
+        "attestation-identities",
+        "tool",
+    }
+)
+_VCS_KEYS = frozenset(
+    {"type", "url", "path", "requested-revision", "commit-id", "subdirectory"}
+)
+_DIRECTORY_KEYS = frozenset({"path", "editable", "subdirectory"})
+_ARCHIVE_KEYS = frozenset(
+    {"url", "path", "size", "upload-time", "hashes", "subdirectory"}
+)
+_DISTRIBUTION_KEYS = frozenset({"name", "upload-time", "url", "path", "size", "hashes"})
+
 
 def is_valid_pylock_path(path: Path) -> bool:
     """Check if the given path is a valid pylock file path."""
@@ -233,6 +272,65 @@ def _get_required_sequence_of_objects(
     if (result := _get_sequence_of_objects(d, target_item_type, key)) is None:
         raise _PylockRequiredKeyError(key)
     return result
+
+
+def _validate_known_keys(d: Mapping[str, Any], expected_keys: frozenset[str]) -> None:
+    """Reject keys outside a schema-defined closed object."""
+    for key in d:
+        if key not in expected_keys:
+            raise PylockValidationError("Unexpected key", context=str(key))
+
+
+def _validate_nested_object_keys(
+    d: Mapping[str, Any], key: str, expected_keys: frozenset[str]
+) -> None:
+    value = d.get(key)
+    if not isinstance(value, Mapping):
+        return
+    try:
+        _validate_known_keys(value, expected_keys)
+    except Exception as e:
+        raise PylockValidationError(e, context=key) from e
+
+
+def _validate_nested_sequence_keys(
+    d: Mapping[str, Any], key: str, expected_keys: frozenset[str]
+) -> None:
+    value = d.get(key)
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return
+    for i, item in enumerate(value):
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            _validate_known_keys(item, expected_keys)
+        except Exception as e:
+            raise PylockValidationError(e, context=f"{key}[{i}]") from e
+
+
+def _validate_pylock_1_0_keys(d: Mapping[str, Any]) -> None:
+    """Apply the closed-object rules from the pylock 1.0 schema.
+
+    Dependency references, attestation identities, hashes, and tool tables
+    intentionally preserve the parser's existing open-map behavior, so they are
+    not traversed here.
+    """
+    _validate_known_keys(d, _PYLOCK_1_0_KEYS)
+    packages = d.get("packages")
+    if not isinstance(packages, Sequence) or isinstance(packages, (str, bytes)):
+        return
+    for i, package in enumerate(packages):
+        if not isinstance(package, Mapping):
+            continue
+        try:
+            _validate_known_keys(package, _PACKAGE_KEYS)
+            _validate_nested_object_keys(package, "vcs", _VCS_KEYS)
+            _validate_nested_object_keys(package, "directory", _DIRECTORY_KEYS)
+            _validate_nested_object_keys(package, "archive", _ARCHIVE_KEYS)
+            _validate_nested_object_keys(package, "sdist", _DISTRIBUTION_KEYS)
+            _validate_nested_sequence_keys(package, "wheels", _DISTRIBUTION_KEYS)
+        except Exception as e:
+            raise PylockValidationError(e, context=f"packages[{i}]") from e
 
 
 def _validate_normalized_name(name: str) -> NormalizedName:
@@ -703,8 +801,11 @@ class Pylock:
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
+        lock_version = _get_required_as(d, str, Version, "lock-version")
+        if lock_version == Version("1.0"):
+            _validate_pylock_1_0_keys(d)
         pylock = cls(
-            lock_version=_get_required_as(d, str, Version, "lock-version"),
+            lock_version=lock_version,
             environments=_get_sequence_as(d, str, Marker, "environments"),
             extras=_get_sequence_as(d, str, _validate_normalized_name, "extras"),
             dependency_groups=_get_sequence(d, str, "dependency-groups"),
