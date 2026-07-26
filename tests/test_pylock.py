@@ -91,6 +91,22 @@ def test_pylock_version(version: str) -> None:
             },
             "packages[0].directory.unexpected",
         ),
+        (
+            {
+                "packages": [
+                    {
+                        "name": "example",
+                        "wheels": [
+                            {
+                                "name": "example-1.0-py3-none-any.whl",
+                                "unexpected": True,
+                            }
+                        ],
+                    }
+                ]
+            },
+            "packages[0].wheels[0].unexpected",
+        ),
     ],
 )
 def test_pylock_1_0_rejects_unknown_keys(
@@ -105,6 +121,19 @@ def test_pylock_1_0_rejects_unknown_keys(
     with pytest.raises(PylockValidationError) as exc_info:
         Pylock.from_dict(data)
     assert str(exc_info.value) == f"Unexpected key in {error_context!r}"
+
+
+def test_pylock_1_0_leaves_invalid_wheel_types_to_value_validation() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [{"name": "example", "wheels": [42]}],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Unexpected type int (expected Mapping) in 'packages[0].wheels[0]'"
+    )
 
 
 def test_pylock_1_0_preserves_open_extension_maps() -> None:
