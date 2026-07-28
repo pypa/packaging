@@ -35,7 +35,7 @@ jobs:
           - os: Ubuntu
             python_version: "3.14.0"
         exclude:
-          # Fails to build in CI (not packaging's fault)
+          # Slow, sometimes fails to build in CI (not packaging's fault)
           - os: Windows
             python_version: "3.13t"
 
