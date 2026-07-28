@@ -1055,6 +1055,8 @@ class Version(_BaseVersion):
 
         >>> Version("1.2.3").major
         1
+
+        .. versionadded:: 20.0
         """
         return self.release[0] if len(self.release) >= 1 else 0
 
@@ -1066,6 +1068,8 @@ class Version(_BaseVersion):
         2
         >>> Version("1").minor
         0
+
+        .. versionadded:: 20.0
         """
         return self.release[1] if len(self.release) >= 2 else 0
 
@@ -1077,6 +1081,8 @@ class Version(_BaseVersion):
         3
         >>> Version("1").micro
         0
+
+        .. versionadded:: 20.0
         """
         return self.release[2] if len(self.release) >= 3 else 0
 

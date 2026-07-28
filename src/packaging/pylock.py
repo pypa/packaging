@@ -473,7 +473,10 @@ class PackageSdist:
 
     @property
     def filename(self) -> str:
-        """Get the filename of the sdist."""
+        """Get the filename of the sdist.
+
+        .. versionadded:: 26.1
+        """
         filename = self.name or _path_name(self.path) or _url_name(self.url)
         if not filename:
             raise PylockValidationError("Cannot determine sdist filename")

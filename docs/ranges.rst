@@ -9,6 +9,8 @@ intervals on the PEP 440 ordering. It supports intersection, union,
 complement, and difference, so tooling that combines many requirements, such
 as a resolver, can work on the intervals directly.
 
+.. versionadded:: 26.3
+
 Usage
 -----
 

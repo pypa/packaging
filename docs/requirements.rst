@@ -83,6 +83,12 @@ Reference
         Added equality (``__eq__``) and hashing (``__hash__``) so requirements
         can be compared and stored in sets / dicts.
 
+    .. versionchanged:: 23.2
+        Equality and hashing began canonicalizing requirement names, so
+        requirements whose names differ only by normalization (e.g.
+        ``Requirement("Foo")`` vs ``Requirement("foo")``) now compare and hash
+        equal.
+
     Instances are safe to serialize with :mod:`pickle`. They use a stable
     format so the same pickle can be loaded in future packaging releases.
 
@@ -99,9 +105,9 @@ Reference
         specifier's explicit :attr:`~packaging.specifiers.SpecifierSet.prereleases`
         override; it is now included again.
 
-        Equality and hashing normalize requirement names, extras, and
-        equivalent specifiers. The string representation still preserves the
-        parsed name and extras spelling.
+        Equality and hashing normalize extras and equivalent specifiers. The
+        string representation still preserves the parsed name and extras
+        spelling.
 
     :param str requirement_string: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement_string`` is not parseable,

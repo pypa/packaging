@@ -43,7 +43,10 @@ def __dir__() -> list[str]:
 
 
 class InvalidMetadata(ValueError):
-    """A metadata field contains invalid data."""
+    """A metadata field contains invalid data.
+
+    .. versionadded:: 23.2
+    """
 
     field: str
     """The name of the field that contains invalid data."""
@@ -130,11 +133,15 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.4 - PEP 639
     license_expression: str
+    """.. versionadded:: 24.2"""
     license_files: list[str]
+    """.. versionadded:: 24.2"""
 
     # Metadata 2.5 - PEP 794
     import_names: list[str]
+    """.. versionadded:: 26.0"""
     import_namespaces: list[str]
+    """.. versionadded:: 26.0"""
 
     # Metadata 2.6 - PEP 808 (no new fields, behavior change for Dynamic)
 
@@ -305,6 +312,8 @@ class RFC822Policy(email.policy.EmailPolicy):
     """
     This is :class:`email.policy.EmailPolicy`, but with a simple ``header_store_parse``
     implementation that handles multi-line values, and some nice defaults.
+
+    .. versionadded:: 26.0
     """
 
     utf8 = True
@@ -323,6 +332,8 @@ class RFC822Message(email.message.EmailMessage):
     This is :class:`email.message.EmailMessage` with two small changes: it defaults to
     our `RFC822Policy`, and it correctly writes unicode when being called
     with `bytes()`.
+
+    .. versionadded:: 26.0
     """
 
     def __init__(self) -> None:
@@ -800,6 +811,12 @@ class Metadata:
     metadata fields instead of only using built-in types. Any invalid metadata
     will cause :exc:`InvalidMetadata` to be raised (with a
     :py:attr:`~BaseException.__cause__` attribute as appropriate).
+
+    .. versionadded:: 23.2
+
+    .. versionchanged:: 24.0
+        Optional attributes now return None when the field is absent instead of
+        raising.
     """
 
     _raw: RawMetadata
@@ -940,9 +957,15 @@ class Metadata:
     license_expression: _Validator[NormalizedLicenseExpression | None] = _Validator(
         added="2.4"
     )
-    """:external:ref:`core-metadata-license-expression`"""
+    """:external:ref:`core-metadata-license-expression`
+
+    .. versionadded:: 24.2
+    """
     license_files: _Validator[list[str] | None] = _Validator(added="2.4")
-    """:external:ref:`core-metadata-license-file`"""
+    """:external:ref:`core-metadata-license-file`
+
+    .. versionadded:: 24.2
+    """
     classifiers: _Validator[list[str] | None] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
     requires_dist: _Validator[list[requirements.Requirement] | None] = _Validator(
@@ -970,9 +993,15 @@ class Metadata:
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`core-metadata-import-name`"""
+    """:external:ref:`core-metadata-import-name`
+
+    .. versionadded:: 26.0
+    """
     import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`core-metadata-import-namespace`"""
+    """:external:ref:`core-metadata-import-namespace`
+
+    .. versionadded:: 26.0
+    """
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
     provides: _Validator[list[str] | None] = _Validator(added="1.1")
@@ -983,6 +1012,8 @@ class Metadata:
     def as_rfc822(self) -> RFC822Message:
         """
         Return an RFC822 message with the metadata.
+
+        .. versionadded:: 26.0
         """
         message = RFC822Message()
         self._write_metadata(message)

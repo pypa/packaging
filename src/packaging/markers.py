@@ -45,6 +45,8 @@ Valid values for the ``context`` passed to :meth:`Marker.evaluate` are:
 * ``"metadata"`` (for core metadata; default)
 * ``"lock_file"`` (for lock files)
 * ``"requirement"`` (i.e. all other situations)
+
+.. versionadded:: 25.0
 """
 
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
@@ -78,6 +80,11 @@ class UndefinedEnvironmentName(KeyError):
 
     Subclasses :class:`KeyError` so that code catching the bare ``KeyError`` that
     a missing environment lookup historically produced keeps working.
+
+    .. versionchanged:: 26.3
+        Now subclasses :class:`KeyError` (was :class:`ValueError`) and is raised by
+        :meth:`Marker.evaluate` for missing environment keys, where a bare
+        ``KeyError`` was raised before.
     """
 
 
@@ -518,6 +525,9 @@ class Marker:
             is missing from the evaluation environment.
         :returns: ``True`` if the marker matches, otherwise ``False``.
 
+        .. versionchanged:: 25.0
+            Added the ``context`` parameter, which influences which marker names
+            are considered valid.
         """
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()

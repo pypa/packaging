@@ -7,6 +7,8 @@ Currently this contains :class:`~packaging.errors.ExceptionGroup`, a simple
 backport of the stdlib :external:exc:`ExceptionGroup`. It is recommended to use
 the stdlib module on Python 3.11+, but this does reexport that as well.
 
+.. versionadded:: 26.1
+
 Recommended Usage
 -----------------
 

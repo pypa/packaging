@@ -5,6 +5,8 @@ Direct URLs
 
 Parse and validate `direct_url.json files <https://packaging.python.org/en/latest/specifications/direct-url/>`_.
 
+.. versionadded:: 26.1
+
 Usage
 -----
 
