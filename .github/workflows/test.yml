@@ -34,6 +34,10 @@ jobs:
             python_version: "3.13.0"
           - os: Ubuntu
             python_version: "3.14.0"
+        exclude:
+          # Slow, sometimes fails to build in CI (not packaging's fault)
+          - os: Windows
+            python_version: "3.13t"
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
