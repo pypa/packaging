@@ -87,12 +87,7 @@ Fixes for metadata and licenses:
 * Make ``InvalidMetadata`` and ``CyclicDependencyGroup`` picklable.
   (:pull:`1328`)
 * Fold every line boundary ``str.splitlines`` recognizes when writing a header
-  with :class:`~packaging.metadata.RFC822Message`. A value holding a bare
-  carriage return no longer makes the email generator raise
-  ``HeaderWriteError``, and on CPython releases without the CVE-2024-6923 fix
-  the other boundaries (form feed, line separator, ...) no longer end the
-  header and start a new one. ``Summary`` is validated against the same set of
-  line boundaries. (:pull:`1356`)
+  with :class:`~packaging.metadata.RFC822Message`. (:pull:`1356`)
 * Raise ``InvalidLicenseExpression`` for misplaced ``WITH`` clauses and empty
   ``LicenseRef-`` names. (:pull:`1266`)
 * Raise ``InvalidLicenseExpression`` instead of ``KeyError`` for a
