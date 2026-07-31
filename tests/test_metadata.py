@@ -716,7 +716,9 @@ class TestMetadata:
 
         assert meta.summary == summary
 
-    @pytest.mark.parametrize("summary", ["Hello\n    Again", "Hello\rAgain"])
+    @pytest.mark.parametrize(
+        "summary", ["Hello\n    Again", "Hello\rAgain", "Hello\u2028Again"]
+    )
     def test_invalid_summary(self, summary: str) -> None:
         meta = metadata.Metadata.from_raw({"summary": summary}, validate=False)
 
@@ -1188,6 +1190,22 @@ class TestMetadataWriting:
             written_bytes
             == "metadata-version: 2.3\nname: Hello\n"
             "version: 1.2.3\n\nHello\n\nWorld👋".encode()
+        )
+
+    def test_write_metadata_with_carriage_return(self) -> None:
+        # A bare "\r" made the email generator raise HeaderWriteError.
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "packaging",
+                "author": "Hello\rWorld",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nauthor: Hello\n        World\n\n"
         )
 
     def test_multiline_license(self) -> None:

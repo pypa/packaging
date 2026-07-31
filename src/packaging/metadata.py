@@ -308,9 +308,9 @@ _EMAIL_TO_RAW_MAPPING = {
 _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
 
 
-# Every boundary ``str.splitlines`` knows about ends a header line once the
-# email package writes the message back out, so all of them have to be folded,
-# not just "\n".
+# A bare "\r" makes the email generator raise ``HeaderWriteError``, and on
+# CPython releases without the CVE-2024-6923 fix any ``str.splitlines``
+# boundary ends the header line, so fold all of them, not just "\n".
 _LINE_BOUNDARY_RE = re.compile(r"\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]")
 
 
