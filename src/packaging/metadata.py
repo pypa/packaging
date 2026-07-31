@@ -6,6 +6,7 @@ import email.parser
 import email.policy
 import keyword
 import pathlib
+import re
 import typing
 from typing import (
     Any,
@@ -307,6 +308,12 @@ _EMAIL_TO_RAW_MAPPING = {
 _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
 
 
+# Every boundary ``str.splitlines`` knows about ends a header line once the
+# email package writes the message back out, so all of them have to be folded,
+# not just "\n".
+_LINE_BOUNDARY_RE = re.compile(r"\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]")
+
+
 # This class is for writing RFC822 messages
 class RFC822Policy(email.policy.EmailPolicy):
     """
@@ -322,7 +329,7 @@ class RFC822Policy(email.policy.EmailPolicy):
 
     def header_store_parse(self, name: str, value: str) -> tuple[str, str]:
         size = len(name) + 2
-        value = value.replace("\n", "\n" + " " * size)
+        value = _LINE_BOUNDARY_RE.sub("\n" + " " * size, value)
         return (name, value)
 
 
@@ -642,8 +649,8 @@ class _Validator(Generic[T]):
             ) from exc
 
     def _process_summary(self, value: str) -> str:
-        """Check the field contains no newlines."""
-        if "\n" in value:
+        """Check the field contains no line breaks."""
+        if _LINE_BOUNDARY_RE.search(value):
             raise self._invalid_metadata(f"{self.raw_name!r} must be a single line")
         return value
 
