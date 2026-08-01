@@ -86,6 +86,8 @@ Fixes for metadata and licenses:
   (:pull:`1247`)
 * Make ``InvalidMetadata`` and ``CyclicDependencyGroup`` picklable.
   (:pull:`1328`)
+* Fold every line boundary ``str.splitlines`` recognizes when writing a header
+  with :class:`~packaging.metadata.RFC822Message`. (:pull:`1356`)
 * Raise ``InvalidLicenseExpression`` for misplaced ``WITH`` clauses and empty
   ``LicenseRef-`` names. (:pull:`1266`)
 * Raise ``InvalidLicenseExpression`` instead of ``KeyError`` for a

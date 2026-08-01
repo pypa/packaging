@@ -716,10 +716,11 @@ class TestMetadata:
 
         assert meta.summary == summary
 
-    def test_invalid_summary(self) -> None:
-        meta = metadata.Metadata.from_raw(
-            {"summary": "Hello\n    Again"}, validate=False
-        )
+    @pytest.mark.parametrize(
+        "summary", ["Hello\n    Again", "Hello\rAgain", "Hello\u2028Again"]
+    )
+    def test_invalid_summary(self, summary: str) -> None:
+        meta = metadata.Metadata.from_raw({"summary": summary}, validate=False)
 
         with pytest.raises(metadata.InvalidMetadata) as exc_info:
             meta.summary  # noqa: B018
@@ -1191,6 +1192,22 @@ class TestMetadataWriting:
             "version: 1.2.3\n\nHello\n\nWorld👋".encode()
         )
 
+    def test_write_metadata_with_carriage_return(self) -> None:
+        # A bare "\r" made the email generator raise HeaderWriteError.
+        meta = metadata.Metadata.from_raw(
+            {
+                "version": "1.2.3",
+                "name": "packaging",
+                "author": "Hello\rWorld",
+                "metadata_version": "2.3",
+            }
+        )
+        written = meta.as_rfc822().as_string()
+        assert (
+            written == "metadata-version: 2.3\nname: packaging\nversion: 1.2.3"
+            "\nauthor: Hello\n        World\n\n"
+        )
+
     def test_multiline_license(self) -> None:
         meta = metadata.Metadata.from_raw(
             {
@@ -1474,6 +1491,19 @@ class TestMetadataWriting:
 
         assert email.message_from_string(str(message)).items() == [
             (a, "\n       ".join(b.splitlines())) for a, b in items if b is not None
+        ]
+
+    @pytest.mark.parametrize(
+        "boundary",
+        ["\r", "\r\n", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"],
+    )
+    def test_headers_fold_every_line_boundary(self, boundary: str) -> None:
+        message = metadata.RFC822Message()
+        message["ItemA"] = f"ValueA{boundary}Requires-Dist: injected"
+
+        assert str(message) == "ItemA: ValueA\n       Requires-Dist: injected\n\n"
+        assert email.message_from_string(str(message)).items() == [
+            ("ItemA", "ValueA\n       Requires-Dist: injected")
         ]
 
     def test_body(self) -> None:
