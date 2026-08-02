@@ -1298,6 +1298,9 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 11), abis=["whatever"]))
         assert tags.Tag("cp311", "whatever", "plat1") in result
 
+    def test_empty_platforms(self) -> None:
+        assert list(tags.cpython_tags((3, 11), abis=["whatever"], platforms=[])) == []
+
     def test_platform_name_space_normalization(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1508,6 +1511,10 @@ class TestGenericTags:
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
         assert result == [tags.Tag("sillywalk", "none", "plat")]
 
+    def test_empty_platforms(self) -> None:
+        result = list(tags.generic_tags("sillywalk", ["abi"], []))
+        assert result == []
+
 
 class TestPurePythonTags:
     def test_python_version(self) -> None:
@@ -1564,6 +1571,13 @@ class TestCompatibleTags:
             tags.Tag("py32", "none", "any"),
             tags.Tag("py31", "none", "any"),
             tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_empty_platforms(self) -> None:
+        result = list(tags.compatible_tags((3,), "cp3", []))
+        assert result == [
+            tags.Tag("cp3", "none", "any"),
+            tags.Tag("py3", "none", "any"),
         ]
 
     def test_all_args_needs_underscore(self) -> None:
