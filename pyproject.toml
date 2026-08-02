@@ -130,11 +130,13 @@ ignore = [
     "A002",    # function args shadowing builtins is fine
     "C9",      # complexity
     "COM812",  # trailing commas teach the formatter
+    "CPY001",  # no copyright messages in files (for now)
     "D",       # doc formatting
     "EM",      # flake8-errmsg
     "ERA",     # commented out code
     "FBT",     # boolean positional args (existing API)
     "FIX",     # has todos
+    "ISC004",  # unparenthesized implicit string concatenation in collection
     "N818",    # exceptions must end in "*Error"
     "PLR09",   # too many ...
     "PLR2004", # magic value in comparison
