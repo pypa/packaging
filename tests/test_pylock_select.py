@@ -70,11 +70,15 @@ def test_smoke_test() -> None:
         assert isinstance(dist, PackageWheel)
 
 
-def test_lock_no_matching_env() -> None:
+@pytest.mark.parametrize(
+    "environments",
+    [[], [Marker('python_version == "3.14"')]],
+)
+def test_lock_no_matching_env(environments: list[Marker]) -> None:
     pylock = Pylock(
         lock_version=Version("1.0"),
         created_by="some_tool",
-        environments=[Marker('python_version == "3.14"')],
+        environments=environments,
         packages=[],
     )
     pylock.validate()
@@ -91,6 +95,22 @@ def test_lock_no_matching_env() -> None:
                 environment=_py312_linux.environment,
             )
         )
+
+
+def test_lock_without_environments() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        environments=None,
+        packages=[],
+    )
+    pylock.validate()
+    assert not list(
+        pylock.select(
+            tags=_py312_linux.tags,
+            environment=_py312_linux.environment,
+        )
+    )
 
 
 def test_lock_require_python_mismatch() -> None:

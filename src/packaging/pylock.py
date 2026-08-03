@@ -836,7 +836,7 @@ class Pylock:
         # #. If :ref:`pylock-environments` is specified, check that at least one of the
         #    environment marker expressions is satisfied; an error MUST be raised if no
         #    expression is satisfied.
-        if self.environments:
+        if self.environments is not None:
             for env_marker in self.environments:
                 if env_marker.evaluate(
                     cast("dict[str, str]", environment or {}), context="requirement"
