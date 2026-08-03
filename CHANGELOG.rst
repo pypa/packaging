@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+*unreleased*
+~~~~~~~~~~~~
+
+No unreleased changes.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
