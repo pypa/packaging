@@ -64,7 +64,7 @@ VALUES = [
 
 class TestNode:
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
-    def test_accepts_value(self, value: str | None | int | list[str]) -> None:
+    def test_accepts_value(self, value: str | int | list[str] | None) -> None:
         assert Node(value).value == value  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("value", ["one", "two"])

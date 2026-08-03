@@ -1478,7 +1478,7 @@ class TestMetadataWriting:
             ),
         ],
     )
-    def test_headers(self, items: list[tuple[str, None | str]], data: str) -> None:
+    def test_headers(self, items: list[tuple[str, str | None]], data: str) -> None:
         message = metadata.RFC822Message()
 
         for name, value in items:
