@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import Version
 
 from . import add_attributes
@@ -55,6 +55,20 @@ class TimeSpecSuite:
         for sp in self._warm_compatible._specs:
             sp.contains(self.complex_versions[0])
 
+        specifier_strs = [str(sp) for s in self._cold_specs for sp in s._specs]
+        self._warm_specifiers = [Specifier(s) for s in specifier_strs]
+        others = [Specifier(s) for s in specifier_strs]
+        for sp in (*self._warm_specifiers, *others):
+            hash(sp)
+        self._warm_specifier_pairs = list(
+            zip(self._warm_specifiers, others, strict=True)
+        )
+
+        self._warm_spec_groups = [s._specs for s in self._warm_specs]
+        for group in self._warm_spec_groups:
+            for sp in group:
+                hash(sp)
+
     def _make_cold(self, spec: SpecifierSet) -> None:
         if hasattr(spec, "_canonicalized"):
             spec._canonicalized = False
@@ -70,6 +84,8 @@ class TimeSpecSuite:
                 sp._wildcard_split = None
             if hasattr(sp, "_ranges"):
                 sp._ranges = None
+            if hasattr(sp, "_canonical_spec_cache"):
+                sp._canonical_spec_cache = None
 
     @add_attributes(pretty_name="SpecifierSet constructor")
     def time_constructor(self) -> None:
@@ -116,3 +132,20 @@ class TimeSpecSuite:
     @add_attributes(pretty_name="SpecifierSet filter (compatible, warm)")
     def time_filter_compatible_warm(self) -> None:
         list(self._warm_compatible.filter(self.complex_versions))
+
+    @add_attributes(pretty_name="Specifier hash (warm)")
+    def time_hash_specifier_warm(self) -> None:
+        for sp in self._warm_specifiers:
+            hash(sp)
+
+    @add_attributes(pretty_name="Specifier equality (warm)")
+    def time_eq_specifier_warm(self) -> None:
+        for a, b in self._warm_specifier_pairs:
+            _ = a == b
+
+    # A SpecifierSet caches its deduplication, so construction has to be inside the
+    # timed region to reach the sort and dict.fromkeys at all.
+    @add_attributes(pretty_name="SpecifierSet construct + dedup (warm)")
+    def time_construct_and_dedup_warm(self) -> None:
+        for group in self._warm_spec_groups:
+            SpecifierSet(group)._canonical_specs()
