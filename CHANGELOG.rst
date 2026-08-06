@@ -11,6 +11,9 @@ No unreleased changes.
 
 Features:
 
+* Add the ``packaging.wheelfile`` module for reading and creating wheel files.
+  (:issue:`697`)
+
 * Add a public :class:`~packaging.ranges.VersionRange` API and
   :meth:`SpecifierSet.to_range() <packaging.specifiers.SpecifierSet.to_range>`,
   representing the versions a specifier set accepts as an interval set that
