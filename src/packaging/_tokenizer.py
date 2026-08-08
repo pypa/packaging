@@ -11,10 +11,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
 
-@dataclass
+@dataclass(slots=True)
 class Token:
-    __slots__ = ("name", "position", "text")
-
     name: str
     text: str
     position: int
