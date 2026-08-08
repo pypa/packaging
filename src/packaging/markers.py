@@ -412,7 +412,7 @@ class Marker:
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
             # The attribute `_markers` can be described in terms of a recursive type:
-            # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
+            # MarkerList = list[tuple[Node, ...] | str | MarkerList]
             #
             # For example, the following expression:
             # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
