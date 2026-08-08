@@ -448,7 +448,7 @@ def cpython_tags(
         except ValueError:  # noqa: PERF203
             pass
 
-    platforms = list(platforms or platform_tags())
+    platforms = list(platform_tags() if platforms is None else platforms)
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -555,7 +555,7 @@ def generic_tags(
         interp_version = interpreter_version(warn=warn)
         interpreter = f"{interp_name}{interp_version}"
     abis = _generic_abi() if abis is None else list(abis)
-    platforms = list(platforms or platform_tags())
+    platforms = list(platform_tags() if platforms is None else platforms)
     if "none" not in abis:
         abis.append("none")
     for abi in abis:
@@ -629,7 +629,7 @@ def compatible_tags(
     """
     if not python_version:
         python_version = sys.version_info[:2]
-    platforms = list(platforms or platform_tags())
+    platforms = list(platform_tags() if platforms is None else platforms)
     for version in _py_interpreter_range(python_version):
         for platform_ in platforms:
             yield Tag(version, "none", platform_)
