@@ -175,24 +175,20 @@ def _normalize_extras(
         return result
 
     lhs, op, rhs = result
-    if isinstance(lhs, Variable) and lhs.value == "extra" and isinstance(rhs, Value):
-        normalized_extra = canonicalize_name(rhs.value)
-        rhs = Value(normalized_extra)
-    elif isinstance(rhs, Variable) and rhs.value == "extra" and isinstance(lhs, Value):
-        normalized_extra = canonicalize_name(lhs.value)
-        lhs = Value(normalized_extra)
-    elif (
-        isinstance(rhs, Variable)
-        and rhs.value in MARKERS_ALLOWING_SET
-        and isinstance(lhs, Value)
-    ):
-        # PEP 685 (extras) / PEP 735 (dependency_groups): the set-valued membership
-        # literal must also be normalized. evaluate() already canonicalizes both
-        # operands for these keys (see _normalize), so normalizing the literal at
-        # parse time keeps __str__/__eq__/__hash__ consistent with evaluate() -- e.g.
-        # Marker('"Foo" in extras') and Marker('"foo" in extras') must compare and
-        # hash equal (the membership variable is always the right-hand operand).
-        lhs = Value(canonicalize_name(lhs.value))
+    match lhs, rhs:
+        case Variable(value="extra"), Value(value=extra):
+            rhs = Value(canonicalize_name(extra))
+        case Value(value=extra), Variable(value="extra"):
+            lhs = Value(canonicalize_name(extra))
+        case Value(value=literal), Variable(value=name) if name in MARKERS_ALLOWING_SET:
+            # PEP 685 (extras) / PEP 735 (dependency_groups): the set-valued membership
+            # literal must also be normalized. evaluate() already canonicalizes both
+            # operands for these keys (see _normalize), so normalizing the literal at
+            # parse time keeps __str__/__eq__/__hash__ consistent with evaluate() --
+            # e.g. Marker('"Foo" in extras') and Marker('"foo" in extras') must compare
+            # and hash equal (the membership variable is always the right-hand
+            # operand).
+            lhs = Value(canonicalize_name(literal))
     return lhs, op, rhs
 
 
@@ -209,25 +205,21 @@ def _format_marker(
 ) -> str:
     assert isinstance(marker, (list, tuple, str))
 
-    # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
-    # nested group keeps the parentheses its and/or precedence needs.
-    if (
-        isinstance(marker, list)
-        and len(marker) == 1
-        and isinstance(marker[0], (list, tuple))
-    ):
-        return _format_marker(marker[0], first=first)
-
-    if isinstance(marker, list):
-        inner = (_format_marker(m, first=False) for m in marker)
-        if first:
-            return " ".join(inner)
-        else:
-            return "(" + " ".join(inner) + ")"
-    elif isinstance(marker, tuple):
-        return " ".join([m.serialize() for m in marker])
-    else:
-        return marker
+    match marker:
+        # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
+        # nested group keeps the parentheses its and/or precedence needs.
+        case list([list() | tuple() as group]):
+            return _format_marker(group, first=first)
+        case list():
+            inner = (_format_marker(m, first=False) for m in marker)
+            if first:
+                return " ".join(inner)
+            else:
+                return "(" + " ".join(inner) + ")"
+        case tuple():
+            return " ".join([m.serialize() for m in marker])
+        case _:
+            return marker
 
 
 _operators: dict[str, Operator] = {
@@ -295,35 +287,39 @@ def _evaluate_markers(
     groups: list[list[bool]] = [[]]
 
     for marker in markers:
-        if isinstance(marker, list):
-            groups[-1].append(_evaluate_markers(marker, environment))
-        elif isinstance(marker, tuple):
-            lhs, op, rhs = marker
+        match marker:
+            case list():
+                groups[-1].append(_evaluate_markers(marker, environment))
+            case (Variable() | Value() as lhs, Op() as op, Variable() | Value() as rhs):
+                rhs_value: str | AbstractSet[str]
+                if isinstance(lhs, Variable):
+                    environment_key = lhs.value
+                    lhs_value = _lookup_environment(environment, environment_key)
+                    rhs_value = rhs.value
+                else:
+                    lhs_value = lhs.value
+                    environment_key = rhs.value
+                    rhs_value = _lookup_environment(environment, environment_key)
 
-            if isinstance(lhs, Variable):
-                environment_key = lhs.value
-                lhs_value = _lookup_environment(environment, environment_key)
-                rhs_value = rhs.value
-            else:
-                lhs_value = lhs.value
-                environment_key = rhs.value
-                rhs_value = _lookup_environment(environment, environment_key)
-
-            if not isinstance(lhs_value, str):
-                raise UndefinedComparison(
-                    f"Set-valued marker {environment_key!r} can only be used "
-                    f'with the membership form (e.g. "<name>" in '
-                    f"{environment_key}); it cannot appear on the left-hand "
-                    f"side of {op.serialize()!r}."
+                if not isinstance(lhs_value, str):
+                    raise UndefinedComparison(
+                        f"Set-valued marker {environment_key!r} can only be used "
+                        f'with the membership form (e.g. "<name>" in '
+                        f"{environment_key}); it cannot appear on the left-hand "
+                        f"side of {op.serialize()!r}."
+                    )
+                lhs_value, rhs_value = _normalize(
+                    lhs_value, rhs_value, key=environment_key
                 )
-            lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
-            groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
-        elif marker == "or":
-            groups.append([])
-        elif marker == "and":
-            pass
-        else:  # pragma: nocover
-            raise TypeError(f"Unexpected marker {marker!r}")
+                groups[-1].append(
+                    _eval_op(lhs_value, op, rhs_value, key=environment_key)
+                )
+            case "or":
+                groups.append([])
+            case "and":
+                pass
+            case _:  # pragma: nocover
+                raise TypeError(f"Unexpected marker {marker!r}")
 
     return any(all(item) for item in groups)
 
