@@ -321,32 +321,14 @@ class PylockSelectError(Exception):
     """
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
     type: str
     url: str | None = None
     path: str | None = None
     requested_revision: str | None = None
-    commit_id: str  # type: ignore[misc]
+    commit_id: str
     subdirectory: str | None = None
-
-    def __init__(
-        self,
-        *,
-        type: str,
-        url: str | None = None,
-        path: str | None = None,
-        requested_revision: str | None = None,
-        commit_id: str,
-        subdirectory: str | None = None,
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "type", type)
-        object.__setattr__(self, "url", url)
-        object.__setattr__(self, "path", path)
-        object.__setattr__(self, "requested_revision", requested_revision)
-        object.__setattr__(self, "commit_id", commit_id)
-        object.__setattr__(self, "subdirectory", subdirectory)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -362,23 +344,11 @@ class PackageVcs:
         return package_vcs
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
     path: str
     editable: bool | None = None
     subdirectory: str | None = None
-
-    def __init__(
-        self,
-        *,
-        path: str,
-        editable: bool | None = None,
-        subdirectory: str | None = None,
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "path", path)
-        object.__setattr__(self, "editable", editable)
-        object.__setattr__(self, "subdirectory", subdirectory)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -389,32 +359,14 @@ class PackageDirectory:
         )
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
     url: str | None = None
     path: str | None = None
     size: int | None = None
     upload_time: datetime | None = None
-    hashes: Mapping[str, str]  # type: ignore[misc]
+    hashes: Mapping[str, str]
     subdirectory: str | None = None
-
-    def __init__(
-        self,
-        *,
-        url: str | None = None,
-        path: str | None = None,
-        size: int | None = None,
-        upload_time: datetime | None = None,
-        hashes: Mapping[str, str],
-        subdirectory: str | None = None,
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "url", url)
-        object.__setattr__(self, "path", path)
-        object.__setattr__(self, "size", size)
-        object.__setattr__(self, "upload_time", upload_time)
-        object.__setattr__(self, "hashes", hashes)
-        object.__setattr__(self, "subdirectory", subdirectory)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -430,32 +382,14 @@ class PackageArchive:
         return package_archive
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
     path: str | None = None
     size: int | None = None
-    hashes: Mapping[str, str]  # type: ignore[misc]
-
-    def __init__(
-        self,
-        *,
-        name: str | None = None,
-        upload_time: datetime | None = None,
-        url: str | None = None,
-        path: str | None = None,
-        size: int | None = None,
-        hashes: Mapping[str, str],
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "name", name)
-        object.__setattr__(self, "upload_time", upload_time)
-        object.__setattr__(self, "url", url)
-        object.__setattr__(self, "path", path)
-        object.__setattr__(self, "size", size)
-        object.__setattr__(self, "hashes", hashes)
+    hashes: Mapping[str, str]
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -482,32 +416,14 @@ class PackageSdist:
         return filename
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
     path: str | None = None
     size: int | None = None
-    hashes: Mapping[str, str]  # type: ignore[misc]
-
-    def __init__(
-        self,
-        *,
-        name: str | None = None,
-        upload_time: datetime | None = None,
-        url: str | None = None,
-        path: str | None = None,
-        size: int | None = None,
-        hashes: Mapping[str, str],
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "name", name)
-        object.__setattr__(self, "upload_time", upload_time)
-        object.__setattr__(self, "url", url)
-        object.__setattr__(self, "path", path)
-        object.__setattr__(self, "size", size)
-        object.__setattr__(self, "hashes", hashes)
+    hashes: Mapping[str, str]
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -531,7 +447,7 @@ class PackageWheel:
         return filename
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
     name: NormalizedName
     version: Version | None = None
@@ -546,38 +462,6 @@ class Package:
     wheels: Sequence[PackageWheel] | None = None
     attestation_identities: Sequence[Mapping[str, Any]] | None = None
     tool: Mapping[str, Any] | None = None
-
-    def __init__(
-        self,
-        *,
-        name: NormalizedName,
-        version: Version | None = None,
-        marker: Marker | None = None,
-        requires_python: SpecifierSet | None = None,
-        dependencies: Sequence[Mapping[str, Any]] | None = None,
-        vcs: PackageVcs | None = None,
-        directory: PackageDirectory | None = None,
-        archive: PackageArchive | None = None,
-        index: str | None = None,
-        sdist: PackageSdist | None = None,
-        wheels: Sequence[PackageWheel] | None = None,
-        attestation_identities: Sequence[Mapping[str, Any]] | None = None,
-        tool: Mapping[str, Any] | None = None,
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "name", name)
-        object.__setattr__(self, "version", version)
-        object.__setattr__(self, "marker", marker)
-        object.__setattr__(self, "requires_python", requires_python)
-        object.__setattr__(self, "dependencies", dependencies)
-        object.__setattr__(self, "vcs", vcs)
-        object.__setattr__(self, "directory", directory)
-        object.__setattr__(self, "archive", archive)
-        object.__setattr__(self, "index", index)
-        object.__setattr__(self, "sdist", sdist)
-        object.__setattr__(self, "wheels", wheels)
-        object.__setattr__(self, "attestation_identities", attestation_identities)
-        object.__setattr__(self, "tool", tool)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -665,7 +549,7 @@ class Package:
         return not (self.sdist or self.wheels)
 
 
-@dataclass(frozen=True, init=False, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
     """A class representing a pylock file."""
 
@@ -675,33 +559,9 @@ class Pylock:
     extras: Sequence[NormalizedName] | None = None
     dependency_groups: Sequence[str] | None = None
     default_groups: Sequence[str] | None = None
-    created_by: str  # type: ignore[misc]
-    packages: Sequence[Package]  # type: ignore[misc]
+    created_by: str
+    packages: Sequence[Package]
     tool: Mapping[str, Any] | None = None
-
-    def __init__(
-        self,
-        *,
-        lock_version: Version,
-        environments: Sequence[Marker] | None = None,
-        requires_python: SpecifierSet | None = None,
-        extras: Sequence[NormalizedName] | None = None,
-        dependency_groups: Sequence[str] | None = None,
-        default_groups: Sequence[str] | None = None,
-        created_by: str,
-        packages: Sequence[Package],
-        tool: Mapping[str, Any] | None = None,
-    ) -> None:
-        # In Python 3.10+ make dataclass kw_only=True and remove __init__
-        object.__setattr__(self, "lock_version", lock_version)
-        object.__setattr__(self, "environments", environments)
-        object.__setattr__(self, "requires_python", requires_python)
-        object.__setattr__(self, "extras", extras)
-        object.__setattr__(self, "dependency_groups", dependency_groups)
-        object.__setattr__(self, "default_groups", default_groups)
-        object.__setattr__(self, "created_by", created_by)
-        object.__setattr__(self, "packages", packages)
-        object.__setattr__(self, "tool", tool)
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
