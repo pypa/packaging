@@ -1374,6 +1374,39 @@ class TestMetadataWriting:
         assert core_metadata.get_payload() is None
 
     @pytest.mark.parametrize(
+        ("raw_field", "email_field"),
+        [
+            ("import_names", "import-name"),
+            ("import_namespaces", "import-namespace"),
+        ],
+    )
+    def test_empty_import_field_round_trip(
+        self, raw_field: str, email_field: str
+    ) -> None:
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.6",
+                "name": "full_metadata",
+                "version": "3.2.1",
+                raw_field: [],
+            }
+        )
+
+        core_metadata = meta.as_rfc822()
+        assert core_metadata.items() == [
+            ("metadata-version", "2.6"),
+            ("name", "full_metadata"),
+            ("version", "3.2.1"),
+            (email_field, ""),
+        ]
+
+        # The empty list must survive a serialize/parse round-trip rather than
+        # silently becoming ``None``.
+        raw, unparsed = metadata.parse_email(core_metadata.as_string())
+        assert not unparsed
+        assert raw[raw_field] == []
+
+    @pytest.mark.parametrize(
         ("items", "data"),
         [
             pytest.param(
