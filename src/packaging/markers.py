@@ -11,7 +11,7 @@ import platform
 import sys
 from collections.abc import Callable
 from collections.abc import Set as AbstractSet
-from typing import TYPE_CHECKING, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Final, Literal, TypedDict, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -204,30 +204,31 @@ def _normalize_extra_values(results: MarkerList) -> MarkerList:
     return [_normalize_extras(r) for r in results]
 
 
+_MARKER_TYPES: Final = (list, tuple, str)
+_GROUP_TYPES: Final = (list, tuple)
+
+
 def _format_marker(
     marker: list[str] | MarkerAtom | str, first: bool | None = True
 ) -> str:
-    assert isinstance(marker, (list, tuple, str))
-
-    # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
-    # nested group keeps the parentheses its and/or precedence needs.
-    if (
-        isinstance(marker, list)
-        and len(marker) == 1
-        and isinstance(marker[0], (list, tuple))
-    ):
-        return _format_marker(marker[0], first=first)
+    assert isinstance(marker, _MARKER_TYPES)
 
     if isinstance(marker, list):
-        inner = (_format_marker(m, first=False) for m in marker)
+        # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
+        # nested group keeps the parentheses its and/or precedence needs.
+        if len(marker) == 1 and isinstance(marker[0], _GROUP_TYPES):
+            return _format_marker(marker[0], first=first)
+
+        inner = [_format_marker(m, first=False) for m in marker]
         if first:
             return " ".join(inner)
-        else:
-            return "(" + " ".join(inner) + ")"
-    elif isinstance(marker, tuple):
-        return " ".join([m.serialize() for m in marker])
-    else:
-        return marker
+        return "(" + " ".join(inner) + ")"
+
+    if isinstance(marker, tuple):
+        lhs, op, rhs = marker
+        return f"{lhs.serialize()} {op.serialize()} {rhs.serialize()}"
+
+    return marker
 
 
 _operators: dict[str, Operator] = {
