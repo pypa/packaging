@@ -913,18 +913,19 @@ def platform_tags() -> Iterator[str]:
 
     .. versionadded:: 21.1
     """
-    if platform.system() == "Darwin":
-        return mac_platforms()
-    elif platform.system() == "iOS":
-        return ios_platforms()
-    elif platform.system() == "Android":
-        return android_platforms()
-    elif platform.system() == "Linux":
-        return _linux_platforms()
-    elif platform.system() == "Emscripten":
-        return _emscripten_platforms()
-    else:
-        return _generic_platforms()
+    match platform.system():
+        case "Darwin":
+            return mac_platforms()
+        case "iOS":
+            return ios_platforms()
+        case "Android":
+            return android_platforms()
+        case "Linux":
+            return _linux_platforms()
+        case "Emscripten":
+            return _emscripten_platforms()
+        case _:
+            return _generic_platforms()
 
 
 def interpreter_name() -> str:
