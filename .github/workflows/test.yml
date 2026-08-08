@@ -2,9 +2,12 @@ name: Test
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches-ignore:
+      - dependabot/**
+      - pypa/**
+      - stack/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
