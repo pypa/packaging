@@ -34,7 +34,7 @@ else:  # pragma: no cover
             return f"{self.__class__.__name__}({self.message!r}, {self.exceptions!r})"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _ErrorCollector:
     """
     Collect errors into ExceptionGroups.
