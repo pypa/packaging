@@ -4,7 +4,9 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-No unreleased changes.
+Removals:
+
+* Drop support for EOL Python 3.9. (:pull:`1263`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~

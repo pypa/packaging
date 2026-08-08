@@ -17,11 +17,10 @@ from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
-    from typing import Union
 
     # Total-order key for comparing two boundaries (boundary-vs-boundary only).
     # The post slot may be ``_BOUNDARY_INF`` for an AFTER_POSTS boundary.
-    _BoundaryOrderSuffix = tuple[int, int, int, Union[int, float], int, int]
+    _BoundaryOrderSuffix = tuple[int, int, int, int | float, int, int]
     _BoundaryOrderKey = tuple[int, tuple[int, ...], _BoundaryOrderSuffix, float]
 
 __all__ = [
@@ -172,7 +171,7 @@ class BoundaryVersion:
 
 
 if TYPE_CHECKING:
-    _VersionOrBoundary = Union[Version, BoundaryVersion, None]
+    _VersionOrBoundary = Version | BoundaryVersion | None
 
 
 @functools.total_ordering
