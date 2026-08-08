@@ -152,7 +152,7 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
         super().__init__("Missing required value", context=key)
 
 
-@dataclasses.dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False, slots=True)
 class VcsInfo:
     """The version control information of a :class:`DirectUrl`."""
 
@@ -181,7 +181,7 @@ class VcsInfo:
         )
 
 
-@dataclasses.dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False, slots=True)
 class ArchiveInfo:
     """The archive information of a :class:`DirectUrl`."""
 
@@ -229,7 +229,7 @@ class ArchiveInfo:
         return cls(hashes=hashes)
 
 
-@dataclasses.dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False, slots=True)
 class DirInfo:
     """The local directory information of a :class:`DirectUrl`."""
 
@@ -249,7 +249,7 @@ class DirInfo:
         )
 
 
-@dataclasses.dataclass(frozen=True, init=False)
+@dataclasses.dataclass(frozen=True, init=False, slots=True)
 class DirectUrl:
     """A class representing a direct URL.
 

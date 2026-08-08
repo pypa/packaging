@@ -321,7 +321,7 @@ class PylockSelectError(Exception):
     """
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class PackageVcs:
     type: str
     url: str | None = None
@@ -362,7 +362,7 @@ class PackageVcs:
         return package_vcs
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class PackageDirectory:
     path: str
     editable: bool | None = None
@@ -389,7 +389,7 @@ class PackageDirectory:
         )
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class PackageArchive:
     url: str | None = None
     path: str | None = None
@@ -430,7 +430,7 @@ class PackageArchive:
         return package_archive
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class PackageSdist:
     name: str | None = None
     upload_time: datetime | None = None
@@ -482,7 +482,7 @@ class PackageSdist:
         return filename
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class PackageWheel:
     name: str | None = None
     upload_time: datetime | None = None
@@ -531,7 +531,7 @@ class PackageWheel:
         return filename
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class Package:
     name: NormalizedName
     version: Version | None = None
@@ -665,7 +665,7 @@ class Package:
         return not (self.sdist or self.wheels)
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class Pylock:
     """A class representing a pylock file."""
 
