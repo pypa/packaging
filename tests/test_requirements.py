@@ -191,6 +191,14 @@ def test_requirement_marker_with_embedded_double_quote_round_trips() -> None:
     assert round_tripped_marker.evaluate() is False
 
 
+def test_requirement_marker_with_backslash_value_round_trips() -> None:
+    # A marker value with a backslash must survive serialization; otherwise
+    # str() re-decodes it (e.g. "C:\\temp" -> "C:<TAB>emp") and the requirement
+    # compares unequal to itself after a round trip.
+    req = Requirement(r'demo; os_name == "C:\\temp"')
+    assert Requirement(str(req)) == req
+
+
 class TestRequirementParsing:
     @pytest.mark.parametrize(
         "marker",
