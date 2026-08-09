@@ -584,6 +584,16 @@ class Pylock:
             _logger.warning(
                 "pylock minor version %s is not supported", pylock.lock_version
             )
+        if pylock.default_groups:
+            invalid_default_groups = set(pylock.default_groups) - set(
+                pylock.dependency_groups or []
+            )
+            if invalid_default_groups:
+                raise PylockValidationError(
+                    f"The following members of 'default-groups' "
+                    f"are not declared in 'dependency-groups': "
+                    f"{', '.join(sorted(invalid_default_groups))}"
+                )
         return pylock
 
     @classmethod

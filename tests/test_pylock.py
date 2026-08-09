@@ -901,3 +901,34 @@ def test_validate_attestation_identity_invalid_kind() -> None:
         "Unexpected type int (expected str) "
         "in 'packages[0].attestation-identities[0].kind'"
     )
+
+
+@pytest.mark.parametrize(
+    ("default_groups", "dependency_groups", "expected"),
+    [
+        (["g"], None, "g"),
+        (["f", "g"], None, "f, g"),
+        (["f", "g"], [], "f, g"),
+        (["f", "g"], ["h"], "f, g"),
+        (["f", "g"], ["f", "h"], "g"),
+        (["g"], ["h"], "g"),
+    ],
+)
+def test_invalid_default_groups(
+    default_groups: list[str] | None,
+    dependency_groups: list[str] | None,
+    expected: str,
+) -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "default-groups": default_groups,
+        "dependency-groups": dependency_groups,
+        "packages": [],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        f"The following members of 'default-groups' "
+        f"are not declared in 'dependency-groups': {expected}"
+    )
