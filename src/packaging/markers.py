@@ -211,7 +211,6 @@ _GROUP_TYPES: Final = (list, tuple)
 def _format_marker(
     marker: list[str] | MarkerAtom | str, first: bool | None = True
 ) -> str:
-    assert isinstance(marker, _MARKER_TYPES)
 
     if isinstance(marker, list):
         # Unwrap a redundant [[...]] wrapper, but keep the nesting context so a
