@@ -666,10 +666,16 @@ class Pylock:
             unknown_dependency_groups = {
                 canonicalize_name(dependency_group)
                 for dependency_group in dependency_groups
-            } - {
-                canonicalize_name(dependency_group)
-                for dependency_group in self.dependency_groups or []
-            }
+            } - (
+                {
+                    canonicalize_name(dependency_group)
+                    for dependency_group in self.dependency_groups or []
+                }
+                | {
+                    canonicalize_name(dependency_group)
+                    for dependency_group in self.default_groups or []
+                }
+            )
             if unknown_dependency_groups:
                 raise PylockSelectError(
                     f"Undeclared dependency groups: "

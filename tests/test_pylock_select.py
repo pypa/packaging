@@ -544,3 +544,18 @@ def test_unknown_groups() -> None:
         PylockSelectError, match=r"Undeclared dependency groups: g3, g4"
     ):
         list(pylock.select(dependency_groups=["G1", "g3", "g4"]))
+
+
+def test_unknown_groups_default_groups() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        dependency_groups=["g1", "g2"],
+        default_groups=["dg1", "dg2"],
+        packages=[],
+    )
+    pylock.validate()
+    with pytest.raises(
+        PylockSelectError, match=r"Undeclared dependency groups: g3, g4"
+    ):
+        list(pylock.select(dependency_groups=["G1", "DG1", "g3", "g4"]))
