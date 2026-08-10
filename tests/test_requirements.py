@@ -235,6 +235,7 @@ class TestRequirementParsing:
         [
             "name>=1",
             'name; python_version >= "3"',
+            "name @ https://example.com/name.whl",
         ],
     )
     def test_error_when_suffixed_with_line_break(
