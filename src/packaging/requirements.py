@@ -3,7 +3,9 @@
 # for complete details.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import builtins
+import sys
+from typing import TYPE_CHECKING, Any
 
 from ._parser import parse_requirement as _parse_requirement
 from ._tokenizer import ParserSyntaxError
@@ -22,6 +24,11 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
+
+
+# Sentinel for __replace__, typed as Any so it can be the default for any field.
+# mypy is missing sentinel currently
+_UNSET: Any = object() if sys.version_info < (3, 15) else builtins.sentinel("_UNSET")  # type: ignore[attr-defined]
 
 
 class InvalidRequirement(ValueError):
@@ -70,6 +77,10 @@ class Requirement:
         Equality and hashing normalize requirement names, extras, and
         equivalent specifiers. The string representation still preserves the
         parsed name and extras spelling.
+
+    .. versionchanged:: 26.4
+
+        Added ``__replace__``, enabling :func:`copy.replace` on Python 3.13+.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
@@ -96,6 +107,44 @@ class Requirement:
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
+
+    def __replace__(
+        self,
+        *,
+        name: str = _UNSET,
+        url: str | None = _UNSET,
+        extras: set[str] = _UNSET,
+        specifier: SpecifierSet = _UNSET,
+        marker: Marker | None = _UNSET,
+    ) -> Requirement:
+        """Return a copy with the given fields replaced.
+
+        This also enables :func:`copy.replace` on Python 3.13+. The result is
+        validated and normalized by re-parsing its string form, so invalid
+        replacements raise :exc:`InvalidRequirement`.
+
+        .. versionadded:: 26.4
+        """
+        tmp = Requirement.__new__(Requirement)
+        tmp.name = self.name if name is _UNSET else name
+        tmp.url = self.url if url is _UNSET else url or None
+        tmp.extras = self.extras if extras is _UNSET else extras
+        tmp.specifier = self.specifier if specifier is _UNSET else specifier
+        tmp.marker = self.marker if marker is _UNSET else marker
+
+        result = Requirement(str(tmp))
+        # A field that parses as something more than itself (for example
+        # ``name="foo[bar]"``) would silently change other fields; reject it.
+        if (
+            result.name != tmp.name
+            or result.url != tmp.url
+            or result.extras != tmp.extras
+        ):
+            raise InvalidRequirement(
+                f"Replacement fields do not round-trip: {str(tmp)!r}"
+            )
+        result.specifier._prereleases = tmp.specifier._prereleases
+        return result
 
     def _iter_parts(self, name: str) -> Iterator[str]:
         yield name
