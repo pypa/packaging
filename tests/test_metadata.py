@@ -1117,6 +1117,9 @@ class TestMetadata:
             ["licenses/../LICENSE"],
             # Absolute paths are not allowed.
             ["/licenses/LICENSE"],
+            # Windows drive-relative paths escape the project root on join.
+            ["C:LICENSE"],
+            ["d:secrets/key.txt"],
             # Paths must be valid
             # (i.e. glob pattern didn't escape out of pyproject.toml.)
             ["licenses/*"],
