@@ -30,8 +30,8 @@ repos:
         args: []
         additional_dependencies: &type_deps
           - hypothesis
-          - nox
-          - 'pytest<9'
+          - 'nox>=2026.08.10'
+          - pytest
           - tomli
           - tomli_w
           - 'typing_extensions>=4.16.0'

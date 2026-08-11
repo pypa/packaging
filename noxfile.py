@@ -8,6 +8,7 @@ import contextlib
 import datetime
 import difflib
 import glob
+import importlib.metadata
 import io
 import os
 import re
@@ -33,6 +34,11 @@ if TYPE_CHECKING:
 nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv|virtualenv"
+
+# Parallel mode added in modern nox
+NOX_VERSION = packaging.version.Version(importlib.metadata.version("nox"))
+if packaging.version.Version("2026.08.10") <= NOX_VERSION:
+    nox.options.allow_parallel = True
 
 PYPROJECT = nox.project.load_toml("pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
@@ -64,14 +70,20 @@ def tests(session: nox.Session) -> None:
         *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
     )
     session.install("-e.")
-    env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
+
+    assert session.python is not None
+    assert not isinstance(session.python, bool)
+
+    # Give each session its own data file so parallel sessions don't fight over
+    # the default ".coverage".
+    env = {"COVERAGE_FILE": str(Path.cwd() / f".coverage.{session.python}")}
+    if session.python == "3.14":
+        env["COVERAGE_CORE"] = "sysmon"
 
     # Property tests are marked with @pytest.mark.property and are excluded by default
     # via pyproject.toml. Run the regular test suite normally; property tests can be
     # run explicitly with `pytest -m property` or the `property_tests` nox session.
 
-    assert session.python is not None
-    assert not isinstance(session.python, bool)
     if "pypy" not in session.python:
         session.run(
             *coverage,
@@ -81,7 +93,7 @@ def tests(session: nox.Session) -> None:
             *session.posargs,
             env=env,
         )
-        session.run(*coverage, "report")
+        session.run(*coverage, "report", env=env)
     else:
         # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
@@ -346,9 +358,11 @@ def lint(session: nox.Session) -> None:
     # Run the linters (via prek, a Rust pre-commit runner)
     session.run("prek", "run", "--all-files", *session.posargs)
 
-    # Check the distribution
-    session.run("pyproject-build")
-    session.run("twine", "check", *glob.glob("dist/*"))
+    # Check the distribution. Build into the session temp dir, so this does not
+    # collide with the "dist/" the release sessions manage.
+    out_dir = Path(session.create_tmp()) / "dist"
+    session.run("pyproject-build", "--outdir", str(out_dir))
+    session.run("twine", "check", *glob.glob(f"{out_dir}/*"))
 
 
 @nox.session(default=False)
