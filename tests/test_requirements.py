@@ -1094,6 +1094,14 @@ def test_replace_validates_and_normalizes() -> None:
     assert r3.specifier.prereleases is True
 
 
+def test_replace_keeps_subclass() -> None:
+    class MyRequirement(Requirement):
+        pass
+
+    r = MyRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is MyRequirement
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 13), reason="copy.replace() requires Python 3.13"
 )

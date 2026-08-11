@@ -16,6 +16,8 @@ from .utils import canonicalize_name
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from typing_extensions import Self
+
 __all__ = [
     "InvalidRequirement",
     "Requirement",
@@ -116,7 +118,7 @@ class Requirement:
         extras: set[str] = _UNSET,
         specifier: SpecifierSet = _UNSET,
         marker: Marker | None = _UNSET,
-    ) -> Requirement:
+    ) -> Self:
         """Return a copy with the given fields replaced.
 
         This also enables :func:`copy.replace` on Python 3.13+. The result is
@@ -125,14 +127,14 @@ class Requirement:
 
         .. versionadded:: 26.4
         """
-        tmp = Requirement.__new__(Requirement)
+        tmp = self.__class__.__new__(self.__class__)
         tmp.name = self.name if name is _UNSET else name
         tmp.url = self.url if url is _UNSET else url or None
         tmp.extras = self.extras if extras is _UNSET else extras
         tmp.specifier = self.specifier if specifier is _UNSET else specifier
         tmp.marker = self.marker if marker is _UNSET else marker
 
-        result = Requirement(str(tmp))
+        result = self.__class__(str(tmp))
         # A field that parses as something more than itself (for example
         # ``name="foo[bar]"``) would silently change other fields; reject it.
         if (
