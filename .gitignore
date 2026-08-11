@@ -5,6 +5,7 @@
 .[nt]ox/
 .cache/
 .coverage
+.coverage.*
 .idea
 .venv*
 .vscode/
