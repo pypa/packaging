@@ -98,6 +98,9 @@ class TestSpecifier:
             # when re.IGNORECASE is in force and re.ASCII is not (issue #469)
             "==1.2+\u0130",
             "==1.2+\u0130\u0131\u017fK",
+            # Same for the pre/post-release words on the compatible operator
+            "~=1.2.3prev\u0131ew1",
+            "~=1.2.3po\u017ft1",
         ],
     )
     def test_specifiers_invalid(self, specifier: str) -> None:
