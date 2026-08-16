@@ -98,7 +98,8 @@ exclude_also = [
 [tool.pytest.ini_options]
 minversion = "6.2"
 # --capture=sys avoids per-test fd dup2/lseek syscalls (~20% of the runtime);
-# no test writes to raw file descriptors.
+# no test writes to raw file descriptors. The logging plugin is disabled since
+# no test uses caplog and its per-test setup is measurable at this test count.
 addopts = [
     "-ra",
     "--showlocals",
@@ -107,10 +108,11 @@ addopts = [
     "-m",
     "not property",
     "--capture=sys",
+    "-p",
+    "no:logging",
 ]
 xfail_strict = true
 filterwarnings = ["error"]
-log_level = "INFO"
 testpaths = ["tests"]
 markers = ["property: property-based tests (opt-in)"]
 
