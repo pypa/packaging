@@ -97,7 +97,17 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-m", "not property"]
+# --capture=sys avoids per-test fd dup2/lseek syscalls (~20% of the runtime);
+# no test writes to raw file descriptors.
+addopts = [
+    "-ra",
+    "--showlocals",
+    "--strict-markers",
+    "--strict-config",
+    "-m",
+    "not property",
+    "--capture=sys",
+]
 xfail_strict = true
 filterwarnings = ["error"]
 log_level = "INFO"
