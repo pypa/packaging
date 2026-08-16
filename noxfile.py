@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import datetime
 import difflib
@@ -48,6 +49,10 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 # binaries so uv/pip picks the newest version with a compatible wheel instead.
 HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
 
+# Interpreters that run the tests without coverage, because tracing is too slow
+# there: PyPy, and free-threaded 3.13, which has no fast C tracer.
+NO_COVERAGE = {"pypy", "3.13t"}
+
 
 @nox.session(
     python=[
@@ -64,15 +69,24 @@ def tests(session: nox.Session) -> None:
     """
     Run the tests, with coverage.
     """
+    assert session.python is not None
+    assert not isinstance(session.python, bool)
+
+    parser = argparse.ArgumentParser(prog="nox -s tests --")
+    parser.add_argument(
+        "--coverage",
+        action=argparse.BooleanOptionalAction,
+        default=not any(x in session.python for x in NO_COVERAGE),
+        help="Run the tests under coverage.",
+    )
+    args, posargs = parser.parse_known_args(session.posargs)
+
     coverage = ["python", "-m", "coverage"]
 
     session.install(
         *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
     )
     session.install("-e.")
-
-    assert session.python is not None
-    assert not isinstance(session.python, bool)
 
     # Give each session its own data file so parallel sessions don't fight over
     # the default ".coverage".
@@ -84,24 +98,23 @@ def tests(session: nox.Session) -> None:
     # via pyproject.toml. Run the regular test suite normally; property tests can be
     # run explicitly with `pytest -m property` or the `property_tests` nox session.
 
-    if "pypy" not in session.python:
+    if args.coverage:
         session.run(
             *coverage,
             "run",
             "-m",
             "pytest",
-            *session.posargs,
+            *posargs,
             env=env,
         )
         session.run(*coverage, "report", env=env)
     else:
-        # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
             "python",
             "-m",
             "pytest",
             "--capture=no",
-            *session.posargs,
+            *posargs,
         )
 
 
