@@ -18,9 +18,16 @@ def pytest_runtest_teardown() -> None:
     _cached_default_environment.cache_clear()
 
 
+def pytest_collection() -> None:
+    # Collection allocates millions of long-lived objects; skip GC passes until
+    # the collect-and-freeze below.
+    gc.disable()
+
+
 def pytest_collection_finish() -> None:
     # Freeze the collected-item tree and imported modules into GC's permanent
     # generation so per-test GC passes stop traversing them (~10% faster suite).
+    gc.enable()
     gc.collect()
     if hasattr(gc, "freeze"):  # CPython-only; missing on PyPy
         gc.freeze()
