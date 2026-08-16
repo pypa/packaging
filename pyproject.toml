@@ -103,8 +103,7 @@ minversion = "6.2"
 # threadexception wraps every test phase in catch contexts and forces several
 # gc.collect() passes at shutdown; the suite spawns no threads. tmpdir and
 # legacypath are unused (no test uses tmp_path or tmpdir) and only add
-# per-hook dispatch cost. unraisableexception stays enabled to catch
-# __del__/finalizer bugs.
+# per-hook dispatch cost.
 addopts = [
     "-ra",
     "--showlocals",
