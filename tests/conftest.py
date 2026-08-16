@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import sysconfig
 import typing
 
@@ -18,6 +19,14 @@ def _clear_default_environment_cache() -> Generator[None, None, None]:
     _cached_default_environment.cache_clear()
     yield
     _cached_default_environment.cache_clear()
+
+
+def pytest_collection_finish() -> None:
+    # Freeze the collected-item tree and imported modules into GC's permanent
+    # generation so per-test GC passes stop traversing them (~10% faster suite).
+    gc.collect()
+    if hasattr(gc, "freeze"):  # CPython-only; missing on PyPy
+        gc.freeze()
 
 
 def pytest_report_header() -> str:
