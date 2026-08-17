@@ -97,29 +97,22 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-# --capture=sys avoids per-test fd dup2/lseek syscalls (~20% of the runtime);
-# no test writes to raw file descriptors. The logging plugin is disabled since
-# no test uses caplog and its per-test setup is measurable at this test count.
-# threadexception wraps every test phase in catch contexts and forces several
-# gc.collect() passes at shutdown; the suite spawns no threads. tmpdir and
-# legacypath are unused (no test uses tmp_path or tmpdir) and only add
-# per-hook dispatch cost.
 addopts = [
     "-ra",
     "--showlocals",
     "--strict-markers",
     "--strict-config",
     "-m",
-    "not property",
-    "--capture=sys",
+    "not property",        # property based tests opt-in only
+    "--capture=sys",       # avoids per-test fd dup2/lseek syscalls (~20% of the runtime)
     "-p",
-    "no:logging",
+    "no:logging",          # no test uses caplog and its per-test setup is measurable
     "-p",
-    "no:threadexception",
+    "no:threadexception",  # no threads, avoids extra gc
     "-p",
-    "no:tmpdir",
+    "no:tmpdir",           # no usage of tempdir (mostly sans IO)
     "-p",
-    "no:legacypath",
+    "no:legacypath",       # no legacy paths
 ]
 xfail_strict = true
 filterwarnings = ["error"]
