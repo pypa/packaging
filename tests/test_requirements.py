@@ -235,6 +235,7 @@ class TestRequirementParsing:
         [
             "name>=1",
             'name; python_version >= "3"',
+            "name @ https://example.com/name.whl",
         ],
     )
     def test_error_when_suffixed_with_line_break(
@@ -242,6 +243,14 @@ class TestRequirementParsing:
     ) -> None:
         with pytest.raises(InvalidRequirement):
             Requirement(requirement + line_break)
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
+    def test_error_when_url_embeds_line_break(self, line_break: str) -> None:
+        # A line break inside the URL must not let the remainder be
+        # absorbed into the URL and later serialized as a second
+        # requirement line.
+        with pytest.raises(InvalidRequirement):
+            Requirement(f"name @ https://example.com/name.whl{line_break}evil==1")
 
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
