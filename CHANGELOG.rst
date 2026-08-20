@@ -4,6 +4,11 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Fixes:
+
+* Preserve an empty ``import_namespaces`` list through the metadata
+  serialize/parse round-trip, matching ``import_names``. (:pull:`1373`)
+
 Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
