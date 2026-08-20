@@ -69,10 +69,15 @@ class Value(Node):
 
     def serialize(self) -> str:
         value = str(self)
+        # ``process_python_str`` reads a value back with ``ast.literal_eval``,
+        # which decodes backslash escapes. Double the backslashes so a value
+        # that contains one survives the round trip instead of being re-decoded
+        # (e.g. ``C:\temp`` would otherwise reparse to ``C:<TAB>emp``).
+        escaped = value.replace("\\", "\\\\")
         if '"' not in value:
-            return f'"{value}"'
+            return f'"{escaped}"'
         if "'" not in value:
-            return f"'{value}'"
+            return f"'{escaped}'"
         raise ValueError(
             "Cannot serialize marker value containing both quote characters"
         )
