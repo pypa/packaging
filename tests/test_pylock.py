@@ -64,6 +64,121 @@ def test_pylock_version(version: str) -> None:
     Pylock.from_dict(data)
 
 
+@pytest.mark.parametrize(
+    ("data_update", "error_context"),
+    [
+        ({"requires_python": ">=99"}, "requires_python"),
+        (
+            {
+                "packages": [
+                    {
+                        "name": "example",
+                        "directory": {"path": "."},
+                        "markr": 'python_version >= "99"',
+                    }
+                ]
+            },
+            "packages[0].markr",
+        ),
+        (
+            {
+                "packages": [
+                    {
+                        "name": "example",
+                        "directory": {"path": ".", "unexpected": True},
+                    }
+                ]
+            },
+            "packages[0].directory.unexpected",
+        ),
+        (
+            {
+                "packages": [
+                    {
+                        "name": "example",
+                        "wheels": [
+                            {
+                                "name": "example-1.0-py3-none-any.whl",
+                                "unexpected": True,
+                            }
+                        ],
+                    }
+                ]
+            },
+            "packages[0].wheels[0].unexpected",
+        ),
+    ],
+)
+def test_pylock_1_0_rejects_unknown_keys(
+    data_update: dict[str, Any], error_context: str
+) -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [],
+        **data_update,
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == f"Unexpected key in {error_context!r}"
+
+
+def test_pylock_1_0_leaves_invalid_wheel_types_to_value_validation() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [{"name": "example", "wheels": [42]}],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Unexpected type int (expected Mapping) in 'packages[0].wheels[0]'"
+    )
+
+
+def test_pylock_1_0_preserves_open_extension_maps() -> None:
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "tool": {"vendor": {"future": True}},
+        "packages": [
+            {
+                "name": "example",
+                "archive": {
+                    "path": "example.tar.gz",
+                    "hashes": {"sha256": "f" * 40, "future": "value"},
+                },
+                "dependencies": [{"name": "dependency", "future": "value"}],
+                "attestation-identities": [
+                    {
+                        "kind": "GitHub",
+                        "repository": "example/project",
+                        "workflow": "release.yml",
+                    }
+                ],
+                "tool": {"vendor": {"future": True}},
+            }
+        ],
+    }
+    Pylock.from_dict(data)
+
+
+def test_future_pylock_minor_preserves_unknown_keys() -> None:
+    data = {
+        "lock-version": "1.1",
+        "created-by": "pip",
+        "future": True,
+        "packages": [
+            {
+                "name": "example",
+                "directory": {"path": ".", "future": True},
+                "future": True,
+            }
+        ],
+    }
+    Pylock.from_dict(data)
+
+
 @pytest.mark.parametrize("version", ["0.9", "2", "2.0", "2.1"])
 def test_pylock_unsupported_version(version: str) -> None:
     data = {
