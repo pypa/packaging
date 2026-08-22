@@ -653,34 +653,29 @@ class Pylock:
             Raise :class:`PylockSelectError` if passed extras or dependency groups
             that are not declared in the corresponding pylock fields.
         """
-        if extras:
-            unknown_extras = {canonicalize_name(extra) for extra in extras} - set(
-                self.extras or []
+        canonical_extras = {canonicalize_name(extra) for extra in extras or ()}
+        unknown_extras = canonical_extras - set(self.extras or ())
+        if unknown_extras:
+            raise PylockSelectError(
+                f"Undeclared extras: {', '.join(sorted(unknown_extras))}"
             )
-            if unknown_extras:
-                raise PylockSelectError(
-                    f"Undeclared extras: {', '.join(sorted(unknown_extras))}"
-                )
 
-        if dependency_groups:
-            unknown_dependency_groups = {
-                canonicalize_name(dependency_group)
-                for dependency_group in dependency_groups
-            } - (
-                {
-                    canonicalize_name(dependency_group)
-                    for dependency_group in self.dependency_groups or []
-                }
-                | {
-                    canonicalize_name(dependency_group)
-                    for dependency_group in self.default_groups or []
-                }
+        canonical_dependency_groups = {
+            canonicalize_name(dependency_group)
+            for dependency_group in dependency_groups or ()
+        }
+        unknown_dependency_groups = canonical_dependency_groups - {
+            canonicalize_name(dependency_group)
+            for dependency_group in [
+                *(self.dependency_groups or ()),
+                *(self.default_groups or ()),
+            ]
+        }
+        if unknown_dependency_groups:
+            raise PylockSelectError(
+                f"Undeclared dependency groups: "
+                f"{', '.join(sorted(unknown_dependency_groups))}"
             )
-            if unknown_dependency_groups:
-                raise PylockSelectError(
-                    f"Undeclared dependency groups: "
-                    f"{', '.join(sorted(unknown_dependency_groups))}"
-                )
 
         compatible_tags_selector = create_compatible_tags_selector(
             tags if tags is not None else sys_tags()
@@ -696,11 +691,11 @@ class Pylock:
             "dict[str, str | frozenset[str]]",
             dict(
                 environment or {},  # Marker.evaluate will fill-up
-                extras=frozenset(extras or []),
+                extras=frozenset(canonical_extras),
                 dependency_groups=frozenset(
                     (self.default_groups or [])
                     if dependency_groups is None  # to allow selecting no group
-                    else dependency_groups
+                    else canonical_dependency_groups
                 ),
             ),
         )
