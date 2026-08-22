@@ -518,3 +518,44 @@ def test_python_prerelease() -> None:
     env = default_environment()
     env["python_full_version"] = "3.15.0a8+"
     list(pylock.select(environment=env))
+
+
+def test_unknown_extras() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        extras=cast("list[NormalizedName]", ["x1", "x2"]),
+        packages=[],
+    )
+    pylock.validate()
+    with pytest.raises(PylockSelectError, match=r"Undeclared extras: x3, x4"):
+        list(pylock.select(extras=["X1", "x3", "x4"]))
+
+
+def test_unknown_groups() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        dependency_groups=["g1", "g2"],
+        packages=[],
+    )
+    pylock.validate()
+    with pytest.raises(
+        PylockSelectError, match=r"Undeclared dependency groups: g3, g4"
+    ):
+        list(pylock.select(dependency_groups=["G1", "g3", "g4"]))
+
+
+def test_unknown_groups_default_groups() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        dependency_groups=["g1", "g2"],
+        default_groups=["dg1", "dg2"],
+        packages=[],
+    )
+    pylock.validate()
+    with pytest.raises(
+        PylockSelectError, match=r"Undeclared dependency groups: g3, g4"
+    ):
+        list(pylock.select(dependency_groups=["G1", "DG1", "g3", "g4"]))
