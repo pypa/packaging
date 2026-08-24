@@ -21,6 +21,10 @@ from typing import (
     TypedDict,
 )
 
+from . import _structures
+
+NegativeInfinity = _structures.NegativeInfinity
+
 if typing.TYPE_CHECKING:
     from typing_extensions import Self, Unpack
 

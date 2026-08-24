@@ -13,6 +13,7 @@ import typing
 import pretend
 import pytest
 
+import packaging.version
 from packaging._structures import Infinity, NegativeInfinity
 from packaging.version import (
     InvalidVersion,
@@ -49,6 +50,11 @@ def test_parse() -> None:
 def test_parse_raises() -> None:
     with pytest.raises(InvalidVersion):
         parse("lolwat")
+
+
+def test_negative_infinity_compatibility_alias() -> None:
+    assert packaging.version.NegativeInfinity is NegativeInfinity
+    assert repr(packaging.version.NegativeInfinity) == "-Infinity"
 
 
 # This list must be in the correct sorting order

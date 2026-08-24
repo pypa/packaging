@@ -4,6 +4,12 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Fixes:
+
+* Restore ``packaging.version.NegativeInfinity`` as a compatibility alias.
+  New code should use public ``Version`` APIs instead of comparison sentinels.
+  (:issue:`1363`)
+
 Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
