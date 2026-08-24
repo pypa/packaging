@@ -24,6 +24,9 @@ Usage
     >>> env = {'python_version': '1.5'}
     >>> marker.evaluate(environment=env)
     False
+    >>> # Check whether a marker applies to any of several candidate extras
+    >>> Marker('extra == "docs"').evaluate(extras={'docs', 'tests'})
+    True
     >>> # Multiple markers can be ANDed
     >>> and_marker = Marker("os_name=='a' and os_name=='b'")
     >>> and_marker
@@ -42,6 +45,26 @@ Usage
     >>> markers1 = {Marker("python_version > '3.6'"), Marker('os_name == "unix"')}
     >>> markers2 = {Marker('os_name == "unix"'), Marker("python_version > '3.6'")}
     >>> markers1 == markers2
+    True
+
+When evaluating a marker for a set of candidate extras, pass the set with the
+keyword-only ``extras`` argument. The complete marker expression is evaluated
+independently for each candidate, and the result is ``True`` if any candidate
+matches. Extra names are normalized according to PEP 685; an empty set
+returns ``False``. When both ``extras`` and ``environment['extra']`` are
+provided, the candidate set takes precedence over the scalar environment value.
+This argument is separate from the set-valued ``extras`` and
+``dependency_groups`` marker names used with membership operators.
+
+This is useful when checking a dependency marker against the extras requested
+by a :class:`~packaging.requirements.Requirement`:
+
+.. doctest::
+
+    >>> from packaging.requirements import Requirement
+    >>> requested = Requirement("a[b,c]")
+    >>> dependency = Requirement("foo; extra == 'b'")
+    >>> dependency.marker.evaluate(extras=requested.extras)
     True
 
 Combining markers programmatically
