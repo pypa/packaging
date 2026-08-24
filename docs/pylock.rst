@@ -88,20 +88,43 @@ structure of a pylock file. The attributes correspond to the fields in the
 pylock file specification.
 
 .. autoclass:: Pylock
-    :members: from_dict, to_dict, validate, select
+    :members: lock_version, environments, requires_python, extras,
+        dependency_groups, default_groups, created_by, packages, tool,
+        from_dict, to_dict, validate, select
+    :undoc-members:
     :exclude-members: __init__, __new__
 
-.. class:: Package
+.. autoclass:: Package
+    :members: name, version, marker, requires_python, dependencies, vcs,
+        directory, archive, index, sdist, wheels, attestation_identities, tool,
+        is_direct
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
-.. class:: PackageWheel
+.. autoclass:: PackageWheel
+    :members: name, upload_time, url, path, size, hashes, filename
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
-.. class:: PackageSdist
+.. autoclass:: PackageSdist
+    :members: name, upload_time, url, path, size, hashes, filename
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
-.. class:: PackageArchive
+.. autoclass:: PackageArchive
+    :members: url, path, size, upload_time, hashes, subdirectory
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
-.. class:: PackageVcs
+.. autoclass:: PackageVcs
+    :members: type, url, path, requested_revision, commit_id, subdirectory
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
-.. class:: PackageDirectory
+.. autoclass:: PackageDirectory
+    :members: path, editable, subdirectory
+    :undoc-members:
+    :exclude-members: __init__, __new__
 
 The following exceptions may be raised by this module:
 
