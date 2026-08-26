@@ -72,10 +72,5 @@ Usage
 Reference
 ---------
 
-.. autoclass:: Requirement
-    :members: name, url, extras, specifier, marker
-    :undoc-members:
-    :exclude-members: __init__, __new__
-
-.. autoexception:: InvalidRequirement
-    :exclude-members: __init__, __new__
+.. automodule:: packaging.requirements
+    :members:

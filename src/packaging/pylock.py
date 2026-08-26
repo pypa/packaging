@@ -1,3 +1,9 @@
+"""Read, validate, and select from pylock files.
+
+The public data model classes are frozen, keyword-only dataclasses whose
+attributes correspond to fields in the pylock file specification.
+"""
+
 from __future__ import annotations
 
 import dataclasses
