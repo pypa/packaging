@@ -316,7 +316,10 @@ def downstream(session: nox.Session, project: str) -> None:
         data = resp.read()
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         tf.extractall(project)
-    (inner_dir,) = Path(project).iterdir()
+    project_path = Path(project)
+    (inner_dir,) = project_path.iterdir()
+    # Make sure pytest doesn't keep searching upwards for config
+    project_path.joinpath("pytest.ini").touch()
     session.chdir(inner_dir)
 
     pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
