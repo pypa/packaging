@@ -9,6 +9,7 @@ import operator
 import os
 import platform
 import sys
+import warnings
 from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from typing import TYPE_CHECKING, Literal, TypedDict, cast
@@ -248,7 +249,15 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
         try:
             spec = Specifier(f"{op_str}{rhs}")
         except InvalidSpecifier:
-            pass
+            if (
+                key in {"python_version", "python_full_version"}
+                and op_str in {"<", "<=", "==", "!=", ">=", ">"}
+            ):
+                warnings.warn(
+                    f"marker {key} {op_str} {rhs!r} is not a valid PEP 440 "
+                    "version; falling back to string comparison",
+                    stacklevel=3,
+                )
         else:
             return spec.contains(lhs, prereleases=True)
 
