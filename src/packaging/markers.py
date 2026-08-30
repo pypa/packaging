@@ -251,7 +251,16 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
         except InvalidSpecifier:
             if (
                 key in {"python_version", "python_full_version"}
-                and op_str in {"<", "<=", "==", "!=", ">=", ">"}
+                and op_str
+                in {
+                    "<",
+                    "<=",
+                    "==",
+                    "!=",
+                    ">=",
+                    ">",
+                }
+                and any(ch.isdigit() for ch in str(rhs))
             ):
                 warnings.warn(
                     f"marker {key} {op_str} {rhs!r} is not a valid PEP 440 "
