@@ -196,13 +196,14 @@ PROJECTS = {
         install_env={"PDM_BUILD_SCM_VERSION": "0.6.0"},
     ),
     "twine": Project(
-        "https://github.com/pypa/twine/archive/refs/tags/6.2.0.tar.gz",
+        "https://github.com/pypa/twine/archive/refs/tags/7.0.0.tar.gz",
         # twine keeps its test deps in tox.ini rather than a [test] extra.
         install=("-e.", "pretend", "pytest", "pytest-socket", "coverage"),
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "6.2.0"},
-        # test_fails_rst_syntax_error asserts an exact docutils warning string
-        # that changed in newer docutils; unrelated to packaging.
-        pytest_args=("-k", "not test_fails_rst_syntax_error"),
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "7.0.0"},
+        # test_fails_rst_no_content expects an RST document with only a title
+        # to render as empty, which readme_renderer 46 changed; unrelated to
+        # packaging.
+        pytest_args=("-k", "not test_fails_rst_no_content"),
     ),
     "cibuildwheel": Project(
         "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
