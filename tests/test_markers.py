@@ -267,6 +267,21 @@ class TestMarker:
         assert ctx.exconly() == expected
 
     @pytest.mark.parametrize(
+        "marker_string",
+        [
+            r'sys_platform == "linu\x78"',
+            r'sys_platform == "linu\\x78"',
+            r"sys_platform == 'linu\x78'",
+            r"sys_platform == 'linu\\x78'",
+        ],
+    )
+    def test_parses_invalid_quoted_string_with_backslash(
+        self, marker_string: str
+    ) -> None:
+        with pytest.raises(InvalidMarker):
+            Marker(marker_string)
+
+    @pytest.mark.parametrize(
         ("marker_string", "expected"),
         [
             # Test the different quoting rules
