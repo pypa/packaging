@@ -8,6 +8,12 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for metadata and licenses:
+
+* Reject Windows drive-relative ``License-File`` paths (e.g. ``C:LICENSE``),
+  which are neither absolute nor contain ``..`` yet resolve outside the
+  project root when joined on Windows. (:pull:`1382`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
