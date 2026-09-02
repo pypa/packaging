@@ -81,35 +81,5 @@ to the caller.
 Reference
 ---------
 
-.. autofunction:: is_valid_pylock_path
-
-The following frozen keyword-only dataclasses are used to represent the
-structure of a pylock file. The attributes correspond to the fields in the
-pylock file specification.
-
-.. autoclass:: Pylock
-    :members: from_dict, to_dict, validate, select
-    :exclude-members: __init__, __new__
-
-.. class:: Package
-
-.. class:: PackageWheel
-
-.. class:: PackageSdist
-
-.. class:: PackageArchive
-
-.. class:: PackageVcs
-
-.. class:: PackageDirectory
-
-The following exceptions may be raised by this module:
-
-.. autoexception:: PylockValidationError
-    :exclude-members: __init__, __new__
-
-.. autoexception:: PylockUnsupportedVersionError
-    :exclude-members: __init__, __new__
-
-.. autoexception:: PylockSelectError
-    :exclude-members: __init__, __new__
+.. automodule:: packaging.pylock
+    :members:

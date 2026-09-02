@@ -26,14 +26,18 @@ def __dir__() -> list[str]:
 
 class InvalidRequirement(ValueError):
     """
-    An invalid requirement was found, users should refer to PEP 508.
+    Raised when attempting to create a :class:`Requirement` with a string that
+    does not conform to the specification. Users should refer to PEP 508.
 
     .. versionadded:: 16.1
     """
 
 
 class Requirement:
-    """Parse a requirement.
+    """Represent a requirement for a project.
+
+    This class abstracts handling the details of a requirement for a project.
+    Each requirement will be parsed according to the specification.
 
     Parse a given requirement string into its parts, such as name, specifier,
     URL, and extras. Raises InvalidRequirement on a badly-formed requirement
@@ -70,6 +74,18 @@ class Requirement:
         Equality and hashing normalize requirement names, extras, and
         equivalent specifiers. The string representation still preserves the
         parsed name and extras spelling.
+
+    :param str requirement_string: The string representation of a requirement.
+    :raises InvalidRequirement: If the given ``requirement_string`` is not
+        parseable, then this exception will be raised.
+    :ivar name: The name of the requirement.
+    :ivar url: The URL, if any, where to download the requirement from. Can be
+        ``None``.
+    :ivar extras: A set of extras that the requirement specifies.
+    :ivar specifier: A :class:`~.SpecifierSet` of the version specified by the
+        requirement.
+    :ivar marker: A :class:`~.Marker` of the marker for the requirement. Can be
+        ``None``.
     """
 
     # TODO: Can we test whether something is contained within a requirement?

@@ -1,3 +1,9 @@
+"""Read, validate, and select from pylock files.
+
+The public data model classes are frozen, keyword-only dataclasses whose
+attributes correspond to fields in the pylock file specification.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -323,6 +329,16 @@ class PylockSelectError(Exception):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
+    """A package installed from a version control system.
+
+    :ivar str type: The version control system type.
+    :ivar str | None url: The repository URL, if one is provided.
+    :ivar str | None path: The repository path, if one is provided.
+    :ivar str | None requested_revision: The requested revision, if any.
+    :ivar str commit_id: The resolved commit identifier.
+    :ivar str | None subdirectory: A repository subdirectory, if selected.
+    """
+
     type: str
     url: str | None = None
     path: str | None = None
@@ -346,6 +362,13 @@ class PackageVcs:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
+    """A package installed from a local directory.
+
+    :ivar str path: The path to the package directory.
+    :ivar bool | None editable: Whether the package is installed editable.
+    :ivar str | None subdirectory: A package subdirectory, if selected.
+    """
+
     path: str
     editable: bool | None = None
     subdirectory: str | None = None
@@ -361,6 +384,16 @@ class PackageDirectory:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
+    """A package installed from an archive.
+
+    :ivar str | None url: The archive URL, if one is provided.
+    :ivar str | None path: The archive path, if one is provided.
+    :ivar int | None size: The archive size in bytes, if known.
+    :ivar datetime.datetime | None upload_time: The archive upload time, if known.
+    :ivar Mapping[str, str] hashes: Hashes for the archive.
+    :ivar str | None subdirectory: A package subdirectory, if selected.
+    """
+
     url: str | None = None
     path: str | None = None
     size: int | None = None
@@ -384,6 +417,16 @@ class PackageArchive:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
+    """A source distribution for a package.
+
+    :ivar str | None name: The distribution filename, if provided.
+    :ivar datetime.datetime | None upload_time: The distribution upload time, if known.
+    :ivar str | None url: The distribution URL, if one is provided.
+    :ivar str | None path: The distribution path, if one is provided.
+    :ivar int | None size: The distribution size in bytes, if known.
+    :ivar Mapping[str, str] hashes: Hashes for the distribution.
+    """
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -418,6 +461,16 @@ class PackageSdist:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
+    """A wheel distribution for a package.
+
+    :ivar str | None name: The distribution filename, if provided.
+    :ivar datetime.datetime | None upload_time: The distribution upload time, if known.
+    :ivar str | None url: The distribution URL, if one is provided.
+    :ivar str | None path: The distribution path, if one is provided.
+    :ivar int | None size: The distribution size in bytes, if known.
+    :ivar Mapping[str, str] hashes: Hashes for the distribution.
+    """
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -449,6 +502,26 @@ class PackageWheel:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
+    """A package entry in a pylock file.
+
+    A package has either distribution files or one direct source (VCS,
+    directory, or archive).
+
+    :ivar NormalizedName name: The normalized package name.
+    :ivar Version | None version: The package version, if known.
+    :ivar Marker | None marker: A marker restricting this package, if any.
+    :ivar SpecifierSet | None requires_python: The supported Python versions.
+    :ivar Sequence[Mapping[str, Any]] | None dependencies: Package dependencies.
+    :ivar PackageVcs | None vcs: A VCS source, if selected.
+    :ivar PackageDirectory | None directory: A directory source, if selected.
+    :ivar PackageArchive | None archive: An archive source, if selected.
+    :ivar str | None index: The package index name, if provided.
+    :ivar PackageSdist | None sdist: A source distribution, if provided.
+    :ivar Sequence[PackageWheel] | None wheels: Available wheel distributions.
+    :ivar Sequence[Mapping[str, Any]] | None attestation_identities: Attestations.
+    :ivar Mapping[str, Any] | None tool: Tool-specific metadata.
+    """
+
     name: NormalizedName
     version: Version | None = None
     marker: Marker | None = None
@@ -551,7 +624,18 @@ class Package:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
-    """A class representing a pylock file."""
+    """Represent a validated pylock file.
+
+    :ivar Version lock_version: The pylock specification version.
+    :ivar Sequence[Marker] | None environments: Supported environments.
+    :ivar SpecifierSet | None requires_python: The supported Python versions.
+    :ivar Sequence[NormalizedName] | None extras: Extras provided by the lock.
+    :ivar Sequence[str] | None dependency_groups: Defined dependency groups.
+    :ivar Sequence[str] | None default_groups: Groups selected by default.
+    :ivar str created_by: The tool that created the lock file.
+    :ivar Sequence[Package] packages: Packages contained in the lock file.
+    :ivar Mapping[str, Any] | None tool: Tool-specific metadata.
+    """
 
     lock_version: Version
     environments: Sequence[Marker] | None = None
