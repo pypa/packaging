@@ -506,6 +506,8 @@ class Marker:
         self,
         environment: Mapping[str, str | AbstractSet[str]] | None = None,
         context: EvaluateContext = "metadata",
+        *,
+        extras: AbstractSet[str] | None = None,
     ) -> bool:
         """Evaluate a marker.
 
@@ -519,6 +521,11 @@ class Marker:
             evaluated, which influences what marker names are considered valid.
             Accepted values are ``"metadata"`` (for core metadata; default),
             ``"lock_file"``, and ``"requirement"`` (i.e. all other situations).
+        :param extras: Candidate extra names to use when evaluating the marker.
+            The complete marker is evaluated independently for each candidate,
+            and the result is ``True`` if any candidate matches. Candidate names
+            are normalized according to PEP 685. When supplied, this takes
+            precedence over the scalar ``"extra"`` value in ``environment``.
         :raises UndefinedComparison: If the marker uses a comparison on values
             that are not valid versions per the :ref:`specification of version
             specifiers <pypug:version-specifiers>`.
@@ -543,6 +550,7 @@ class Marker:
 
         if environment is not None:
             current_environment |= environment
+        if extras is None:
             if "extra" in current_environment:
                 # The API used to allow setting extra to None. We need to handle
                 # this case for backwards compatibility. Also skip running
@@ -550,8 +558,18 @@ class Marker:
                 extra = cast("str | None", current_environment["extra"])
                 current_environment["extra"] = canonicalize_name(extra) if extra else ""
 
-        return _evaluate_markers(
-            self._markers, _repair_python_full_version(current_environment)
+            return _evaluate_markers(
+                self._markers, _repair_python_full_version(current_environment)
+            )
+
+        normalized_extras = {canonicalize_name(extra) for extra in extras}
+        if not normalized_extras:
+            return False
+
+        repaired_environment = _repair_python_full_version(current_environment)
+        return any(
+            _evaluate_markers(self._markers, repaired_environment | {"extra": extra})
+            for extra in normalized_extras
         )
 
 

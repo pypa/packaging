@@ -24,6 +24,7 @@ from packaging.markers import (
     _format_full_version,
     default_environment,
 )
+from packaging.requirements import Requirement
 
 VARIABLES = [
     "extra",
@@ -376,6 +377,25 @@ class TestMarker:
         marker = Marker("os_name == 'foo'")
         assert marker.evaluate({"os_name": "foo"}, context="requirement")
         assert not marker.evaluate({"os_name": "bar"}, context="requirement")
+
+    def test_evaluate_against_candidate_extras(self) -> None:
+        requirement = Requirement("a[b,c]")
+        dependency = Requirement("foo; extra == 'b'")
+        assert dependency.marker is not None
+
+        assert dependency.marker.evaluate(extras=requirement.extras)
+        assert not dependency.marker.evaluate(extras={"d"})
+        assert not dependency.marker.evaluate(extras=set())
+
+    def test_candidate_extras_are_normalized_and_use_whole_expression(self) -> None:
+        marker = Marker(
+            'extra == "Foo_Bar" and python_version >= "3" and extra != "baz"'
+        )
+
+        assert marker.evaluate(
+            {"python_version": "3.12", "extra": "ignored"}, extras={"FOO.BAR"}
+        )
+        assert not Marker('extra == "a" and extra == "b"').evaluate(extras={"a", "b"})
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
