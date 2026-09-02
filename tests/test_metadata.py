@@ -1170,6 +1170,21 @@ class TestMetadataWriting:
             written == "metadata-version: 2.6\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
+    def test_write_metadata_rejects_marker_value_with_backslash(self) -> None:
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.1\n"
+            "Name: demo\n"
+            "Version: 1.0\n"
+            'Requires-Dist: evil-dep; sys_platform == "linu\\\\x78"\n',
+            validate=False,
+        )
+
+        with pytest.raises(metadata.InvalidMetadata) as exc_info:
+            meta.as_rfc822()
+
+        assert exc_info.value.field == "requires-dist"
+        assert isinstance(exc_info.value.__cause__, requirements.InvalidRequirement)
+
     def test_write_metadata_with_description(self) -> None:
         # Intentionally out of order to make sure it is written in order
         meta = metadata.Metadata.from_raw(
