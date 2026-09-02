@@ -161,20 +161,6 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
                 Tag("py3", "none", "manylinux2014_x86_64"),
             },
         ),
-        (
-            "foo_bár-1.0-py3-none-any.whl",
-            "foo-bár",
-            Version("1.0"),
-            (),
-            {Tag("py3", "none", "any")},
-        ),
-        (
-            "foo_bár-1.0-1000-py3-none-any.whl",
-            "foo-bár",
-            Version("1.0"),
-            (1000, ""),
-            {Tag("py3", "none", "any")},
-        ),
     ],
 )
 def test_parse_wheel_filename(
@@ -189,6 +175,8 @@ def test_parse_wheel_filename(
         ("foo-1.0.whl"),  # Missing tags
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
+        ("foo_bár-1.0-py3-none-any.whl"),  # Invalid name (not normalized)
+        ("foo_bár-1.0-1000-py3-none-any.whl"),  # Invalid name with build number
         ("foo\n-1.0-py3-none-any.whl"),  # Invalid name (`\n`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
         ("-1.0-py3-none-any.whl"),  # Empty project name
@@ -245,6 +233,8 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
     [
         ("foo-1.0.xz"),  # Incorrect extension
         ("foo1.0.tar.gz"),  # Missing separator
+        ("foo_bár-1.0.tar.gz"),  # Invalid name (not normalized)
+        ("foo_bár-1.0.zip"),  # Invalid name (not normalized)
         ("foo-1.x.tar.gz"),  # Invalid version
         ("-1.0.tar.gz"),  # Empty project name
         ("-1.0.zip"),  # Empty project name (zip)
