@@ -537,6 +537,12 @@ class TestMarker:
             {"python_full_version": "3.11.1+"}
         )
 
+    def test_invalid_python_version_marker_warns(self) -> None:
+        marker = Marker('python_version >= "3.9."')
+        with pytest.warns(UserWarning, match="not a valid PEP 440"):
+            result = marker.evaluate({"python_version": "3.10"})
+        assert result is False
+
     def test_python_full_version_untagged(self) -> None:
         with mock.patch("platform.python_version", return_value="3.11.1+"):
             assert Marker("python_full_version < '3.12'").evaluate()
