@@ -109,6 +109,10 @@ Reference
         string representation still preserves the parsed name and extras
         spelling.
 
+    .. versionchanged:: 26.4
+
+        Added ``__replace__``, enabling :func:`copy.replace` on Python 3.13+.
+
     :param str requirement_string: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement_string`` is not parseable,
                                 then this exception will be raised.
@@ -132,6 +136,19 @@ Reference
     .. attribute:: marker
 
       A :class:`~.Marker` of the marker for the requirement. Can be None.
+
+    .. method:: __replace__(*, name=..., url=..., extras=..., specifier=..., marker=...)
+
+      Return a copy of the requirement with the given fields replaced. The
+      result is validated and normalized by re-parsing its string form, so an
+      invalid replacement raises :exc:`InvalidRequirement`.
+      This also enables :func:`copy.replace` on Python 3.13+::
+
+          >>> import copy
+          >>> copy.replace(Requirement("requests>=2.0"), name="flask")
+          <Requirement('flask>=2.0')>
+
+      .. versionadded:: 26.4
 
 .. exception:: InvalidRequirement
 
