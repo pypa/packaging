@@ -1107,11 +1107,12 @@ class TestSpecifier:
 
 
 class TestSpecifierInternal:
-    """Tests for internal Specifier._spec_version cache behavior.
+    """Tests for Specifier's internal caches.
 
-    Specifier._spec_version is a one-element cache that stores the parsed Version
-    corresponding to Specifier.version after the first time it is needed for
-    comparison, these tests validate that the cache is set and never changed.
+    _spec_version holds the parsed Version for Specifier.version, populated the first
+    time a comparison needs it. _canonical_spec_cache holds the canonical
+    (operator, version) pair, populated on first read. Both are set once and never
+    changed afterwards, and neither survives __setstate__.
     """
 
     @pytest.mark.parametrize(
@@ -1248,6 +1249,71 @@ class TestSpecifierInternal:
 
         _ = spec.prereleases
         assert spec._spec_version is initial_cache
+
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [
+            (">=1.0.0", (">=", "1")),
+            ("<1.0.0", ("<", "1")),
+            ("==1.2.3.0", ("==", "1.2.3")),
+            ("!=1.0", ("!=", "1")),
+            ("~=1.18.0", ("~=", "1.18.0")),
+            ("~=1.18", ("~=", "1.18")),
+            ("==1.0.*", ("==", "1.0.*")),
+            ("===1.0.0", ("===", "1.0.0")),
+            ("===not-a-version", ("===", "not-a-version")),
+        ],
+    )
+    def test_canonical_spec_cache_consistency(
+        self, specifier: str, expected: tuple[str, str]
+    ) -> None:
+        """Cache is set on first read and remains unchanged."""
+        spec = Specifier(specifier)
+        assert spec._canonical_spec_cache is None
+
+        first = spec._canonical_spec
+        assert first == expected
+        assert spec._canonical_spec_cache is first
+
+        assert spec._canonical_spec is first
+        _ = hash(spec)
+        assert spec == Specifier(specifier)
+        assert spec._canonical_spec_cache is first
+
+    @pytest.mark.parametrize(
+        "specifier",
+        [">=1.0.0", "==1.2.3.0", "~=1.18.0", "==1.0.*", "===1.0.0"],
+    )
+    def test_canonical_spec_cache_matches_fresh_value(self, specifier: str) -> None:
+        """A warmed Specifier is indistinguishable from a freshly built one."""
+        warm = Specifier(specifier)
+        _ = warm._canonical_spec
+
+        assert warm._canonical_spec == Specifier(specifier)._canonical_spec
+        assert hash(warm) == hash(Specifier(specifier))
+        assert warm == Specifier(specifier)
+
+    def test_canonical_spec_cache_not_pickled(self) -> None:
+        """__getstate__ omits the cache, so it is rebuilt on the far side."""
+        spec = Specifier(">=1.0.0")
+        assert spec._canonical_spec == (">=", "1")
+
+        loaded = pickle.loads(pickle.dumps(spec))
+        assert loaded._canonical_spec_cache is None
+        assert loaded._canonical_spec == (">=", "1")
+        assert hash(loaded) == hash(spec)
+
+    def test_canonical_spec_cache_dropped_by_setstate(self) -> None:
+        """__setstate__ replaces _spec, so a cache built from the old one must go."""
+        spec = Specifier(">=1.0.0")
+        assert spec._canonical_spec == (">=", "1")
+
+        spec.__setstate__(((">=", "9.9.0"), None))
+
+        assert spec._canonical_spec_cache is None
+        assert spec._canonical_spec == (">=", "9.9")
+        assert hash(spec) == hash(Specifier(">=9.9"))
+        assert spec == Specifier(">=9.9")
 
 
 class TestSpecifierSet:
@@ -3241,13 +3307,16 @@ def test_pickle_specifier_setstate_clears_cache() -> None:
     s = Specifier("==1.*")
     # Warm up every cache slot.
     _ = s._to_ranges()  # populates _spec_version + _ranges
+    _ = s._canonical_spec
     assert s._spec_version is not None
     assert s._ranges is not None
+    assert s._canonical_spec_cache is not None
 
     s.__setstate__((("==", "1.*"), None))
 
     assert s._spec_version is None
     assert s._ranges is None
+    assert s._canonical_spec_cache is None
 
 
 def test_pickle_specifierset_setstate_clears_cache() -> None:
