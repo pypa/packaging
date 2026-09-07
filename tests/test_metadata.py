@@ -687,6 +687,27 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.metadata_version  # noqa: B018
 
+    @pytest.mark.parametrize("version", ["2.7", "2.10"])
+    def test_future_minor_metadata_version_warns(self, version: str) -> None:
+        raw: RawMetadata = {
+            "metadata_version": version,  # type: ignore[typeddict-item]
+            "name": "packaging",
+            "version": "2023.0.0",
+        }
+        with pytest.warns(UserWarning, match="Unknown metadata version"):
+            meta = metadata.Metadata.from_raw(raw, validate=True)
+        assert meta.metadata_version == version
+
+    @pytest.mark.parametrize("version", ["3.0", "1.3", "bogus"])
+    def test_future_major_metadata_version_fails(self, version: str) -> None:
+        raw: RawMetadata = {
+            "metadata_version": version,  # type: ignore[typeddict-item]
+            "name": "packaging",
+            "version": "2023.0.0",
+        }
+        with pytest.raises(ExceptionGroup):
+            metadata.Metadata.from_raw(raw, validate=True)
+
     def test_valid_version(self) -> None:
         version_str = "1.2.3"
         meta = metadata.Metadata.from_raw({"version": version_str}, validate=False)

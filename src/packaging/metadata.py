@@ -8,6 +8,7 @@ import keyword
 import pathlib
 import re
 import typing
+import warnings
 from typing import (
     Any,
     Generic,
@@ -622,9 +623,34 @@ class _Validator(Generic[T]):
 
     def _process_metadata_version(self, value: str) -> _MetadataVersion:
         # Implicitly makes Metadata-Version required.
-        if value not in _VALID_METADATA_VERSIONS:
-            raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
-        return cast("_MetadataVersion", value)
+        if value is None:
+            raise self._invalid_metadata(f"{self.raw_name!r} is a required field")
+        if value in _VALID_METADATA_VERSIONS:
+            return cast("_MetadataVersion", value)
+        # Per the Core Metadata spec, automated tools consuming metadata
+        # SHOULD warn if ``metadata-version`` is greater than the highest
+        # version they support, and MUST fail only if it has a greater major
+        # version. A newer minor on the same major line is therefore accepted
+        # with a warning so tools keep working; anything else is rejected.
+        latest = _VALID_METADATA_VERSIONS[-1]
+        latest_major, _, latest_minor = latest.partition(".")
+        major, sep, minor = value.partition(".")
+        is_future_minor = (
+            sep
+            and major == latest_major
+            and minor.isdecimal()
+            and minor.isascii()
+            and int(minor) > int(latest_minor)
+        )
+        if is_future_minor:
+            warnings.warn(
+                f"Unknown metadata version {value!r}; "
+                f"continuing as version {latest!r}.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return cast("_MetadataVersion", value)
+        raise self._invalid_metadata(f"{value!r} is not a valid metadata version")
 
     def _process_name(self, value: str) -> str:
         if not value:
@@ -845,7 +871,13 @@ class Metadata:
             metadata_version = None
             with collector.collect(InvalidMetadata):
                 metadata_version = ins.metadata_version
-                metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
+                try:
+                    metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
+                except ValueError:
+                    # A same-major newer minor accepted with a warning in
+                    # _process_metadata_version: compare field ages against
+                    # the latest known version.
+                    metadata_age = len(_VALID_METADATA_VERSIONS) - 1
 
             # Make sure to check for the fields that are present, the required
             # fields (so their absence can be reported).
