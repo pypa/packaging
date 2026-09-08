@@ -5,9 +5,9 @@ Submitting patches
 * Patches should be small to facilitate easier review. `Studies have shown`_
   that review quality falls off as patch size grows. Sometimes this will result
   in many small PRs to land a single large feature.
-* Larger changes should be discussed in a ticket before submission.
-* New features and significant bug fixes should be documented in the
-  :doc:`/changelog`.
+* Larger changes should be discussed in a issue before submission.
+* Features and fixes are usually batched to :doc:`/changelog` before release based
+  on PRs, but major or tricky-to-explain features can be added in PRs.
 * You must have legal permission to distribute any code you contribute and it
   must be available under both the BSD and Apache Software License Version 2.0
   licenses.

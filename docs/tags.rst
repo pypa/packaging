@@ -84,6 +84,8 @@ to the implementation to provide.
 
 .. autofunction:: interpreter_version
 
+.. autofunction:: interpreter_abi
+
 .. autofunction:: mac_platforms
 
 .. autofunction:: ios_platforms
@@ -93,6 +95,8 @@ to the implementation to provide.
 .. autofunction:: platform_tags
 
 .. autofunction:: compatible_tags
+
+.. autofunction:: pure_python_tags
 
 .. autofunction:: cpython_tags
 

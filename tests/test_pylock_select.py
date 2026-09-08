@@ -70,11 +70,15 @@ def test_smoke_test() -> None:
         assert isinstance(dist, PackageWheel)
 
 
-def test_lock_no_matching_env() -> None:
+@pytest.mark.parametrize(
+    "environments",
+    [[], [Marker('python_version == "3.14"')]],
+)
+def test_lock_no_matching_env(environments: list[Marker]) -> None:
     pylock = Pylock(
         lock_version=Version("1.0"),
         created_by="some_tool",
-        environments=[Marker('python_version == "3.14"')],
+        environments=environments,
         packages=[],
     )
     pylock.validate()
@@ -91,6 +95,22 @@ def test_lock_no_matching_env() -> None:
                 environment=_py312_linux.environment,
             )
         )
+
+
+def test_lock_without_environments() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        environments=None,
+        packages=[],
+    )
+    pylock.validate()
+    assert not list(
+        pylock.select(
+            tags=_py312_linux.tags,
+            environment=_py312_linux.environment,
+        )
+    )
 
 
 def test_lock_require_python_mismatch() -> None:
@@ -305,6 +325,34 @@ def test_missing_sdist_fallback() -> None:
         PylockSelectError, match=r"No wheel found matching .* and no sdist available"
     ):
         list(pylock.select())
+
+
+def test_empty_tags_selects_sdist_instead_of_host_compatible_wheel() -> None:
+    pylock = _pylock_with_wheel_and_sdist()
+
+    selected = list(
+        pylock.select(
+            tags=[],
+            environment=_py312_linux.environment,
+        )
+    )
+
+    assert len(selected) == 1
+    assert isinstance(selected[0][1], PackageSdist)
+
+
+def test_empty_tags_rejects_wheel_only_lock() -> None:
+    pylock = _pylock_with_wheel_and_sdist(include_sdist=False)
+
+    with pytest.raises(
+        PylockSelectError, match=r"No wheel found matching .* and no sdist available"
+    ):
+        list(
+            pylock.select(
+                tags=[],
+                environment=_py312_linux.environment,
+            )
+        )
 
 
 def _pylock_with_wheel_and_sdist(

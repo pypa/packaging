@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from typing import NewType, Union, cast
+from typing import NewType, cast
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
@@ -28,32 +28,42 @@ def __dir__() -> list[str]:
     return __all__
 
 
-BuildTag = Union[tuple[()], tuple[int, str]]
+BuildTag = tuple[()] | tuple[int, str]
 """
 A wheel build tag: an empty tuple, or a ``(build number, build tag suffix)`` pair.
+
+.. versionadded:: 20.9
 """
 
 NormalizedName = NewType("NormalizedName", str)
 """
 A :class:`typing.NewType` of :class:`str`, representing a normalized name.
+
+.. versionadded:: 20.4
 """
 
 
 class InvalidName(ValueError):
     """
     An invalid distribution name; users should refer to the packaging user guide.
+
+    .. versionadded:: 23.2
     """
 
 
 class InvalidWheelFilename(ValueError):
     """
     An invalid wheel filename was found, users should refer to PEP 427.
+
+    .. versionadded:: 20.9
     """
 
 
 class InvalidSdistFilename(ValueError):
     """
     An invalid sdist filename was found, users should refer to the packaging user guide.
+
+    .. versionadded:: 20.9
     """
 
 
@@ -101,6 +111,9 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
 
     .. versionchanged:: 20.4
        The return type was changed to :class:`NormalizedName`.
+
+    .. versionchanged:: 23.2
+       Added the *validate* keyword parameter.
     """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
@@ -135,6 +148,8 @@ def is_normalized_name(name: str) -> bool:
     '-not-legal'
     >>> is_normalized_name("-not-legal")  # roundtrips, but not a valid name
     False
+
+    .. versionadded:: 23.2
     """
     return _normalized_regex.fullmatch(name) is not None
 
@@ -168,6 +183,14 @@ def canonicalize_version(
 
     >>> canonicalize_version('1.4.0.0.0')
     '1.4'
+
+    .. versionadded:: 17.1
+
+    .. versionchanged:: 21.0
+       The return type was narrowed to :class:`str`.
+
+    .. versionchanged:: 22.0
+       Added the *strip_trailing_zero* keyword parameter.
     """
     if isinstance(version, str):
         try:
@@ -219,12 +242,22 @@ def parse_wheel_filename(
     >>> not build
     True
 
+    .. versionadded:: 20.9
+
+    .. versionchanged:: 23.2
+       Raises :class:`InvalidWheelFilename` when the version component is invalid.
+
     .. versionadded:: 26.1
        The *validate_order* parameter.
 
     .. versionchanged:: 26.3
-       Raises :class:`InvalidWheelFilename` on invalid tag set components,
-       build tags, or an empty project name.
+       Raises :class:`InvalidWheelFilename` when an interpreter component is
+       not an identifier, a tag set component is empty, or the project name is
+       empty.
+
+    .. versionchanged:: 26.4
+       Raises :class:`InvalidWheelFilename` on invalid tag component characters
+       or build tags.
     """
     if not filename.endswith(".whl"):
         raise InvalidWheelFilename(
@@ -299,7 +332,18 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     >>> ver == Version('1.0')
     True
 
+    .. versionadded:: 20.9
+
+    .. versionchanged:: 21.0
+       Added support for ``.zip`` source distributions.
+
+    .. versionchanged:: 23.2
+       Raises :class:`InvalidSdistFilename` when the version component is invalid.
+
     .. versionchanged:: 26.3
+       Raises :class:`InvalidSdistFilename` on an empty project name.
+
+    .. versionchanged:: 26.4
        Raises :class:`InvalidSdistFilename` on an invalid project name.
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name

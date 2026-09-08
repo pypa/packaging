@@ -40,12 +40,14 @@ __all__ = [
     "cpython_tags",
     "create_compatible_tags_selector",
     "generic_tags",
+    "interpreter_abi",
     "interpreter_name",
     "interpreter_version",
     "ios_platforms",
     "mac_platforms",
     "parse_tag",
     "platform_tags",
+    "pure_python_tags",
     "sys_tags",
 ]
 
@@ -59,11 +61,15 @@ logger = logging.getLogger(__name__)
 PythonVersion = Sequence[int]
 """
 A sequence of integers describing a Python version, e.g. ``(3, 13)``.
+
+.. versionadded:: 20.0
 """
 
 AppleVersion = tuple[int, int]
 """
 A ``(major, minor)`` integer pair describing an Apple OS version.
+
+.. versionadded:: 24.2
 """
 _T = TypeVar("_T")
 
@@ -262,10 +268,14 @@ def parse_tag(
        The *validate_order* parameter.
 
     .. versionadded:: 26.3
-       Raises :class:`InvalidTag` on empty or invalid tag components, or a tag
-       that does not have exactly three components.
+       Raises :class:`InvalidTag` when an interpreter component is not an
+       identifier, a tag component is empty, or a tag does not have exactly
+       three components.
        Added the *limit* parameter. Raises :class:`TooManyTagsError` if the compressed
        tag set would generate more than *limit* tags.
+
+    .. versionchanged:: 26.4
+       Raises :class:`InvalidTag` on invalid tag component characters.
     """
 
     if limit is not None and limit < 0:
@@ -276,9 +286,6 @@ def parse_tag(
         if "" in parts:
             component = ".".join(parts)
             raise InvalidTag(f"Tag {tag!r} has an empty component: {component!r}")
-        for part in parts:
-            if _tag_component_regex.fullmatch(part) is None:
-                raise InvalidTag(f"Tag {tag!r} has an invalid component: {part!r}")
         if validate_order and parts != sorted(parts):
             component = ".".join(parts)
             raise UnsortedTagsError(
@@ -299,6 +306,13 @@ def parse_tag(
         interpreters, abis, platforms = component_parts
     except ValueError as exc:
         raise InvalidTag(f"Tag {tag!r} must have exactly three components") from exc
+    for interpreter in interpreters:
+        if not interpreter.isidentifier():
+            raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
+    for parts in component_parts:
+        for part in parts:
+            if _tag_component_regex.fullmatch(part) is None:
+                raise InvalidTag(f"Tag {tag!r} has an invalid component: {part!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
         for interpreter in interpreters
@@ -359,9 +373,8 @@ def _abi3t_applies(python_version: PythonVersion, threading: bool) -> bool:
     return len(python_version) > 1 and tuple(python_version) >= (3, 2) and threading
 
 
-def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
+def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> Iterator[str]:
     py_version = tuple(py_version)  # To allow for version comparison.
-    abis = []
     version = _version_nodot(py_version[:2])
     threading = debug = pymalloc = ucs4 = ""
     with_debug = _get_config_var("Py_DEBUG", warn)
@@ -384,12 +397,11 @@ def _cpython_abis(py_version: PythonVersion, warn: bool = False) -> list[str]:
                 unicode_size is None and sys.maxunicode == 0x10FFFF
             ):
                 ucs4 = "u"
-    elif debug:
+    yield f"cp{version}{threading}{debug}{pymalloc}{ucs4}"
+    if py_version >= (3, 8) and debug:
         # Debug builds can also load "normal" extension modules.
         # We can also assume no UCS-4 or pymalloc requirement.
-        abis.append(f"cp{version}{threading}")
-    abis.insert(0, f"cp{version}{threading}{debug}{pymalloc}{ucs4}")
-    return abis
+        yield f"cp{version}{threading}"
 
 
 def cpython_tags(
@@ -425,6 +437,8 @@ def cpython_tags(
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     if not python_version:
         python_version = sys.version_info[:2]
@@ -443,7 +457,7 @@ def cpython_tags(
         except ValueError:  # noqa: PERF203
             pass
 
-    platforms = list(platforms or platform_tags())
+    platforms = list(platform_tags() if platforms is None else platforms)
     for abi in abis:
         for platform_ in platforms:
             yield Tag(interpreter, abi, platform_)
@@ -471,9 +485,9 @@ def cpython_tags(
                     yield Tag(interpreter, "abi3t", platform_)
 
 
-def _generic_abi() -> list[str]:
+def _generic_abi() -> Iterator[str]:
     """
-    Return the ABI tag based on EXT_SUFFIX.
+    Yield the ABI tag based on EXT_SUFFIX.
     """
     # The following are examples of `EXT_SUFFIX`.
     # We want to keep the parts which are related to the ABI and remove the
@@ -492,7 +506,8 @@ def _generic_abi() -> list[str]:
     parts = ext_suffix.split(".")
     if len(parts) < 3:
         # CPython3.7 and earlier uses ".pyd" on Windows.
-        return _cpython_abis(sys.version_info[:2])
+        yield from _cpython_abis(sys.version_info[:2])
+        return
     soabi = parts[1]
     if soabi.startswith("cpython"):
         # non-windows
@@ -511,8 +526,8 @@ def _generic_abi() -> list[str]:
         # pyston, ironpython, others?
         abi = soabi
     else:
-        return []
-    return [_normalize_string(abi)]
+        return
+    yield _normalize_string(abi)
 
 
 def generic_tags(
@@ -542,13 +557,15 @@ def generic_tags(
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     if not interpreter:
         interp_name = interpreter_name()
         interp_version = interpreter_version(warn=warn)
         interpreter = f"{interp_name}{interp_version}"
-    abis = _generic_abi() if abis is None else list(abis)
-    platforms = list(platforms or platform_tags())
+    abis = list(_generic_abi()) if abis is None else list(abis)
+    platforms = list(platform_tags() if platforms is None else platforms)
     if "none" not in abis:
         abis.append("none")
     for abi in abis:
@@ -569,6 +586,30 @@ def _py_interpreter_range(py_version: PythonVersion) -> Iterator[str]:
     if len(py_version) > 1:
         for minor in range(py_version[1] - 1, -1, -1):
             yield f"py{_version_nodot((py_version[0], minor))}"
+
+
+def pure_python_tags(
+    python_version: PythonVersion | None = None,
+) -> Iterator[Tag]:
+    """
+    Yields the pure-Python tags compatible with ``python_version``.
+
+    The tags use the ``"none"`` ABI and ``"any"`` platform, so their
+    generation does not depend on the running platform.
+
+    .. versionadded:: 26.3
+
+    :param Sequence python_version: A one- or two-item sequence representing the
+                                 compatible version of Python. Defaults to
+                                 ``sys.version_info[:2]``.
+    :raises ValueError: If ``python_version`` is an empty sequence.
+    """
+    if python_version is None:
+        python_version = sys.version_info[:2]
+    elif not python_version:
+        raise ValueError("python_version must contain at least one item")
+    for version in _py_interpreter_range(python_version):
+        yield Tag(version, "none", "any")
 
 
 def compatible_tags(
@@ -593,17 +634,18 @@ def compatible_tags(
                             ``"cp38"``. Defaults to the current interpreter.
     :param Iterable platforms: Iterable of compatible platforms. Defaults to the
                                platforms compatible with the current system.
+
+    .. versionadded:: 20.0
     """
     if not python_version:
         python_version = sys.version_info[:2]
-    platforms = list(platforms or platform_tags())
+    platforms = list(platform_tags() if platforms is None else platforms)
     for version in _py_interpreter_range(python_version):
         for platform_ in platforms:
             yield Tag(version, "none", platform_)
     if interpreter:
         yield Tag(interpreter, "none", "any")
-    for version in _py_interpreter_range(python_version):
-        yield Tag(version, "none", "any")
+    yield from pure_python_tags(python_version)
 
 
 def _mac_arch(arch: str, is_32bit: bool = _32_BIT_INTERPRETER) -> str:
@@ -671,6 +713,8 @@ def mac_platforms(
         - On Windows, platform compatibility is statically specified
         - On Linux, code must be run on the system itself to determine
           compatibility
+
+    .. versionadded:: 20.0
     """
     if version is None or arch is None:
         version_str, _, cpu_arch = platform.mac_ver()
@@ -755,6 +799,8 @@ def ios_platforms(
     .. note::
         Behavior of this method is undefined if invoked on non-iOS platforms
         without providing explicit version and multiarch arguments.
+
+    .. versionadded:: 24.2
     """
     if version is None:
         # if iOS is the current platform, ios_ver *must* be defined. However,
@@ -814,6 +860,8 @@ def android_platforms(
         e.g. ``arm64_v8a``. Defaults to the current system's ABI , as returned by
         ``sysconfig.get_platform``. Hyphens and periods will be replaced with
         underscores.
+
+    .. versionadded:: 25.0
     """
     if platform.system() != "Android" and (api_level is None or abi is None):
         raise TypeError(
@@ -872,19 +920,22 @@ def _generic_platforms() -> Iterator[str]:
 def platform_tags() -> Iterator[str]:
     """
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
+
+    .. versionadded:: 21.1
     """
-    if platform.system() == "Darwin":
-        return mac_platforms()
-    elif platform.system() == "iOS":
-        return ios_platforms()
-    elif platform.system() == "Android":
-        return android_platforms()
-    elif platform.system() == "Linux":
-        return _linux_platforms()
-    elif platform.system() == "Emscripten":
-        return _emscripten_platforms()
-    else:
-        return _generic_platforms()
+    match platform.system():
+        case "Darwin":
+            return mac_platforms()
+        case "iOS":
+            return ios_platforms()
+        case "Android":
+            return android_platforms()
+        case "Linux":
+            return _linux_platforms()
+        case "Emscripten":
+            return _emscripten_platforms()
+        case _:
+            return _generic_platforms()
 
 
 def interpreter_name() -> str:
@@ -895,6 +946,8 @@ def interpreter_name() -> str:
     be returned when appropriate.
 
     This typically acts as the prefix to the :attr:`~Tag.interpreter` tag.
+
+    .. versionadded:: 20.0
     """
     name = sys.implementation.name
     return INTERPRETER_SHORT_NAMES.get(name) or name
@@ -907,6 +960,8 @@ def interpreter_version(*, warn: bool = False) -> str:
     This typically acts as the suffix to the :attr:`~Tag.interpreter` tag.
 
     :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+
+    .. versionadded:: 20.0
     """
     version = _get_config_var("py_version_nodot", warn=warn)
     return str(version) if version else _version_nodot(sys.version_info[:2])
@@ -914,6 +969,18 @@ def interpreter_version(*, warn: bool = False) -> str:
 
 def _version_nodot(version: PythonVersion) -> str:
     return "".join(map(str, version))
+
+
+def interpreter_abi() -> str:
+    """
+    Returns the running interpreter's ABI tag.
+
+    This typically acts as the :attr:`~Tag.abi` tag of the most specific tag
+    for the running interpreter.
+    """
+    if interpreter_name() == "cp":
+        return next(iter(_cpython_abis(sys.version_info[:2])))
+    return next(iter(_generic_abi()))
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:

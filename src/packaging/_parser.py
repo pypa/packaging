@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
-from typing import Literal, NamedTuple, Union
+from typing import Literal, NamedTuple, TypeAlias
 
 from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
 
@@ -86,10 +86,10 @@ class Op(Node):
 
 
 MarkerLogical = Literal["and", "or"]
-MarkerVar = Union[Variable, Value]
+MarkerVar = Variable | Value
 MarkerItem = tuple[MarkerVar, Op, MarkerVar]
-MarkerAtom = Union[MarkerItem, Sequence["MarkerAtom"]]
-MarkerList = list[Union["MarkerList", MarkerAtom, MarkerLogical]]
+MarkerAtom = MarkerItem | Sequence["MarkerAtom"]
+MarkerList: TypeAlias = 'list["MarkerList" | MarkerAtom | MarkerLogical]'
 
 
 class ParsedRequirement(NamedTuple):

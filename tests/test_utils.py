@@ -157,6 +157,18 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             },
         ),
         (
+            "foo-2-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "foo",
+            Version("2"),
+            (),
+            {
+                Tag("py2", "none", "manylinux_2_17_x86_64"),
+                Tag("py2", "none", "manylinux2014_x86_64"),
+                Tag("py3", "none", "manylinux_2_17_x86_64"),
+                Tag("py3", "none", "manylinux2014_x86_64"),
+            },
+        ),
+        (
             "foo_bár-1.0-py3-none-any.whl",
             "foo-bár",
             Version("1.0"),
@@ -203,6 +215,7 @@ def test_parse_wheel_filename(
             "foo-1.0-\N{ARABIC-INDIC DIGIT ONE}foo-py3-none-any.whl"
         ),  # Non-ASCII build number
         ("foo-1.0-py3-none-any/evil.whl"),  # Separator in platform tag
+        ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:

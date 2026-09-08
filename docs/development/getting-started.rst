@@ -30,7 +30,6 @@ each supported Python version and run the tests. For example:
     $ nox -s tests
     ...
     nox > Ran multiple sessions:
-    nox > * tests-3.9: success
     nox > * tests-3.10: success
     nox > * tests-3.11: success
     nox > * tests-3.12: success

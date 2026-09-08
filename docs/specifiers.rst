@@ -62,11 +62,27 @@ Usage
     >>> # We can convert a specifier set into a set-algebra VersionRange
     >>> SpecifierSet(">=1.0,<2.0").to_range()
     <VersionRange '[1.0, 2.0.dev0)'>
+    >>> # Or ask set-relation questions directly
+    >>> SpecifierSet(">=3.12,<3.13").is_subset(SpecifierSet(">=3.12"))
+    True
+    >>> SpecifierSet(">=3.12").is_superset(SpecifierSet(">=3.12,<3.13"))
+    True
+    >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.12"))
+    True
 
 The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
 :class:`~packaging.ranges.VersionRange`, a set-algebra view of the accepted
 versions that supports intersection, union, complement, and difference. See
 :doc:`ranges` for details.
+
+The relation helpers take another :class:`~packaging.specifiers.SpecifierSet`
+and compare the versions the two sets accept, not the specifier objects
+themselves. Both sets must have been given the same ``prereleases`` argument,
+not just the same derived
+:attr:`~packaging.specifiers.SpecifierSet.prereleases` value, or the
+comparison raises :exc:`ValueError`. Sets containing ``===`` specifiers are
+rejected; call :meth:`~packaging.specifiers.SpecifierSet.to_range` on both
+sides for those.
 
 
 Reference

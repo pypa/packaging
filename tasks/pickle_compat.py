@@ -130,7 +130,7 @@ def verify(path: pathlib.Path, expected_version: str | None = None) -> int:
             return 1
 
         for i, (loaded, expected) in enumerate(
-            zip(loaded_list, expected_list)  # type: ignore[call-overload]
+            zip(loaded_list, expected_list, strict=False)  # type: ignore[call-overload]
         ):
             if type(loaded) is not expected_cls:
                 print(

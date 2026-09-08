@@ -9,7 +9,7 @@ description = "Core utilities for Python packages"
 dynamic = ["version"]
 license = "Apache-2.0 OR BSD-2-Clause"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -17,7 +17,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -98,10 +97,25 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-m", "not property"]
+addopts = [
+    "-ra",
+    "--showlocals",
+    "--strict-markers",
+    "--strict-config",
+    "-m",
+    "not property",        # property based tests opt-in only
+    "--capture=sys",       # avoids per-test fd dup2/lseek syscalls (~20% of the runtime)
+    "-p",
+    "no:logging",          # no test uses caplog and its per-test setup is measurable
+    "-p",
+    "no:threadexception",  # no threads, avoids extra gc
+    "-p",
+    "no:tmpdir",           # no usage of tempdir (mostly sans IO)
+    "-p",
+    "no:legacypath",       # no legacy paths
+]
 xfail_strict = true
 filterwarnings = ["error"]
-log_level = "INFO"
 testpaths = ["tests"]
 markers = ["property: property-based tests (opt-in)"]
 
@@ -110,7 +124,7 @@ markers = ["property: property-based tests (opt-in)"]
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
-python_version = "3.9"
+python_version = "3.10"
 files = ["src", "tests", "noxfile.py"]
 native_parser = true
 
@@ -130,11 +144,13 @@ ignore = [
     "A002",    # function args shadowing builtins is fine
     "C9",      # complexity
     "COM812",  # trailing commas teach the formatter
+    "CPY001",  # no copyright messages in files (for now)
     "D",       # doc formatting
     "EM",      # flake8-errmsg
     "ERA",     # commented out code
     "FBT",     # boolean positional args (existing API)
     "FIX",     # has todos
+    "ISC004",  # unparenthesized implicit string concatenation in collection
     "N818",    # exceptions must end in "*Error"
     "PLR09",   # too many ...
     "PLR2004", # magic value in comparison

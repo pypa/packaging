@@ -1,23 +1,36 @@
 from __future__ import annotations
 
+import gc
 import sysconfig
-import typing
-
-import pytest
 
 from packaging.markers import _cached_default_environment
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Generator
+
+# default_environment() is cached, so tests that patch platform/sys must run
+# against a fresh cache and must not leak their patched values to later tests.
+# Plain hooks are used instead of an autouse fixture because instantiating a
+# fixture 62k times costs several percent of the suite's runtime.
+def pytest_runtest_setup() -> None:
+    _cached_default_environment.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-def _clear_default_environment_cache() -> Generator[None, None, None]:
-    # default_environment() is cached, so tests that patch platform/sys must run
-    # against a fresh cache and must not leak their patched values to later tests.
+def pytest_runtest_teardown() -> None:
     _cached_default_environment.cache_clear()
-    yield
-    _cached_default_environment.cache_clear()
+
+
+def pytest_collection() -> None:
+    # Collection allocates millions of long-lived objects; skip GC passes until
+    # the collect-and-freeze below.
+    gc.disable()
+
+
+def pytest_collection_finish() -> None:
+    # Freeze the collected-item tree and imported modules into GC's permanent
+    # generation so per-test GC passes stop traversing them (~10% faster suite).
+    gc.enable()
+    gc.collect()
+    if hasattr(gc, "freeze"):  # CPython-only; missing on PyPy
+        gc.freeze()
 
 
 def pytest_report_header() -> str:

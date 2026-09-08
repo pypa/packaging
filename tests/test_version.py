@@ -650,7 +650,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_pre(self, version: str, pre: None | tuple[str, int]) -> None:
+    def test_version_pre(self, version: str, pre: tuple[str, int] | None) -> None:
         assert Version(version).pre == pre
 
     @pytest.mark.parametrize(

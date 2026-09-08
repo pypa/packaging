@@ -19,12 +19,7 @@ from packaging.errors import ExceptionGroup
 from packaging.requirements import InvalidRequirement, Requirement
 
 if TYPE_CHECKING:
-    import sys
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
 

@@ -16,10 +16,8 @@ import typing
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Final,
     TypeVar,
-    Union,
 )
 
 from ._ranges import (
@@ -37,13 +35,8 @@ from .utils import canonicalize_version
 from .version import Version
 
 if TYPE_CHECKING:
-    import sys
-    from collections.abc import Iterable, Iterator, Sequence
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeGuard
-    else:
-        from typing_extensions import TypeGuard
+    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from typing import TypeGuard
 
     from . import ranges
     from ._ranges import Interval
@@ -75,7 +68,7 @@ def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
 
 
 T = TypeVar("T")
-UnparsedVersion = Union[Version, str]
+UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
 
@@ -299,16 +292,16 @@ class Specifier(BaseSpecifier):
                 v?
                 (?:[0-9]+!)?          # epoch
                 [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
-                (?:                   # pre release
+                (?a:                  # pre release
                     [-_\.]?
                     (alpha|beta|preview|pre|a|b|c|rc)
                     [-_\.]?
                     [0-9]*
                 )?
-                (?:                                   # post release
+                (?a:                                  # post release
                     (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
                 )?
-                (?:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
+                (?a:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
             )
             |
             (?:
@@ -637,6 +630,14 @@ class Specifier(BaseSpecifier):
         False
         >>> Specifier(">=1.2.3").contains("1.3.0a1")
         True
+
+        .. versionchanged:: 26.0
+
+            With ``prereleases=None``, a prerelease now matches. A single
+            version has no alternatives, so the :pep:`440` rule to accept
+            prereleases when nothing else satisfies the specifier applies.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         # ``===`` compares the raw string, so a Version parse here would
         # be wasted.
@@ -1132,6 +1133,70 @@ class SpecifierSet(BaseSpecifier):
 
         return VersionRange._from_specifier_set(self)
 
+    def _check_relation_operand(self, other: object) -> None:
+        if not isinstance(other, SpecifierSet):
+            raise TypeError("expected a SpecifierSet")
+        if self._has_arbitrary or other._has_arbitrary:
+            raise ValueError("set relations do not support === specifiers")
+
+    def is_subset(self, other: SpecifierSet) -> bool:
+        """Return whether every version matching this set also matches other.
+
+        :raises ValueError:
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
+        :raises TypeError:
+            If other is not a :class:`SpecifierSet`.
+
+        >>> SpecifierSet(">=3.12,<3.13").is_subset(SpecifierSet(">=3.12"))
+        True
+        >>> SpecifierSet(">=3.12").is_subset(SpecifierSet(">=3.12,<3.13"))
+        False
+
+        .. versionadded:: 26.3
+        """
+        self._check_relation_operand(other)
+        return self.to_range().is_subset(other.to_range())
+
+    def is_superset(self, other: SpecifierSet) -> bool:
+        """Return whether every version matching other also matches this set.
+
+        :raises ValueError:
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
+        :raises TypeError:
+            If other is not a :class:`SpecifierSet`.
+
+        >>> SpecifierSet(">=3.12").is_superset(SpecifierSet(">=3.12,<3.13"))
+        True
+
+        .. versionadded:: 26.3
+        """
+        self._check_relation_operand(other)
+        return self.to_range().is_superset(other.to_range())
+
+    def is_disjoint(self, other: SpecifierSet) -> bool:
+        """Return whether this set and other share no matching versions.
+
+        :raises ValueError:
+            If either set uses ``===`` specifiers, or the two sets were
+            given different ``prereleases`` arguments (unset on one side
+            counts as different).
+        :raises TypeError:
+            If other is not a :class:`SpecifierSet`.
+
+        >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.12"))
+        True
+        >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.11"))
+        False
+
+        .. versionadded:: 26.3
+        """
+        self._check_relation_operand(other)
+        return self.to_range().is_disjoint(other.to_range())
+
     def __contains__(self, item: UnparsedVersion) -> bool:
         """Return whether or not the item is contained in this specifier.
 
@@ -1184,6 +1249,14 @@ class SpecifierSet(BaseSpecifier):
         False
         >>> SpecifierSet(">=1.0.0,!=1.0.1").contains("1.3.0a1", prereleases=True)
         True
+
+        .. versionchanged:: 26.0
+
+            With ``prereleases=None``, a prerelease now matches. A single
+            version has no alternatives, so the :pep:`440` rule to accept
+            prereleases when nothing else satisfies the specifiers applies.
+            Earlier versions rejected it. An unparsable version now returns
+            ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
         version = coerce_version(item)
 
@@ -1296,6 +1369,11 @@ class SpecifierSet(BaseSpecifier):
         ['1.3', '1.5a1']
         >>> list(SpecifierSet("").filter(["1.3", "1.5a1"], prereleases=True))
         ['1.3', '1.5a1']
+
+        .. versionchanged:: 26.0
+
+            Prerelease filtering now follows the PEP 440 recommendation of
+            yielding prereleases only when no final release is present.
 
         .. versionchanged:: 26.1
 

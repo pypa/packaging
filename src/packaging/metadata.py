@@ -6,10 +6,10 @@ import email.parser
 import email.policy
 import keyword
 import pathlib
+import re
 import typing
 from typing import (
     Any,
-    Callable,
     Generic,
     Literal,
     TypedDict,
@@ -21,6 +21,8 @@ from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 
@@ -43,7 +45,10 @@ def __dir__() -> list[str]:
 
 
 class InvalidMetadata(ValueError):
-    """A metadata field contains invalid data."""
+    """A metadata field contains invalid data.
+
+    .. versionadded:: 23.2
+    """
 
     field: str
     """The name of the field that contains invalid data."""
@@ -130,11 +135,15 @@ class RawMetadata(TypedDict, total=False):
 
     # Metadata 2.4 - PEP 639
     license_expression: str
+    """.. versionadded:: 24.2"""
     license_files: list[str]
+    """.. versionadded:: 24.2"""
 
     # Metadata 2.5 - PEP 794
     import_names: list[str]
+    """.. versionadded:: 26.0"""
     import_namespaces: list[str]
+    """.. versionadded:: 26.0"""
 
     # Metadata 2.6 - PEP 808 (no new fields, behavior change for Dynamic)
 
@@ -300,11 +309,19 @@ _EMAIL_TO_RAW_MAPPING = {
 _RAW_TO_EMAIL_MAPPING = {raw: email for email, raw in _EMAIL_TO_RAW_MAPPING.items()}
 
 
+# A bare "\r" makes the email generator raise ``HeaderWriteError``, and on
+# CPython releases without the CVE-2024-6923 fix any ``str.splitlines``
+# boundary ends the header line, so fold all of them, not just "\n".
+_LINE_BOUNDARY_RE = re.compile(r"\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]")
+
+
 # This class is for writing RFC822 messages
 class RFC822Policy(email.policy.EmailPolicy):
     """
     This is :class:`email.policy.EmailPolicy`, but with a simple ``header_store_parse``
     implementation that handles multi-line values, and some nice defaults.
+
+    .. versionadded:: 26.0
     """
 
     utf8 = True
@@ -313,7 +330,7 @@ class RFC822Policy(email.policy.EmailPolicy):
 
     def header_store_parse(self, name: str, value: str) -> tuple[str, str]:
         size = len(name) + 2
-        value = value.replace("\n", "\n" + " " * size)
+        value = _LINE_BOUNDARY_RE.sub("\n" + " " * size, value)
         return (name, value)
 
 
@@ -323,6 +340,8 @@ class RFC822Message(email.message.EmailMessage):
     This is :class:`email.message.EmailMessage` with two small changes: it defaults to
     our `RFC822Policy`, and it correctly writes unicode when being called
     with `bytes()`.
+
+    .. versionadded:: 26.0
     """
 
     def __init__(self) -> None:
@@ -631,8 +650,8 @@ class _Validator(Generic[T]):
             ) from exc
 
     def _process_summary(self, value: str) -> str:
-        """Check the field contains no newlines."""
-        if "\n" in value:
+        """Check the field contains no line breaks."""
+        if _LINE_BOUNDARY_RE.search(value):
             raise self._invalid_metadata(f"{self.raw_name!r} must be a single line")
         return value
 
@@ -800,6 +819,12 @@ class Metadata:
     metadata fields instead of only using built-in types. Any invalid metadata
     will cause :exc:`InvalidMetadata` to be raised (with a
     :py:attr:`~BaseException.__cause__` attribute as appropriate).
+
+    .. versionadded:: 23.2
+
+    .. versionchanged:: 24.0
+        Optional attributes now return None when the field is absent instead of
+        raising.
     """
 
     _raw: RawMetadata
@@ -808,8 +833,9 @@ class Metadata:
     def from_raw(cls, data: RawMetadata, *, validate: bool = True) -> Metadata:
         """Create an instance from :class:`RawMetadata`.
 
-        If *validate* is true, all metadata will be validated. All exceptions
-        related to validation will be gathered and raised as an :class:`ExceptionGroup`.
+        If *validate* is true, all metadata will be validated and all related
+        exceptions will be gathered and raised as an :class:`ExceptionGroup`;
+        otherwise, validation happens per attribute when it is accessed.
         """
         ins = cls()
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
@@ -940,9 +966,15 @@ class Metadata:
     license_expression: _Validator[NormalizedLicenseExpression | None] = _Validator(
         added="2.4"
     )
-    """:external:ref:`core-metadata-license-expression`"""
+    """:external:ref:`core-metadata-license-expression`
+
+    .. versionadded:: 24.2
+    """
     license_files: _Validator[list[str] | None] = _Validator(added="2.4")
-    """:external:ref:`core-metadata-license-file`"""
+    """:external:ref:`core-metadata-license-file`
+
+    .. versionadded:: 24.2
+    """
     classifiers: _Validator[list[str] | None] = _Validator(added="1.1")
     """:external:ref:`core-metadata-classifier`"""
     requires_dist: _Validator[list[requirements.Requirement] | None] = _Validator(
@@ -970,9 +1002,15 @@ class Metadata:
     obsoletes_dist: _Validator[list[str] | None] = _Validator(added="1.2")
     """:external:ref:`core-metadata-obsoletes-dist`"""
     import_names: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`core-metadata-import-name`"""
+    """:external:ref:`core-metadata-import-name`
+
+    .. versionadded:: 26.0
+    """
     import_namespaces: _Validator[list[str] | None] = _Validator(added="2.5")
-    """:external:ref:`core-metadata-import-namespace`"""
+    """:external:ref:`core-metadata-import-namespace`
+
+    .. versionadded:: 26.0
+    """
     requires: _Validator[list[str] | None] = _Validator(added="1.1")
     """``Requires`` (deprecated)"""
     provides: _Validator[list[str] | None] = _Validator(added="1.1")
@@ -983,6 +1021,8 @@ class Metadata:
     def as_rfc822(self) -> RFC822Message:
         """
         Return an RFC822 message with the metadata.
+
+        .. versionadded:: 26.0
         """
         message = RFC822Message()
         self._write_metadata(message)

@@ -37,7 +37,7 @@ LD_MUSL_AARCH64 = "/lib/ld-musl-aarch64.so.1"
 
 
 @pytest.fixture(autouse=True)
-def clear_lru_cache() -> Generator[None, None, None]:
+def clear_lru_cache() -> Generator[None]:
     yield
     _get_musl_version.cache_clear()
 

@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import datetime
 import difflib
 import glob
+import importlib.metadata
 import io
 import os
 import re
@@ -34,6 +36,11 @@ nox.needs_version = ">=2025.02.09"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv|virtualenv"
 
+# Parallel mode added in modern nox
+NOX_VERSION = packaging.version.Version(importlib.metadata.version("nox"))
+if packaging.version.Version("2026.08.10") <= NOX_VERSION:
+    nox.options.allow_parallel = True
+
 PYPROJECT = nox.project.load_toml("pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 
@@ -42,6 +49,10 @@ PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 # binaries so uv/pip picks the newest version with a compatible wheel instead.
 HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
 
+# Interpreters that run the tests without coverage, because tracing is too slow
+# there: PyPy, and free-threaded 3.13, which has no fast C tracer.
+NO_COVERAGE = {"pypy", "3.13t"}
+
 
 @nox.session(
     python=[
@@ -49,7 +60,6 @@ HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
         "3.13t",
         "3.14t",
         "3.15t",
-        "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],
@@ -59,38 +69,52 @@ def tests(session: nox.Session) -> None:
     """
     Run the tests, with coverage.
     """
+    assert session.python is not None
+    assert not isinstance(session.python, bool)
+
+    parser = argparse.ArgumentParser(prog="nox -s tests --")
+    parser.add_argument(
+        "--coverage",
+        action=argparse.BooleanOptionalAction,
+        default=not any(x in session.python for x in NO_COVERAGE),
+        help="Run the tests under coverage.",
+    )
+    args, posargs = parser.parse_known_args(session.posargs)
+
     coverage = ["python", "-m", "coverage"]
 
     session.install(
         *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
     )
     session.install("-e.")
-    env = {} if session.python != "3.14" else {"COVERAGE_CORE": "sysmon"}
+
+    # Give each session its own data file so parallel sessions don't fight over
+    # the default ".coverage".
+    env = {"COVERAGE_FILE": str(Path.cwd() / f".coverage.{session.python}")}
+    if session.python == "3.14":
+        env["COVERAGE_CORE"] = "sysmon"
 
     # Property tests are marked with @pytest.mark.property and are excluded by default
     # via pyproject.toml. Run the regular test suite normally; property tests can be
     # run explicitly with `pytest -m property` or the `property_tests` nox session.
 
-    assert session.python is not None
-    assert not isinstance(session.python, bool)
-    if "pypy" not in session.python:
+    if args.coverage:
         session.run(
             *coverage,
             "run",
             "-m",
             "pytest",
-            *session.posargs,
+            *posargs,
             env=env,
         )
-        session.run(*coverage, "report")
+        session.run(*coverage, "report", env=env)
     else:
-        # Don't do coverage tracking for PyPy, since it's SLOW.
         session.run(
             "python",
             "-m",
             "pytest",
             "--capture=no",
-            *session.posargs,
+            *posargs,
         )
 
 
@@ -172,13 +196,14 @@ PROJECTS = {
         install_env={"PDM_BUILD_SCM_VERSION": "0.6.0"},
     ),
     "twine": Project(
-        "https://github.com/pypa/twine/archive/refs/tags/6.2.0.tar.gz",
+        "https://github.com/pypa/twine/archive/refs/tags/7.0.0.tar.gz",
         # twine keeps its test deps in tox.ini rather than a [test] extra.
         install=("-e.", "pretend", "pytest", "pytest-socket", "coverage"),
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "6.2.0"},
-        # test_fails_rst_syntax_error asserts an exact docutils warning string
-        # that changed in newer docutils; unrelated to packaging.
-        pytest_args=("-k", "not test_fails_rst_syntax_error"),
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "7.0.0"},
+        # test_fails_rst_no_content expects an RST document with only a title
+        # to render as empty, which readme_renderer 46 changed; unrelated to
+        # packaging.
+        pytest_args=("-k", "not test_fails_rst_no_content"),
     ),
     "cibuildwheel": Project(
         "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
@@ -186,7 +211,7 @@ PROJECTS = {
         pytest_args=("unit_test",),
     ),
     "hatchling": Project(
-        "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.30.1.tar.gz",
+        "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.31.0.tar.gz",
         # hatchling lives in the hatch monorepo; its backend tests rely on the
         # full hatch package and its fixtures.
         install=(
@@ -197,13 +222,16 @@ PROJECTS = {
             "filelock",
             "editables",
         ),
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.30.1"},
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.31.0"},
         # test_binary downloads a PyApp binary over the network.
         # See https://github.com/pypa/hatch/issues/2319.
+        # hatchling ships no pytest config, so from nox's tmp dir inside this
+        # checkout pytest makes packaging's own directory the rootdir. Node IDs
+        # then carry a .nox/... prefix, which silently breaks --deselect.
         pytest_args=(
             "tests/backend",
+            "--rootdir=.",
             "--ignore=tests/backend/builders/test_binary.py",
-            "--deselect=tests/backend/builders/test_wheel.py::TestBuildStandard::test_default_shared_scripts",
         ),
     ),
     "tox": Project(
@@ -289,7 +317,10 @@ def downstream(session: nox.Session, project: str) -> None:
         data = resp.read()
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         tf.extractall(project)
-    (inner_dir,) = Path(project).iterdir()
+    project_path = Path(project)
+    (inner_dir,) = project_path.iterdir()
+    # Make sure pytest doesn't keep searching upwards for config
+    project_path.joinpath("pytest.ini").touch()
     session.chdir(inner_dir)
 
     pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
@@ -344,9 +375,11 @@ def lint(session: nox.Session) -> None:
     # Run the linters (via prek, a Rust pre-commit runner)
     session.run("prek", "run", "--all-files", *session.posargs)
 
-    # Check the distribution
-    session.run("pyproject-build")
-    session.run("twine", "check", *glob.glob("dist/*"))
+    # Check the distribution. Build into the session temp dir, so this does not
+    # collide with the "dist/" the release sessions manage.
+    out_dir = Path(session.create_tmp()) / "dist"
+    session.run("pyproject-build", "--outdir", str(out_dir))
+    session.run("twine", "check", *glob.glob(f"{out_dir}/*"))
 
 
 @nox.session(default=False)
@@ -675,7 +708,7 @@ def _bump(session: nox.Session, *, version: str, file: Path, kind: str) -> None:
 @contextlib.contextmanager
 def _replace_file(
     original_path: Path,
-) -> Generator[tuple[IO[str], IO[str]], None, None]:
+) -> Generator[tuple[IO[str], IO[str]]]:
     # Create a temporary file.
     fh, replacement_path = tempfile.mkstemp()
 

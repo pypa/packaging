@@ -64,7 +64,7 @@ VALUES = [
 
 class TestNode:
     @pytest.mark.parametrize("value", ["one", "two", None, 3, 5, []])
-    def test_accepts_value(self, value: str | None | int | list[str]) -> None:
+    def test_accepts_value(self, value: str | int | list[str] | None) -> None:
         assert Node(value).value == value  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("value", ["one", "two"])
@@ -125,6 +125,16 @@ class TestOperatorEvaluation:
     def test_fails_when_undefined(self) -> None:
         with pytest.raises(UndefinedComparison):
             Marker("'2.7.0' ~= os_name").evaluate()
+
+    def test_arbitrary_equality_on_non_version_key_is_undefined(self) -> None:
+        # ``===`` has no entry in ``_operators`` and the version-specifier path
+        # only runs for ``MARKERS_REQUIRING_VERSION`` keys, so evaluating ``===``
+        # against a non-version key raises ``UndefinedComparison``. This pins the
+        # post-#939 behavior (``packaging`` <= 25.0 evaluated it as plain string
+        # equality); see #1239.
+        for marker in ("os_name === 'posix'", "sys_platform === 'linux'"):
+            with pytest.raises(UndefinedComparison):
+                Marker(marker).evaluate()
 
     def test_allows_prerelease(self) -> None:
         assert Marker('python_full_version > "3.6.2"').evaluate(
@@ -219,6 +229,17 @@ class TestMarker:
     def test_parses_invalid(self, marker_string: str) -> None:
         with pytest.raises(InvalidMarker):
             Marker(marker_string)
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
+    def test_parses_invalid_trailing_line_break(self, line_break: str) -> None:
+        with pytest.raises(InvalidMarker):
+            Marker('python_version >= "3"' + line_break)
+
+    @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
+    def test_parses_trailing_horizontal_whitespace(self, whitespace: str) -> None:
+        assert Marker('python_version >= "3"' + whitespace) == Marker(
+            'python_version >= "3"'
+        )
 
     @pytest.mark.parametrize(
         ("marker_string", "expected"),

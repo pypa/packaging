@@ -9,8 +9,9 @@ import operator
 import os
 import platform
 import sys
+from collections.abc import Callable
 from collections.abc import Set as AbstractSet
-from typing import TYPE_CHECKING, Callable, Literal, TypedDict, Union, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
@@ -36,7 +37,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
-Operator = Callable[[str, Union[str, AbstractSet[str]]], bool]
+Operator = Callable[[str, str | AbstractSet[str]], bool]
 EvaluateContext = Literal["metadata", "lock_file", "requirement"]
 """A ``typing.Literal`` enumerating valid marker evaluation contexts.
 
@@ -45,6 +46,8 @@ Valid values for the ``context`` passed to :meth:`Marker.evaluate` are:
 * ``"metadata"`` (for core metadata; default)
 * ``"lock_file"`` (for lock files)
 * ``"requirement"`` (i.e. all other situations)
+
+.. versionadded:: 25.0
 """
 
 MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
@@ -78,6 +81,11 @@ class UndefinedEnvironmentName(KeyError):
 
     Subclasses :class:`KeyError` so that code catching the bare ``KeyError`` that
     a missing environment lookup historically produced keeps working.
+
+    .. versionchanged:: 26.3
+        Now subclasses :class:`KeyError` (was :class:`ValueError`) and is raised by
+        :meth:`Marker.evaluate` for missing environment keys, where a bare
+        ``KeyError`` was raised before.
     """
 
 
@@ -404,7 +412,7 @@ class Marker:
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
             # The attribute `_markers` can be described in terms of a recursive type:
-            # MarkerList = List[Union[Tuple[Node, ...], str, MarkerList]]
+            # MarkerList = list[tuple[Node, ...] | str | MarkerList]
             #
             # For example, the following expression:
             # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
@@ -518,6 +526,9 @@ class Marker:
             is missing from the evaluation environment.
         :returns: ``True`` if the marker matches, otherwise ``False``.
 
+        .. versionchanged:: 25.0
+            Added the ``context`` parameter, which influences which marker names
+            are considered valid.
         """
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()

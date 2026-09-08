@@ -12,14 +12,13 @@ from __future__ import annotations
 import re
 import sys
 import typing
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
     Literal,
     NamedTuple,
     SupportsInt,
     TypedDict,
-    Union,
 )
 
 if typing.TYPE_CHECKING:
@@ -66,14 +65,14 @@ def __dir__() -> list[str]:
     return __all__
 
 
-LocalType = tuple[Union[int, str], ...]
+LocalType = tuple[int | str, ...]
 
 CmpLocalType = tuple[tuple[int, str], ...]
 CmpSuffix = tuple[int, int, int, int, int, int]
-CmpKey = Union[
-    tuple[int, tuple[int, ...], CmpSuffix],
-    tuple[int, tuple[int, ...], CmpSuffix, CmpLocalType],
-]
+CmpKey = (
+    tuple[int, tuple[int, ...], CmpSuffix]
+    | tuple[int, tuple[int, ...], CmpSuffix, CmpLocalType]
+)
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
 
@@ -431,8 +430,7 @@ class Version(_BaseVersion):
                 # propagate to the caller.
                 if "" in version.split("."):
                     raise InvalidVersion(f"Invalid version: {version!r}") from None
-                # TODO: remove "no cover" when Python 3.9 is dropped.
-                raise  # pragma: no cover
+                raise
 
             self._epoch = 0
             self._pre = None
@@ -1055,6 +1053,8 @@ class Version(_BaseVersion):
 
         >>> Version("1.2.3").major
         1
+
+        .. versionadded:: 20.0
         """
         return self.release[0] if len(self.release) >= 1 else 0
 
@@ -1066,6 +1066,8 @@ class Version(_BaseVersion):
         2
         >>> Version("1").minor
         0
+
+        .. versionadded:: 20.0
         """
         return self.release[1] if len(self.release) >= 2 else 0
 
@@ -1077,6 +1079,8 @@ class Version(_BaseVersion):
         3
         >>> Version("1").micro
         0
+
+        .. versionadded:: 20.0
         """
         return self.release[2] if len(self.release) >= 3 else 0
 

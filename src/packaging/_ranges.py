@@ -17,11 +17,10 @@ from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
-    from typing import Union
 
     # Total-order key for comparing two boundaries (boundary-vs-boundary only).
     # The post slot may be ``_BOUNDARY_INF`` for an AFTER_POSTS boundary.
-    _BoundaryOrderSuffix = tuple[int, int, int, Union[int, float], int, int]
+    _BoundaryOrderSuffix = tuple[int, int, int, int | float, int, int]
     _BoundaryOrderKey = tuple[int, tuple[int, ...], _BoundaryOrderSuffix, float]
 
 __all__ = [
@@ -172,14 +171,15 @@ class BoundaryVersion:
 
 
 if TYPE_CHECKING:
-    _VersionOrBoundary = Union[Version, BoundaryVersion, None]
+    _VersionOrBoundary = Version | BoundaryVersion | None
 
 
 @functools.total_ordering
 class LowerBound:
     """Lower bound of a version range.
 
-    A version *v* of ``None`` means unbounded below (-inf).
+    A version *v* of ``None`` means unbounded below (-inf), with
+    ``inclusive`` forced to ``False``.
     At equal versions, ``[v`` sorts before ``(v`` because an inclusive
     bound starts earlier.
     """
@@ -187,6 +187,10 @@ class LowerBound:
     __slots__ = ("_above", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
+        # Two spellings of -inf would sort above each other under total_ordering.
+        if version is None:
+            inclusive = False
+
         self.version = version
         self.inclusive = inclusive
         # Pre-bind a predicate "is parsed at or above this lower
@@ -236,7 +240,8 @@ class LowerBound:
 class UpperBound:
     """Upper bound of a version range.
 
-    A version *v* of ``None`` means unbounded above (+inf).
+    A version *v* of ``None`` means unbounded above (+inf), with
+    ``inclusive`` forced to ``False``.
     At equal versions, ``v)`` sorts before ``v]`` because an exclusive
     bound ends earlier.
     """
@@ -244,6 +249,10 @@ class UpperBound:
     __slots__ = ("_below", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
+        # Two spellings of +inf would sort above each other under total_ordering.
+        if version is None:
+            inclusive = False
+
         self.version = version
         self.inclusive = inclusive
         # Pre-bind a predicate "is parsed at or below this upper

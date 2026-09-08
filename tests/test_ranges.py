@@ -6,7 +6,14 @@ from __future__ import annotations
 
 import pytest
 
-from packaging._ranges import BoundaryKind, BoundaryVersion
+from packaging._ranges import (
+    NEG_INF,
+    POS_INF,
+    BoundaryKind,
+    BoundaryVersion,
+    LowerBound,
+    UpperBound,
+)
 from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
@@ -1822,6 +1829,36 @@ class TestBoundaryCanonicalization:
         # ``1.0a2`` is not a boundary successor, so ``>=1.0a2`` stays plain.
         assert "1.0a2" in repr(vr(">=1.0a2"))
         assert "AFTER" not in repr(vr(">=1.0a2"))
+
+
+class TestUnboundedEnds:
+    """An unbounded end has one spelling: ``inclusive`` is not part of it."""
+
+    def test_lower_spellings_are_one_bound(self) -> None:
+        bound = LowerBound(None, True)
+        assert bound.inclusive is False
+
+        assert bound == LowerBound(None, False) == NEG_INF
+        assert hash(bound) == hash(NEG_INF)
+        assert len({bound, NEG_INF}) == 1
+
+    def test_upper_spellings_are_one_bound(self) -> None:
+        bound = UpperBound(None, True)
+        assert bound.inclusive is False
+
+        assert bound == UpperBound(None, False) == POS_INF
+        assert hash(bound) == hash(POS_INF)
+        assert len({bound, POS_INF}) == 1
+
+    def test_lower_ends_order_as_one_value(self) -> None:
+        a, b = LowerBound(None, True), LowerBound(None, False)
+        assert (a < b, a > b, a <= b, a >= b) == (False, False, True, True)
+        assert (b < a, b > a, b <= a, b >= a) == (False, False, True, True)
+
+    def test_upper_ends_order_as_one_value(self) -> None:
+        a, b = UpperBound(None, True), UpperBound(None, False)
+        assert (a < b, a > b, a <= b, a >= b) == (False, False, True, True)
+        assert (b < a, b > a, b <= a, b >= a) == (False, False, True, True)
 
 
 class TestEmptyMatchesUnsatisfiable:
