@@ -205,7 +205,9 @@ class TestCompatibleReleaseDefinition:
     ) -> None:
         """~=V matches candidate iff candidate >= V and candidate matches the
         prefix wildcard derived from V."""
-        assume(spec_ver.epoch == candidate.epoch)
+        # Share an epoch without assume(), which rejects most draws and trips
+        # Hypothesis HealthCheck.filter_too_much.
+        candidate = candidate.__replace__(epoch=spec_ver.epoch)
         spec = Specifier(f"~={spec_ver}")
         result = candidate in spec
         # Also check via the expanded form
