@@ -8,6 +8,11 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for tags:
+
+* Prevent ``mac_platforms`` from raising ``ValueError`` when ``platform.mac_ver()``
+  returns an empty version string or when macOS 10.16 version probe fails.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 

@@ -430,6 +430,26 @@ class TestMacOSPlatforms:
         platforms = list(tags.mac_platforms(arch="x86_64"))
         assert not platforms[0].startswith(unexpected)
 
+    def test_version_detection_empty_mac_ver(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(platform, "mac_ver", lambda: ("", ("", "", ""), "x86_64"))
+        assert list(tags.mac_platforms(arch="x86_64")) == []
+
+    def test_version_detection_10_16_subprocess_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: ("10.16", ("", "", ""), "x86_64")
+        )
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *args, **kwargs: subprocess.CompletedProcess([], 1, stdout=""),
+        )
+        platforms = list(tags.mac_platforms(arch="x86_64"))
+        assert any(p.startswith("macosx_10_16_") for p in platforms)
+
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
     def test_arch_detection(self, arch: str, monkeypatch: pytest.MonkeyPatch) -> None:
         if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
