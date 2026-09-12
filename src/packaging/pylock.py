@@ -5,7 +5,7 @@ import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -267,6 +267,12 @@ def _url_name(url: str | None) -> str | None:
     return unquote(url_path.rsplit("/", 1)[-1])
 
 
+def _validate_upload_time(upload_time: datetime) -> datetime:
+    if upload_time.utcoffset() != timedelta(0):
+        raise PylockValidationError("Upload time must be in UTC")
+    return upload_time
+
+
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
@@ -374,7 +380,7 @@ class PackageArchive:
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
-            upload_time=_get(d, datetime, "upload-time"),
+            upload_time=_get_as(d, datetime, _validate_upload_time, "upload-time"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
             subdirectory=_get(d, str, "subdirectory"),
         )
@@ -395,7 +401,7 @@ class PackageSdist:
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package_sdist = cls(
             name=_get(d, str, "name"),
-            upload_time=_get(d, datetime, "upload-time"),
+            upload_time=_get_as(d, datetime, _validate_upload_time, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
@@ -429,7 +435,7 @@ class PackageWheel:
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package_wheel = cls(
             name=_get(d, str, "name"),
-            upload_time=_get(d, datetime, "upload-time"),
+            upload_time=_get_as(d, datetime, _validate_upload_time, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
             size=_get(d, int, "size"),
