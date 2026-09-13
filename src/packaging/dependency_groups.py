@@ -242,6 +242,7 @@ class DependencyGroupResolver:
             return ()
 
         elements: list[Requirement | DependencyGroupInclude] = []
+        error_count_before_parse = len(errors.errors)
         for item in raw_group:
             if isinstance(item, str):
                 # packaging.requirements.Requirement parsing ensures that this is a
@@ -271,7 +272,10 @@ class DependencyGroupResolver:
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
-        if errors.errors:
+        # in the event that errors were detected while parsing this group, present the
+        # group as empty and do not cache the result
+        # this ensures that repeated access to a cyclic group will raise multiple errors
+        if len(errors.errors) > error_count_before_parse:
             return ()
 
         self._parsed_groups[group] = tuple(elements)
