@@ -105,19 +105,25 @@ def canonicalize_license_expression(
 
     # Pad any parentheses so tokenization can be achieved by merely splitting on
     # whitespace.
-    license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
+    padded_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
     licenseref_prefix = "LicenseRef-"
-    license_refs = {
-        ref.lower(): "LicenseRef-" + ref[len(licenseref_prefix) :]
-        for ref in license_expression.split()
-        if ref.lower().startswith(licenseref_prefix.lower())
-    }
 
     # Normalize to lower case so we can look up licenses/exceptions
     # and so boolean operators are Python-compatible.
-    license_expression = license_expression.lower()
+    license_expression = padded_expression.lower()
 
     tokens = license_expression.split()
+
+    # LicenseRef- identifiers are case-sensitive, but the expression has been
+    # lowercased for lookup, so remember the original spelling of each
+    # occurrence to avoid conflating refs that differ only in case.
+    license_refs: dict[int, str] = {}
+    original_tokens = padded_expression.split()
+    for index, (token, original) in enumerate(
+        zip(tokens, original_tokens, strict=True)
+    ):
+        if token.startswith(licenseref_prefix.lower()):
+            license_refs[index] = licenseref_prefix + original[len(licenseref_prefix) :]
 
     # Rather than implementing a parenthesis/boolean logic parser, create an
     # expression that Python can parse. Everything that is not involved with the
@@ -182,7 +188,7 @@ def canonicalize_license_expression(
                 if suffix or not license_ref_allowed.match(license_ref_id):
                     message = f"Invalid licenseref: {token!r}"
                     raise InvalidLicenseExpression(message)
-                normalized_tokens.append(license_refs[final_token])
+                normalized_tokens.append(license_refs[index])
             else:
                 if final_token not in LICENSES:
                     message = f"Unknown license: {final_token!r}"
