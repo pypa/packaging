@@ -272,9 +272,8 @@ class DependencyGroupResolver:
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
-        # in the event that errors were detected while parsing this group, present the
-        # group as empty and do not cache the result
-        # this ensures that repeated access to a cyclic group will raise multiple errors
+        # If errors were detected while parsing this group, present the
+        # group as empty and do not cache the result.
         if len(errors.errors) > error_count_before_parse:
             return ()
 
