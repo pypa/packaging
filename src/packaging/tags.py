@@ -745,9 +745,6 @@ def mac_platforms(
         if arch is None:
             arch = _mac_arch(cpu_arch)
 
-    if version is None:
-        return
-
     if (10, 0) <= version < (11, 0):
         # Prior to Mac OS 11, each yearly release of Mac OS bumped the
         # "minor" version number.  The major version was always 10.

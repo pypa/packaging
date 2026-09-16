@@ -436,17 +436,25 @@ class TestMacOSPlatforms:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("", ("", "", ""), "x86_64"))
         assert list(tags.mac_platforms(arch="x86_64")) == []
 
+    @pytest.mark.parametrize(
+        "run_func",
+        [
+            pretend.raiser(subprocess.SubprocessError("probe failed")),
+            lambda *args, **kwargs: subprocess.CompletedProcess([], 1, stdout=""),
+            lambda *args, **kwargs: subprocess.CompletedProcess(
+                [], 0, stdout="invalid.version"
+            ),
+        ],
+    )
     def test_version_detection_10_16_subprocess_failure(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
+        run_func: collections.abc.Callable[..., subprocess.CompletedProcess[str]],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
             platform, "mac_ver", lambda: ("10.16", ("", "", ""), "x86_64")
         )
-        monkeypatch.setattr(
-            subprocess,
-            "run",
-            lambda *args, **kwargs: subprocess.CompletedProcess([], 1, stdout=""),
-        )
+        monkeypatch.setattr(subprocess, "run", run_func)
         platforms = list(tags.mac_platforms(arch="x86_64"))
         assert any(p.startswith("macosx_10_16_") for p in platforms)
 
