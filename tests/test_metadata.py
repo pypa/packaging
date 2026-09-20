@@ -158,6 +158,66 @@ class TestRawMetadata:
         assert "description" in raw
         assert raw["description"] == "hello"
 
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize(
+        ("header", "expected"),
+        [
+            ("First\n       |second", "First\nsecond"),
+            (
+                "First\n       |\n       |    indented\n       ||pipe",
+                "First\n\n    indented\n|pipe",
+            ),
+            ("Café\n       |naïve", "Café\nnaïve"),
+            (
+                "First\n      |six\n       |seven\n        |eight\n\t|tab",
+                "First\n      |six\nseven\n        |eight\n\t|tab",
+            ),
+            ("", ""),
+            ("\n       |text", "\ntext"),
+            ("\n       |\n       |text", "\n\ntext"),
+            ("\n       ||text", "\n|text"),
+            (" \t\n       |café", "\ncafé"),
+            ("\n      |text", "|text"),
+            ("\n        |text", "|text"),
+            ("\n\t|text", "|text"),
+        ],
+    )
+    def test_description_header_unfolding(
+        self, encode: bool, newline: str, header: str, expected: str
+    ) -> None:
+        text = "Description: " + header.replace("\n", newline)
+        given: str | bytes = text.encode("utf-8") if encode else text
+
+        raw, unparsed = metadata.parse_email(given)
+
+        assert not unparsed
+        assert raw == {"description": expected.replace("\n", newline)}
+
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_description_body_not_unfolded(self, encode: bool, newline: str) -> None:
+        description = f"First{newline}       |second"
+        text = f"Name: example{newline}{newline}{description}"
+        given: str | bytes = text.encode("utf-8") if encode else text
+
+        raw, unparsed = metadata.parse_email(given)
+
+        assert not unparsed
+        assert raw == {"name": "example", "description": description}
+
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_license_header_not_unfolded(self, encode: bool, newline: str) -> None:
+        license_text = f"First{newline}       |second"
+        text = f"License: {license_text}"
+        given: str | bytes = text.encode("utf-8") if encode else text
+
+        raw, unparsed = metadata.parse_email(given)
+
+        assert not unparsed
+        assert raw == {"license": license_text}
+
     def test_description_non_utf8(self) -> None:
         header = "\xc0msterdam"
         header_bytes = header.encode("latin1")
@@ -174,6 +234,16 @@ class TestRawMetadata:
             ("description: 1\ndescription: 2", ["1", "2"]),
             ("description: 1\n\n2", ["1", "2"]),
             ("description: 1\ndescription: 2\n\n3", ["1", "2", "3"]),
+            (
+                "description: first\n       |second\nDescription: third",
+                ["first\n       |second", "third"],
+            ),
+            (
+                "description: first\n       |second\n\nbody",
+                ["first\n       |second", "body"],
+            ),
+            ("description: \n       |first\ndescription: second", ["|first", "second"]),
+            ("description: \n       |first\n\nbody", ["|first", "body"]),
         ],
     )
     def test_description_multiple(
