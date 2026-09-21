@@ -756,6 +756,11 @@ def _apply_prereleases_filter(
     )
 
 
+def _specifier_sort_key(specifier: Specifier) -> tuple[bool, str]:
+    """Sort upper bounds after other specifiers for readable ranges."""
+    return specifier.operator in ("<", "<="), str(specifier)
+
+
 class SpecifierSet(BaseSpecifier):
     """This class abstracts handling of a set of version specifiers.
 
@@ -831,7 +836,9 @@ class SpecifierSet(BaseSpecifier):
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
         if not self._canonicalized:
-            self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
+            self._specs = tuple(
+                dict.fromkeys(sorted(self._specs, key=_specifier_sort_key))
+            )
             self._canonicalized = True
         return self._specs
 
@@ -966,9 +973,9 @@ class SpecifierSet(BaseSpecifier):
         :param other: The other object to combine with.
 
         >>> SpecifierSet(">=1.0.0,!=1.0.1") & '<=2.0.0,!=2.0.1'
-        <SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')>
+        <SpecifierSet('!=1.0.1,!=2.0.1,>=1.0.0,<=2.0.0')>
         >>> SpecifierSet(">=1.0.0,!=1.0.1") & SpecifierSet('<=2.0.0,!=2.0.1')
-        <SpecifierSet('!=1.0.1,!=2.0.1,<=2.0.0,>=1.0.0')>
+        <SpecifierSet('!=1.0.1,!=2.0.1,>=1.0.0,<=2.0.0')>
         """
         if isinstance(other, str):
             other = SpecifierSet(other)

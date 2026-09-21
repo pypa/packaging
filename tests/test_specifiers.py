@@ -2239,6 +2239,7 @@ class TestSpecifierSet:
             # Multiple item specifiers should work
             ("!=2.0,>1.0", "!=2.0,>1.0"),
             ("!=2.0 ,>1.0", "!=2.0,>1.0"),
+            (">=3.5.2,<4", ">=3.5.2,<4"),
         ],
     )
     def test_specifiers_str_and_repr(self, specifier: str, expected: str) -> None:
@@ -2320,7 +2321,7 @@ class TestSpecifierSet:
 
     def test_specifiers_combine_deduplicates(self) -> None:
         result = SpecifierSet(">=1.0") & SpecifierSet(">=1.0,<5.0")
-        assert str(result) == "<5.0,>=1.0"
+        assert str(result) == ">=1.0,<5.0"
 
     def test_specifiers_combine_not_implemented(self) -> None:
         with pytest.raises(TypeError):

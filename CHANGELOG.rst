@@ -43,6 +43,7 @@ Behavior adaptations:
 
 Fixes for versions and specifiers:
 
+* Order lower and upper bounds naturally when stringifying specifier sets.
 * Raise ``InvalidVersion`` instead of ``TypeError`` when ``Version`` is given a
   non-string. (:pull:`1319`)
 * Raise ``InvalidVersion`` for non-string pre-release letters passed to
