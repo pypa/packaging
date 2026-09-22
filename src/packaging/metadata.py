@@ -16,7 +16,7 @@ from typing import (
     cast,
 )
 
-from . import licenses, requirements, specifiers, utils
+from . import filenames, licenses, requirements, specifiers
 from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
@@ -632,8 +632,8 @@ class _Validator(Generic[T]):
             raise self._invalid_metadata(f"{self.raw_name!r} is a required field")
         # Validate the name as a side-effect.
         try:
-            utils.canonicalize_name(value, validate=True)
-        except utils.InvalidName as exc:
+            filenames.canonicalize_name(value, validate=True)
+        except filenames.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
@@ -722,8 +722,10 @@ class _Validator(Generic[T]):
         normalized_names = []
         try:
             for name in value:
-                normalized_names.append(utils.canonicalize_name(name, validate=True))
-        except utils.InvalidName as exc:
+                normalized_names.append(
+                    filenames.canonicalize_name(name, validate=True)
+                )
+        except filenames.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{name!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
@@ -929,7 +931,7 @@ class Metadata:
     # the original/raw name.
     name: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-name`
-    (required; validated using :func:`~packaging.utils.canonicalize_name` and its
+    (required; validated using :func:`~packaging.filenames.canonicalize_name` and its
     *validate* parameter)"""
     version: _Validator[Version] = _Validator()
     """:external:ref:`core-metadata-version` (required)"""

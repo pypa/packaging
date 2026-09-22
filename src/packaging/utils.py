@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+# The name and filename helpers moved to ``packaging.filenames``. They stay
+# importable from here for compatibility, as do the tags and version names.
 from .filenames import (
     BuildTag,
     InvalidName,
@@ -16,13 +18,8 @@ from .filenames import (
     canonicalize_version,
     is_normalized_name,
 )
-
-# These were importable from this module before, so keep them for compatibility.
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag  # noqa: F401, TC001
 from .version import InvalidVersion, Version  # noqa: F401, TC001
-
-# For historical reasons, we export the filename parsing functions from this
-# module, even though they are implemented in the filenames module now.
 
 __all__ = [
     "BuildTag",

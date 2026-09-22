@@ -10,3 +10,4 @@ Reference
 
 .. automodule:: packaging.filenames
     :members:
+    :inherited-members:
