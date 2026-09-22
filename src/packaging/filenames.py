@@ -1,3 +1,7 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
+
 from __future__ import annotations
 
 import re
@@ -463,9 +467,15 @@ class WheelFilename:
 
         # Reconstruct the filename and check that it matches the original
         if strict:
-            if self.original_name != canonicalize_name(
-                self.original_name, underscore=True
-            ):
+            try:
+                cname = canonicalize_name(
+                    self.original_name, validate=True, underscore=True
+                )
+            except InvalidName:
+                inner = f"invalid project name {self.original_name!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                raise InvalidWheelFilename(msg) from None
+            if self.original_name != cname:
                 inner = f"non-normalized project name {self.original_name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
