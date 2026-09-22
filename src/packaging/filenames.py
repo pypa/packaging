@@ -84,7 +84,7 @@ def _compress_tag_set(tags: frozenset[Tag]) -> str:
     return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
 
 
-class _DistributionFilename(abc.ABC):
+class _DistributionFilename(metaclass=abc.ABCMeta):
     """Shared state and behavior for wheel and sdist filenames."""
 
     __slots__ = ("_original_name", "_original_version", "_version")
