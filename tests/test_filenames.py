@@ -443,11 +443,15 @@ def test_wheel_eq_hash() -> None:
     wf = WheelFilename("foo", "1.0", (1, ""), tags)
     assert wf == WheelFilename("foo", "1.0", (1, ""), tags)
     assert hash(wf) == hash(WheelFilename("foo", "1.0", (1, ""), tags))
-    assert wf != WheelFilename("Foo", "1.0", (1, ""), tags)
+    assert wf == WheelFilename("Foo", "1.0", (1, ""), tags)
+    assert hash(wf) == hash(WheelFilename("Foo", "1.0", (1, ""), tags))
+    assert wf != WheelFilename("foo", "1.0.0", (1, ""), tags)
     assert wf != WheelFilename("foo", "1.0", (), tags)
     assert wf != WheelFilename("foo", "1.0", (1, ""), tags, "x86_64_v3")
     assert wf != "foo-1.0-1-py3-none-any.whl"
     assert len({wf, WheelFilename.from_filename(str(wf), strict=True)}) == 1
+    raw = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl", strict=False)
+    assert raw == WheelFilename("foo_bar", "1.0", (1, ""), tags)
 
 
 def test_sdist_eq_hash() -> None:
@@ -455,6 +459,16 @@ def test_sdist_eq_hash() -> None:
     assert fn == SourceDistributionFilename("foo", "1.0")
     assert hash(fn) == hash(SourceDistributionFilename("foo", "1.0"))
     assert fn != SourceDistributionFilename("foo", "1.0.0")
+    assert fn == SourceDistributionFilename("Foo", "01.0")
+    assert hash(fn) == hash(SourceDistributionFilename("Foo", "01.0"))
+    assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip", strict=False)
+
+
+def test_eq_invalid_version() -> None:
+    fn = SourceDistributionFilename("foo", "bad")
+    assert fn == SourceDistributionFilename("Foo", "bad")
+    assert hash(fn) == hash(SourceDistributionFilename("Foo", "bad"))
+    assert fn != SourceDistributionFilename("foo", "1.0")
     assert fn != "foo-1.0.tar.gz"
     assert fn != WheelFilename("foo", "1.0")
 
