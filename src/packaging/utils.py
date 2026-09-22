@@ -4,25 +4,16 @@
 
 from __future__ import annotations
 
-# The name and filename helpers moved to ``packaging.filenames``. They stay
-# importable from here for compatibility, as do the tags and version names.
-from .filenames import (
-    BuildTag,
-    InvalidName,
-    InvalidSdistFilename,
-    InvalidWheelFilename,
-    NormalizedName,
-    SourceDistributionFilename,
-    WheelFilename,
-    canonicalize_name,
-    canonicalize_version,
-    is_normalized_name,
-)
+import re
+from typing import NewType, cast
+
+# The tags names are unused, but stay importable from here for compatibility.
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag  # noqa: F401, TC001
-from .version import InvalidVersion, Version  # noqa: F401, TC001
+from .version import InvalidVersion, Version, _TrimmedRelease
 
 __all__ = [
     "BuildTag",
+    "InvalidFilename",
     "InvalidName",
     "InvalidSdistFilename",
     "InvalidWheelFilename",
@@ -39,6 +30,189 @@ def __dir__() -> list[str]:
     return __all__
 
 
+BuildTag = tuple[()] | tuple[int, str]
+"""
+A wheel build tag: an empty tuple, or a ``(build number, build tag suffix)`` pair.
+
+.. versionadded:: 20.9
+"""
+
+NormalizedName = NewType("NormalizedName", str)
+"""
+A :class:`typing.NewType` of :class:`str`, representing a normalized name.
+
+.. versionadded:: 20.4
+"""
+
+
+class InvalidName(ValueError):
+    """
+    An invalid distribution name; users should refer to the packaging user guide.
+
+    .. versionadded:: 23.2
+    """
+
+
+class InvalidFilename(ValueError):
+    """
+    An invalid filename was found, users should refer to the packaging user guide.
+
+    .. versionadded:: 26.4
+    """
+
+
+class InvalidWheelFilename(InvalidFilename):
+    """
+    An invalid wheel filename was found, users should refer to PEP 427.
+
+    .. versionadded:: 20.9
+    """
+
+
+class InvalidSdistFilename(InvalidFilename):
+    """
+    An invalid sdist filename was found, users should refer to the packaging user guide.
+
+    .. versionadded:: 20.9
+    """
+
+
+# Core metadata spec for `Name`
+_validate_regex = re.compile(
+    r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
+)
+_normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
+
+
+def canonicalize_name(
+    name: str, *, validate: bool = False, underscore: bool = False
+) -> NormalizedName:
+    """
+    This function takes a valid Python package or extra name, and returns the
+    normalized form of it.
+
+    The return type is typed as :class:`NormalizedName`. This allows type
+    checkers to help require that a string has passed through this function
+    before use.
+
+    If **validate** is true, then the function will check if **name** is a valid
+    distribution name before normalizing. If **underscore** is true, then hyphens
+    will be replaced with underscores instead of hyphens (such as for a filename).
+
+    :param str name: The name to normalize.
+    :param bool validate: Check whether the name is a valid distribution name.
+    :param bool underscore: Replace hyphens with underscores instead of hyphens.
+    :raises InvalidName: If **validate** is true and the name is not an
+        acceptable distribution name.
+
+    >>> from packaging.utils import canonicalize_name
+    >>> canonicalize_name("Django")
+    'django'
+    >>> canonicalize_name("oslo.concurrency")
+    'oslo-concurrency'
+    >>> canonicalize_name("oslo.concurrency", underscore=True)
+    'oslo_concurrency'
+    >>> canonicalize_name("requests")
+    'requests'
+
+    .. versionadded:: 16.2
+
+    .. versionchanged:: 20.4
+       The return type was changed to :class:`NormalizedName`.
+
+    .. versionchanged:: 23.2
+       Added the *validate* keyword parameter.
+
+    .. versionchanged:: 26.4
+       Added the *underscore* keyword parameter.
+    """
+    if validate and not _validate_regex.fullmatch(name):
+        raise InvalidName(f"name is invalid: {name!r}")
+    # Ensure all ``.`` and ``_`` are ``-``
+    # Emulates ``re.sub(r"[-_.]+", "-", name).lower()`` from PEP 503
+    # Much faster than re, and even faster than str.translate
+    value = name.lower().replace("_", "-").replace(".", "-")
+    # Condense repeats (faster than regex)
+    while "--" in value:
+        value = value.replace("--", "-")
+    if underscore:
+        value = value.replace("-", "_")
+    return cast("NormalizedName", value)
+
+
+def is_normalized_name(name: str) -> bool:
+    """
+    Check if a name is a normalized project name (i.e. a valid name that
+    :func:`canonicalize_name` would roundtrip to the same value).
+
+    The roundtrip only characterizes normalized names for *valid* names. A name
+    must start and end with an ASCII letter or digit, which
+    :func:`canonicalize_name` does not enforce: it leaves a leading or trailing
+    hyphen in place, so such a name roundtrips without being normalized.
+
+    :param str name: The name to check.
+
+    >>> from packaging.utils import canonicalize_name, is_normalized_name
+    >>> is_normalized_name("requests")
+    True
+    >>> is_normalized_name("Django")
+    False
+    >>> canonicalize_name("_not_legal")
+    '-not-legal'
+    >>> is_normalized_name("-not-legal")  # roundtrips, but not a valid name
+    False
+
+    .. versionadded:: 23.2
+    """
+    return _normalized_regex.fullmatch(name) is not None
+
+
+def canonicalize_version(
+    version: Version | str, *, strip_trailing_zero: bool = True
+) -> str:
+    """Return a canonical form of a version as a string.
+
+    This function takes a string representing a package version (or a
+    :class:`~packaging.version.Version` instance), and returns the
+    normalized form of it. By default, it strips trailing zeros from
+    the release segment.
+
+    >>> from packaging.utils import canonicalize_version
+    >>> canonicalize_version('1.0.1')
+    '1.0.1'
+
+    Per PEP 625, versions may have multiple canonical forms, differing
+    only by trailing zeros.
+
+    >>> canonicalize_version('1.0.0')
+    '1'
+    >>> canonicalize_version('1.0.0', strip_trailing_zero=False)
+    '1.0.0'
+
+    Invalid versions are returned unaltered.
+
+    >>> canonicalize_version('foo bar baz')
+    'foo bar baz'
+
+    >>> canonicalize_version('1.4.0.0.0')
+    '1.4'
+
+    .. versionadded:: 17.1
+
+    .. versionchanged:: 21.0
+       The return type was narrowed to :class:`str`.
+
+    .. versionchanged:: 22.0
+       Added the *strip_trailing_zero* keyword parameter.
+    """
+    if isinstance(version, str):
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            return str(version)
+    return str(_TrimmedRelease(version) if strip_trailing_zero else version)
+
+
 def parse_wheel_filename(
     filename: str,
     *,
@@ -49,8 +223,8 @@ def parse_wheel_filename(
     returning a tuple of name, version, build number, and tags.
 
     The name part of the tuple is normalized and typed as
-    :class:`~packaging.filenames.NormalizedName`. The version portion is an
-    instance of :class:`~packaging.version.Version`. The build number is ``()`` if
+    :class:`NormalizedName`. The version portion is an instance of
+    :class:`~packaging.version.Version`. The build number is ``()`` if
     there is no build number in the wheel filename, otherwise a
     two-item tuple of an integer for the leading digits and
     a string for the rest of the build number. The tags portion is a
@@ -95,6 +269,8 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
+    from .filenames import WheelFilename  # noqa: PLC0415
+
     fname = WheelFilename.from_filename(
         filename, strict=False, validate_order=validate_order
     )
@@ -147,5 +323,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
+    from .filenames import SourceDistributionFilename  # noqa: PLC0415
+
     fname = SourceDistributionFilename.from_filename(filename, strict=False)
     return (fname.name, fname.version)

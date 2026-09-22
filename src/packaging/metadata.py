@@ -16,14 +16,13 @@ from typing import (
     cast,
 )
 
-from . import filenames, licenses, requirements, specifiers
+from . import licenses, requirements, specifiers, utils
 from . import version as version_module
 from .errors import ExceptionGroup, _ErrorCollector
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
 
-    from .filenames import NormalizedName
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 
@@ -632,8 +631,8 @@ class _Validator(Generic[T]):
             raise self._invalid_metadata(f"{self.raw_name!r} is a required field")
         # Validate the name as a side-effect.
         try:
-            filenames.canonicalize_name(value, validate=True)
-        except filenames.InvalidName as exc:
+            utils.canonicalize_name(value, validate=True)
+        except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{value!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
@@ -718,14 +717,12 @@ class _Validator(Generic[T]):
     def _process_provides_extra(
         self,
         value: list[str],
-    ) -> list[NormalizedName]:
+    ) -> list[utils.NormalizedName]:
         normalized_names = []
         try:
             for name in value:
-                normalized_names.append(
-                    filenames.canonicalize_name(name, validate=True)
-                )
-        except filenames.InvalidName as exc:
+                normalized_names.append(utils.canonicalize_name(name, validate=True))
+        except utils.InvalidName as exc:
             raise self._invalid_metadata(
                 f"{name!r} is invalid for {self.raw_name!r}", cause=exc
             ) from exc
@@ -931,7 +928,7 @@ class Metadata:
     # the original/raw name.
     name: _Validator[str] = _Validator()
     """:external:ref:`core-metadata-name`
-    (required; validated using :func:`~packaging.filenames.canonicalize_name` and its
+    (required; validated using :func:`~packaging.utils.canonicalize_name` and its
     *validate* parameter)"""
     version: _Validator[Version] = _Validator()
     """:external:ref:`core-metadata-version` (required)"""
@@ -996,7 +993,7 @@ class Metadata:
     """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
-    provides_extra: _Validator[list[NormalizedName] | None] = _Validator(
+    provides_extra: _Validator[list[utils.NormalizedName] | None] = _Validator(
         added="2.1",
     )
     """:external:ref:`core-metadata-provides-extra`"""
