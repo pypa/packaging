@@ -34,7 +34,7 @@ Usage
     >>> req.extras
     {'foo'}
     >>> req.specifier
-    <SpecifierSet('>=2,<3')>
+    <SpecifierSet('<3,>=2')>
     >>> req.marker
     <Marker('python_version > "2.0"')>
     >>> # Requirements can also be specified with a URL, but may not specify

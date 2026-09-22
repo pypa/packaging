@@ -1287,7 +1287,7 @@ class TestToSpecifierSet:
         assert str(anchor) == f"!=1.dev{dev},>=1.dev{dev}"
         assert (
             str(vr(f">=1!0.dev{dev},!=1!0.dev{dev},<1!1").to_specifier_set())
-            == f"!=1!0.dev{dev},>=1!0.dev{dev},<1!1.dev0"
+            == f"!=1!0.dev{dev},<1!1.dev0,>=1!0.dev{dev}"
         )
         assert (~vr(f">=1.0,<=1.0.post0.dev{dev}")).to_specifier_set() is None
         assert (~vr(f">=1.dev0,<=2.dev{dev}")).to_specifier_set() is None
@@ -1349,7 +1349,7 @@ class TestToSpecifierSet:
         recovered = r.to_specifier_set()
         assert recovered is not None
         assert recovered.to_range() == r
-        assert str(recovered) == ">=3.8.dev0,<3.14.dev0"
+        assert str(recovered) == "<3.14.dev0,>=3.8.dev0"
 
     @pytest.mark.parametrize(
         ("spec", "expected"),
@@ -1365,7 +1365,7 @@ class TestToSpecifierSet:
             (">3.8.post1", ">3.8.post1"),
             ("<3.8.post1", "<3.8.post1"),
             # AFTER_LOCALS(dev0) lower, then a wildcard-chain + dev0-point gap.
-            ("!=3.8.dev0,==3.8.*", "!=3.7.*,!=3.8.dev0,>=3.7,<3.9"),
+            ("!=3.8.dev0,==3.8.*", "!=3.7.*,!=3.8.dev0,<3.9,>=3.7"),
             ("!=3.9.dev0,!=3.8.*", "!=3.8.*,!=3.9.dev0"),
         ],
     )
@@ -1429,10 +1429,10 @@ class TestToSpecifierSet:
         [
             # The epoch-zero family floor: 1!0.dev0 has no >=P,!=P.* spelling, so
             # within its family it recovers as ==1!0.* trimmed by the upper.
-            ("==1!0.*,<=1!0", "==1!0.*,<=1!0"),
-            ("==1!0.*,<1!0.5", "==1!0.*,<1!0.5"),
-            ("==2!0.*,<=2!0", "==2!0.*,<=2!0"),
-            ("==1!0.0.*,<=1!0.0", "==1!0.*,<=1!0.0"),
+            ("==1!0.*,<=1!0", "<=1!0,==1!0.*"),
+            ("==1!0.*,<1!0.5", "<1!0.5,==1!0.*"),
+            ("==2!0.*,<=2!0", "<=2!0,==2!0.*"),
+            ("==1!0.0.*,<=1!0.0", "<=1!0.0,==1!0.*"),
             # An AFTER_LOCALS(1!0.dev0) lower drops 1!0.dev0 from the family.
             ("!=1!0.dev0,==1!0.*", "!=1!0.dev0,==1!0.*"),
         ],
@@ -1575,7 +1575,7 @@ class TestToSpecifierSet:
         r = vr(">=1!0a0.dev0,<1!5")
         recovered = r.to_specifier_set()
         assert recovered is not None
-        assert str(recovered) == ">=1!0a0.dev0,<1!5"
+        assert str(recovered) == "<1!5,>=1!0a0.dev0"
         assert recovered.to_range() == r
 
 
