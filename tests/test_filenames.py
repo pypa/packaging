@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import typing
 
 import pytest
@@ -455,3 +457,9 @@ def test_sdist_eq_hash() -> None:
     assert fn != SourceDistributionFilename("foo", "1.0.0")
     assert fn != "foo-1.0.tar.gz"
     assert fn != WheelFilename("foo", "1.0")
+
+
+@pytest.mark.parametrize("module", ["filenames", "utils"])
+def test_import_order(module: str) -> None:
+    code = f"import packaging.{module}; import packaging.filenames, packaging.utils"
+    subprocess.run([sys.executable, "-c", code], check=True)
