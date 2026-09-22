@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, NewType, Tuple, Union, cast
+from typing import TYPE_CHECKING, NewType, cast
 
-from .tags import Tag, parse_tag
+from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .version import InvalidVersion, Version, _TrimmedRelease
 
 if TYPE_CHECKING:
@@ -14,8 +14,6 @@ __all__ = [
     "InvalidFilename",
     "InvalidName",
     "InvalidSdistFilename",
-    "InvalidSdistFilename",
-    "InvalidWheelFilename",
     "InvalidWheelFilename",
     "NormalizedName",
     "SourceDistributionFilename",
@@ -30,35 +28,50 @@ def __dir__() -> list[str]:
     return __all__
 
 
-BuildTag = Union[Tuple[()], Tuple[int, str]]
+BuildTag = tuple[()] | tuple[int, str]
+"""
+A wheel build tag: an empty tuple, or a ``(build number, build tag suffix)`` pair.
+
+.. versionadded:: 20.9
+"""
 
 NormalizedName = NewType("NormalizedName", str)
 """
 A :class:`typing.NewType` of :class:`str`, representing a normalized name.
+
+.. versionadded:: 20.4
 """
 
 
 class InvalidName(ValueError):
     """
     An invalid distribution name; users should refer to the packaging user guide.
+
+    .. versionadded:: 23.2
     """
 
 
 class InvalidFilename(ValueError):
     """
     An invalid filename was found, users should refer to the packaging user guide.
+
+    .. versionadded:: 26.1
     """
 
 
 class InvalidWheelFilename(InvalidFilename):
     """
     An invalid wheel filename was found, users should refer to PEP 427.
+
+    .. versionadded:: 20.9
     """
 
 
 class InvalidSdistFilename(InvalidFilename):
     """
     An invalid sdist filename was found, users should refer to the packaging user guide.
+
+    .. versionadded:: 20.9
     """
 
 
@@ -66,10 +79,12 @@ class InvalidSdistFilename(InvalidFilename):
 _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
-_normalized_regex = re.compile(r"[a-z0-9]|[a-z0-9]([a-z0-9-](?!--))*[a-z0-9]", re.ASCII)
+_normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
-_project_name_regex = re.compile(r"^[\w\d._]*$", re.UNICODE)
+# PEP 427: Valid characters for an escaped project name in a wheel filename.
+# Requires at least one character so an empty project name is rejected.
+_wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
 
 
 def canonicalize_name(
@@ -102,6 +117,17 @@ def canonicalize_name(
     'oslo_concurrency'
     >>> canonicalize_name("requests")
     'requests'
+
+    .. versionadded:: 16.2
+
+    .. versionchanged:: 20.4
+       The return type was changed to :class:`NormalizedName`.
+
+    .. versionchanged:: 23.2
+       Added the *validate* keyword parameter.
+
+    .. versionchanged:: 26.1
+       Added the *underscore* keyword parameter.
     """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
@@ -122,16 +148,27 @@ def canonicalize_name(
 
 def is_normalized_name(name: str) -> bool:
     """
-    Check if a name is already normalized (i.e. :func:`canonicalize_name` would
-    roundtrip to the same value).
+    Check if a name is a normalized project name (i.e. a valid name that
+    :func:`canonicalize_name` would roundtrip to the same value).
+
+    The roundtrip only characterizes normalized names for *valid* names. A name
+    must start and end with an ASCII letter or digit, which
+    :func:`canonicalize_name` does not enforce: it leaves a leading or trailing
+    hyphen in place, so such a name roundtrips without being normalized.
 
     :param str name: The name to check.
 
-    >>> from packaging.utils import is_normalized_name
+    >>> from packaging.utils import canonicalize_name, is_normalized_name
     >>> is_normalized_name("requests")
     True
     >>> is_normalized_name("Django")
     False
+    >>> canonicalize_name("_not_legal")
+    '-not-legal'
+    >>> is_normalized_name("-not-legal")  # roundtrips, but not a valid name
+    False
+
+    .. versionadded:: 23.2
     """
     return _normalized_regex.fullmatch(name) is not None
 
@@ -165,6 +202,14 @@ def canonicalize_version(
 
     >>> canonicalize_version('1.4.0.0.0')
     '1.4'
+
+    .. versionadded:: 17.1
+
+    .. versionchanged:: 21.0
+       The return type was narrowed to :class:`str`.
+
+    .. versionchanged:: 22.0
+       Added the *strip_trailing_zero* keyword parameter.
     """
     if isinstance(version, str):
         try:
@@ -300,7 +345,9 @@ class WheelFilename:
             return f"{name}-{self.version}-{ctags}.whl"
 
     @classmethod
-    def from_filename(cls, filename: str, /, *, strict: bool) -> WheelFilename:
+    def from_filename(
+        cls, filename: str, /, *, strict: bool, validate_order: bool = False
+    ) -> WheelFilename:
         """
         This function takes the filename of a wheel file, and parses it,
         returning a tuple of name, version, build number, and tags.
@@ -315,7 +362,14 @@ class WheelFilename:
         string format allows multiple tags to be combined into a single
         string).
 
+        If **strict** is true, the name, version, and tags must be in their
+        normalized form. If **validate_order** is true, compressed tag set
+        components are checked to be in sorted order as required by PEP 425.
+
         :param str filename: The name of the wheel file.
+        :param bool strict: Require the filename to be fully normalized.
+        :param bool validate_order: Check whether compressed tag set components
+            are in sorted order.
         :raises InvalidWheelFilename: If the filename in question
             does not follow the :ref:`wheel specification
             <pypug:binary-distribution-format>`.
@@ -346,10 +400,19 @@ class WheelFilename:
         parts = filestem.split("-", dashes - 2)
         name = parts[0]
         version = parts[1]
-        tags = parse_tag(parts[-1])
+        try:
+            tags = parse_tag(parts[-1], validate_order=validate_order)
+        except UnsortedTagsError:
+            inner = "compressed tag set components must be in sorted order per PEP 425"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg) from None
+        except InvalidTag:
+            inner = f"invalid tag component: {parts[-1]!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg) from None
 
         # See PEP 427 for the rules on escaping the project name.
-        if "__" in name or _project_name_regex.match(name) is None:
+        if "__" in name or _wheel_name_regex.match(name) is None:
             inner = f"invalid project name: {name!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg)
@@ -476,9 +539,13 @@ class SourceDistributionFilename:
         represented by an instance of :class:`~packaging.version.Version`.
 
         :param str filename: The name of the sdist file.
+        :param bool strict: Require a ``.tar.gz`` extension and a fully
+            normalized name and version.
         :raises InvalidSdistFilename: If the filename does not end
-            with an sdist extension (``.zip`` or ``.tar.gz``), or if it does not
-            contain a dash separating the name and the version of the distribution.
+            with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
+            contain a dash separating the name and the version of the distribution,
+            if the project name is empty, or if the version portion is not a valid
+            version.
 
         >>> from packaging.filenames import SourceDistributionFilename
         >>> fn = SourceDistributionFilename.from_filename("foo-1.0.tar.gz", strict=True)
@@ -510,6 +577,10 @@ class SourceDistributionFilename:
 
         if not sep:
             inner = "hyphen must separate name and version parts"
+            msg = f"Invalid SDist filename ({inner}): {filename!r}"
+            raise InvalidSdistFilename(msg)
+        if not name_part:
+            inner = "empty project name"
             msg = f"Invalid SDist filename ({inner}): {filename!r}"
             raise InvalidSdistFilename(msg)
 
