@@ -416,7 +416,7 @@ def test_sdist_from_filename_invalid_extension_not_strict() -> None:
 
 
 def test_wheel_from_filename_six_parts_non_digit_is_variant() -> None:
-    # PEP 817: a third part that does not start with a digit is a Python tag.
+    # PEP 825: a third part that does not start with a digit is a Python tag.
     fn = WheelFilename.from_filename("foo-1.0-abc-py3-none-any.whl", strict=True)
     assert fn.build_tag == ()
     assert fn.tags == {Tag("abc", "py3", "none")}

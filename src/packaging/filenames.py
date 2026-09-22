@@ -350,7 +350,7 @@ class WheelFilename(_DistributionFilename):
         :param version: The version string (in original form).
         :param build_tag: Optional wheel build tag.
         :param tags: The wheel tag set. It must not be empty to make a filename.
-        :param variant: The variant label (see :pep:`817`), or ``None``.
+        :param variant: The variant label (see :pep:`825`), or ``None``.
         """
         super().__init__(name, version)
         self._build_tag = build_tag
@@ -369,7 +369,7 @@ class WheelFilename(_DistributionFilename):
 
     @property
     def variant(self) -> str | None:
-        """The variant label (see :pep:`817`), or ``None``."""
+        """The variant label (see :pep:`825`), or ``None``."""
         return self._variant
 
     @property
@@ -461,7 +461,7 @@ class WheelFilename(_DistributionFilename):
         A filename with six ``-``-separated parts has either a build tag or a
         variant label. It has a build tag if the third part starts with a digit,
         since a Python tag never does. Otherwise, the last part is a variant
-        label (see :pep:`817`).
+        label (see :pep:`825`).
 
         If **strict** is true, the name, version, build tag, and tags must be in
         their normalized form, which includes sorted tag set components. If
@@ -497,7 +497,7 @@ class WheelFilename(_DistributionFilename):
 
         name, version_part, *rest = parts
 
-        # Six parts are ambiguous: a build tag or a variant label (PEP 817).
+        # Six parts are ambiguous: a build tag or a variant label (PEP 825).
         # A build tag starts with a digit, and a Python tag never does.
         build_match = _build_tag_regex.match(rest[0]) if len(rest) > 3 else None
         if len(rest) == 5 and build_match is None:
