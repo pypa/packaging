@@ -140,7 +140,7 @@ class _DistributionFilename(abc.ABC):
     ) -> None:
         """Check that the name and version parts are in their normalized form."""
         try:
-            cname = canonicalize_name(name, validate=True, underscore=True)
+            cname = canonicalize_name(name, validate=True).replace("-", "_")
         except InvalidName:
             raise cls._invalid(f"invalid project name {name!r}", filename) from None
         if name != cname:
@@ -351,7 +351,7 @@ class WheelFilename(_DistributionFilename):
         >>> WheelFilename("foo-bar", "1.0", (), tags).to_filename()
         'foo_bar-1.0-py3-none-any.whl'
         """
-        name = canonicalize_name(self._original_name, underscore=True)
+        name = canonicalize_name(self._original_name).replace("-", "_")
         file_parts = [name, str(self.version)]
         if self._build_tag:
             file_parts.append(self.build_str)
@@ -517,7 +517,7 @@ class SourceDistributionFilename(_DistributionFilename):
         >>> SourceDistributionFilename("foo-bar", "1.0").to_filename()
         'foo_bar-1.0.tar.gz'
         """
-        name = canonicalize_name(self._original_name, underscore=True)
+        name = canonicalize_name(self._original_name).replace("-", "_")
         return f"{name}-{self.version}.tar.gz"
 
     @classmethod

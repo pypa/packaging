@@ -84,9 +84,7 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 
 
-def canonicalize_name(
-    name: str, *, validate: bool = False, underscore: bool = False
-) -> NormalizedName:
+def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     """
     This function takes a valid Python package or extra name, and returns the
     normalized form of it.
@@ -96,12 +94,10 @@ def canonicalize_name(
     before use.
 
     If **validate** is true, then the function will check if **name** is a valid
-    distribution name before normalizing. If **underscore** is true, then hyphens
-    will be replaced with underscores instead of hyphens (such as for a filename).
+    distribution name before normalizing.
 
     :param str name: The name to normalize.
     :param bool validate: Check whether the name is a valid distribution name.
-    :param bool underscore: Replace hyphens with underscores instead of hyphens.
     :raises InvalidName: If **validate** is true and the name is not an
         acceptable distribution name.
 
@@ -110,8 +106,6 @@ def canonicalize_name(
     'django'
     >>> canonicalize_name("oslo.concurrency")
     'oslo-concurrency'
-    >>> canonicalize_name("oslo.concurrency", underscore=True)
-    'oslo_concurrency'
     >>> canonicalize_name("requests")
     'requests'
 
@@ -122,9 +116,6 @@ def canonicalize_name(
 
     .. versionchanged:: 23.2
        Added the *validate* keyword parameter.
-
-    .. versionchanged:: 26.4
-       Added the *underscore* keyword parameter.
     """
     if validate and not _validate_regex.fullmatch(name):
         raise InvalidName(f"name is invalid: {name!r}")
@@ -135,8 +126,6 @@ def canonicalize_name(
     # Condense repeats (faster than regex)
     while "--" in value:
         value = value.replace("--", "-")
-    if underscore:
-        value = value.replace("-", "_")
     return cast("NormalizedName", value)
 
 
