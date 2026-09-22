@@ -1,3 +1,7 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
+
 from __future__ import annotations
 
 import typing
@@ -245,6 +249,14 @@ def test_wheel_from_filename_variant(
         (
             "fOo-1.0-py3-none-any.whl",  # Non-normalized project name
             "Invalid wheel filename (non-normalized project name 'fOo')",
+        ),
+        (
+            "_foo-1.0-py3-none-any.whl",  # Leading underscore
+            "Invalid wheel filename (invalid project name '_foo')",
+        ),
+        (
+            "\u00e9-1.0-py3-none-any.whl",  # Non-ASCII name
+            "Invalid wheel filename (invalid project name '\u00e9')",
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
