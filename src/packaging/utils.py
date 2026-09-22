@@ -54,8 +54,8 @@ def parse_wheel_filename(
     returning a tuple of name, version, build number, and tags.
 
     The name part of the tuple is normalized and typed as
-    :class:`NormalizedName`. The version portion is an instance of
-    :class:`~packaging.version.Version`. The build number is ``()`` if
+    :class:`~packaging.filenames.NormalizedName`. The version portion is an
+    instance of :class:`~packaging.version.Version`. The build number is ``()`` if
     there is no build number in the wheel filename, otherwise a
     two-item tuple of an integer for the leading digits and
     a string for the rest of the build number. The tags portion is a

@@ -23,6 +23,7 @@ from .errors import ExceptionGroup, _ErrorCollector
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
 
+    from .filenames import NormalizedName
     from .licenses import NormalizedLicenseExpression
     from .version import Version
 
@@ -717,7 +718,7 @@ class _Validator(Generic[T]):
     def _process_provides_extra(
         self,
         value: list[str],
-    ) -> list[utils.NormalizedName]:
+    ) -> list[NormalizedName]:
         normalized_names = []
         try:
             for name in value:
@@ -993,7 +994,7 @@ class Metadata:
     """:external:ref:`core-metadata-project-url`"""
     # PEP 685 lets us raise an error if an extra doesn't pass `Name` validation
     # regardless of metadata version.
-    provides_extra: _Validator[list[utils.NormalizedName] | None] = _Validator(
+    provides_extra: _Validator[list[NormalizedName] | None] = _Validator(
         added="2.1",
     )
     """:external:ref:`core-metadata-provides-extra`"""
