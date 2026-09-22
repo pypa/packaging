@@ -71,7 +71,8 @@ def parse_wheel_filename(
         are in sorted order.
     :raises InvalidWheelFilename: If the filename in question
         does not follow the :ref:`wheel specification
-        <pypug:binary-distribution-format>`.
+        <pypug:binary-distribution-format>`, or if it has a :pep:`817`
+        variant label.
 
     >>> from packaging.utils import parse_wheel_filename
     >>> from packaging.tags import Tag
@@ -102,6 +103,9 @@ def parse_wheel_filename(
     fname = WheelFilename.from_filename(
         filename, strict=False, validate_order=validate_order
     )
+    if fname.variant is not None:
+        msg = f"Invalid wheel filename (variant wheels are not supported): {filename!r}"
+        raise InvalidWheelFilename(msg)
     return (fname.name, fname.version, fname.build_tag, fname.tags)
 
 

@@ -158,6 +158,48 @@ def test_wheel_from_filename(
     assert fn.version == version
     assert fn.build_tag == build_tag
     assert fn.tags == tags
+    assert fn.variant is None
+
+
+@pytest.mark.parametrize(
+    ("filename", "build_tag", "tags", "variant"),
+    [
+        (
+            "numpy-2.3.2-cp313-cp313t-musllinux_1_2_x86_64-x86_64_v3.whl",
+            (),
+            {Tag("cp313", "cp313t", "musllinux_1_2_x86_64")},
+            "x86_64_v3",
+        ),
+        (
+            "numpy-2.3.2-1-cp313-cp313t-musllinux_1_2_x86_64-x86_64_v3.whl",
+            (1, ""),
+            {Tag("cp313", "cp313t", "musllinux_1_2_x86_64")},
+            "x86_64_v3",
+        ),
+        (
+            "numpy-2.3.2-py2.py3-none-any-null.whl",
+            (),
+            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+            "null",
+        ),
+        (
+            "numpy-2.3.2-12ab-py3-none-any-0.a_b.whl",
+            (12, "ab"),
+            {Tag("py3", "none", "any")},
+            "0.a_b",
+        ),
+    ],
+)
+def test_wheel_from_filename_variant(
+    filename: str, build_tag: BuildTag, tags: set[Tag], variant: str
+) -> None:
+    fn = WheelFilename.from_filename(filename, strict=True)
+    assert fn.name == "numpy"
+    assert fn.version == Version("2.3.2")
+    assert fn.build_tag == build_tag
+    assert fn.tags == tags
+    assert fn.variant == variant
+    assert fn.to_filename() == filename
 
 
 @pytest.mark.parametrize(
@@ -184,13 +226,21 @@ def test_wheel_from_filename(
             "Invalid wheel filename (invalid version: '1.x')",
         ),
         (
-            # Build number doesn't start with a digit (`abc`)
-            "foo-1.0-abc-py3-none-any.whl",
-            "Invalid wheel filename (invalid build number: 'abc')",
+            # Too many dashes (`-junk-more`)
+            "foo-1.0-200-py3-none-any-junk-more.whl",
+            "Invalid wheel filename (wrong number of parts)",
         ),
         (
-            "foo-1.0-200-py3-none-any-junk.whl",  # Too many dashes (`-junk`)
-            "Invalid wheel filename (wrong number of parts)",
+            "foo-1.0-py3-none-any-X86.whl",  # Upper case variant label
+            "Invalid wheel filename (invalid variant label: 'X86')",
+        ),
+        (
+            "foo-1.0-1-py3-none-any-abcdefghijklmnopq.whl",  # Label too long
+            "Invalid wheel filename (invalid variant label: 'abcdefghijklmnopq')",
+        ),
+        (
+            "foo-1.0-1-py3-none-any-a+b.whl",  # Invalid character in label
+            "Invalid wheel filename (invalid variant label: 'a+b')",
         ),
         (
             "fOo-1.0-py3-none-any.whl",  # Non-normalized project name
@@ -341,6 +391,7 @@ def test_wheel_repr() -> None:
     assert "version='1.0'" in repr(wf)
     assert "build_tag=(1, 'abc')" in repr(wf)
     assert "tags=" in repr(wf)
+    assert "variant=None" in repr(wf)
 
 
 def test_sdist_version_property_invalid() -> None:
