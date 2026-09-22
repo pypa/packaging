@@ -125,7 +125,11 @@ class _DistributionFilename(abc.ABC):
         return self._version
 
     def _key(self) -> tuple[object, ...]:
-        return (self._original_name, self._original_version)
+        try:
+            version = str(self.version)
+        except InvalidFilename:
+            version = self._original_version
+        return (self.name, version)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, _DistributionFilename):
@@ -148,8 +152,8 @@ class WheelFilename(_DistributionFilename):
     Instances preserve the original name and version strings for round-tripping,
     while exposing normalized and validated views through properties.
 
-    Instances are immutable and hashable. Two instances are equal if all of their
-    original components are equal.
+    Instances are immutable and hashable. Two instances are equal if their
+    normalized name, normalized version, build tag, tags, and variant are equal.
 
     .. versionadded:: 26.4
     """
@@ -230,13 +234,7 @@ class WheelFilename(_DistributionFilename):
         return "".join(map(str, self._build_tag))
 
     def _key(self) -> tuple[object, ...]:
-        return (
-            self._original_name,
-            self._original_version,
-            self._build_tag,
-            self._tags,
-            self._variant,
-        )
+        return (*super()._key(), self._build_tag, self._tags, self._variant)
 
     def __repr__(self) -> str:
         return (
@@ -376,7 +374,7 @@ class SourceDistributionFilename(_DistributionFilename):
     while exposing normalized and validated views through properties.
 
     Instances are immutable and hashable. Two instances are equal if their
-    original name and version are equal.
+    normalized name and normalized version are equal.
 
     .. versionadded:: 26.4
     """
