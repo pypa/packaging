@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import abc
 import re
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, TypedDict
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .utils import (
@@ -20,7 +20,9 @@ from .utils import (
 from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
+
+    from typing_extensions import Self, Unpack
 
     from .utils import NormalizedName
 
@@ -40,10 +42,31 @@ def __dir__() -> list[str]:
 
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+# A build tag suffix must not start with a digit, so the number is unambiguous.
+_build_suffix_regex = re.compile(r"(?:[a-z_.][a-z0-9_.]*)?", re.ASCII | re.IGNORECASE)
 _variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
+
+
+class _SdistReplace(TypedDict, total=False):
+    name: str
+    version: str
+
+
+class _WheelReplace(TypedDict, total=False):
+    name: str
+    version: str
+    build_tag: BuildTag
+    tags: Iterable[Tag]
+    variant: str | None
+
+
+def _check_replace_keys(kwargs: Mapping[str, object], allowed: frozenset[str]) -> None:
+    if extra := kwargs.keys() - allowed:
+        msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
+        raise TypeError(msg)
 
 
 def _compress_tag_set(tags: frozenset[Tag]) -> str:
@@ -70,9 +93,39 @@ class _DistributionFilename(abc.ABC):
     _kind: ClassVar[str]
 
     def __init__(self, name: str, version: str) -> None:
+        self._check_name(name)
+        self._set_base(name, version, self._parse_version(version))
+
+    def _set_base(self, name: str, version_str: str, version: Version) -> None:
         self._original_name = name
-        self._original_version = version
-        self._version: Version | None = None
+        self._original_version = version_str
+        self._version = version
+
+    def _replace_base(self, new: Self, kwargs: _SdistReplace | _WheelReplace) -> None:
+        """Set the name and version on **new**, checking only the changed values."""
+        name = self._original_name
+        if "name" in kwargs:
+            name = kwargs["name"]
+            self._check_name(name)
+        if "version" in kwargs:
+            version_str = kwargs["version"]
+            new._set_base(name, version_str, self._parse_version(version_str))
+        else:
+            new._set_base(name, self._original_version, self._version)
+
+    @classmethod
+    def _check_name(cls, name: str) -> None:
+        try:
+            canonicalize_name(name, validate=True)
+        except InvalidName:
+            raise cls._invalid(f"invalid project name {name!r}") from None
+
+    @classmethod
+    def _parse_version(cls, version: str, filename: str | None = None) -> Version:
+        try:
+            return Version(version)
+        except InvalidVersion as e:
+            raise cls._invalid(f"invalid version {version!r}", filename) from e
 
     @classmethod
     def _invalid(cls, inner: str, filename: str | None = None) -> InvalidFilename:
@@ -112,24 +165,11 @@ class _DistributionFilename(abc.ABC):
 
     @property
     def version(self) -> Version:
-        """The parsed project version.
-
-        :raises InvalidFilename: If the stored version is not valid.
-        """
-        if self._version is None:
-            try:
-                self._version = Version(self._original_version)
-            except InvalidVersion as e:
-                inner = f"invalid version {self._original_version!r}"
-                raise self._invalid(inner) from e
+        """The parsed project version."""
         return self._version
 
     def _key(self) -> tuple[object, ...]:
-        try:
-            version = str(self.version)
-        except InvalidFilename:
-            version = self._original_version
-        return (self.name, version)
+        return (self.name, str(self._version))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, _DistributionFilename):
@@ -179,11 +219,59 @@ class WheelFilename(_DistributionFilename):
         :param build_tag: Optional wheel build tag.
         :param tags: The wheel tag set. It must not be empty to make a filename.
         :param variant: The variant label (see :pep:`825`), or ``None``.
+        :raises InvalidWheelFilename: If the name, version, build tag, or
+            variant label is not valid.
         """
         super().__init__(name, version)
+        self._check_build_tag(build_tag)
+        self._check_variant(variant)
+        self._set_wheel(build_tag, tags, variant)
+
+    def _set_wheel(
+        self, build_tag: BuildTag, tags: Iterable[Tag], variant: str | None
+    ) -> None:
         self._build_tag = build_tag
         self._tags = frozenset(tags)
         self._variant = variant
+
+    @classmethod
+    def _check_build_tag(cls, build_tag: BuildTag) -> None:
+        if build_tag and (
+            build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
+        ):
+            raise cls._invalid(f"invalid build tag {build_tag!r}")
+
+    @classmethod
+    def _check_variant(cls, variant: str | None, filename: str | None = None) -> None:
+        if variant is not None and _variant_label_regex.fullmatch(variant) is None:
+            raise cls._invalid(f"invalid variant label {variant!r}", filename)
+
+    def __replace__(self, **kwargs: Unpack[_WheelReplace]) -> Self:
+        """
+        __replace__(*, name=..., version=..., build_tag=..., tags=..., variant=...)
+
+        Return a new wheel filename with parts replaced. Only the replaced
+        parts are checked.
+
+        >>> from packaging.filenames import WheelFilename
+        >>> from packaging.tags import Tag
+        >>> wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+        >>> wf.__replace__(version="2.0").to_filename()
+        'foo-2.0-py3-none-any.whl'
+
+        :raises InvalidWheelFilename: If a replaced part is not valid.
+        """
+        _check_replace_keys(kwargs, _WheelReplace.__optional_keys__)
+        build_tag = kwargs.get("build_tag", self._build_tag)
+        if "build_tag" in kwargs:
+            self._check_build_tag(build_tag)
+        variant = kwargs.get("variant", self._variant)
+        if "variant" in kwargs:
+            self._check_variant(variant)
+        new = self.__class__.__new__(self.__class__)
+        self._replace_base(new, kwargs)
+        new._set_wheel(build_tag, kwargs.get("tags", self._tags), variant)
+        return new
 
     @property
     def build_tag(self) -> BuildTag:
@@ -254,8 +342,8 @@ class WheelFilename(_DistributionFilename):
         characters are replaced with ``_``. The version is normalized. The
         tag set is compressed into a wheel tag string.
 
-        :raises InvalidWheelFilename: If the version is not valid, or if the tag
-            set cannot be compressed (see :attr:`compressed_tags`).
+        :raises InvalidWheelFilename: If the tag set cannot be compressed (see
+            :attr:`compressed_tags`).
 
         >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
@@ -340,20 +428,18 @@ class WheelFilename(_DistributionFilename):
         if "__" in name or _wheel_name_regex.match(name) is None:
             raise cls._invalid(f"invalid project name {name!r}", filename)
 
-        try:
-            version = Version(version_part)
-        except InvalidVersion as e:
-            raise cls._invalid(f"invalid version {version_part!r}", filename) from e
+        version = cls._parse_version(version_part, filename)
 
         build_tag: BuildTag = ()
         if build_match is not None:
             build_tag = (int(build_match.group(1)), build_match.group(2))
 
-        if variant is not None and _variant_label_regex.fullmatch(variant) is None:
-            raise cls._invalid(f"invalid variant label {variant!r}", filename)
+        cls._check_variant(variant, filename)
 
-        self = cls(name, version_part, build_tag, tags, variant)
-        self._version = version
+        # Non-strict parsing accepts legacy names, so skip the constructor checks.
+        self = cls.__new__(cls)
+        self._set_base(name, version_part, version)
+        self._set_wheel(build_tag, tags, variant)
 
         # Reconstruct the filename and check that it matches the original
         if strict:
@@ -390,8 +476,28 @@ class SourceDistributionFilename(_DistributionFilename):
 
         :param str name: The project name (in original, filename-style form).
         :param str version: The version string (in original form).
+        :raises InvalidSdistFilename: If the name or version is not valid.
         """
         super().__init__(name, version)
+
+    def __replace__(self, **kwargs: Unpack[_SdistReplace]) -> Self:
+        """
+        __replace__(*, name=..., version=...)
+
+        Return a new sdist filename with parts replaced. Only the replaced
+        parts are checked.
+
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> fn = SourceDistributionFilename("foo", "1.0")
+        >>> fn.__replace__(version="2.0").to_filename()
+        'foo-2.0.tar.gz'
+
+        :raises InvalidSdistFilename: If a replaced part is not valid.
+        """
+        _check_replace_keys(kwargs, _SdistReplace.__optional_keys__)
+        new = self.__class__.__new__(self.__class__)
+        self._replace_base(new, kwargs)
+        return new
 
     def __repr__(self) -> str:
         return (
@@ -406,7 +512,6 @@ class SourceDistributionFilename(_DistributionFilename):
         characters are replaced with ``_`` and characters are lower cased. The
         version is normalized.
 
-        :raises InvalidSdistFilename: If the version is not valid.
 
         >>> from packaging.filenames import SourceDistributionFilename
         >>> SourceDistributionFilename("foo-bar", "1.0").to_filename()
@@ -462,14 +567,12 @@ class SourceDistributionFilename(_DistributionFilename):
         if not name_part:
             raise cls._invalid("empty project name", filename)
 
-        try:
-            version = Version(version_part)
-        except InvalidVersion as e:
-            raise cls._invalid(f"invalid version {version_part!r}", filename) from e
+        version = cls._parse_version(version_part, filename)
 
         if strict:
             cls._check_normalized(name_part, version_part, version, filename)
 
-        self = cls(name_part, version_part)
-        self._version = version
+        # Non-strict parsing accepts legacy names, so skip the constructor checks.
+        self = cls.__new__(cls)
+        self._set_base(name_part, version_part, version)
         return self
