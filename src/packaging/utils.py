@@ -66,7 +66,7 @@ def parse_wheel_filename(
         are in sorted order.
     :raises InvalidWheelFilename: If the filename in question
         does not follow the :ref:`wheel specification
-        <pypug:binary-distribution-format>`, or if it has a :pep:`817`
+        <pypug:binary-distribution-format>`, or if it has a :pep:`825`
         variant label.
 
     >>> from packaging.utils import parse_wheel_filename
