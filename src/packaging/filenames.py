@@ -94,9 +94,9 @@ def canonicalize_name(
     This function takes a valid Python package or extra name, and returns the
     normalized form of it.
 
-    The return type is typed as :class:`NormalizedName`. This allows type
-    checkers to help require that a string has passed through this function
-    before use.
+    The return type is typed as :class:`~packaging.filenames.NormalizedName`.
+    This allows type checkers to help require that a string has passed through
+    this function before use.
 
     If **validate** is true, then the function will check if **name** is a valid
     distribution name before normalizing. If **underscore** is true, then hyphens
@@ -121,7 +121,7 @@ def canonicalize_name(
     .. versionadded:: 16.2
 
     .. versionchanged:: 20.4
-       The return type was changed to :class:`NormalizedName`.
+       The return type was changed to :class:`~packaging.filenames.NormalizedName`.
 
     .. versionchanged:: 23.2
        Added the *validate* keyword parameter.
@@ -353,8 +353,8 @@ class WheelFilename:
         returning a tuple of name, version, build number, and tags.
 
         The name part of the tuple is normalized and typed as
-        :class:`NormalizedName`. The version portion is an instance of
-        :class:`~packaging.version.Version`. The build number is ``()`` if
+        :class:`~packaging.filenames.NormalizedName`. The version portion is an
+        instance of :class:`~packaging.version.Version`. The build number is ``()`` if
         there is no build number in the wheel filename, otherwise a
         two-item tuple of an integer for the leading digits and
         a string for the rest of the build number. The tags portion is a
