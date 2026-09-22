@@ -99,7 +99,9 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    fname = WheelFilename.from_filename(filename, strict=False)
+    fname = WheelFilename.from_filename(
+        filename, strict=False, validate_order=validate_order
+    )
     return (fname.name, fname.version, fname.build_tag, fname.tags)
 
 
