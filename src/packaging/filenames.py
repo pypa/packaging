@@ -82,6 +82,7 @@ _validate_regex = re.compile(
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
 # PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
+_variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
@@ -233,11 +234,11 @@ class WheelFilename:
     Instances preserve the original name and version strings for round-tripping,
     while exposing normalized and validated views through properties.
 
-    .. versionadded:: 26.1
+    .. versionadded:: 26.4
     """
 
-    __slots__ = ("build_tag", "original_name", "original_version", "tags")
-    __match_args__ = ("name", "version", "build_tag", "tags")
+    __slots__ = ("build_tag", "original_name", "original_version", "tags", "variant")
+    __match_args__ = ("name", "version", "build_tag", "tags", "variant")
 
     def __init__(
         self,
@@ -245,6 +246,7 @@ class WheelFilename:
         version: str,
         build_tag: BuildTag = (),
         tags: Iterable[Tag] = (),
+        variant: str | None = None,
     ) -> None:
         """Create a wheel filename from its component parts.
 
@@ -252,11 +254,13 @@ class WheelFilename:
         :param version: The version string (in original form).
         :param build_tag: Optional wheel build tag.
         :param tags: The wheel tag set.
+        :param variant: The variant label (see :pep:`817`), or ``None``.
         """
         self.original_name = name
         self.original_version = version
         self.build_tag = build_tag
         self.tags = frozenset(tags)
+        self.variant = variant
 
     @property
     def name(self) -> NormalizedName:
@@ -310,7 +314,8 @@ class WheelFilename:
             f"{self.__class__.__name__}(name={self.original_name!r}, "
             f"version={self.original_version!r}, "
             f"build_tag={self.build_tag!r}, "
-            f"tags={self.tags!r})"
+            f"tags={self.tags!r}, "
+            f"variant={self.variant!r})"
         )
 
     def __str__(self) -> str:
@@ -337,12 +342,15 @@ class WheelFilename:
         .. versionadded:: 26.1
         """
 
-        ctags = self.compressed_tags
         name = canonicalize_name(self.original_name, underscore=True)
+        file_parts = [name, str(self.version)]
         if self.build_tag:
-            return f"{name}-{self.version}-{self.build_str}-{ctags}.whl"
-        else:
-            return f"{name}-{self.version}-{ctags}.whl"
+            file_parts.append(self.build_str)
+        file_parts.append(self.compressed_tags)
+        if self.variant is not None:
+            file_parts.append(self.variant)
+        filestem = "-".join(file_parts)
+        return f"{filestem}.whl"
 
     @classmethod
     def from_filename(
@@ -350,7 +358,7 @@ class WheelFilename:
     ) -> WheelFilename:
         """
         This function takes the filename of a wheel file, and parses it,
-        returning a tuple of name, version, build number, and tags.
+        returning a tuple of name, version, build number, tags, and variant.
 
         The name part of the tuple is normalized and typed as
         :class:`~packaging.filenames.NormalizedName`. The version portion is an
@@ -360,7 +368,11 @@ class WheelFilename:
         a string for the rest of the build number. The tags portion is a
         frozen set of :class:`~packaging.tags.Tag` instances (as the tag
         string format allows multiple tags to be combined into a single
-        string).
+        string). The variant is the :pep:`817` variant label, or ``None``.
+
+        A filename with six ``-``-separated parts has either a build tag or a
+        variant label. It has a build tag if the third part starts with a digit,
+        since a Python tag never does. Otherwise, the last part is a variant label.
 
         If **strict** is true, the name, version, and tags must be in their
         normalized form. If **validate_order** is true, compressed tag set
@@ -392,22 +404,28 @@ class WheelFilename:
             raise InvalidWheelFilename(msg)
 
         filestem = filename[:-4]
-        dashes = filestem.count("-")
-        if dashes not in (4, 5):
+        parts = filestem.split("-")
+        if len(parts) not in {5, 6, 7}:
             msg = f"Invalid wheel filename (wrong number of parts): {filename!r}"
             raise InvalidWheelFilename(msg)
 
-        parts = filestem.split("-", dashes - 2)
-        name = parts[0]
-        version = parts[1]
+        name, version, *rest = parts
+
+        # Six parts are ambiguous: a build tag or a variant label (PEP 817).
+        # A build tag starts with a digit, and a Python tag never does.
+        has_build = len(rest) == 5 or (len(rest) == 4 and rest[0][:1].isdigit())
+        build_part = rest.pop(0) if has_build else None
+        variant = rest.pop() if len(rest) == 4 else None
+        tag_str = "-".join(rest)
+
         try:
-            tags = parse_tag(parts[-1], validate_order=validate_order)
+            tags = parse_tag(tag_str, validate_order=validate_order)
         except UnsortedTagsError:
             inner = "compressed tag set components must be in sorted order per PEP 425"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg) from None
         except InvalidTag:
-            inner = f"invalid tag component: {parts[-1]!r}"
+            inner = f"invalid tag component: {tag_str!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg) from None
 
@@ -424,8 +442,7 @@ class WheelFilename:
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg) from None
 
-        if dashes == 5:
-            build_part = parts[2]
+        if build_part is not None:
             build_match = _build_tag_regex.match(build_part)
             if build_match is None:
                 inner = f"invalid build number: {build_part!r}"
@@ -437,7 +454,12 @@ class WheelFilename:
         else:
             build_tag = ()
 
-        self = cls(name, version, build_tag, tags)
+        if variant is not None and _variant_label_regex.fullmatch(variant) is None:
+            inner = f"invalid variant label: {variant!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg)
+
+        self = cls(name, version, build_tag, tags, variant)
 
         # Reconstruct the filename and check that it matches the original
         if strict:
@@ -453,8 +475,8 @@ class WheelFilename:
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
 
-            if self.compressed_tags != parts[-1]:
-                inner = f"non-normalized tags {parts[-1]!r}"
+            if self.compressed_tags != tag_str:
+                inner = f"non-normalized tags {tag_str!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 raise InvalidWheelFilename(msg)
 
