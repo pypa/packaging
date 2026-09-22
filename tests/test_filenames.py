@@ -235,6 +235,10 @@ def test_wheel_from_filename_variant(
             "Invalid wheel filename (wrong number of parts)",
         ),
         (
+            "foo-1.0-abc-py3-none-any-x86.whl",  # Build number without a digit
+            "Invalid wheel filename (invalid build number: 'abc')",
+        ),
+        (
             "foo-1.0-py3-none-any-X86.whl",  # Upper case variant label
             "Invalid wheel filename (invalid variant label: 'X86')",
         ),
@@ -261,6 +265,10 @@ def test_wheel_from_filename_variant(
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
             "Invalid wheel filename (non-normalized version '01.0')",
+        ),
+        (
+            "foo-1.0-01-py3-none-any.whl",  # Non-normalized build tag
+            "Invalid wheel filename (non-normalized build tag '01')",
         ),
         (  # Unsorted interpreter tags (py3 before py2)
             "foo-1.0-py3.py2-none-any.whl",
@@ -415,3 +423,53 @@ def test_sdist_version_property_invalid() -> None:
 def test_sdist_repr() -> None:
     fn = SourceDistributionFilename("foo", "1.0")
     assert repr(fn) == "SourceDistributionFilename(name='foo', version='1.0')"
+
+
+def test_sdist_from_filename_invalid_extension_not_strict() -> None:
+    with pytest.raises(InvalidFilename) as e:
+        SourceDistributionFilename.from_filename("foo-1.0.tgz", strict=False)
+
+    assert str(e.value) == (
+        "Invalid SDist filename (extension must be '.tar.gz' or '.zip'): 'foo-1.0.tgz'"
+    )
+
+
+def test_wheel_from_filename_six_parts_non_digit_is_variant() -> None:
+    # PEP 817: a third part that does not start with a digit is a Python tag.
+    fn = WheelFilename.from_filename("foo-1.0-abc-py3-none-any.whl", strict=True)
+    assert fn.build_tag == ()
+    assert fn.tags == {Tag("abc", "py3", "none")}
+    assert fn.variant == "any"
+
+
+def test_wheel_to_filename_no_tags() -> None:
+    wf = WheelFilename("foo", "1.0")
+    with pytest.raises(InvalidWheelFilename, match="at least one tag"):
+        wf.to_filename()
+
+
+def test_wheel_to_filename_tags_not_compressible() -> None:
+    tags = {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")}
+    wf = WheelFilename("foo", "1.0", (), tags)
+    with pytest.raises(InvalidWheelFilename, match="cannot be compressed"):
+        wf.to_filename()
+
+
+def test_wheel_eq_hash() -> None:
+    tags = {Tag("py3", "none", "any")}
+    wf = WheelFilename("foo", "1.0", (1, ""), tags)
+    assert wf == WheelFilename("foo", "1.0", (1, ""), tags)
+    assert hash(wf) == hash(WheelFilename("foo", "1.0", (1, ""), tags))
+    assert wf != WheelFilename("Foo", "1.0", (1, ""), tags)
+    assert wf != WheelFilename("foo", "1.0", (), tags)
+    assert wf != WheelFilename("foo", "1.0", (1, ""), tags, "x86_64_v3")
+    assert wf != "foo-1.0-1-py3-none-any.whl"
+    assert len({wf, WheelFilename.from_filename(str(wf), strict=True)}) == 1
+
+
+def test_sdist_eq_hash() -> None:
+    fn = SourceDistributionFilename("foo", "1.0")
+    assert fn == SourceDistributionFilename("foo", "1.0")
+    assert hash(fn) == hash(SourceDistributionFilename("foo", "1.0"))
+    assert fn != SourceDistributionFilename("foo", "1.0.0")
+    assert fn != "foo-1.0.tar.gz"

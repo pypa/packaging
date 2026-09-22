@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from .filenames import (
     BuildTag,
     InvalidName,
@@ -19,9 +17,9 @@ from .filenames import (
     is_normalized_name,
 )
 
-if TYPE_CHECKING:
-    from .tags import Tag
-    from .version import Version
+# These were importable from this module before, so keep them for compatibility.
+from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag  # noqa: F401, TC001
+from .version import InvalidVersion, Version  # noqa: F401, TC001
 
 # For historical reasons, we export the filename parsing functions from this
 # module, even though they are implemented in the filenames module now.
@@ -104,7 +102,15 @@ def parse_wheel_filename(
         filename, strict=False, validate_order=validate_order
     )
     if fname.variant is not None:
-        msg = f"Invalid wheel filename (variant wheels are not supported): {filename!r}"
+        # Without variant support, a sixth part is a build number.
+        if fname.build_tag:
+            inner = (
+                "variant wheels are not supported, "
+                "use packaging.filenames.WheelFilename instead for support"
+            )
+        else:
+            inner = "invalid build number or unsupported variant label"
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
         raise InvalidWheelFilename(msg)
     return (fname.name, fname.version, fname.build_tag, fname.tags)
 

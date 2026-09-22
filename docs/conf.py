@@ -93,7 +93,6 @@ autodoc_class_signature = "separated"
 # ``from __future__ import annotations``).
 autodoc_type_aliases = {
     "Path": "pathlib.Path",
-    "NormalizedName": "packaging.filenames.NormalizedName",
 }
 
 # -- Options for extlinks -----------------------------------------------------
