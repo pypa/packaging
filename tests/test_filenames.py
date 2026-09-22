@@ -12,6 +12,7 @@ import pytest
 
 from packaging.filenames import (
     InvalidFilename,
+    InvalidSdistFilename,
     InvalidWheelFilename,
     SourceDistributionFilename,
     WheelFilename,
@@ -382,10 +383,55 @@ def test_sdist_from_filename_strict_valid() -> None:
     assert fn.version == Version("1.0")
 
 
-def test_wheel_version_property_invalid() -> None:
-    wf = WheelFilename("foo", "not-a-version", (), {Tag("py3", "none", "any")})
-    with pytest.raises(InvalidWheelFilename, match="invalid version"):
-        _ = wf.version
+@pytest.mark.parametrize(
+    ("kwargs", "error_message"),
+    [
+        ({"name": ""}, "invalid project name ''"),
+        ({"name": "foo bar!"}, "invalid project name 'foo bar!'"),
+        ({"name": "_foo"}, "invalid project name '_foo'"),
+        ({"version": "not-a-version"}, "invalid version 'not-a-version'"),
+        ({"build_tag": (-1, "")}, "invalid build tag (-1, '')"),
+        ({"build_tag": (1, "2")}, "invalid build tag (1, '2')"),
+        ({"build_tag": (1, "-x")}, "invalid build tag (1, '-x')"),
+        ({"variant": ""}, "invalid variant label ''"),
+        ({"variant": "Bad-Label"}, "invalid variant label 'Bad-Label'"),
+        ({"variant": "x" * 17}, f"invalid variant label {'x' * 17!r}"),
+    ],
+)
+def test_wheel_init_invalid(kwargs: dict[str, typing.Any], error_message: str) -> None:
+    args: dict[str, typing.Any] = {"name": "foo", "version": "1.0", **kwargs}
+    with pytest.raises(InvalidWheelFilename) as e:
+        WheelFilename(**args)
+    assert str(e.value) == f"Invalid wheel filename ({error_message})"
+
+    wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+    with pytest.raises(InvalidWheelFilename) as e:
+        wf.__replace__(**kwargs)
+    assert str(e.value) == f"Invalid wheel filename ({error_message})"
+
+
+def test_wheel_replace() -> None:
+    tags = {Tag("py3", "none", "any")}
+    wf = WheelFilename("Foo", "1.0", (1, "a"), tags, "x86_64_v3")
+    new = wf.__replace__(version="2.0", tags={Tag("cp314", "cp314", "win_amd64")})
+    assert new == WheelFilename(
+        "Foo", "2.0", (1, "a"), {Tag("cp314", "cp314", "win_amd64")}, "x86_64_v3"
+    )
+    assert new.original_name == "Foo"
+    assert wf.__replace__(variant=None, build_tag=()).to_filename() == (
+        "foo-1.0-py3-none-any.whl"
+    )
+    with pytest.raises(TypeError, match="unexpected"):
+        wf.__replace__(nope=1)  # type: ignore[call-arg]
+
+
+def test_legacy_name_from_filename() -> None:
+    # Non-strict parsing accepts names that the constructor rejects.
+    wf = WheelFilename.from_filename("_foo-1.0-py3-none-any.whl", strict=False)
+    assert wf.original_name == "_foo"
+    assert wf.__replace__(version="2.0").to_filename() == "_foo-2.0-py3-none-any.whl"
+    fn = SourceDistributionFilename.from_filename("_foo-1.0.tar.gz", strict=False)
+    assert fn.__replace__(version="2.0").to_filename() == "_foo-2.0.tar.gz"
 
 
 def test_wheel_repr() -> None:
@@ -397,10 +443,31 @@ def test_wheel_repr() -> None:
     )
 
 
-def test_sdist_version_property_invalid() -> None:
-    fn = SourceDistributionFilename("foo", "not-a-version")
-    with pytest.raises(InvalidFilename, match="invalid version"):
-        _ = fn.version
+@pytest.mark.parametrize(
+    ("kwargs", "error_message"),
+    [
+        ({"name": ""}, "invalid project name ''"),
+        ({"name": "foo bar"}, "invalid project name 'foo bar'"),
+        ({"version": "not-a-version"}, "invalid version 'not-a-version'"),
+    ],
+)
+def test_sdist_init_invalid(kwargs: dict[str, str], error_message: str) -> None:
+    args = {"name": "foo", "version": "1.0", **kwargs}
+    with pytest.raises(InvalidSdistFilename) as e:
+        SourceDistributionFilename(**args)
+    assert str(e.value) == f"Invalid sdist filename ({error_message})"
+
+    fn = SourceDistributionFilename("foo", "1.0")
+    with pytest.raises(InvalidSdistFilename) as e:
+        fn.__replace__(**kwargs)
+    assert str(e.value) == f"Invalid sdist filename ({error_message})"
+
+
+def test_sdist_replace() -> None:
+    fn = SourceDistributionFilename("foo", "1.0")
+    assert fn.__replace__(version="2.0") == SourceDistributionFilename("foo", "2.0")
+    with pytest.raises(TypeError, match="unexpected"):
+        fn.__replace__(tags=())  # type: ignore[call-arg]
 
 
 def test_sdist_repr() -> None:
@@ -462,13 +529,6 @@ def test_sdist_eq_hash() -> None:
     assert fn == SourceDistributionFilename("Foo", "01.0")
     assert hash(fn) == hash(SourceDistributionFilename("Foo", "01.0"))
     assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip", strict=False)
-
-
-def test_eq_invalid_version() -> None:
-    fn = SourceDistributionFilename("foo", "bad")
-    assert fn == SourceDistributionFilename("Foo", "bad")
-    assert hash(fn) == hash(SourceDistributionFilename("Foo", "bad"))
-    assert fn != SourceDistributionFilename("foo", "1.0")
     assert fn != "foo-1.0.tar.gz"
     assert fn != WheelFilename("foo", "1.0")
 
