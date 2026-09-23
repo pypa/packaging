@@ -258,26 +258,10 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    from .filenames import (  # noqa: PLC0415
-        WheelFilename,
-        _check_ordered_tags,
-        _split_wheel_filename,
-    )
+    from .filenames import WheelFilename, _split_wheel_filename  # noqa: PLC0415
 
-    fname = WheelFilename.from_filename(filename)
-    if validate_order:
-        _check_ordered_tags(filename, _split_wheel_filename(filename)[3])
-    if fname.variant is not None:
-        # Without variant support, a sixth part is a build number.
-        if fname.build_tag:
-            inner = (
-                "variant wheels are not supported, "
-                "use packaging.filenames.WheelFilename instead for support"
-            )
-        else:
-            inner = "invalid build number or unsupported variant label"
-        msg = f"Invalid wheel filename ({inner}): {filename!r}"
-        raise InvalidWheelFilename(msg)
+    parts = _split_wheel_filename(filename, variants=False)
+    fname = WheelFilename._from_parts(filename, parts, validate_order=validate_order)
     return (fname.name, fname.version, fname.build_tag, fname.tags)
 
 

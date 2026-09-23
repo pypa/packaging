@@ -32,9 +32,6 @@ from packaging.version import Version
 if typing.TYPE_CHECKING:
     from packaging.filenames import BuildTag
 
-# Raised directly, not in a group.
-_INVALID = {InvalidSdistFilename, InvalidWheelFilename}
-
 
 @pytest.mark.parametrize(
     ("name", "version", "expected_filename"),
@@ -131,9 +128,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
 def test_validate_sdist_filename_invalid(
     filename: str, error_message: str, error_type: type[InvalidFilename]
 ) -> None:
-    with pytest.raises(
-        InvalidFilename if error_type in _INVALID else ExceptionGroup
-    ) as e:
+    with pytest.raises((InvalidFilename, ExceptionGroup)) as e:
         validate_sdist_filename(filename)
 
     if isinstance(e.value, ExceptionGroup):
@@ -381,9 +376,7 @@ def test_wheel_from_filename_variant(
 def test_validate_wheel_filename_invalid(
     filename: str, error_message: str, error_type: type[InvalidFilename]
 ) -> None:
-    with pytest.raises(
-        InvalidFilename if error_type in _INVALID else ExceptionGroup
-    ) as e:
+    with pytest.raises((InvalidFilename, ExceptionGroup)) as e:
         validate_wheel_filename(filename)
 
     if isinstance(e.value, ExceptionGroup):
