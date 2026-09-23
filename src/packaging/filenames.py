@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from typing import TYPE_CHECKING, TypedDict
 
@@ -46,7 +47,7 @@ _build_suffix_regex = re.compile(r"(?:[a-z_.][a-z0-9_.]*)?", re.ASCII | re.IGNOR
 _variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
-_wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
+_wheel_name_regex = re.compile(r"[\w.]+")
 
 
 class _SdistReplace(TypedDict, total=False):
@@ -181,19 +182,16 @@ class WheelFilename:
         :raises InvalidWheelFilename: If a replaced part is not valid.
         """
         _check_replace_keys(kwargs, _WheelReplace.__optional_keys__)
-        new = self.__class__.__new__(self.__class__)
-        new._name = self._name
+        new = copy.copy(self)
         if "name" in kwargs:
             new._name = _check_name(InvalidWheelFilename, kwargs["name"])
-        new._version = self._version
         if "version" in kwargs:
             new._version = _parse_version(InvalidWheelFilename, kwargs["version"])
-        new._build_tag = self._build_tag
         if "build_tag" in kwargs:
             _check_build_tag(kwargs["build_tag"])
             new._build_tag = kwargs["build_tag"]
-        new._tags = frozenset(kwargs["tags"]) if "tags" in kwargs else self._tags
-        new._variant = self._variant
+        if "tags" in kwargs:
+            new._tags = frozenset(kwargs["tags"])
         if "variant" in kwargs:
             _check_variant(kwargs["variant"])
             new._variant = kwargs["variant"]
@@ -319,7 +317,7 @@ class WheelFilename:
         'foo_bar-1.0-py3-none-any.whl'
         """
         name = self._name.replace("-", "_")
-        file_parts = [name, str(self.version)]
+        file_parts = [name, str(self._version)]
         if self._build_tag:
             file_parts.append(self.build_str)
         file_parts.append(self.compressed_tags)
@@ -330,7 +328,7 @@ class WheelFilename:
     @classmethod
     def from_filename(
         cls, filename: str, /, *, strict: bool, validate_order: bool = False
-    ) -> WheelFilename:
+    ) -> Self:
         """
         This function takes the filename of a wheel file, and parses it into a
         :class:`WheelFilename`.
@@ -396,16 +394,16 @@ class WheelFilename:
             ) from None
 
         # See PEP 427 for the rules on escaping the project name.
-        if "__" in name or _wheel_name_regex.match(name) is None:
+        if "__" in name or _wheel_name_regex.fullmatch(name) is None:
             raise _invalid(
                 InvalidWheelFilename, f"invalid project name {name!r}", filename
             )
 
         version = _parse_version(InvalidWheelFilename, version_part, filename)
 
-        build_tag: BuildTag = ()
-        if build_match is not None:
-            build_tag = (int(build_match.group(1)), build_match.group(2))
+        build_tag: BuildTag = (
+            (int(build_match[1]), build_match[2]) if build_match else ()
+        )
 
         _check_variant(variant, filename)
 
@@ -470,11 +468,9 @@ class SourceDistributionFilename:
         :raises InvalidSdistFilename: If a replaced part is not valid.
         """
         _check_replace_keys(kwargs, _SdistReplace.__optional_keys__)
-        new = self.__class__.__new__(self.__class__)
-        new._name = self._name
+        new = copy.copy(self)
         if "name" in kwargs:
             new._name = _check_name(InvalidSdistFilename, kwargs["name"])
-        new._version = self._version
         if "version" in kwargs:
             new._version = _parse_version(InvalidSdistFilename, kwargs["version"])
         return new
@@ -522,12 +518,10 @@ class SourceDistributionFilename:
         'foo_bar-1.0.tar.gz'
         """
         name = self._name.replace("-", "_")
-        return f"{name}-{self.version}.tar.gz"
+        return f"{name}-{self._version}.tar.gz"
 
     @classmethod
-    def from_filename(
-        cls, filename: str, /, *, strict: bool
-    ) -> SourceDistributionFilename:
+    def from_filename(cls, filename: str, /, *, strict: bool) -> Self:
         """
         This function takes the filename of a sdist file (as specified
         in the `Source distribution format`_ documentation), and parses
