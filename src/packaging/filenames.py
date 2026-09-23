@@ -8,6 +8,7 @@ import copy
 import re
 from typing import TYPE_CHECKING, TypedDict
 
+from .errors import _ErrorCollector
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .utils import (
     BuildTag,
@@ -31,9 +32,13 @@ __all__ = [
     "InvalidFilename",
     "InvalidSdistFilename",
     "InvalidWheelFilename",
+    "NonNormalizedBuildTag",
+    "NonNormalizedName",
+    "NonNormalizedTags",
+    "NonNormalizedVersion",
     "SourceDistributionFilename",
+    "UnsortedWheelTags",
     "WheelFilename",
-    "validate_ordered_tags",
     "validate_sdist_filename",
     "validate_wheel_filename",
 ]
@@ -51,6 +56,47 @@ _variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"[\w.]+")
+
+
+class NonNormalizedName(InvalidFilename):
+    """
+    The project name in a filename is valid, but not normalized.
+
+    .. versionadded:: 26.4
+    """
+
+
+class NonNormalizedVersion(InvalidFilename):
+    """
+    The version in a filename is valid, but not normalized.
+
+    .. versionadded:: 26.4
+    """
+
+
+class NonNormalizedBuildTag(InvalidWheelFilename):
+    """
+    The build tag in a wheel filename is valid, but not normalized.
+
+    .. versionadded:: 26.4
+    """
+
+
+class NonNormalizedTags(InvalidWheelFilename):
+    """
+    The tags in a wheel filename are valid, but not normalized.
+
+    .. versionadded:: 26.4
+    """
+
+
+class UnsortedWheelTags(InvalidWheelFilename):
+    """
+    The compressed tag set components in a wheel filename are not in the
+    sorted order required by :pep:`425`.
+
+    .. versionadded:: 26.4
+    """
 
 
 class _SdistReplace(TypedDict, total=False):
@@ -73,9 +119,15 @@ def _check_replace_keys(kwargs: Mapping[str, object], allowed: frozenset[str]) -
 
 
 def _invalid(
-    error: type[InvalidFilename], inner: str, filename: str | None = None
+    error: type[InvalidFilename],
+    inner: str,
+    filename: str | None = None,
+    *,
+    wheel: bool | None = None,
 ) -> InvalidFilename:
-    kind = "wheel" if issubclass(error, InvalidWheelFilename) else "sdist"
+    if wheel is None:
+        wheel = issubclass(error, InvalidWheelFilename)
+    kind = "wheel" if wheel else "sdist"
     msg = f"Invalid {kind} filename ({inner})"
     if filename is not None:
         msg = f"{msg}: {filename!r}"
@@ -101,21 +153,28 @@ def _parse_version(
 
 
 def _check_normalized(
+    collector: _ErrorCollector,
     error: type[InvalidFilename],
     name: str,
     version_part: str,
     version: Version,
     filename: str,
 ) -> None:
-    """Check that the name and version parts are in their normalized form."""
+    """Collect errors if the name and version parts are not normalized.
+
+    An invalid name is raised directly.
+    """
+    wheel = issubclass(error, InvalidWheelFilename)
     try:
         cname = canonicalize_name(name, validate=True).replace("-", "_")
     except InvalidName:
         raise _invalid(error, f"invalid project name {name!r}", filename) from None
     if name != cname:
-        raise _invalid(error, f"non-normalized project name {name!r}", filename)
+        inner = f"non-normalized project name {name!r}"
+        collector.error(_invalid(NonNormalizedName, inner, filename, wheel=wheel))
     if version_part != str(version):
-        raise _invalid(error, f"non-normalized version {version_part!r}", filename)
+        inner = f"non-normalized version {version_part!r}"
+        collector.error(_invalid(NonNormalizedVersion, inner, filename, wheel=wheel))
 
 
 def _check_build_tag(build_tag: BuildTag) -> None:
@@ -420,32 +479,12 @@ def _split_wheel_filename(
     return name, version_part, build_part, "-".join(rest), variant
 
 
-def validate_ordered_tags(filename: str, /) -> None:
-    """
-    Check that the compressed tag set components of a wheel filename are in the
-    sorted order required by :pep:`425`.
-
-    Other parts of the filename are not checked. Use
-    :func:`validate_wheel_filename` to check the full filename.
-
-    :param str filename: The name of the wheel file.
-    :raises InvalidWheelFilename: If the tags are not valid or not sorted.
-
-    >>> from packaging.filenames import validate_ordered_tags
-    >>> validate_ordered_tags("foo-1.0-py2.py3-none-any.whl")
-
-    .. versionadded:: 26.4
-    """
-    tag_str = _split_wheel_filename(filename)[3]
+def _check_ordered_tags(filename: str, tag_str: str) -> None:
     try:
         parse_tag(tag_str, validate_order=True)
     except UnsortedTagsError:
         inner = "compressed tag set components must be in sorted order per PEP 425"
-        raise _invalid(InvalidWheelFilename, inner, filename) from None
-    except InvalidTag:
-        raise _invalid(
-            InvalidWheelFilename, f"invalid tag component {tag_str!r}", filename
-        ) from None
+        raise _invalid(UnsortedWheelTags, inner, filename) from None
 
 
 def validate_wheel_filename(filename: str, /) -> None:
@@ -455,8 +494,14 @@ def validate_wheel_filename(filename: str, /) -> None:
     The name, version, build tag, and tags must be normalized. This includes
     compressed tag set components in the sorted order required by :pep:`425`.
 
+    Normalization errors are collected into an :external:exc:`ExceptionGroup`.
+    Each problem has its own exception class, such as :class:`NonNormalizedName`
+    or :class:`UnsortedWheelTags`, so ``except*`` can select the checks to act
+    on.
+
     :param str filename: The name of the wheel file.
-    :raises InvalidWheelFilename: If the filename is not valid or not normalized.
+    :raises InvalidWheelFilename: If the filename is not valid.
+    :raises ExceptionGroup: If the filename is not normalized.
 
     >>> from packaging.filenames import validate_wheel_filename
     >>> validate_wheel_filename("foo-1.0-py3-none-any.whl")
@@ -464,17 +509,25 @@ def validate_wheel_filename(filename: str, /) -> None:
     .. versionadded:: 26.4
     """
     wf = WheelFilename.from_filename(filename)
-    validate_ordered_tags(filename)
-    name, version_part, build_part, tag_str, _ = _split_wheel_filename(filename)
+    with _ErrorCollector().on_exit(
+        f"Non-normalized wheel filename: {filename!r}"
+    ) as collector:
+        name, version_part, build_part, tag_str, _ = _split_wheel_filename(filename)
 
-    _check_normalized(InvalidWheelFilename, name, version_part, wf.version, filename)
-    if build_part is not None and build_part != wf.build_str:
-        inner = f"non-normalized build tag {build_part!r}"
-        raise _invalid(InvalidWheelFilename, inner, filename)
-    if wf.compressed_tags != tag_str:
-        raise _invalid(
-            InvalidWheelFilename, f"non-normalized tags {tag_str!r}", filename
+        _check_normalized(
+            collector, InvalidWheelFilename, name, version_part, wf.version, filename
         )
+        if build_part is not None and build_part != wf.build_str:
+            inner = f"non-normalized build tag {build_part!r}"
+            collector.error(_invalid(NonNormalizedBuildTag, inner, filename))
+        try:
+            _check_ordered_tags(filename, tag_str)
+        except UnsortedWheelTags as e:
+            collector.error(e)
+        else:
+            if wf.compressed_tags != tag_str:
+                inner = f"non-normalized tags {tag_str!r}"
+                collector.error(_invalid(NonNormalizedTags, inner, filename))
 
 
 class SourceDistributionFilename:
@@ -633,8 +686,14 @@ def validate_sdist_filename(filename: str, /) -> None:
     The extension must be ``.tar.gz``, and the name and version must be
     normalized.
 
+    Normalization errors are collected into an :external:exc:`ExceptionGroup`.
+    Each problem has its own exception class, such as :class:`NonNormalizedName`,
+    so ``except*`` can select the checks to act on.
+
     :param str filename: The name of the sdist file.
-    :raises InvalidSdistFilename: If the filename is not valid or not normalized.
+    :raises InvalidSdistFilename: If the filename is not valid, or if the
+        extension is not ``.tar.gz``.
+    :raises ExceptionGroup: If the filename is not normalized.
 
     >>> from packaging.filenames import validate_sdist_filename
     >>> validate_sdist_filename("foo-1.0.tar.gz")
@@ -644,7 +703,15 @@ def validate_sdist_filename(filename: str, /) -> None:
     if not filename.endswith(".tar.gz"):
         raise _invalid(InvalidSdistFilename, "extension must be '.tar.gz'", filename)
     fn = SourceDistributionFilename.from_filename(filename)
-    name_part, version_part = _split_sdist_filename(filename)
-    _check_normalized(
-        InvalidSdistFilename, name_part, version_part, fn.version, filename
-    )
+    with _ErrorCollector().on_exit(
+        f"Non-normalized sdist filename: {filename!r}"
+    ) as collector:
+        name_part, version_part = _split_sdist_filename(filename)
+        _check_normalized(
+            collector,
+            InvalidSdistFilename,
+            name_part,
+            version_part,
+            fn.version,
+            filename,
+        )

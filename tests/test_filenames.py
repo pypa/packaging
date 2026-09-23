@@ -10,13 +10,18 @@ import typing
 
 import pytest
 
+from packaging.errors import ExceptionGroup
 from packaging.filenames import (
     InvalidFilename,
     InvalidSdistFilename,
     InvalidWheelFilename,
+    NonNormalizedBuildTag,
+    NonNormalizedName,
+    NonNormalizedTags,
+    NonNormalizedVersion,
     SourceDistributionFilename,
+    UnsortedWheelTags,
     WheelFilename,
-    validate_ordered_tags,
     validate_sdist_filename,
     validate_wheel_filename,
 )
@@ -26,6 +31,9 @@ from packaging.version import Version
 
 if typing.TYPE_CHECKING:
     from packaging.filenames import BuildTag
+
+# Raised directly, not in a group.
+_INVALID = {InvalidSdistFilename, InvalidWheelFilename}
 
 
 @pytest.mark.parametrize(
@@ -66,51 +74,85 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("filename", "error_message"),
+    ("filename", "error_message", "error_type"),
     [
         (
             "bad.extension",  # Bad extension
             "Invalid sdist filename (extension must be '.tar.gz')",
+            InvalidSdistFilename,
+        ),
+        (
+            "foo-1.0.zip",  # Legacy extension
+            "Invalid sdist filename (extension must be '.tar.gz')",
+            InvalidSdistFilename,
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
             "Invalid sdist filename (non-normalized project name 'extra-hyphens-1.0')",
+            NonNormalizedName,
         ),
         (
             "no_hyphen.tar.gz",  # No hyphen
             "Invalid sdist filename (hyphen must separate name and version parts)",
+            InvalidSdistFilename,
         ),
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
             "Invalid sdist filename (invalid project name '.invalid.name')",
+            InvalidSdistFilename,
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
             "Invalid sdist filename (non-normalized project name 'invalid.name')",
+            NonNormalizedName,
         ),
         (
             "invalid__name-1.0.tar.gz",  # Name is not canonical (punctuation)
             "Invalid sdist filename (non-normalized project name 'invalid__name')",
+            NonNormalizedName,
         ),
         (
             "INVALID_NAME-1.0.tar.gz",  # Name is not canonical (casing)
             "Invalid sdist filename (non-normalized project name 'INVALID_NAME')",
+            NonNormalizedName,
         ),
         (
             "valid_name-badversion.tar.gz",  # Version is not valid
             "Invalid sdist filename (invalid version 'badversion')",
+            InvalidSdistFilename,
         ),
         (
             "valid_name-01.0.tar.gz",  # Version is not canonical
             "Invalid sdist filename (non-normalized version '01.0')",
+            NonNormalizedVersion,
         ),
     ],
 )
-def test_validate_sdist_filename_invalid(filename: str, error_message: str) -> None:
-    with pytest.raises(InvalidFilename) as e:
+def test_validate_sdist_filename_invalid(
+    filename: str, error_message: str, error_type: type[InvalidFilename]
+) -> None:
+    with pytest.raises(
+        InvalidFilename if error_type in _INVALID else ExceptionGroup
+    ) as e:
         validate_sdist_filename(filename)
 
-    assert str(e.value) == f"{error_message}: {filename!r}"
+    if isinstance(e.value, ExceptionGroup):
+        assert e.value.message == f"Non-normalized sdist filename: {filename!r}"
+        (error,) = e.value.exceptions
+    else:
+        error = e.value
+    assert type(error) is error_type
+    assert str(error) == f"{error_message}: {filename!r}"
+
+
+def test_validate_sdist_filename_multiple_errors() -> None:
+    with pytest.raises(ExceptionGroup) as e:
+        validate_sdist_filename("Foo-01.0.tar.gz")
+
+    assert [type(error) for error in e.value.exceptions] == [
+        NonNormalizedName,
+        NonNormalizedVersion,
+    ]
 
 
 def test_sdist_from_filename_invalid_extension() -> None:
@@ -238,91 +280,143 @@ def test_wheel_from_filename_variant(
 
 
 @pytest.mark.parametrize(
-    ("filename", "error_message"),
+    ("filename", "error_message", "error_type"),
     [
         (
             "foo-1.0.whl",  # Missing tags
             "Invalid wheel filename (wrong number of parts)",
+            InvalidWheelFilename,
         ),
         (
             "foo-1.0-py3-none-any.wheel",  # Incorrect file extension (`.wheel`)
             "Invalid wheel filename (extension must be '.whl')",
+            InvalidWheelFilename,
         ),
         (
             "foo__bar-1.0-py3-none-any.whl",  # Invalid name (`__`)
             "Invalid wheel filename (invalid project name 'foo__bar')",
+            InvalidWheelFilename,
         ),
         (
             "foo#bar-1.0-py3-none-any.whl",  # Invalid name (`#`)
             "Invalid wheel filename (invalid project name 'foo#bar')",
+            InvalidWheelFilename,
         ),
         (
             "foobar-1.x-py3-none-any.whl",  # Invalid version (`1.x`)
             "Invalid wheel filename (invalid version '1.x')",
+            InvalidWheelFilename,
         ),
         (
             # Too many dashes (`-junk-more`)
             "foo-1.0-200-py3-none-any-junk-more.whl",
             "Invalid wheel filename (wrong number of parts)",
+            InvalidWheelFilename,
         ),
         (
             "foo-1.0-abc-py3-none-any-x86.whl",  # Build number without a digit
             "Invalid wheel filename (invalid build number 'abc')",
+            InvalidWheelFilename,
         ),
         (
             "foo-1.0-py3-none-any-X86.whl",  # Upper case variant label
             "Invalid wheel filename (invalid variant label 'X86')",
+            InvalidWheelFilename,
         ),
         (
             "foo-1.0-1-py3-none-any-abcdefghijklmnopq.whl",  # Label too long
             "Invalid wheel filename (invalid variant label 'abcdefghijklmnopq')",
+            InvalidWheelFilename,
         ),
         (
             "foo-1.0-1-py3-none-any-a+b.whl",  # Invalid character in label
             "Invalid wheel filename (invalid variant label 'a+b')",
+            InvalidWheelFilename,
         ),
         (
             "fOo-1.0-py3-none-any.whl",  # Non-normalized project name
             "Invalid wheel filename (non-normalized project name 'fOo')",
+            NonNormalizedName,
         ),
         (
             "_foo-1.0-py3-none-any.whl",  # Leading underscore
             "Invalid wheel filename (invalid project name '_foo')",
+            InvalidWheelFilename,
         ),
         (
             "\u00e9-1.0-py3-none-any.whl",  # Non-ASCII name
             "Invalid wheel filename (invalid project name '\u00e9')",
+            InvalidWheelFilename,
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
             "Invalid wheel filename (non-normalized version '01.0')",
+            NonNormalizedVersion,
         ),
         (
             "foo-1.0-01-py3-none-any.whl",  # Non-normalized build tag
             "Invalid wheel filename (non-normalized build tag '01')",
+            NonNormalizedBuildTag,
         ),
         (  # Unsorted interpreter tags (py3 before py2)
             "foo-1.0-py3.py2-none-any.whl",
             "Invalid wheel filename (compressed tag set components must be in "
             "sorted order per PEP 425)",
+            UnsortedWheelTags,
         ),
         (
             # Unsorted platform tags (manylinux_ before manylinux2014)
             "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
             "Invalid wheel filename (compressed tag set components must be in "
             "sorted order per PEP 425)",
+            UnsortedWheelTags,
         ),
         (  # Duplicate interpreter tags
             "foo-1.0-py3.py3-none-any.whl",
             "Invalid wheel filename (non-normalized tags 'py3.py3-none-any')",
+            NonNormalizedTags,
         ),
     ],
 )
-def test_validate_wheel_filename_invalid(filename: str, error_message: str) -> None:
-    with pytest.raises(InvalidWheelFilename) as e:
+def test_validate_wheel_filename_invalid(
+    filename: str, error_message: str, error_type: type[InvalidFilename]
+) -> None:
+    with pytest.raises(
+        InvalidFilename if error_type in _INVALID else ExceptionGroup
+    ) as e:
         validate_wheel_filename(filename)
 
-    assert str(e.value) == f"{error_message}: {filename!r}"
+    if isinstance(e.value, ExceptionGroup):
+        assert e.value.message == f"Non-normalized wheel filename: {filename!r}"
+        (error,) = e.value.exceptions
+    else:
+        error = e.value
+    assert type(error) is error_type
+    assert str(error) == f"{error_message}: {filename!r}"
+
+
+@pytest.mark.parametrize(
+    ("filename", "error_types"),
+    [
+        (
+            "Foo-01.0-01-py3.py2-none-any.whl",
+            [
+                NonNormalizedName,
+                NonNormalizedVersion,
+                NonNormalizedBuildTag,
+                UnsortedWheelTags,
+            ],
+        ),
+        ("foo-01.0-py3.py3-none-any.whl", [NonNormalizedVersion, NonNormalizedTags]),
+    ],
+)
+def test_validate_wheel_filename_multiple_errors(
+    filename: str, error_types: list[type[InvalidFilename]]
+) -> None:
+    with pytest.raises(ExceptionGroup) as e:
+        validate_wheel_filename(filename)
+
+    assert [type(error) for error in e.value.exceptions] == error_types
 
 
 @pytest.mark.parametrize(
@@ -365,26 +459,6 @@ def test_parse_and_create_filename() -> None:
     wf = WheelFilename.from_filename(filename)
     composed = wf.to_filename()
     assert sorted_f == composed
-
-
-@pytest.mark.parametrize(
-    ("filename", "error_message"),
-    [
-        (
-            "foo-1.0-py3.py2-none-any.whl",
-            "compressed tag set components must be in sorted order per PEP 425",
-        ),
-        ("foo-1.0-py3.-none-any.whl", "invalid tag component 'py3.-none-any'"),
-    ],
-)
-def test_validate_ordered_tags_invalid(filename: str, error_message: str) -> None:
-    with pytest.raises(InvalidWheelFilename) as e:
-        validate_ordered_tags(filename)
-    assert str(e.value) == f"Invalid wheel filename ({error_message}): {filename!r}"
-
-
-def test_validate_ordered_tags_only_checks_tags() -> None:
-    validate_ordered_tags("Foo-01.0-py3.py3-none-any.whl")
 
 
 @pytest.mark.parametrize(
