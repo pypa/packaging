@@ -227,53 +227,6 @@ def _parse_build_tag(build: str) -> BuildTag:
     return (int(build_match[1]), build_match[2] or "")
 
 
-def _parse_wheel_parts(
-    filename: str, parts: _WheelParts, *, validate_order: bool = False
-) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag], str | None]:
-    """Parse split parts, accepting legacy names and versions."""
-    name, version_part, build, tag_str, variant = parts
-    try:
-        tags = parse_tag(tag_str, validate_order=validate_order)
-    except UnsortedTagsError:
-        msg = (
-            "Invalid wheel filename (compressed tag set components must be in "
-            f"sorted order per PEP 425): {filename!r}"
-        )
-        raise UnsortedWheelTags(msg) from None
-    except InvalidTag:
-        inner = f"invalid tag component {tag_str!r}"
-        msg = f"Invalid wheel filename ({inner}): {filename!r}"
-        raise InvalidWheelFilename(msg) from None
-
-    # See PEP 427 for the rules on escaping the project name.
-    if "__" in name or _wheel_name_regex.fullmatch(name) is None:
-        inner = f"invalid project name {name!r}"
-        msg = f"Invalid wheel filename ({inner}): {filename!r}"
-        raise InvalidWheelFilename(msg)
-
-    try:
-        version = Version(version_part)
-    except InvalidVersion as e:
-        inner = f"invalid version {version_part!r}"
-        msg = f"Invalid wheel filename ({inner}): {filename!r}"
-        raise InvalidWheelFilename(msg) from e
-
-    if variant is not None and _variant_label_regex.fullmatch(variant) is None:
-        inner = f"invalid variant label {variant!r}"
-        msg = f"Invalid wheel filename ({inner}): {filename!r}"
-        raise InvalidWheelFilename(msg)
-
-    build_tag: BuildTag = ()
-    if build is not None:
-        build_tag = _parse_build_tag(build)
-        if not build_tag:
-            inner = f"invalid build tag {build!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            raise InvalidWheelFilename(msg)
-
-    return canonicalize_name(name), version, build_tag, tags, variant
-
-
 # Name, version, build tag, tags, and variant label. A plain tuple is faster
 # to create than a NamedTuple.
 _WheelParts = tuple[str, str, "str | None", str, "str | None"]
@@ -324,6 +277,55 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
         raise InvalidWheelFilename(msg)
     tag_rest, _, variant = rest.rpartition("-")
     return name, version_part, None, f"{third}-{tag_rest}", variant
+
+
+def _parse_wheel_filename(
+    filename: str, *, variants: bool = True, validate_order: bool = False
+) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag], str | None]:
+    """Parse a wheel filename, accepting legacy names and versions."""
+    name, version_part, build, tag_str, variant = _split_wheel_filename(
+        filename, variants=variants
+    )
+    try:
+        tags = parse_tag(tag_str, validate_order=validate_order)
+    except UnsortedTagsError:
+        msg = (
+            "Invalid wheel filename (compressed tag set components must be in "
+            f"sorted order per PEP 425): {filename!r}"
+        )
+        raise UnsortedWheelTags(msg) from None
+    except InvalidTag:
+        inner = f"invalid tag component {tag_str!r}"
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
+        raise InvalidWheelFilename(msg) from None
+
+    # See PEP 427 for the rules on escaping the project name.
+    if "__" in name or _wheel_name_regex.fullmatch(name) is None:
+        inner = f"invalid project name {name!r}"
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
+        raise InvalidWheelFilename(msg)
+
+    try:
+        version = Version(version_part)
+    except InvalidVersion as e:
+        inner = f"invalid version {version_part!r}"
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
+        raise InvalidWheelFilename(msg) from e
+
+    if variant is not None and _variant_label_regex.fullmatch(variant) is None:
+        inner = f"invalid variant label {variant!r}"
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
+        raise InvalidWheelFilename(msg)
+
+    build_tag: BuildTag = ()
+    if build is not None:
+        build_tag = _parse_build_tag(build)
+        if not build_tag:
+            inner = f"invalid build tag {build!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg)
+
+    return canonicalize_name(name), version, build_tag, tags, variant
 
 
 def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
@@ -415,9 +417,8 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    parts = _split_wheel_filename(filename, variants=False)
-    name, version, build_tag, tags, _ = _parse_wheel_parts(
-        filename, parts, validate_order=validate_order
+    name, version, build_tag, tags, _ = _parse_wheel_filename(
+        filename, variants=False, validate_order=validate_order
     )
     return (name, version, build_tag, tags)
 

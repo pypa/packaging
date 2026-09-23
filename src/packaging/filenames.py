@@ -17,7 +17,7 @@ from .utils import (
     UnsortedWheelTags,
     _parse_build_tag,
     _parse_sdist_filename,
-    _parse_wheel_parts,
+    _parse_wheel_filename,
     _split_wheel_filename,
     _variant_label_regex,
     canonicalize_name,
@@ -400,7 +400,7 @@ class WheelFilename:
             self._build_tag,
             self._tags,
             self._variant,
-        ) = _parse_wheel_parts(filename, _split_wheel_filename(filename))
+        ) = _parse_wheel_filename(filename)
         return self
 
     def validate(self) -> None:
@@ -445,7 +445,7 @@ class WheelFilename:
                 inner = f"non-normalized version {version_part!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedVersion(msg))
-            if build is not None and build != "".join(map(str, self._build_tag)):
+            if build is not None and build != self.build_str:
                 inner = f"non-normalized build tag {build!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedBuildTag(msg))
@@ -457,7 +457,7 @@ class WheelFilename:
                     f"in sorted order per PEP 425): {filename!r}"
                 )
                 collector.error(UnsortedWheelTags(msg))
-            elif _compress_tags(self._tags) != tag_str:
+            elif self.compressed_tags != tag_str:
                 inner = f"non-normalized tags {tag_str!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedTags(msg))
@@ -582,7 +582,6 @@ class SourceDistributionFilename:
         project name is normalized as required so that any run of ``-._``
         characters are replaced with ``_`` and characters are lower cased. The
         version is normalized.
-
 
         >>> from packaging.filenames import SourceDistributionFilename
         >>> SourceDistributionFilename("foo-bar", "1.0").to_filename()
