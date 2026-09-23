@@ -258,11 +258,11 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    from .filenames import WheelFilename  # noqa: PLC0415
+    from .filenames import WheelFilename, validate_ordered_tags  # noqa: PLC0415
 
-    fname = WheelFilename.from_filename(
-        filename, strict=False, validate_order=validate_order
-    )
+    fname = WheelFilename.from_filename(filename)
+    if validate_order:
+        validate_ordered_tags(filename)
     if fname.variant is not None:
         # Without variant support, a sixth part is a build number.
         if fname.build_tag:
@@ -314,5 +314,5 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     """
     from .filenames import SourceDistributionFilename  # noqa: PLC0415
 
-    fname = SourceDistributionFilename.from_filename(filename, strict=False)
+    fname = SourceDistributionFilename.from_filename(filename)
     return (fname.name, fname.version)

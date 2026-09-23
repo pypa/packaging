@@ -33,6 +33,9 @@ __all__ = [
     "InvalidWheelFilename",
     "SourceDistributionFilename",
     "WheelFilename",
+    "validate_ordered_tags",
+    "validate_sdist_filename",
+    "validate_wheel_filename",
 ]
 
 
@@ -326,9 +329,7 @@ class WheelFilename:
         return "-".join(file_parts) + ".whl"
 
     @classmethod
-    def from_filename(
-        cls, filename: str, /, *, strict: bool, validate_order: bool = False
-    ) -> Self:
+    def from_filename(cls, filename: str, /) -> Self:
         """
         This function takes the filename of a wheel file, and parses it into a
         :class:`WheelFilename`.
@@ -338,22 +339,17 @@ class WheelFilename:
         since a Python tag never does. Otherwise, the last part is a variant
         label (see :pep:`825`).
 
-        If **strict** is true, the name, version, build tag, and tags must be in
-        their normalized form, which includes sorted tag set components. If
-        **validate_order** is true, compressed tag set components are checked to
-        be in sorted order as required by PEP 425 even when **strict** is false.
+        Parsing accepts legacy names, versions, and tag orders. Use
+        :func:`validate_wheel_filename` first to require a normalized filename.
 
         :param str filename: The name of the wheel file.
-        :param bool strict: Require the filename to be fully normalized.
-        :param bool validate_order: Check whether compressed tag set components
-            are in sorted order.
         :raises InvalidWheelFilename: If the filename in question
             does not follow the :ref:`wheel specification
             <pypug:binary-distribution-format>`.
 
         >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
-        >>> wf = WheelFilename.from_filename("foo-1.0-py3-none-any.whl", strict=True)
+        >>> wf = WheelFilename.from_filename("foo-1.0-py3-none-any.whl")
         >>> wf.name
         'foo'
         >>> wf.version
@@ -363,31 +359,12 @@ class WheelFilename:
         >>> wf.tags == {Tag("py3", "none", "any")}
         True
         """
-        if not filename.endswith(".whl"):
-            raise _invalid(InvalidWheelFilename, "extension must be '.whl'", filename)
-
-        parts = filename[:-4].split("-")
-        if len(parts) not in {5, 6, 7}:
-            raise _invalid(InvalidWheelFilename, "wrong number of parts", filename)
-
-        name, version_part, *rest = parts
-
-        # Six parts are ambiguous: a build tag or a variant label (PEP 825).
-        # A build tag starts with a digit, and a Python tag never does.
-        build_match = _build_tag_regex.match(rest[0]) if len(rest) > 3 else None
-        if len(rest) == 5 and build_match is None:
-            raise _invalid(
-                InvalidWheelFilename, f"invalid build number {rest[0]!r}", filename
-            )
-        build_part = rest.pop(0) if build_match else None
-        variant = rest.pop() if len(rest) == 4 else None
-        tag_str = "-".join(rest)
+        name, version_part, build_part, tag_str, variant = _split_wheel_filename(
+            filename
+        )
 
         try:
-            tags = parse_tag(tag_str, validate_order=validate_order or strict)
-        except UnsortedTagsError:
-            inner = "compressed tag set components must be in sorted order per PEP 425"
-            raise _invalid(InvalidWheelFilename, inner, filename) from None
+            tags = parse_tag(tag_str)
         except InvalidTag:
             raise _invalid(
                 InvalidWheelFilename, f"invalid tag component {tag_str!r}", filename
@@ -401,34 +378,103 @@ class WheelFilename:
 
         version = _parse_version(InvalidWheelFilename, version_part, filename)
 
+        build_match = _build_tag_regex.match(build_part or "")
         build_tag: BuildTag = (
             (int(build_match[1]), build_match[2]) if build_match else ()
         )
 
         _check_variant(variant, filename)
 
-        # Non-strict parsing accepts legacy names, so skip the constructor checks.
+        # Parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
         self._name = canonicalize_name(name)
         self._version = version
         self._build_tag = build_tag
         self._tags = tags
         self._variant = variant
-
-        # Reconstruct the filename and check that it matches the original
-        if strict:
-            _check_normalized(
-                InvalidWheelFilename, name, version_part, version, filename
-            )
-            if build_part is not None and build_part != self.build_str:
-                inner = f"non-normalized build tag {build_part!r}"
-                raise _invalid(InvalidWheelFilename, inner, filename)
-            if self.compressed_tags != tag_str:
-                raise _invalid(
-                    InvalidWheelFilename, f"non-normalized tags {tag_str!r}", filename
-                )
-
         return self
+
+
+def _split_wheel_filename(
+    filename: str,
+) -> tuple[str, str, str | None, str, str | None]:
+    """Split a wheel filename into name, version, build, tag, and variant parts."""
+    if not filename.endswith(".whl"):
+        raise _invalid(InvalidWheelFilename, "extension must be '.whl'", filename)
+
+    parts = filename[:-4].split("-")
+    if len(parts) not in {5, 6, 7}:
+        raise _invalid(InvalidWheelFilename, "wrong number of parts", filename)
+
+    name, version_part, *rest = parts
+
+    # Six parts are ambiguous: a build tag or a variant label (PEP 825).
+    # A build tag starts with a digit, and a Python tag never does.
+    has_build = len(rest) > 3 and _build_tag_regex.match(rest[0]) is not None
+    if len(rest) == 5 and not has_build:
+        raise _invalid(
+            InvalidWheelFilename, f"invalid build number {rest[0]!r}", filename
+        )
+    build_part = rest.pop(0) if has_build else None
+    variant = rest.pop() if len(rest) == 4 else None
+    return name, version_part, build_part, "-".join(rest), variant
+
+
+def validate_ordered_tags(filename: str, /) -> None:
+    """
+    Check that the compressed tag set components of a wheel filename are in the
+    sorted order required by :pep:`425`.
+
+    Other parts of the filename are not checked. Use
+    :func:`validate_wheel_filename` to check the full filename.
+
+    :param str filename: The name of the wheel file.
+    :raises InvalidWheelFilename: If the tags are not valid or not sorted.
+
+    >>> from packaging.filenames import validate_ordered_tags
+    >>> validate_ordered_tags("foo-1.0-py2.py3-none-any.whl")
+
+    .. versionadded:: 26.4
+    """
+    tag_str = _split_wheel_filename(filename)[3]
+    try:
+        parse_tag(tag_str, validate_order=True)
+    except UnsortedTagsError:
+        inner = "compressed tag set components must be in sorted order per PEP 425"
+        raise _invalid(InvalidWheelFilename, inner, filename) from None
+    except InvalidTag:
+        raise _invalid(
+            InvalidWheelFilename, f"invalid tag component {tag_str!r}", filename
+        ) from None
+
+
+def validate_wheel_filename(filename: str, /) -> None:
+    """
+    Check that a wheel filename is valid and in its normalized form.
+
+    The name, version, build tag, and tags must be normalized. This includes
+    compressed tag set components in the sorted order required by :pep:`425`.
+
+    :param str filename: The name of the wheel file.
+    :raises InvalidWheelFilename: If the filename is not valid or not normalized.
+
+    >>> from packaging.filenames import validate_wheel_filename
+    >>> validate_wheel_filename("foo-1.0-py3-none-any.whl")
+
+    .. versionadded:: 26.4
+    """
+    wf = WheelFilename.from_filename(filename)
+    validate_ordered_tags(filename)
+    name, version_part, build_part, tag_str, _ = _split_wheel_filename(filename)
+
+    _check_normalized(InvalidWheelFilename, name, version_part, wf.version, filename)
+    if build_part is not None and build_part != wf.build_str:
+        inner = f"non-normalized build tag {build_part!r}"
+        raise _invalid(InvalidWheelFilename, inner, filename)
+    if wf.compressed_tags != tag_str:
+        raise _invalid(
+            InvalidWheelFilename, f"non-normalized tags {tag_str!r}", filename
+        )
 
 
 class SourceDistributionFilename:
@@ -521,15 +567,16 @@ class SourceDistributionFilename:
         return f"{name}-{self._version}.tar.gz"
 
     @classmethod
-    def from_filename(cls, filename: str, /, *, strict: bool) -> Self:
+    def from_filename(cls, filename: str, /) -> Self:
         """
         This function takes the filename of a sdist file (as specified
         in the `Source distribution format`_ documentation), and parses
         it into a :class:`SourceDistributionFilename`.
 
+        Parsing accepts legacy names, versions, and the ``.zip`` extension. Use
+        :func:`validate_sdist_filename` first to require a normalized filename.
+
         :param str filename: The name of the sdist file.
-        :param bool strict: Require a ``.tar.gz`` extension and a fully
-            normalized name and version.
         :raises InvalidSdistFilename: If the filename does not end
             with an sdist extension (``.zip`` or ``.tar.gz``), if it does not
             contain a dash separating the name and the version of the distribution,
@@ -537,7 +584,7 @@ class SourceDistributionFilename:
             version.
 
         >>> from packaging.filenames import SourceDistributionFilename
-        >>> fn = SourceDistributionFilename.from_filename("foo-1.0.tar.gz", strict=True)
+        >>> fn = SourceDistributionFilename.from_filename("foo-1.0.tar.gz")
         >>> fn.name
         'foo'
         >>> fn.version
@@ -545,37 +592,59 @@ class SourceDistributionFilename:
 
         .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
         """
-        # PEP 625: Source distributions must end with .tar.gz
-        # Non-strict mode will allow .zip for backward compatibility
-        if filename.endswith(".tar.gz"):
-            file_stem = filename[: -len(".tar.gz")]
-        elif filename.endswith(".zip") and not strict:
-            file_stem = filename[: -len(".zip")]
-        else:
-            extensions = "'.tar.gz'" if strict else "'.tar.gz' or '.zip'"
-            raise _invalid(
-                InvalidSdistFilename, f"extension must be {extensions}", filename
-            )
-
-        # PEP 625: Source distributions may only have one hyphen, separating
-        # the name and version. Strict mode rejects extra hyphens via the
-        # normalized name check below.
-        name_part, sep, version_part = file_stem.rpartition("-")
-        if not sep:
-            inner = "hyphen must separate name and version parts"
-            raise _invalid(InvalidSdistFilename, inner, filename)
-        if not name_part:
-            raise _invalid(InvalidSdistFilename, "empty project name", filename)
-
+        name_part, version_part = _split_sdist_filename(filename)
         version = _parse_version(InvalidSdistFilename, version_part, filename)
 
-        if strict:
-            _check_normalized(
-                InvalidSdistFilename, name_part, version_part, version, filename
-            )
-
-        # Non-strict parsing accepts legacy names, so skip the constructor checks.
+        # Parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
         self._name = canonicalize_name(name_part)
         self._version = version
         return self
+
+
+def _split_sdist_filename(filename: str) -> tuple[str, str]:
+    """Split a sdist filename into name and version parts."""
+    # PEP 625: Source distributions must end with .tar.gz. Parsing also
+    # accepts .zip for backward compatibility.
+    if filename.endswith(".tar.gz"):
+        file_stem = filename[: -len(".tar.gz")]
+    elif filename.endswith(".zip"):
+        file_stem = filename[: -len(".zip")]
+    else:
+        inner = "extension must be '.tar.gz' or '.zip'"
+        raise _invalid(InvalidSdistFilename, inner, filename)
+
+    # PEP 625: Source distributions may only have one hyphen, separating
+    # the name and version. Validation rejects extra hyphens via the
+    # normalized name check.
+    name_part, sep, version_part = file_stem.rpartition("-")
+    if not sep:
+        inner = "hyphen must separate name and version parts"
+        raise _invalid(InvalidSdistFilename, inner, filename)
+    if not name_part:
+        raise _invalid(InvalidSdistFilename, "empty project name", filename)
+    return name_part, version_part
+
+
+def validate_sdist_filename(filename: str, /) -> None:
+    """
+    Check that a sdist filename is valid and in its normalized form.
+
+    The extension must be ``.tar.gz``, and the name and version must be
+    normalized.
+
+    :param str filename: The name of the sdist file.
+    :raises InvalidSdistFilename: If the filename is not valid or not normalized.
+
+    >>> from packaging.filenames import validate_sdist_filename
+    >>> validate_sdist_filename("foo-1.0.tar.gz")
+
+    .. versionadded:: 26.4
+    """
+    if not filename.endswith(".tar.gz"):
+        raise _invalid(InvalidSdistFilename, "extension must be '.tar.gz'", filename)
+    fn = SourceDistributionFilename.from_filename(filename)
+    name_part, version_part = _split_sdist_filename(filename)
+    _check_normalized(
+        InvalidSdistFilename, name_part, version_part, fn.version, filename
+    )
