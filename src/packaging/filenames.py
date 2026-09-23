@@ -186,6 +186,8 @@ class WheelFilename:
         :param version: The version.
         :param tags: The wheel tag set. It must not be empty, and it must
             contain every combination of its interpreters, ABIs, and platforms.
+            Each tag must be valid in a filename (see
+            :func:`~packaging.tags.parse_tag`).
         :param build_tag: Optional wheel build tag.
         :param variant: The variant label (see :pep:`825`), or ``None``.
         :raises InvalidWheelFilename: If the name, version, tag set, build tag,
@@ -222,6 +224,15 @@ class WheelFilename:
             self._build_tag = build_tag
         if "tags" in kwargs:
             tags = frozenset(kwargs["tags"])
+            # Each tag must parse back to itself, so the filename round-trips.
+            for tag in tags:
+                try:
+                    valid = parse_tag(str(tag)) == {tag}
+                except InvalidTag:
+                    valid = False
+                if not valid:
+                    msg = f"Invalid wheel filename (invalid tag {str(tag)!r})"
+                    raise InvalidWheelFilename(msg)
             _compress_tags(tags)
             self._tags = tags
         if "variant" in kwargs:
