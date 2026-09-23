@@ -174,13 +174,6 @@ def _check_normalized(
         collector.error(_invalid(NonNormalizedVersion, inner, filename, kind=kind))
 
 
-def _check_build_tag(build_tag: BuildTag) -> None:
-    if build_tag and (
-        build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
-    ):
-        raise _invalid(InvalidWheelFilename, f"invalid build tag {build_tag!r}")
-
-
 def _check_variant(variant: str | None, filename: str | None = None) -> None:
     if variant is not None and _variant_label_regex.fullmatch(variant) is None:
         inner = f"invalid variant label {variant!r}"
@@ -202,13 +195,6 @@ def _compress_tags(tags: frozenset[Tag]) -> str:
         )
         raise _invalid(InvalidWheelFilename, inner)
     return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
-
-
-def _restore_version(cls: type, version: str, state: object) -> Version:
-    try:
-        return Version(version)
-    except InvalidVersion:
-        raise TypeError(f"Cannot restore {cls.__name__} from {state!r}") from None
 
 
 class WheelFilename:
@@ -255,8 +241,13 @@ class WheelFilename:
         if "version" in kwargs:
             self._version = _parse_version(InvalidWheelFilename, kwargs["version"])
         if "build_tag" in kwargs:
-            _check_build_tag(kwargs["build_tag"])
-            self._build_tag = kwargs["build_tag"]
+            build_tag = kwargs["build_tag"]
+            if build_tag and (
+                build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
+            ):
+                inner = f"invalid build tag {build_tag!r}"
+                raise _invalid(InvalidWheelFilename, inner)
+            self._build_tag = build_tag
         if "tags" in kwargs:
             tags = frozenset(kwargs["tags"])
             _compress_tags(tags)
@@ -386,11 +377,12 @@ class WheelFilename:
                 tags = frozenset(Tag(*t.split("-")) for t in tag_strs)
                 try:
                     _compress_tags(tags)
-                except InvalidWheelFilename:
+                    parsed_version = Version(version)
+                except (InvalidWheelFilename, InvalidVersion):
                     pass
                 else:
                     self._name = canonicalize_name(name)
-                    self._version = _restore_version(type(self), version, state)
+                    self._version = parsed_version
                     self._tags = tags
                     self._build_tag = build_tag
                     self._variant = variant
@@ -676,9 +668,14 @@ class SourceDistributionFilename:
             and isinstance(state[0], str)
             and isinstance(state[1], str)
         ):
-            self._name = canonicalize_name(state[0])
-            self._version = _restore_version(type(self), state[1], state)
-            return
+            try:
+                version = Version(state[1])
+            except InvalidVersion:
+                pass
+            else:
+                self._name = canonicalize_name(state[0])
+                self._version = version
+                return
         raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
 
     def __str__(self) -> str:
