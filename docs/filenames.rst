@@ -8,7 +8,7 @@ Tools to work with filenames for SDists and wheels.
 Working with filenames
 ----------------------
 
-To construct a filename, use ``.from_filename`` on
+To parse a filename, use ``.from_filename`` on
 :class:`~packaging.filenames.WheelFilename` or
 :class:`~packaging.filenames.SourceDistributionFilename`:
 
