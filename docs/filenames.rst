@@ -25,11 +25,8 @@ is a build tag. Otherwise, the last part is a variant label. For example,
 label ``any``.
 
 Parsing normalizes filenames. To ensure a filename is already normalized,
-use :func:`~packaging.filenames.validate_wheel_filename` or
-:func:`~packaging.filenames.validate_sdist_filename`. Like constructing a
-filename, these raise :class:`~packaging.filenames.InvalidFilename` if the
-filename is not valid. They collect all normalization problems into an
-:external:exc:`ExceptionGroup`. Each problem has its own exception class, such
+call ``.validate()`` on the parsed filename. It collects all normalization
+problems into an :external:exc:`ExceptionGroup`. Each problem has its own exception class, such
 as :class:`~packaging.filenames.NonNormalizedName` for a valid name that is not
 normalized and :class:`~packaging.filenames.InvalidProjectName` for a name that
 parses but is not a valid project name, so
@@ -41,11 +38,12 @@ accept a non-normalized name and version, but reject all other problems:
     from packaging.filenames import (
         NonNormalizedName,
         NonNormalizedVersion,
-        validate_wheel_filename,
+        WheelFilename,
     )
 
+    wheel = WheelFilename.from_filename("Foo-01.0-py3-none-any.whl")
     try:
-        validate_wheel_filename("Foo-01.0-py3-none-any.whl")
+        wheel.validate()
     except* (NonNormalizedName, NonNormalizedVersion):
         pass
 
@@ -74,8 +72,14 @@ The immutable classes support most operations that you would expect:
 * Use :func:`copy.replace` (Python 3.13+) or ``__replace__`` to replace parts
   of the filename.
 * Equality and hashing work. The number of trailing zeros in the version is
-  significant, so ``1.0`` and ``1.0.0`` are different.
+  significant, so ``1.0`` and ``1.0.0`` are different. The original filename
+  is not compared, so a parsed filename can be equal to one that fails
+  ``.validate()``.
 * Pickling and unpickling are supported, and the pickle format is stable.
+  A pickle keeps the original filename, so ``.validate()`` gives the same
+  result after unpickling. A filename that is constructed or changed with
+  ``__replace__`` has no original filename, and ``.validate()`` always
+  passes.
 * Converting to a string (or ``.to_filename()``) produces a fully normalized
   filename with the standard extension (``.whl`` or ``.tar.gz``).
 
@@ -105,9 +109,10 @@ with:
     True
 
 To replace ``validate_order=True``, call
-:func:`~packaging.filenames.validate_wheel_filename`. It reports unsorted tags
-with :class:`~packaging.filenames.UnsortedWheelTags`. It also checks that the
-other parts of the filename are normalized. To check only the tag order and
+:meth:`WheelFilename.validate() <packaging.filenames.WheelFilename.validate>`.
+It reports unsorted tags with
+:class:`~packaging.filenames.UnsortedWheelTags`. It also checks that the other
+parts of the filename are normalized. To check only the tag order and
 reject variant wheels, like ``parse_wheel_filename(..., validate_order=True)``,
 this time showing Python 3.10+ compatible syntax:
 
@@ -119,7 +124,6 @@ this time showing Python 3.10+ compatible syntax:
         InvalidWheelFilename,
         UnsortedWheelTags,
         WheelFilename,
-        validate_wheel_filename,
     )
 
     if sys.version_info < (3, 11):
@@ -127,13 +131,13 @@ this time showing Python 3.10+ compatible syntax:
 
 
     def parse_ordered(filename: str) -> WheelFilename:
+        wheel = WheelFilename.from_filename(filename)
         try:
-            validate_wheel_filename(filename)
+            wheel.validate()
         except ExceptionGroup as group:
             for error in group.exceptions:
                 if isinstance(error, UnsortedWheelTags):
                     raise error from None
-        wheel = WheelFilename.from_filename(filename)
         if wheel.variant is not None:
             msg = f"Invalid wheel filename (variant wheels are not supported): {filename!r}"
             raise InvalidWheelFilename(msg)
