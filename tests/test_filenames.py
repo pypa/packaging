@@ -48,61 +48,81 @@ if typing.TYPE_CHECKING:
             "01.0",  # Version is not canonical
             "valid_name-1.0.tar.gz",
         ),
+        ("foo", "1.0", "foo-1.0.tar.gz"),
+        ("foo-bar", "1.0", "foo_bar-1.0.tar.gz"),
     ],
 )
-def test_sdist_not_strict_passes(
-    name: str, version: str, expected_filename: str
-) -> None:
+def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
     fn = SourceDistributionFilename(name, version)
+    assert fn.to_filename() == expected_filename
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
     assert fn.version == Version(version)
+    assert (
+        SourceDistributionFilename.from_filename(expected_filename, strict=True) == fn
+    )
 
 
 @pytest.mark.parametrize(
-    ("filename", "error_message"),
+    ("filename", "strict", "error_message"),
     [
         (
             "bad.extension",  # Bad extension
+            True,
             "Invalid sdist filename (extension must be '.tar.gz')",
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
+            True,
             "Invalid sdist filename (non-normalized project name 'extra-hyphens-1.0')",
         ),
         (
             "no_hyphen.tar.gz",  # No hyphen
+            True,
             "Invalid sdist filename (hyphen must separate name and version parts)",
         ),
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
+            True,
             "Invalid sdist filename (invalid project name '.invalid.name')",
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
+            True,
             "Invalid sdist filename (non-normalized project name 'invalid.name')",
         ),
         (
             "invalid__name-1.0.tar.gz",  # Name is not canonical (punctuation)
+            True,
             "Invalid sdist filename (non-normalized project name 'invalid__name')",
         ),
         (
             "INVALID_NAME-1.0.tar.gz",  # Name is not canonical (casing)
+            True,
             "Invalid sdist filename (non-normalized project name 'INVALID_NAME')",
         ),
         (
             "valid_name-badversion.tar.gz",  # Version is not valid
+            True,
             "Invalid sdist filename (invalid version 'badversion')",
         ),
         (
             "valid_name-01.0.tar.gz",  # Version is not canonical
+            True,
             "Invalid sdist filename (non-normalized version '01.0')",
+        ),
+        (
+            "foo-1.0.tgz",
+            False,
+            "Invalid sdist filename (extension must be '.tar.gz' or '.zip')",
         ),
     ],
 )
-def test_sdist_from_filename_invalid(filename: str, error_message: str) -> None:
+def test_sdist_from_filename_invalid(
+    filename: str, strict: bool, error_message: str
+) -> None:
     with pytest.raises(InvalidFilename) as e:
-        SourceDistributionFilename.from_filename(filename, strict=True)
+        SourceDistributionFilename.from_filename(filename, strict=strict)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
 
@@ -171,40 +191,50 @@ def test_wheel_from_filename(
 
 
 @pytest.mark.parametrize(
-    ("filename", "build_tag", "tags", "variant"),
+    ("filename", "name", "build_tag", "tags", "variant"),
     [
         (
             "numpy-2.3.2-cp313-cp313t-musllinux_1_2_x86_64-x86_64_v3.whl",
+            "numpy",
             (),
             {Tag("cp313", "cp313t", "musllinux_1_2_x86_64")},
             "x86_64_v3",
         ),
         (
             "numpy-2.3.2-1-cp313-cp313t-musllinux_1_2_x86_64-x86_64_v3.whl",
+            "numpy",
             (1, ""),
             {Tag("cp313", "cp313t", "musllinux_1_2_x86_64")},
             "x86_64_v3",
         ),
         (
             "numpy-2.3.2-py2.py3-none-any-null.whl",
+            "numpy",
             (),
             {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
             "null",
         ),
         (
             "numpy-2.3.2-12ab-py3-none-any-0.a_b.whl",
+            "numpy",
             (12, "ab"),
             {Tag("py3", "none", "any")},
             "0.a_b",
         ),
+        (  # A third part that does not start with a digit is a Python tag.
+            "foo-1.0-abc-py3-none-any.whl",
+            "foo",
+            (),
+            {Tag("abc", "py3", "none")},
+            "any",
+        ),
     ],
 )
 def test_wheel_from_filename_variant(
-    filename: str, build_tag: BuildTag, tags: set[Tag], variant: str
+    filename: str, name: str, build_tag: BuildTag, tags: set[Tag], variant: str
 ) -> None:
     fn = WheelFilename.from_filename(filename, strict=True)
-    assert fn.name == "numpy"
-    assert fn.version == Version("2.3.2")
+    assert fn.name == name
     assert fn.build_tag == build_tag
     assert fn.tags == tags
     assert fn.variant == variant
@@ -300,62 +330,35 @@ def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "version", "expected_filename"),
+    ("name", "version", "build_tag", "tags", "expected_filename"),
     [
+        ("valid.name", "1.0", (), None, "valid_name-1.0-py3-none-any.whl"),
+        ("valid__name", "1.0", (), None, "valid_name-1.0-py3-none-any.whl"),
+        ("VALID_NAME", "1.0", (), None, "valid_name-1.0-py3-none-any.whl"),
+        ("valid_name", "01.0", (), None, "valid_name-1.0-py3-none-any.whl"),
+        ("some-PACKAGE", "1.0", (), None, "some_package-1.0-py3-none-any.whl"),
         (
-            "valid.name",  # Name is not canonical (punctuation)
-            "1.0",
-            "valid_name-1.0-py3-none-any.whl",
-        ),
-        (
-            "valid__name",  # Name is not canonical (punctuation)
-            "1.0",
-            "valid_name-1.0-py3-none-any.whl",
-        ),
-        (
-            "VALID_NAME",  # Name is not canonical (casing)
-            "1.0",
-            "valid_name-1.0-py3-none-any.whl",
-        ),
-        (
-            "valid_name",
-            "01.0",  # Version is not canonical
-            "valid_name-1.0-py3-none-any.whl",
-        ),
-    ],
-)
-def test_wheel_not_strict_passes(
-    name: str, version: str, expected_filename: str
-) -> None:
-    fn = WheelFilename(name, version, (), {Tag("py3", "none", "any")})
-    assert str(fn) == expected_filename
-    assert fn.name == canonicalize_name(name)
-    assert fn.version == Version(version)
-
-
-@pytest.mark.parametrize(
-    ("filename", "name", "version", "build", "tags"),
-    [
-        (
-            "some_package-1.0-py3-none-any.whl",
-            "some-PACKAGE",
-            "1.0",
-            (),
-            {Tag("py3", "none", "any")},
-        ),
-        (
-            "foo_bar-1.0-42-py2.py3-none-any.whl",
             "foo-bar",
             "01.0",
             (42, ""),
             {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+            "foo_bar-1.0-42-py2.py3-none-any.whl",
         ),
     ],
 )
-def test_compose_wheel_filename(
-    filename: str, name: str, version: str, build: BuildTag, tags: set[Tag]
+def test_wheel_init(
+    name: str,
+    version: str,
+    build_tag: BuildTag,
+    tags: set[Tag] | None,
+    expected_filename: str,
 ) -> None:
-    assert WheelFilename(name, version, build, tags).to_filename() == filename
+    fn = WheelFilename(name, version, build_tag, tags or {Tag("py3", "none", "any")})
+    assert fn.to_filename() == expected_filename
+    assert str(fn) == expected_filename
+    assert fn.name == canonicalize_name(name)
+    assert fn.version == Version(version)
+    assert WheelFilename.from_filename(expected_filename, strict=True) == fn
 
 
 def test_parse_and_create_filename() -> None:
@@ -365,23 +368,6 @@ def test_parse_and_create_filename() -> None:
     wf = WheelFilename.from_filename(filename, strict=False)
     composed = wf.to_filename()
     assert sorted_f == composed
-
-
-@pytest.mark.parametrize(
-    ("filename", "name", "version"),
-    [
-        ("foo-1.0.tar.gz", "foo", Version("1.0")),
-        ("foo_bar-1.0.tar.gz", "foo-bar", Version("1.0")),
-    ],
-)
-def test_compose_sdist_filename(filename: str, name: str, version: Version) -> None:
-    assert SourceDistributionFilename(name, str(version)).to_filename() == filename
-
-
-def test_sdist_from_filename_strict_valid() -> None:
-    fn = SourceDistributionFilename.from_filename("foo_bar-1.0.tar.gz", strict=True)
-    assert fn.name == "foo-bar"
-    assert fn.version == Version("1.0")
 
 
 @pytest.mark.parametrize(
@@ -478,33 +464,19 @@ def test_sdist_repr() -> None:
     assert repr(fn) == "SourceDistributionFilename(name='foo', version='1.0')"
 
 
-def test_sdist_from_filename_invalid_extension_not_strict() -> None:
-    with pytest.raises(InvalidFilename) as e:
-        SourceDistributionFilename.from_filename("foo-1.0.tgz", strict=False)
-
-    assert str(e.value) == (
-        "Invalid sdist filename (extension must be '.tar.gz' or '.zip'): 'foo-1.0.tgz'"
-    )
-
-
-def test_wheel_from_filename_six_parts_non_digit_is_variant() -> None:
-    # PEP 825: a third part that does not start with a digit is a Python tag.
-    fn = WheelFilename.from_filename("foo-1.0-abc-py3-none-any.whl", strict=True)
-    assert fn.build_tag == ()
-    assert fn.tags == {Tag("abc", "py3", "none")}
-    assert fn.variant == "any"
-
-
-def test_wheel_to_filename_no_tags() -> None:
-    wf = WheelFilename("foo", "1.0")
-    with pytest.raises(InvalidWheelFilename, match="at least one tag"):
-        wf.to_filename()
-
-
-def test_wheel_to_filename_tags_not_compressible() -> None:
-    tags = {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")}
+@pytest.mark.parametrize(
+    ("tags", "match"),
+    [
+        (set(), "at least one tag"),
+        (
+            {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")},
+            "cannot be compressed",
+        ),
+    ],
+)
+def test_wheel_to_filename_invalid_tags(tags: set[Tag], match: str) -> None:
     wf = WheelFilename("foo", "1.0", (), tags)
-    with pytest.raises(InvalidWheelFilename, match="cannot be compressed"):
+    with pytest.raises(InvalidWheelFilename, match=match):
         wf.to_filename()
 
 
