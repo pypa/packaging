@@ -4,9 +4,8 @@
 
 from __future__ import annotations
 
-import abc
 import re
-from typing import TYPE_CHECKING, ClassVar, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
 from .utils import (
@@ -69,110 +68,66 @@ def _check_replace_keys(kwargs: Mapping[str, object], allowed: frozenset[str]) -
         raise TypeError(msg)
 
 
-def _compress_tag_set(tags: frozenset[Tag]) -> str:
-    if not tags:
-        msg = "Invalid wheel filename (the tag set must have at least one tag)"
-        raise InvalidWheelFilename(msg)
-    interpreters = sorted({tag.interpreter for tag in tags})
-    abis = sorted({tag.abi for tag in tags})
-    platforms = sorted({tag.platform for tag in tags})
-    # A compressed tag string always expands to every combination of its fields.
-    if len(tags) != len(interpreters) * len(abis) * len(platforms):
-        inner = "the tag set cannot be compressed, it must contain every combination"
-        msg = f"Invalid wheel filename ({inner}): {sorted(map(str, tags))!r}"
-        raise InvalidWheelFilename(msg)
-    return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
+def _invalid(
+    error: type[InvalidFilename], inner: str, filename: str | None = None
+) -> InvalidFilename:
+    kind = "wheel" if issubclass(error, InvalidWheelFilename) else "sdist"
+    msg = f"Invalid {kind} filename ({inner})"
+    if filename is not None:
+        msg = f"{msg}: {filename!r}"
+    return error(msg)
 
 
-class _DistributionFilename(metaclass=abc.ABCMeta):
-    """Shared state and behavior for wheel and sdist filenames."""
-
-    __slots__ = ("_name", "_version")
-
-    _error: ClassVar[type[InvalidFilename]]
-    _kind: ClassVar[str]
-
-    def __init__(self, name: str, version: Version | str) -> None:
-        self._name = self._check_name(name)
-        self._version = self._parse_version(version)
-
-    def _replace_base(self, new: Self, kwargs: _SdistReplace | _WheelReplace) -> None:
-        """Set the name and version on **new**, checking only the changed values."""
-        new._name = self._check_name(kwargs["name"]) if "name" in kwargs else self._name
-        new._version = (
-            self._parse_version(kwargs["version"])
-            if "version" in kwargs
-            else self._version
-        )
-
-    @classmethod
-    def _check_name(cls, name: str) -> NormalizedName:
-        try:
-            return canonicalize_name(name, validate=True)
-        except InvalidName:
-            raise cls._invalid(f"invalid project name {name!r}") from None
-
-    @classmethod
-    def _parse_version(
-        cls, version: Version | str, filename: str | None = None
-    ) -> Version:
-        if isinstance(version, Version):
-            return version
-        try:
-            return Version(version)
-        except InvalidVersion as e:
-            raise cls._invalid(f"invalid version {version!r}", filename) from e
-
-    @classmethod
-    def _invalid(cls, inner: str, filename: str | None = None) -> InvalidFilename:
-        msg = f"Invalid {cls._kind} filename ({inner})"
-        if filename is not None:
-            msg = f"{msg}: {filename!r}"
-        return cls._error(msg)
-
-    @classmethod
-    def _check_normalized(
-        cls, name: str, version_part: str, version: Version, filename: str
-    ) -> None:
-        """Check that the name and version parts are in their normalized form."""
-        try:
-            cname = canonicalize_name(name, validate=True).replace("-", "_")
-        except InvalidName:
-            raise cls._invalid(f"invalid project name {name!r}", filename) from None
-        if name != cname:
-            raise cls._invalid(f"non-normalized project name {name!r}", filename)
-        if version_part != str(version):
-            raise cls._invalid(f"non-normalized version {version_part!r}", filename)
-
-    @property
-    def name(self) -> NormalizedName:
-        """The normalized project name."""
-        return self._name
-
-    @property
-    def version(self) -> Version:
-        """The parsed project version."""
-        return self._version
-
-    def _key(self) -> tuple[object, ...]:
-        return (self._name, str(self._version))
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, _DistributionFilename):
-            return NotImplemented
-        return self._key() == other._key()
-
-    def __hash__(self) -> int:
-        return hash(self._key())
-
-    @abc.abstractmethod
-    def to_filename(self) -> str: ...
-
-    def __str__(self) -> str:
-        return self.to_filename()
+def _check_name(error: type[InvalidFilename], name: str) -> NormalizedName:
+    try:
+        return canonicalize_name(name, validate=True)
+    except InvalidName:
+        raise _invalid(error, f"invalid project name {name!r}") from None
 
 
-class WheelFilename(_DistributionFilename):
+def _parse_version(
+    error: type[InvalidFilename], version: Version | str, filename: str | None = None
+) -> Version:
+    if isinstance(version, Version):
+        return version
+    try:
+        return Version(version)
+    except InvalidVersion as e:
+        raise _invalid(error, f"invalid version {version!r}", filename) from e
+
+
+def _check_normalized(
+    error: type[InvalidFilename],
+    name: str,
+    version_part: str,
+    version: Version,
+    filename: str,
+) -> None:
+    """Check that the name and version parts are in their normalized form."""
+    try:
+        cname = canonicalize_name(name, validate=True).replace("-", "_")
+    except InvalidName:
+        raise _invalid(error, f"invalid project name {name!r}", filename) from None
+    if name != cname:
+        raise _invalid(error, f"non-normalized project name {name!r}", filename)
+    if version_part != str(version):
+        raise _invalid(error, f"non-normalized version {version_part!r}", filename)
+
+
+def _check_build_tag(build_tag: BuildTag) -> None:
+    if build_tag and (
+        build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
+    ):
+        raise _invalid(InvalidWheelFilename, f"invalid build tag {build_tag!r}")
+
+
+def _check_variant(variant: str | None, filename: str | None = None) -> None:
+    if variant is not None and _variant_label_regex.fullmatch(variant) is None:
+        inner = f"invalid variant label {variant!r}"
+        raise _invalid(InvalidWheelFilename, inner, filename)
+
+
+class WheelFilename:
     """Represents a wheel filename and its parsed components.
 
     Instances are immutable and hashable. Two instances are equal if their
@@ -181,11 +136,8 @@ class WheelFilename(_DistributionFilename):
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_build_tag", "_tags", "_variant")
+    __slots__ = ("_build_tag", "_name", "_tags", "_variant", "_version")
     __match_args__ = ("name", "version", "build_tag", "tags", "variant")
-
-    _error = InvalidWheelFilename
-    _kind = "wheel"
 
     def __init__(
         self,
@@ -205,29 +157,13 @@ class WheelFilename(_DistributionFilename):
         :raises InvalidWheelFilename: If the name, version, build tag, or
             variant label is not valid.
         """
-        super().__init__(name, version)
-        self._check_build_tag(build_tag)
-        self._check_variant(variant)
-        self._set_wheel(build_tag, tags, variant)
-
-    def _set_wheel(
-        self, build_tag: BuildTag, tags: Iterable[Tag], variant: str | None
-    ) -> None:
+        _check_build_tag(build_tag)
+        _check_variant(variant)
+        self._name = _check_name(InvalidWheelFilename, name)
+        self._version = _parse_version(InvalidWheelFilename, version)
         self._build_tag = build_tag
         self._tags = frozenset(tags)
         self._variant = variant
-
-    @classmethod
-    def _check_build_tag(cls, build_tag: BuildTag) -> None:
-        if build_tag and (
-            build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
-        ):
-            raise cls._invalid(f"invalid build tag {build_tag!r}")
-
-    @classmethod
-    def _check_variant(cls, variant: str | None, filename: str | None = None) -> None:
-        if variant is not None and _variant_label_regex.fullmatch(variant) is None:
-            raise cls._invalid(f"invalid variant label {variant!r}", filename)
 
     def __replace__(self, **kwargs: Unpack[_WheelReplace]) -> Self:
         """
@@ -245,16 +181,33 @@ class WheelFilename(_DistributionFilename):
         :raises InvalidWheelFilename: If a replaced part is not valid.
         """
         _check_replace_keys(kwargs, _WheelReplace.__optional_keys__)
-        build_tag = kwargs.get("build_tag", self._build_tag)
-        if "build_tag" in kwargs:
-            self._check_build_tag(build_tag)
-        variant = kwargs.get("variant", self._variant)
-        if "variant" in kwargs:
-            self._check_variant(variant)
         new = self.__class__.__new__(self.__class__)
-        self._replace_base(new, kwargs)
-        new._set_wheel(build_tag, kwargs.get("tags", self._tags), variant)
+        new._name = self._name
+        if "name" in kwargs:
+            new._name = _check_name(InvalidWheelFilename, kwargs["name"])
+        new._version = self._version
+        if "version" in kwargs:
+            new._version = _parse_version(InvalidWheelFilename, kwargs["version"])
+        new._build_tag = self._build_tag
+        if "build_tag" in kwargs:
+            _check_build_tag(kwargs["build_tag"])
+            new._build_tag = kwargs["build_tag"]
+        new._tags = frozenset(kwargs["tags"]) if "tags" in kwargs else self._tags
+        new._variant = self._variant
+        if "variant" in kwargs:
+            _check_variant(kwargs["variant"])
+            new._variant = kwargs["variant"]
         return new
+
+    @property
+    def name(self) -> NormalizedName:
+        """The normalized project name."""
+        return self._name
+
+    @property
+    def version(self) -> Version:
+        """The parsed project version."""
+        return self._version
 
     @property
     def build_tag(self) -> BuildTag:
@@ -288,7 +241,21 @@ class WheelFilename(_DistributionFilename):
         >>> wf.compressed_tags
         'py2.py3-none-any'
         """
-        return _compress_tag_set(self._tags)
+        tags = self._tags
+        if not tags:
+            inner = "the tag set must have at least one tag"
+            raise _invalid(InvalidWheelFilename, inner)
+        interpreters = sorted({tag.interpreter for tag in tags})
+        abis = sorted({tag.abi for tag in tags})
+        platforms = sorted({tag.platform for tag in tags})
+        # A compressed tag string always expands to every combination of its fields.
+        if len(tags) != len(interpreters) * len(abis) * len(platforms):
+            inner = (
+                "the tag set cannot be compressed, it must contain every combination"
+            )
+            msg = f"Invalid wheel filename ({inner}): {sorted(map(str, tags))!r}"
+            raise InvalidWheelFilename(msg)
+        return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
 
     @property
     def build_str(self) -> str:
@@ -305,7 +272,24 @@ class WheelFilename(_DistributionFilename):
         return "".join(map(str, self._build_tag))
 
     def _key(self) -> tuple[object, ...]:
-        return (*super()._key(), self._build_tag, self._tags, self._variant)
+        return (
+            self._name,
+            str(self._version),
+            self._build_tag,
+            self._tags,
+            self._variant,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, WheelFilename):
+            return NotImplemented
+        return self._key() == other._key()
+
+    def __hash__(self) -> int:
+        return hash(self._key())
+
+    def __str__(self) -> str:
+        return self.to_filename()
 
     def __repr__(self) -> str:
         return (
@@ -382,11 +366,11 @@ class WheelFilename(_DistributionFilename):
         True
         """
         if not filename.endswith(".whl"):
-            raise cls._invalid("extension must be '.whl'", filename)
+            raise _invalid(InvalidWheelFilename, "extension must be '.whl'", filename)
 
         parts = filename[:-4].split("-")
         if len(parts) not in {5, 6, 7}:
-            raise cls._invalid("wrong number of parts", filename)
+            raise _invalid(InvalidWheelFilename, "wrong number of parts", filename)
 
         name, version_part, *rest = parts
 
@@ -394,7 +378,9 @@ class WheelFilename(_DistributionFilename):
         # A build tag starts with a digit, and a Python tag never does.
         build_match = _build_tag_regex.match(rest[0]) if len(rest) > 3 else None
         if len(rest) == 5 and build_match is None:
-            raise cls._invalid(f"invalid build number {rest[0]!r}", filename)
+            raise _invalid(
+                InvalidWheelFilename, f"invalid build number {rest[0]!r}", filename
+            )
         build_part = rest.pop(0) if build_match else None
         variant = rest.pop() if len(rest) == 4 else None
         tag_str = "-".join(rest)
@@ -403,41 +389,51 @@ class WheelFilename(_DistributionFilename):
             tags = parse_tag(tag_str, validate_order=validate_order or strict)
         except UnsortedTagsError:
             inner = "compressed tag set components must be in sorted order per PEP 425"
-            raise cls._invalid(inner, filename) from None
+            raise _invalid(InvalidWheelFilename, inner, filename) from None
         except InvalidTag:
-            raise cls._invalid(f"invalid tag component {tag_str!r}", filename) from None
+            raise _invalid(
+                InvalidWheelFilename, f"invalid tag component {tag_str!r}", filename
+            ) from None
 
         # See PEP 427 for the rules on escaping the project name.
         if "__" in name or _wheel_name_regex.match(name) is None:
-            raise cls._invalid(f"invalid project name {name!r}", filename)
+            raise _invalid(
+                InvalidWheelFilename, f"invalid project name {name!r}", filename
+            )
 
-        version = cls._parse_version(version_part, filename)
+        version = _parse_version(InvalidWheelFilename, version_part, filename)
 
         build_tag: BuildTag = ()
         if build_match is not None:
             build_tag = (int(build_match.group(1)), build_match.group(2))
 
-        cls._check_variant(variant, filename)
+        _check_variant(variant, filename)
 
         # Non-strict parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
         self._name = canonicalize_name(name)
         self._version = version
-        self._set_wheel(build_tag, tags, variant)
+        self._build_tag = build_tag
+        self._tags = tags
+        self._variant = variant
 
         # Reconstruct the filename and check that it matches the original
         if strict:
-            cls._check_normalized(name, version_part, version, filename)
+            _check_normalized(
+                InvalidWheelFilename, name, version_part, version, filename
+            )
             if build_part is not None and build_part != self.build_str:
                 inner = f"non-normalized build tag {build_part!r}"
-                raise cls._invalid(inner, filename)
+                raise _invalid(InvalidWheelFilename, inner, filename)
             if self.compressed_tags != tag_str:
-                raise cls._invalid(f"non-normalized tags {tag_str!r}", filename)
+                raise _invalid(
+                    InvalidWheelFilename, f"non-normalized tags {tag_str!r}", filename
+                )
 
         return self
 
 
-class SourceDistributionFilename(_DistributionFilename):
+class SourceDistributionFilename:
     """Represents a source distribution filename and its parsed components.
 
     Instances are immutable and hashable. Two instances are equal if their
@@ -446,11 +442,8 @@ class SourceDistributionFilename(_DistributionFilename):
     .. versionadded:: 26.4
     """
 
-    __slots__ = ()
+    __slots__ = ("_name", "_version")
     __match_args__ = ("name", "version")
-
-    _error = InvalidSdistFilename
-    _kind = "sdist"
 
     def __init__(self, name: str, version: Version | str) -> None:
         """Create a source distribution filename from name and version.
@@ -459,7 +452,8 @@ class SourceDistributionFilename(_DistributionFilename):
         :param version: The version.
         :raises InvalidSdistFilename: If the name or version is not valid.
         """
-        super().__init__(name, version)
+        self._name = _check_name(InvalidSdistFilename, name)
+        self._version = _parse_version(InvalidSdistFilename, version)
 
     def __replace__(self, **kwargs: Unpack[_SdistReplace]) -> Self:
         """
@@ -477,8 +471,37 @@ class SourceDistributionFilename(_DistributionFilename):
         """
         _check_replace_keys(kwargs, _SdistReplace.__optional_keys__)
         new = self.__class__.__new__(self.__class__)
-        self._replace_base(new, kwargs)
+        new._name = self._name
+        if "name" in kwargs:
+            new._name = _check_name(InvalidSdistFilename, kwargs["name"])
+        new._version = self._version
+        if "version" in kwargs:
+            new._version = _parse_version(InvalidSdistFilename, kwargs["version"])
         return new
+
+    @property
+    def name(self) -> NormalizedName:
+        """The normalized project name."""
+        return self._name
+
+    @property
+    def version(self) -> Version:
+        """The parsed project version."""
+        return self._version
+
+    def _key(self) -> tuple[object, ...]:
+        return (self._name, str(self._version))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SourceDistributionFilename):
+            return NotImplemented
+        return self._key() == other._key()
+
+    def __hash__(self) -> int:
+        return hash(self._key())
+
+    def __str__(self) -> str:
+        return self.to_filename()
 
     def __repr__(self) -> str:
         return (
@@ -536,7 +559,9 @@ class SourceDistributionFilename(_DistributionFilename):
             file_stem = filename[: -len(".zip")]
         else:
             extensions = "'.tar.gz'" if strict else "'.tar.gz' or '.zip'"
-            raise cls._invalid(f"extension must be {extensions}", filename)
+            raise _invalid(
+                InvalidSdistFilename, f"extension must be {extensions}", filename
+            )
 
         # PEP 625: Source distributions may only have one hyphen, separating
         # the name and version. Strict mode rejects extra hyphens via the
@@ -544,14 +569,16 @@ class SourceDistributionFilename(_DistributionFilename):
         name_part, sep, version_part = file_stem.rpartition("-")
         if not sep:
             inner = "hyphen must separate name and version parts"
-            raise cls._invalid(inner, filename)
+            raise _invalid(InvalidSdistFilename, inner, filename)
         if not name_part:
-            raise cls._invalid("empty project name", filename)
+            raise _invalid(InvalidSdistFilename, "empty project name", filename)
 
-        version = cls._parse_version(version_part, filename)
+        version = _parse_version(InvalidSdistFilename, version_part, filename)
 
         if strict:
-            cls._check_normalized(name_part, version_part, version, filename)
+            _check_normalized(
+                InvalidSdistFilename, name_part, version_part, version, filename
+            )
 
         # Non-strict parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
