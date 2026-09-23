@@ -436,7 +436,7 @@ def test_wheel_init(
     tags: set[Tag] | None,
     expected_filename: str,
 ) -> None:
-    fn = WheelFilename(name, version, build_tag, tags or {Tag("py3", "none", "any")})
+    fn = WheelFilename(name, version, tags or {Tag("py3", "none", "any")}, build_tag)
     assert fn.to_filename() == expected_filename
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
@@ -467,15 +467,27 @@ def test_parse_and_create_filename() -> None:
         ({"variant": ""}, "invalid variant label ''"),
         ({"variant": "Bad-Label"}, "invalid variant label 'Bad-Label'"),
         ({"variant": "x" * 17}, f"invalid variant label {'x' * 17!r}"),
+        ({"tags": set()}, "the tag set must have at least one tag"),
+        (
+            {"tags": {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")}},
+            "the tag set cannot be compressed, it must contain every combination: "
+            "['cp314-cp314-win_amd64', 'py3-none-any']",
+        ),
     ],
 )
 def test_wheel_init_invalid(kwargs: dict[str, typing.Any], error_message: str) -> None:
-    args: dict[str, typing.Any] = {"name": "foo", "version": "1.0", **kwargs}
+    tags = {Tag("py3", "none", "any")}
+    args: dict[str, typing.Any] = {
+        "name": "foo",
+        "version": "1.0",
+        "tags": tags,
+        **kwargs,
+    }
     with pytest.raises(InvalidWheelFilename) as e:
         WheelFilename(**args)
     assert str(e.value) == f"Invalid wheel filename ({error_message})"
 
-    wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+    wf = WheelFilename("foo", "1.0", tags)
     with pytest.raises(InvalidWheelFilename) as e:
         wf.__replace__(**kwargs)
     assert str(e.value) == f"Invalid wheel filename ({error_message})"
@@ -483,10 +495,10 @@ def test_wheel_init_invalid(kwargs: dict[str, typing.Any], error_message: str) -
 
 def test_wheel_replace() -> None:
     tags = {Tag("py3", "none", "any")}
-    wf = WheelFilename("Foo", "1.0", (1, "a"), tags, "x86_64_v3")
+    wf = WheelFilename("Foo", "1.0", tags, (1, "a"), "x86_64_v3")
     new = wf.__replace__(version="2.0", tags={Tag("cp314", "cp314", "win_amd64")})
     assert new == WheelFilename(
-        "Foo", "2.0", (1, "a"), {Tag("cp314", "cp314", "win_amd64")}, "x86_64_v3"
+        "Foo", "2.0", {Tag("cp314", "cp314", "win_amd64")}, (1, "a"), "x86_64_v3"
     )
     assert new.name == "foo"
     assert wf.__replace__(version=Version("2.0")) == wf.__replace__(version="2.0")
@@ -508,10 +520,10 @@ def test_legacy_name_from_filename() -> None:
 
 def test_wheel_repr() -> None:
     tags = frozenset({Tag("py3", "none", "any")})
-    wf = WheelFilename("Foo.Bar", "01.0", (1, "abc"), tags)
+    wf = WheelFilename("Foo.Bar", "01.0", tags, (1, "abc"))
     assert repr(wf) == (
-        f"WheelFilename(name='foo-bar', version='1.0', build_tag=(1, 'abc'), "
-        f"tags={tags!r}, variant=None)"
+        f"WheelFilename(name='foo-bar', version='1.0', tags={tags!r}, "
+        "build_tag=(1, 'abc'), variant=None)"
     )
 
 
@@ -548,36 +560,20 @@ def test_sdist_repr() -> None:
     assert repr(fn) == "SourceDistributionFilename(name='foo', version='1.0')"
 
 
-@pytest.mark.parametrize(
-    ("tags", "match"),
-    [
-        (set(), "at least one tag"),
-        (
-            {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")},
-            "cannot be compressed",
-        ),
-    ],
-)
-def test_wheel_to_filename_invalid_tags(tags: set[Tag], match: str) -> None:
-    wf = WheelFilename("foo", "1.0", (), tags)
-    with pytest.raises(InvalidWheelFilename, match=match):
-        wf.to_filename()
-
-
 def test_wheel_eq_hash() -> None:
     tags = {Tag("py3", "none", "any")}
-    wf = WheelFilename("foo", "1.0", (1, ""), tags)
-    assert wf == WheelFilename("foo", "1.0", (1, ""), tags)
-    assert hash(wf) == hash(WheelFilename("foo", "1.0", (1, ""), tags))
-    assert wf == WheelFilename("Foo", "1.0", (1, ""), tags)
-    assert hash(wf) == hash(WheelFilename("Foo", "1.0", (1, ""), tags))
-    assert wf != WheelFilename("foo", "1.0.0", (1, ""), tags)
-    assert wf != WheelFilename("foo", "1.0", (), tags)
-    assert wf != WheelFilename("foo", "1.0", (1, ""), tags, "x86_64_v3")
+    wf = WheelFilename("foo", "1.0", tags, (1, ""))
+    assert wf == WheelFilename("foo", "1.0", tags, (1, ""))
+    assert hash(wf) == hash(WheelFilename("foo", "1.0", tags, (1, "")))
+    assert wf == WheelFilename("Foo", "1.0", tags, (1, ""))
+    assert hash(wf) == hash(WheelFilename("Foo", "1.0", tags, (1, "")))
+    assert wf != WheelFilename("foo", "1.0.0", tags, (1, ""))
+    assert wf != WheelFilename("foo", "1.0", tags)
+    assert wf != WheelFilename("foo", "1.0", tags, (1, ""), "x86_64_v3")
     assert wf != "foo-1.0-1-py3-none-any.whl"
     assert len({wf, WheelFilename.from_filename(str(wf))}) == 1
     raw = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl")
-    assert raw == WheelFilename("foo_bar", "1.0", (1, ""), tags)
+    assert raw == WheelFilename("foo_bar", "1.0", tags, (1, ""))
 
 
 def test_sdist_eq_hash() -> None:
@@ -589,7 +585,7 @@ def test_sdist_eq_hash() -> None:
     assert hash(fn) == hash(SourceDistributionFilename("Foo", "01.0"))
     assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip")
     assert fn != "foo-1.0.tar.gz"
-    assert fn != WheelFilename("foo", "1.0")
+    assert fn != WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
 
 
 @pytest.mark.parametrize("module", ["filenames", "utils"])
