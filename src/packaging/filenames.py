@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 __all__ = [
     "BuildTag",
     "InvalidFilename",
+    "InvalidProjectName",
     "InvalidSdistFilename",
     "InvalidWheelFilename",
     "NonNormalizedBuildTag",
@@ -48,14 +49,22 @@ def __dir__() -> list[str]:
     return __all__
 
 
-# PEP 427: The build number must start with a digit.
-_build_tag_regex = re.compile(r"(\d+)(.*)", re.ASCII)
-# A build tag suffix must not start with a digit, so the number is unambiguous.
-_build_suffix_regex = re.compile(r"(?:[a-z_.][a-z0-9_.]*)?", re.ASCII | re.IGNORECASE)
+# PEP 427: The build number must start with a digit. The suffix must not, so
+# the number is unambiguous.
+_build_tag_regex = re.compile(r"(\d+)([a-z_.][a-z0-9_.]*)?", re.ASCII | re.IGNORECASE)
 _variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"[\w.]+")
+
+
+class InvalidProjectName(InvalidFilename):
+    """
+    The project name in a filename can be parsed, but is not a valid project
+    name.
+
+    .. versionadded:: 26.4
+    """
 
 
 class NonNormalizedName(InvalidFilename):
@@ -110,6 +119,14 @@ class _WheelReplace(TypedDict, total=False):
     build_tag: BuildTag
     tags: Iterable[Tag]
     variant: str | None
+
+
+def _parse_build_tag(build: str) -> BuildTag:
+    """Parse a build tag string, returning an empty tuple if it is not valid."""
+    build_match = _build_tag_regex.fullmatch(build)
+    if build_match is None:
+        return ()
+    return (int(build_match[1]), build_match[2] or "")
 
 
 def _compress_tags(tags: frozenset[Tag]) -> str:
@@ -188,8 +205,10 @@ class WheelFilename:
                 raise InvalidWheelFilename(msg) from e
         if "build_tag" in kwargs:
             build_tag = kwargs["build_tag"]
+            # The build tag must round-trip through the filename string.
             if build_tag and (
-                build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
+                type(build_tag[0]) is not int
+                or _parse_build_tag("".join(map(str, build_tag))) != build_tag
             ):
                 msg = f"Invalid wheel filename (invalid build tag {build_tag!r})"
                 raise InvalidWheelFilename(msg)
@@ -316,7 +335,7 @@ class WheelFilename:
     def __setstate__(self, state: object) -> None:
         if not isinstance(state, str):
             raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
-        other = WheelFilename.from_filename(state)
+        other = type(self).from_filename(state)
         for attr in WheelFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
 
@@ -417,12 +436,13 @@ class WheelFilename:
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg)
 
-        # The split already checked that the build part starts with a digit.
         build_tag: BuildTag = ()
         if parts.build is not None:
-            build_match = _build_tag_regex.match(parts.build)
-            assert build_match is not None
-            build_tag = (int(build_match[1]), build_match[2])
+            build_tag = _parse_build_tag(parts.build)
+            if not build_tag:
+                inner = f"invalid build tag {parts.build!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                raise InvalidWheelFilename(msg)
 
         self = cls.__new__(cls)
         self._name = canonicalize_name(parts.name)
@@ -466,7 +486,7 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
 
     # Six parts are ambiguous: a build tag or a variant label (PEP 825).
     # A build tag starts with a digit, and a Python tag never does.
-    has_build = len(rest) > 3 and _build_tag_regex.match(rest[0]) is not None
+    has_build = len(rest) > 3 and rest[0][:1].isdigit()
     if len(rest) == 5 and not has_build:
         msg = f"Invalid wheel filename (invalid build number {rest[0]!r}): {filename!r}"
         raise InvalidWheelFilename(msg)
@@ -527,7 +547,7 @@ def validate_wheel_filename(filename: str, /) -> None:
         except InvalidName:
             inner = f"invalid project name {parts.name!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedName(msg))
+            collector.error(InvalidProjectName(msg))
         else:
             if parts.name != normalized.replace("-", "_"):
                 inner = f"non-normalized project name {parts.name!r}"
@@ -541,12 +561,18 @@ def validate_wheel_filename(filename: str, /) -> None:
             inner = f"non-normalized build tag {parts.build!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedBuildTag(msg))
-        with collector.collect(UnsortedWheelTags):
-            _parse_tags(filename, parts.tags, validate_order=True)
-            if wf.compressed_tags != parts.tags:
-                inner = f"non-normalized tags {parts.tags!r}"
-                msg = f"Invalid wheel filename ({inner}): {filename!r}"
-                collector.error(NonNormalizedTags(msg))
+        # The tags were parsed already, so only the order needs a check here.
+        components = [part.split(".") for part in parts.tags.split("-")]
+        if any(part != sorted(part) for part in components):
+            msg = (
+                "Invalid wheel filename (compressed tag set components must be "
+                f"in sorted order per PEP 425): {filename!r}"
+            )
+            collector.error(UnsortedWheelTags(msg))
+        elif wf.compressed_tags != parts.tags:
+            inner = f"non-normalized tags {parts.tags!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedTags(msg))
 
 
 class SourceDistributionFilename:
@@ -639,7 +665,7 @@ class SourceDistributionFilename:
     def __setstate__(self, state: object) -> None:
         if not isinstance(state, str):
             raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
-        other = SourceDistributionFilename.from_filename(state)
+        other = type(self).from_filename(state)
         for attr in SourceDistributionFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
 
@@ -771,7 +797,7 @@ def validate_sdist_filename(filename: str, /) -> None:
         except InvalidName:
             inner = f"invalid project name {name_part!r}"
             msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedName(msg))
+            collector.error(InvalidProjectName(msg))
         else:
             if name_part != normalized.replace("-", "_"):
                 inner = f"non-normalized project name {name_part!r}"

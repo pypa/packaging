@@ -17,12 +17,22 @@ To construct a filename, use ``.from_filename`` on
    >>> from packaging.filenames import WheelFilename
    >>> wheel_filename = WheelFilename.from_filename("foo-1.0-1-py3-none-any.whl")
 
+A wheel filename with six parts is ambiguous: the extra part is either a
+build tag or a variant label (:pep:`825`). A build tag must start with a
+digit, and a Python tag never does, so a third part that starts with a digit
+is a build tag. Otherwise, the last part is a variant label. For example,
+``foo-1.0-abc-py3-none-any.whl`` has the tag ``abc-py3-none`` and the variant
+label ``any``.
+
 Parsing normalizes filenames. To ensure a filename is already normalized,
 use :func:`~packaging.filenames.validate_wheel_filename` or
 :func:`~packaging.filenames.validate_sdist_filename`. Like constructing a
 filename, these raise :class:`~packaging.filenames.InvalidFilename` if the
 filename is not valid. They collect all normalization problems into an
-:external:exc:`ExceptionGroup`. Each problem has its own exception class, so
+:external:exc:`ExceptionGroup`. Each problem has its own exception class, such
+as :class:`~packaging.filenames.NonNormalizedName` for a valid name that is not
+normalized and :class:`~packaging.filenames.InvalidProjectName` for a name that
+parses but is not a valid project name, so
 you can use ``except*`` to handle or ignore only some of them. For example, to
 accept a non-normalized name and version, but reject all other problems:
 
