@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import copy
 import re
 from typing import TYPE_CHECKING, NamedTuple, TypedDict
 
@@ -251,7 +250,9 @@ class WheelFilename:
         if extra := kwargs.keys() - _WheelReplace.__optional_keys__:
             msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
             raise TypeError(msg)
-        new = copy.copy(self)
+        new = type(self).__new__(type(self))
+        for attr in WheelFilename.__slots__:
+            setattr(new, attr, getattr(self, attr))
         new._set(**kwargs)
         return new
 
@@ -338,6 +339,12 @@ class WheelFilename:
         other = type(self).from_filename(state)
         for attr in WheelFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        return self
 
     def __str__(self) -> str:
         return self.to_filename()
@@ -634,7 +641,9 @@ class SourceDistributionFilename:
         if extra := kwargs.keys() - _SdistReplace.__optional_keys__:
             msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
             raise TypeError(msg)
-        new = copy.copy(self)
+        new = type(self).__new__(type(self))
+        for attr in SourceDistributionFilename.__slots__:
+            setattr(new, attr, getattr(self, attr))
         new._set(**kwargs)
         return new
 
@@ -668,6 +677,12 @@ class SourceDistributionFilename:
         other = type(self).from_filename(state)
         for attr in SourceDistributionFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        return self
 
     def __str__(self) -> str:
         return self.to_filename()

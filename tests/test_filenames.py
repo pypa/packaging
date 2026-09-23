@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import copy
 import pickle
 import subprocess
 import sys
@@ -515,6 +516,24 @@ def test_wheel_init_invalid(kwargs: dict[str, typing.Any], error_message: str) -
     with pytest.raises(InvalidWheelFilename) as e:
         wf.__replace__(**kwargs)
     assert str(e.value) == f"Invalid wheel filename ({error_message})"
+
+
+def test_copy_returns_self() -> None:
+    wf = WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
+    assert copy.copy(wf) is wf
+    assert copy.deepcopy(wf) is wf
+    fn = SourceDistributionFilename("foo", "1.0")
+    assert copy.copy(fn) is fn
+    assert copy.deepcopy(fn) is fn
+
+
+def test_replace_does_not_reparse(monkeypatch: pytest.MonkeyPatch) -> None:
+    wf = WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
+    fn = SourceDistributionFilename("foo", "1.0")
+    monkeypatch.setattr(WheelFilename, "from_filename", None)
+    monkeypatch.setattr(SourceDistributionFilename, "from_filename", None)
+    assert wf.__replace__(version="2.0").version == Version("2.0")
+    assert fn.__replace__(version="2.0").version == Version("2.0")
 
 
 def test_wheel_replace() -> None:
