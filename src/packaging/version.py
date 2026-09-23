@@ -381,6 +381,7 @@ class Version(_BaseVersion):
         "_local",
         "_post",
         "_pre",
+        "_raw_version",
         "_release",
     )
     __match_args__ = ("_str",)
@@ -400,6 +401,7 @@ class Version(_BaseVersion):
     _pre: tuple[Literal["a", "b", "rc"], int] | None
     _post: tuple[Literal["post"], int] | None
     _local: LocalType | None
+    _raw_version: str | None
 
     _hash_cache: int | None
     _key_cache: CmpKey | None
@@ -437,6 +439,7 @@ class Version(_BaseVersion):
             self._post = None
             self._dev = None
             self._local = None
+            self._raw_version = version
             self._key_cache = None
             self._hash_cache = None
             return
@@ -458,6 +461,7 @@ class Version(_BaseVersion):
         )
         self._dev = _parse_letter_version(match.group("dev_l"), match.group("dev_n"))  # type: ignore[assignment]
         self._local = _parse_local_version(match.group("local"))
+        self._raw_version = version
 
         # Key which will be used for sorting
         self._key_cache = None
@@ -507,6 +511,7 @@ class Version(_BaseVersion):
         new_version._post = _post
         new_version._dev = _dev
         new_version._local = _local
+        new_version._raw_version = None
 
         return new_version
 
@@ -565,6 +570,7 @@ class Version(_BaseVersion):
         new_version._post = post
         new_version._dev = dev
         new_version._local = local
+        new_version._raw_version = None
 
         return new_version
 
@@ -580,6 +586,15 @@ class Version(_BaseVersion):
                 self._local,
             )
         return self._key_cache
+
+    @property
+    def raw_version(self) -> str | None:
+        """The original string passed to the constructor, if available.
+
+        Versions created with :meth:`from_parts` or :meth:`__replace__` do not
+        have an original input string and return ``None``.
+        """
+        return self._raw_version
 
     # __hash__ must be defined when __eq__ is overridden,
     # otherwise Python sets __hash__ to None.
@@ -791,6 +806,7 @@ class Version(_BaseVersion):
         # and will be recomputed on demand from the core fields above.
         self._key_cache = None
         self._hash_cache = None
+        self._raw_version = None
 
         if isinstance(state, tuple):
             if len(state) == 6:

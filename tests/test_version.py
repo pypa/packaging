@@ -418,6 +418,16 @@ class TestVersion:
         assert str(Version(version)) == expected
         assert repr(Version(version)) == f"<Version({expected!r})>"
 
+    def test_raw_version_preserves_constructor_input(self) -> None:
+        version = Version("  v1.01  ")
+
+        assert str(version) == "1.1"
+        assert version.raw_version == "  v1.01  "
+
+    def test_raw_version_is_unavailable_for_composed_versions(self) -> None:
+        assert Version.from_parts(release=(1, 2)).raw_version is None
+        assert Version("1.2").__replace__(release=(1, 3)).raw_version is None
+
     def test_version_rc_and_c_equals(self) -> None:
         assert Version("1.0rc1") == Version("1.0c1")
 
