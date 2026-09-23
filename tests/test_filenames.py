@@ -468,6 +468,7 @@ def test_sdist_init_invalid(kwargs: dict[str, str], error_message: str) -> None:
 def test_sdist_replace() -> None:
     fn = SourceDistributionFilename("foo", "1.0")
     assert fn.__replace__(version="2.0") == SourceDistributionFilename("foo", "2.0")
+    assert fn.__replace__(name="bar") == SourceDistributionFilename("bar", "1.0")
     with pytest.raises(TypeError, match="unexpected"):
         fn.__replace__(tags=())  # type: ignore[call-arg]
 
