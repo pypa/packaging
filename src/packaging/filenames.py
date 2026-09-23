@@ -118,41 +118,6 @@ def _check_replace_keys(kwargs: Mapping[str, object], allowed: frozenset[str]) -
         raise TypeError(msg)
 
 
-def _invalid(
-    error: type[InvalidFilename],
-    inner: str,
-    filename: str | None = None,
-    *,
-    kind: str | None = None,
-) -> InvalidFilename:
-    if kind is None:
-        kind = "wheel" if issubclass(error, InvalidWheelFilename) else "sdist"
-    msg = f"Invalid {kind} filename ({inner})"
-    if filename is not None:
-        msg = f"{msg}: {filename!r}"
-    return error(msg)
-
-
-def _check_name(
-    error: type[InvalidFilename], name: str, filename: str | None = None
-) -> NormalizedName:
-    try:
-        return canonicalize_name(name, validate=True)
-    except InvalidName:
-        raise _invalid(error, f"invalid project name {name!r}", filename) from None
-
-
-def _parse_version(
-    error: type[InvalidFilename], version: Version | str, filename: str | None = None
-) -> Version:
-    if isinstance(version, Version):
-        return version
-    try:
-        return Version(version)
-    except InvalidVersion as e:
-        raise _invalid(error, f"invalid version {version!r}", filename) from e
-
-
 def _check_normalized(
     collector: _ErrorCollector,
     error: type[InvalidFilename],
@@ -166,34 +131,35 @@ def _check_normalized(
     An invalid name is raised directly.
     """
     kind = "wheel" if issubclass(error, InvalidWheelFilename) else "sdist"
-    if name != _check_name(error, name, filename).replace("-", "_"):
+    try:
+        normalized = canonicalize_name(name, validate=True)
+    except InvalidName:
+        msg = f"Invalid {kind} filename (invalid project name {name!r}): {filename!r}"
+        raise error(msg) from None
+    if name != normalized.replace("-", "_"):
         inner = f"non-normalized project name {name!r}"
-        collector.error(_invalid(NonNormalizedName, inner, filename, kind=kind))
+        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
+        collector.error(NonNormalizedName(msg))
     if version_part != str(version):
         inner = f"non-normalized version {version_part!r}"
-        collector.error(_invalid(NonNormalizedVersion, inner, filename, kind=kind))
-
-
-def _check_variant(variant: str | None, filename: str | None = None) -> None:
-    if variant is not None and _variant_label_regex.fullmatch(variant) is None:
-        inner = f"invalid variant label {variant!r}"
-        raise _invalid(InvalidWheelFilename, inner, filename)
+        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
+        collector.error(NonNormalizedVersion(msg))
 
 
 def _compress_tags(tags: frozenset[Tag]) -> str:
     if not tags:
-        inner = "the tag set must have at least one tag"
-        raise _invalid(InvalidWheelFilename, inner)
+        msg = "Invalid wheel filename (the tag set must have at least one tag)"
+        raise InvalidWheelFilename(msg)
     interpreters = sorted({tag.interpreter for tag in tags})
     abis = sorted({tag.abi for tag in tags})
     platforms = sorted({tag.platform for tag in tags})
     # A compressed tag string always expands to every combination of its fields.
     if len(tags) != len(interpreters) * len(abis) * len(platforms):
-        inner = (
-            "the tag set cannot be compressed, it must contain every combination: "
-            f"{sorted(map(str, tags))!r}"
+        msg = (
+            "Invalid wheel filename (the tag set cannot be compressed, it must "
+            f"contain every combination: {sorted(map(str, tags))!r})"
         )
-        raise _invalid(InvalidWheelFilename, inner)
+        raise InvalidWheelFilename(msg)
     return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
 
 
@@ -237,24 +203,39 @@ class WheelFilename:
 
     def _set(self, **kwargs: Unpack[_WheelReplace]) -> None:
         if "name" in kwargs:
-            self._name = _check_name(InvalidWheelFilename, kwargs["name"])
+            name = kwargs["name"]
+            try:
+                self._name = canonicalize_name(name, validate=True)
+            except InvalidName:
+                msg = f"Invalid wheel filename (invalid project name {name!r})"
+                raise InvalidWheelFilename(msg) from None
         if "version" in kwargs:
-            self._version = _parse_version(InvalidWheelFilename, kwargs["version"])
+            version = kwargs["version"]
+            try:
+                self._version = (
+                    version if isinstance(version, Version) else Version(version)
+                )
+            except InvalidVersion as e:
+                msg = f"Invalid wheel filename (invalid version {version!r})"
+                raise InvalidWheelFilename(msg) from e
         if "build_tag" in kwargs:
             build_tag = kwargs["build_tag"]
             if build_tag and (
                 build_tag[0] < 0 or _build_suffix_regex.fullmatch(build_tag[1]) is None
             ):
-                inner = f"invalid build tag {build_tag!r}"
-                raise _invalid(InvalidWheelFilename, inner)
+                msg = f"Invalid wheel filename (invalid build tag {build_tag!r})"
+                raise InvalidWheelFilename(msg)
             self._build_tag = build_tag
         if "tags" in kwargs:
             tags = frozenset(kwargs["tags"])
             _compress_tags(tags)
             self._tags = tags
         if "variant" in kwargs:
-            _check_variant(kwargs["variant"])
-            self._variant = kwargs["variant"]
+            variant = kwargs["variant"]
+            if variant is not None and _variant_label_regex.fullmatch(variant) is None:
+                msg = f"Invalid wheel filename (invalid variant label {variant!r})"
+                raise InvalidWheelFilename(msg)
+            self._variant = variant
 
     def __replace__(self, **kwargs: Unpack[_WheelReplace]) -> Self:
         """
@@ -468,10 +449,23 @@ class WheelFilename:
         # See PEP 427 for the rules on escaping the project name.
         if "__" in parts.name or _wheel_name_regex.fullmatch(parts.name) is None:
             inner = f"invalid project name {parts.name!r}"
-            raise _invalid(InvalidWheelFilename, inner, filename)
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg)
 
-        version = _parse_version(InvalidWheelFilename, parts.version, filename)
-        _check_variant(parts.variant, filename)
+        try:
+            version = Version(parts.version)
+        except InvalidVersion as e:
+            inner = f"invalid version {parts.version!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg) from e
+
+        if (
+            parts.variant is not None
+            and _variant_label_regex.fullmatch(parts.variant) is None
+        ):
+            inner = f"invalid variant label {parts.variant!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg)
 
         # The split already checked that the build part starts with a digit.
         build_tag: BuildTag = ()
@@ -504,17 +498,19 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
     build number is rejected.
     """
     if not filename.endswith(".whl"):
-        raise _invalid(InvalidWheelFilename, "extension must be '.whl'", filename)
+        msg = f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
+        raise InvalidWheelFilename(msg)
 
     parts = filename[:-4].split("-")
     if len(parts) not in {5, 6, 7}:
-        raise _invalid(InvalidWheelFilename, "wrong number of parts", filename)
+        msg = f"Invalid wheel filename (wrong number of parts): {filename!r}"
+        raise InvalidWheelFilename(msg)
     if len(parts) == 7 and not variants:
-        inner = (
-            "variant wheels are not supported, "
-            "use packaging.filenames.WheelFilename instead for support"
+        msg = (
+            "Invalid wheel filename (variant wheels are not supported, "
+            f"use packaging.filenames.WheelFilename instead for support): {filename!r}"
         )
-        raise _invalid(InvalidWheelFilename, inner, filename)
+        raise InvalidWheelFilename(msg)
 
     name, version_part, *rest = parts
 
@@ -522,12 +518,14 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
     # A build tag starts with a digit, and a Python tag never does.
     has_build = len(rest) > 3 and _build_tag_regex.match(rest[0]) is not None
     if len(rest) == 5 and not has_build:
-        raise _invalid(
-            InvalidWheelFilename, f"invalid build number {rest[0]!r}", filename
-        )
+        msg = f"Invalid wheel filename (invalid build number {rest[0]!r}): {filename!r}"
+        raise InvalidWheelFilename(msg)
     if len(rest) == 4 and not has_build and not variants:
-        inner = "invalid build number or unsupported variant label"
-        raise _invalid(InvalidWheelFilename, inner, filename)
+        msg = (
+            "Invalid wheel filename (invalid build number or unsupported "
+            f"variant label): {filename!r}"
+        )
+        raise InvalidWheelFilename(msg)
     build_part = rest.pop(0) if has_build else None
     variant = rest.pop() if len(rest) == 4 else None
     return _WheelParts(name, version_part, build_part, "-".join(rest), variant)
@@ -537,11 +535,15 @@ def _parse_tags(filename: str, tag_str: str, *, validate_order: bool) -> frozens
     try:
         return parse_tag(tag_str, validate_order=validate_order)
     except UnsortedTagsError:
-        inner = "compressed tag set components must be in sorted order per PEP 425"
-        raise _invalid(UnsortedWheelTags, inner, filename) from None
+        msg = (
+            "Invalid wheel filename (compressed tag set components must be in "
+            f"sorted order per PEP 425): {filename!r}"
+        )
+        raise UnsortedWheelTags(msg) from None
     except InvalidTag:
         inner = f"invalid tag component {tag_str!r}"
-        raise _invalid(InvalidWheelFilename, inner, filename) from None
+        msg = f"Invalid wheel filename ({inner}): {filename!r}"
+        raise InvalidWheelFilename(msg) from None
 
 
 def validate_wheel_filename(filename: str, /) -> None:
@@ -580,12 +582,14 @@ def validate_wheel_filename(filename: str, /) -> None:
         )
         if parts.build is not None and parts.build != wf.build_str:
             inner = f"non-normalized build tag {parts.build!r}"
-            collector.error(_invalid(NonNormalizedBuildTag, inner, filename))
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedBuildTag(msg))
         with collector.collect(UnsortedWheelTags):
             _parse_tags(filename, parts.tags, validate_order=True)
             if wf.compressed_tags != parts.tags:
                 inner = f"non-normalized tags {parts.tags!r}"
-                collector.error(_invalid(NonNormalizedTags, inner, filename))
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedTags(msg))
 
 
 class SourceDistributionFilename:
@@ -614,9 +618,21 @@ class SourceDistributionFilename:
 
     def _set(self, **kwargs: Unpack[_SdistReplace]) -> None:
         if "name" in kwargs:
-            self._name = _check_name(InvalidSdistFilename, kwargs["name"])
+            name = kwargs["name"]
+            try:
+                self._name = canonicalize_name(name, validate=True)
+            except InvalidName:
+                msg = f"Invalid sdist filename (invalid project name {name!r})"
+                raise InvalidSdistFilename(msg) from None
         if "version" in kwargs:
-            self._version = _parse_version(InvalidSdistFilename, kwargs["version"])
+            version = kwargs["version"]
+            try:
+                self._version = (
+                    version if isinstance(version, Version) else Version(version)
+                )
+            except InvalidVersion as e:
+                msg = f"Invalid sdist filename (invalid version {version!r})"
+                raise InvalidSdistFilename(msg) from e
 
     def __replace__(self, **kwargs: Unpack[_SdistReplace]) -> Self:
         """
@@ -733,9 +749,15 @@ class SourceDistributionFilename:
     @classmethod
     def _from_parts(cls, filename: str, name_part: str, version_part: str) -> Self:
         """Build from split parts, accepting legacy names and versions."""
+        try:
+            version = Version(version_part)
+        except InvalidVersion as e:
+            inner = f"invalid version {version_part!r}"
+            msg = f"Invalid sdist filename ({inner}): {filename!r}"
+            raise InvalidSdistFilename(msg) from e
         self = cls.__new__(cls)
         self._name = canonicalize_name(name_part)
-        self._version = _parse_version(InvalidSdistFilename, version_part, filename)
+        self._version = version
         return self
 
 
@@ -749,7 +771,8 @@ def _split_sdist_filename(filename: str) -> tuple[str, str]:
         file_stem = filename[: -len(".zip")]
     else:
         inner = "extension must be '.tar.gz' or '.zip'"
-        raise _invalid(InvalidSdistFilename, inner, filename)
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
 
     # PEP 625: Source distributions may only have one hyphen, separating
     # the name and version. Validation rejects extra hyphens via the
@@ -757,9 +780,11 @@ def _split_sdist_filename(filename: str) -> tuple[str, str]:
     name_part, sep, version_part = file_stem.rpartition("-")
     if not sep:
         inner = "hyphen must separate name and version parts"
-        raise _invalid(InvalidSdistFilename, inner, filename)
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
     if not name_part:
-        raise _invalid(InvalidSdistFilename, "empty project name", filename)
+        msg = f"Invalid sdist filename (empty project name): {filename!r}"
+        raise InvalidSdistFilename(msg)
     return name_part, version_part
 
 
@@ -785,7 +810,8 @@ def validate_sdist_filename(filename: str, /) -> None:
     .. versionadded:: 26.4
     """
     if not filename.endswith(".tar.gz"):
-        raise _invalid(InvalidSdistFilename, "extension must be '.tar.gz'", filename)
+        msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
+        raise InvalidSdistFilename(msg)
     name_part, version_part = _split_sdist_filename(filename)
     fn = SourceDistributionFilename._from_parts(filename, name_part, version_part)
     with _ErrorCollector().on_exit(
