@@ -112,34 +112,6 @@ class _WheelReplace(TypedDict, total=False):
     variant: str | None
 
 
-def _check_normalized(
-    collector: _ErrorCollector,
-    error: type[InvalidFilename],
-    name: str,
-    version_part: str,
-    version: Version,
-    filename: str,
-) -> None:
-    """Collect errors if the name and version parts are not normalized.
-
-    An invalid name is raised directly.
-    """
-    kind = "wheel" if issubclass(error, InvalidWheelFilename) else "sdist"
-    try:
-        normalized = canonicalize_name(name, validate=True)
-    except InvalidName:
-        msg = f"Invalid {kind} filename (invalid project name {name!r}): {filename!r}"
-        raise error(msg) from None
-    if name != normalized.replace("-", "_"):
-        inner = f"non-normalized project name {name!r}"
-        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
-        collector.error(NonNormalizedName(msg))
-    if version_part != str(version):
-        inner = f"non-normalized version {version_part!r}"
-        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
-        collector.error(NonNormalizedVersion(msg))
-
-
 def _compress_tags(tags: frozenset[Tag]) -> str:
     if not tags:
         msg = "Invalid wheel filename (the tag set must have at least one tag)"
@@ -550,14 +522,20 @@ def validate_wheel_filename(filename: str, /) -> None:
     with _ErrorCollector().on_exit(
         f"Non-normalized wheel filename: {filename!r}"
     ) as collector:
-        _check_normalized(
-            collector,
-            InvalidWheelFilename,
-            parts.name,
-            parts.version,
-            wf.version,
-            filename,
-        )
+        try:
+            normalized = canonicalize_name(parts.name, validate=True)
+        except InvalidName:
+            inner = f"invalid project name {parts.name!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            raise InvalidWheelFilename(msg) from None
+        if parts.name != normalized.replace("-", "_"):
+            inner = f"non-normalized project name {parts.name!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedName(msg))
+        if parts.version != str(wf.version):
+            inner = f"non-normalized version {parts.version!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedVersion(msg))
         if parts.build is not None and parts.build != wf.build_str:
             inner = f"non-normalized build tag {parts.build!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
@@ -787,11 +765,17 @@ def validate_sdist_filename(filename: str, /) -> None:
     with _ErrorCollector().on_exit(
         f"Non-normalized sdist filename: {filename!r}"
     ) as collector:
-        _check_normalized(
-            collector,
-            InvalidSdistFilename,
-            name_part,
-            version_part,
-            fn.version,
-            filename,
-        )
+        try:
+            normalized = canonicalize_name(name_part, validate=True)
+        except InvalidName:
+            inner = f"invalid project name {name_part!r}"
+            msg = f"Invalid sdist filename ({inner}): {filename!r}"
+            raise InvalidSdistFilename(msg) from None
+        if name_part != normalized.replace("-", "_"):
+            inner = f"non-normalized project name {name_part!r}"
+            msg = f"Invalid sdist filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedName(msg))
+        if version_part != str(fn.version):
+            inner = f"non-normalized version {version_part!r}"
+            msg = f"Invalid sdist filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedVersion(msg))
