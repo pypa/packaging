@@ -44,8 +44,6 @@ __all__ = [
     "SourceDistributionFilename",
     "UnsortedWheelTags",
     "WheelFilename",
-    "validate_sdist_filename",
-    "validate_wheel_filename",
 ]
 
 
@@ -136,7 +134,7 @@ class WheelFilename:
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_build_tag", "_name", "_tags", "_variant", "_version")
+    __slots__ = ("_build_tag", "_filename", "_name", "_tags", "_variant", "_version")
     __match_args__ = ("name", "version", "tags", "build_tag", "variant")
 
     def __init__(
@@ -160,6 +158,7 @@ class WheelFilename:
         :raises InvalidWheelFilename: If the name, version, tag set, build tag,
             or variant label is not valid.
         """
+        self._filename: str | None = None
         self._set(
             name=name, version=version, tags=tags, build_tag=build_tag, variant=variant
         )
@@ -232,6 +231,7 @@ class WheelFilename:
         new = type(self).__new__(type(self))
         for attr in WheelFilename.__slots__:
             setattr(new, attr, getattr(self, attr))
+        new._filename = None
         new._set(**kwargs)
         return new
 
@@ -310,7 +310,7 @@ class WheelFilename:
         return hash(self._key())
 
     def __getstate__(self) -> str:
-        return self.to_filename()
+        return self._filename or self.to_filename()
 
     def __setstate__(self, state: object) -> None:
         if not isinstance(state, str):
@@ -372,8 +372,8 @@ class WheelFilename:
         since a Python tag never does. Otherwise, the last part is a variant
         label (see :pep:`825`).
 
-        Parsing accepts legacy names, versions, and tag orders. Use
-        :func:`validate_wheel_filename` first to require a normalized filename.
+        Parsing accepts legacy names, versions, and tag orders. Call
+        :meth:`validate` on the result to require a normalized filename.
 
         :param str filename: The name of the wheel file.
         :raises InvalidWheelFilename: If the filename in question
@@ -393,6 +393,7 @@ class WheelFilename:
         True
         """
         self = cls.__new__(cls)
+        self._filename = filename
         (
             self._name,
             self._version,
@@ -402,65 +403,64 @@ class WheelFilename:
         ) = _parse_wheel_parts(filename, _split_wheel_filename(filename))
         return self
 
+    def validate(self) -> None:
+        """
+        Check that the filename this was parsed from is in its normalized form.
 
-def validate_wheel_filename(filename: str, /) -> None:
-    """
-    Check that a wheel filename is valid and in its normalized form.
+        The name, version, build tag, and tags must be normalized. This
+        includes compressed tag set components in the sorted order required by
+        :pep:`425`. An instance that was not made by :meth:`from_filename` (or
+        unpickled from one) is always normalized.
 
-    The name, version, build tag, and tags must be normalized. This includes
-    compressed tag set components in the sorted order required by :pep:`425`.
+        Normalization errors are collected into an
+        :external:exc:`ExceptionGroup`. Each problem has its own exception
+        class, such as :class:`NonNormalizedName` or
+        :class:`UnsortedWheelTags`, so ``except*`` can select the checks to act
+        on.
 
-    Normalization errors are collected into an :external:exc:`ExceptionGroup`.
-    Each problem has its own exception class, such as :class:`NonNormalizedName`
-    or :class:`UnsortedWheelTags`, so ``except*`` can select the checks to act
-    on.
+        :raises ExceptionGroup: If the filename is not normalized.
 
-    :param str filename: The name of the wheel file.
-    :raises InvalidWheelFilename: If the filename is not valid.
-    :raises ExceptionGroup: If the filename is not normalized.
-
-    >>> from packaging.filenames import validate_wheel_filename
-    >>> validate_wheel_filename("foo-1.0-py3-none-any.whl")
-
-    .. versionadded:: 26.4
-    """
-    parts = _split_wheel_filename(filename)
-    _, version, build_tag, tags, _ = _parse_wheel_parts(filename, parts)
-    name, version_part, build, tag_str, _ = parts
-    with _ErrorCollector().on_exit(
-        f"Non-normalized wheel filename: {filename!r}"
-    ) as collector:
-        try:
-            normalized = canonicalize_name(name, validate=True)
-        except InvalidName:
-            inner = f"invalid project name {name!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(InvalidProjectName(msg))
-        else:
-            if name != normalized.replace("-", "_"):
-                inner = f"non-normalized project name {name!r}"
+        >>> from packaging.filenames import WheelFilename
+        >>> WheelFilename.from_filename("foo-1.0-py3-none-any.whl").validate()
+        """
+        filename = self._filename
+        if filename is None:
+            return
+        name, version_part, build, tag_str, _ = _split_wheel_filename(filename)
+        with _ErrorCollector().on_exit(
+            f"Non-normalized wheel filename: {filename!r}"
+        ) as collector:
+            try:
+                normalized = canonicalize_name(name, validate=True)
+            except InvalidName:
+                inner = f"invalid project name {name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
-                collector.error(NonNormalizedName(msg))
-        if version_part != str(version):
-            inner = f"non-normalized version {version_part!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedVersion(msg))
-        if build is not None and build != "".join(map(str, build_tag)):
-            inner = f"non-normalized build tag {build!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedBuildTag(msg))
-        # The tags were parsed already, so only the order needs a check here.
-        components = [part.split(".") for part in tag_str.split("-")]
-        if any(part != sorted(part) for part in components):
-            msg = (
-                "Invalid wheel filename (compressed tag set components must be "
-                f"in sorted order per PEP 425): {filename!r}"
-            )
-            collector.error(UnsortedWheelTags(msg))
-        elif _compress_tags(tags) != tag_str:
-            inner = f"non-normalized tags {tag_str!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedTags(msg))
+                collector.error(InvalidProjectName(msg))
+            else:
+                if name != normalized.replace("-", "_"):
+                    inner = f"non-normalized project name {name!r}"
+                    msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                    collector.error(NonNormalizedName(msg))
+            if version_part != str(self._version):
+                inner = f"non-normalized version {version_part!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedVersion(msg))
+            if build is not None and build != "".join(map(str, self._build_tag)):
+                inner = f"non-normalized build tag {build!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedBuildTag(msg))
+            # The tags were parsed already, so only the order needs a check here.
+            components = [part.split(".") for part in tag_str.split("-")]
+            if any(part != sorted(part) for part in components):
+                msg = (
+                    "Invalid wheel filename (compressed tag set components must be "
+                    f"in sorted order per PEP 425): {filename!r}"
+                )
+                collector.error(UnsortedWheelTags(msg))
+            elif _compress_tags(self._tags) != tag_str:
+                inner = f"non-normalized tags {tag_str!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedTags(msg))
 
 
 class SourceDistributionFilename:
@@ -475,7 +475,7 @@ class SourceDistributionFilename:
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_name", "_version")
+    __slots__ = ("_filename", "_name", "_version")
     __match_args__ = ("name", "version")
 
     def __init__(self, name: str, version: Version | str) -> None:
@@ -485,6 +485,7 @@ class SourceDistributionFilename:
         :param version: The version.
         :raises InvalidSdistFilename: If the name or version is not valid.
         """
+        self._filename: str | None = None
         self._set(name=name, version=version)
 
     def _set(self, **kwargs: Unpack[_SdistReplace]) -> None:
@@ -525,6 +526,7 @@ class SourceDistributionFilename:
         new = type(self).__new__(type(self))
         for attr in SourceDistributionFilename.__slots__:
             setattr(new, attr, getattr(self, attr))
+        new._filename = None
         new._set(**kwargs)
         return new
 
@@ -550,7 +552,7 @@ class SourceDistributionFilename:
         return hash(self._key())
 
     def __getstate__(self) -> str:
-        return self.to_filename()
+        return self._filename or self.to_filename()
 
     def __setstate__(self, state: object) -> None:
         if not isinstance(state, str):
@@ -596,8 +598,8 @@ class SourceDistributionFilename:
         in the `Source distribution format`_ documentation), and parses
         it into a :class:`SourceDistributionFilename`.
 
-        Parsing accepts legacy names, versions, and the ``.zip`` extension. Use
-        :func:`validate_sdist_filename` first to require a normalized filename.
+        Parsing accepts legacy names, versions, and the ``.zip`` extension. Call
+        :meth:`validate` on the result to require a normalized filename.
 
         :param str filename: The name of the sdist file.
         :raises InvalidSdistFilename: If the filename does not end
@@ -616,51 +618,51 @@ class SourceDistributionFilename:
         .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
         """
         self = cls.__new__(cls)
+        self._filename = filename
         self._name, self._version = _parse_sdist_filename(filename)
         return self
 
+    def validate(self) -> None:
+        """
+        Check that the filename this was parsed from is in its normalized form.
 
-def validate_sdist_filename(filename: str, /) -> None:
-    """
-    Check that a sdist filename is valid and in its normalized form.
+        The extension must be ``.tar.gz``, and the name and version must be
+        normalized. An instance that was not made by :meth:`from_filename` (or
+        unpickled from one) is always normalized.
 
-    The extension must be ``.tar.gz``, and the name and version must be
-    normalized.
+        Normalization errors are collected into an
+        :external:exc:`ExceptionGroup`. Each problem has its own exception
+        class, such as :class:`NonNormalizedName`, so ``except*`` can select
+        the checks to act on.
 
-    Normalization errors are collected into an :external:exc:`ExceptionGroup`.
-    Each problem has its own exception class, such as :class:`NonNormalizedName`,
-    so ``except*`` can select the checks to act on.
+        :raises InvalidSdistFilename: If the extension is not ``.tar.gz``.
+        :raises ExceptionGroup: If the filename is not normalized.
 
-    :param str filename: The name of the sdist file.
-    :raises InvalidSdistFilename: If the filename is not valid, or if the
-        extension is not ``.tar.gz``.
-    :raises ExceptionGroup: If the filename is not normalized.
-
-    >>> from packaging.filenames import validate_sdist_filename
-    >>> validate_sdist_filename("foo-1.0.tar.gz")
-
-    .. versionadded:: 26.4
-    """
-    if not filename.endswith(".tar.gz"):
-        msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
-        raise InvalidSdistFilename(msg)
-    _, version = _parse_sdist_filename(filename)
-    name_part, _, version_part = filename[: -len(".tar.gz")].rpartition("-")
-    with _ErrorCollector().on_exit(
-        f"Non-normalized sdist filename: {filename!r}"
-    ) as collector:
-        try:
-            normalized = canonicalize_name(name_part, validate=True)
-        except InvalidName:
-            inner = f"invalid project name {name_part!r}"
-            msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            collector.error(InvalidProjectName(msg))
-        else:
-            if name_part != normalized.replace("-", "_"):
-                inner = f"non-normalized project name {name_part!r}"
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> SourceDistributionFilename.from_filename("foo-1.0.tar.gz").validate()
+        """
+        filename = self._filename
+        if filename is None:
+            return
+        if not filename.endswith(".tar.gz"):
+            msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
+            raise InvalidSdistFilename(msg)
+        name_part, _, version_part = filename[: -len(".tar.gz")].rpartition("-")
+        with _ErrorCollector().on_exit(
+            f"Non-normalized sdist filename: {filename!r}"
+        ) as collector:
+            try:
+                normalized = canonicalize_name(name_part, validate=True)
+            except InvalidName:
+                inner = f"invalid project name {name_part!r}"
                 msg = f"Invalid sdist filename ({inner}): {filename!r}"
-                collector.error(NonNormalizedName(msg))
-        if version_part != str(version):
-            inner = f"non-normalized version {version_part!r}"
-            msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedVersion(msg))
+                collector.error(InvalidProjectName(msg))
+            else:
+                if name_part != normalized.replace("-", "_"):
+                    inner = f"non-normalized project name {name_part!r}"
+                    msg = f"Invalid sdist filename ({inner}): {filename!r}"
+                    collector.error(NonNormalizedName(msg))
+            if version_part != str(self._version):
+                inner = f"non-normalized version {version_part!r}"
+                msg = f"Invalid sdist filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedVersion(msg))

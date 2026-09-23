@@ -25,8 +25,6 @@ from packaging.filenames import (
     SourceDistributionFilename,
     UnsortedWheelTags,
     WheelFilename,
-    validate_sdist_filename,
-    validate_wheel_filename,
 )
 from packaging.tags import Tag
 from packaging.utils import canonicalize_name
@@ -69,7 +67,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
     assert fn.version == Version(version)
-    validate_sdist_filename(expected_filename)
+    SourceDistributionFilename.from_filename(expected_filename).validate()
     assert SourceDistributionFilename.from_filename(expected_filename) == fn
 
 
@@ -78,7 +76,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
     [
         (
             "bad.extension",  # Bad extension
-            "Invalid sdist filename (extension must be '.tar.gz')",
+            "Invalid sdist filename (extension must be '.tar.gz' or '.zip')",
             InvalidSdistFilename,
         ),
         (
@@ -132,7 +130,7 @@ def test_validate_sdist_filename_invalid(
     filename: str, error_message: str, error_type: type[InvalidFilename]
 ) -> None:
     with pytest.raises((InvalidFilename, ExceptionGroup)) as e:
-        validate_sdist_filename(filename)
+        SourceDistributionFilename.from_filename(filename).validate()
 
     if isinstance(e.value, ExceptionGroup):
         assert e.value.message == f"Non-normalized sdist filename: {filename!r}"
@@ -145,7 +143,7 @@ def test_validate_sdist_filename_invalid(
 
 def test_validate_sdist_filename_multiple_errors() -> None:
     with pytest.raises(ExceptionGroup) as e:
-        validate_sdist_filename("Foo-01.0.tar.gz")
+        SourceDistributionFilename.from_filename("Foo-01.0.tar.gz").validate()
 
     assert [type(error) for error in e.value.exceptions] == [
         NonNormalizedName,
@@ -215,8 +213,8 @@ def test_sdist_from_filename_invalid_extension() -> None:
 def test_wheel_from_filename(
     filename: str, name: str, version: Version, build_tag: BuildTag, tags: set[Tag]
 ) -> None:
-    validate_wheel_filename(filename)
     fn = WheelFilename.from_filename(filename)
+    fn.validate()
     assert fn.name == name
     assert fn.version == version
     assert fn.build_tag == build_tag
@@ -268,8 +266,8 @@ def test_wheel_from_filename(
 def test_wheel_from_filename_variant(
     filename: str, name: str, build_tag: BuildTag, tags: set[Tag], variant: str
 ) -> None:
-    validate_wheel_filename(filename)
     fn = WheelFilename.from_filename(filename)
+    fn.validate()
     assert fn.name == name
     assert fn.build_tag == build_tag
     assert fn.tags == tags
@@ -395,7 +393,7 @@ def test_validate_wheel_filename_invalid(
     filename: str, error_message: str, error_type: type[InvalidFilename]
 ) -> None:
     with pytest.raises((InvalidFilename, ExceptionGroup)) as e:
-        validate_wheel_filename(filename)
+        WheelFilename.from_filename(filename).validate()
 
     if isinstance(e.value, ExceptionGroup):
         assert e.value.message == f"Non-normalized wheel filename: {filename!r}"
@@ -426,7 +424,7 @@ def test_validate_wheel_filename_multiple_errors(
     filename: str, error_types: list[type[InvalidFilename]]
 ) -> None:
     with pytest.raises(ExceptionGroup) as e:
-        validate_wheel_filename(filename)
+        WheelFilename.from_filename(filename).validate()
 
     assert [type(error) for error in e.value.exceptions] == error_types
 
@@ -460,7 +458,7 @@ def test_wheel_init(
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
     assert fn.version == Version(version)
-    validate_wheel_filename(expected_filename)
+    WheelFilename.from_filename(expected_filename).validate()
     assert WheelFilename.from_filename(expected_filename) == fn
 
 
@@ -703,6 +701,34 @@ def test_sdist_setstate_invalid(state: object) -> None:
     fn = SourceDistributionFilename.__new__(SourceDistributionFilename)
     with pytest.raises(TypeError, match="Cannot restore SourceDistributionFilename"):
         fn.__setstate__(state)
+
+
+def test_validate_constructed() -> None:
+    tags = {Tag("py3", "none", "any")}
+    WheelFilename("Foo", "01.0", tags, (1, "")).validate()
+    SourceDistributionFilename("Foo", "01.0").validate()
+
+
+def test_validate_after_replace() -> None:
+    wf = WheelFilename.from_filename("Foo-01.0-py3-none-any.whl")
+    with pytest.raises(ExceptionGroup):
+        wf.validate()
+    wf.__replace__(build_tag=()).validate()
+    fn = SourceDistributionFilename.from_filename("Foo-01.0.zip")
+    with pytest.raises(InvalidSdistFilename):
+        fn.validate()
+    fn.__replace__().validate()
+
+
+def test_validate_after_pickle() -> None:
+    wf = WheelFilename.from_filename("Foo-01.0-py3-none-any.whl")
+    assert wf.__getstate__() == "Foo-01.0-py3-none-any.whl"
+    with pytest.raises(ExceptionGroup):
+        pickle.loads(pickle.dumps(wf)).validate()
+    fn = SourceDistributionFilename.from_filename("Foo-01.0.tar.gz")
+    assert fn.__getstate__() == "Foo-01.0.tar.gz"
+    with pytest.raises(ExceptionGroup):
+        pickle.loads(pickle.dumps(fn)).validate()
 
 
 def test_sdist_setstate_invalid_filename() -> None:
