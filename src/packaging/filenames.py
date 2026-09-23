@@ -527,11 +527,12 @@ def validate_wheel_filename(filename: str, /) -> None:
         except InvalidName:
             inner = f"invalid project name {parts.name!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            raise InvalidWheelFilename(msg) from None
-        if parts.name != normalized.replace("-", "_"):
-            inner = f"non-normalized project name {parts.name!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedName(msg))
+        else:
+            if parts.name != normalized.replace("-", "_"):
+                inner = f"non-normalized project name {parts.name!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedName(msg))
         if parts.version != str(wf.version):
             inner = f"non-normalized version {parts.version!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
@@ -770,11 +771,12 @@ def validate_sdist_filename(filename: str, /) -> None:
         except InvalidName:
             inner = f"invalid project name {name_part!r}"
             msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            raise InvalidSdistFilename(msg) from None
-        if name_part != normalized.replace("-", "_"):
-            inner = f"non-normalized project name {name_part!r}"
-            msg = f"Invalid sdist filename ({inner}): {filename!r}"
             collector.error(NonNormalizedName(msg))
+        else:
+            if name_part != normalized.replace("-", "_"):
+                inner = f"non-normalized project name {name_part!r}"
+                msg = f"Invalid sdist filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedName(msg))
         if version_part != str(fn.version):
             inner = f"non-normalized version {version_part!r}"
             msg = f"Invalid sdist filename ({inner}): {filename!r}"

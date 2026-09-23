@@ -97,7 +97,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
             "Invalid sdist filename (invalid project name '.invalid.name')",
-            InvalidSdistFilename,
+            NonNormalizedName,
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
@@ -337,12 +337,12 @@ def test_wheel_from_filename_variant(
         (
             "_foo-1.0-py3-none-any.whl",  # Leading underscore
             "Invalid wheel filename (invalid project name '_foo')",
-            InvalidWheelFilename,
+            NonNormalizedName,
         ),
         (
             "\u00e9-1.0-py3-none-any.whl",  # Non-ASCII name
             "Invalid wheel filename (invalid project name '\u00e9')",
-            InvalidWheelFilename,
+            NonNormalizedName,
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
@@ -402,6 +402,7 @@ def test_validate_wheel_filename_invalid(
             ],
         ),
         ("foo-01.0-py3.py3-none-any.whl", [NonNormalizedVersion, NonNormalizedTags]),
+        ("_foo-01.0-py3-none-any.whl", [NonNormalizedName, NonNormalizedVersion]),
     ],
 )
 def test_validate_wheel_filename_multiple_errors(
