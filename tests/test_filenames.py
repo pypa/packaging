@@ -14,6 +14,7 @@ import pytest
 from packaging.errors import ExceptionGroup
 from packaging.filenames import (
     InvalidFilename,
+    InvalidProjectName,
     InvalidSdistFilename,
     InvalidWheelFilename,
     NonNormalizedBuildTag,
@@ -97,7 +98,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
             "Invalid sdist filename (invalid project name '.invalid.name')",
-            NonNormalizedName,
+            InvalidProjectName,
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
@@ -337,12 +338,27 @@ def test_wheel_from_filename_variant(
         (
             "_foo-1.0-py3-none-any.whl",  # Leading underscore
             "Invalid wheel filename (invalid project name '_foo')",
-            NonNormalizedName,
+            InvalidProjectName,
         ),
         (
             "\u00e9-1.0-py3-none-any.whl",  # Non-ASCII name
             "Invalid wheel filename (invalid project name '\u00e9')",
-            NonNormalizedName,
+            InvalidProjectName,
+        ),
+        (
+            "foo-1.0-1 abc-py3-none-any.whl",  # Build tag suffix with a space
+            "Invalid wheel filename (invalid build tag '1 abc')",
+            InvalidWheelFilename,
+        ),
+        (
+            "foo-1.0-1\nx-py3-none-any.whl",  # Build tag suffix with a newline
+            "Invalid wheel filename (invalid build tag '1\\nx')",
+            InvalidWheelFilename,
+        ),
+        (
+            "foo-1.0-1\u00e9-py3-none-any.whl",  # Non-ASCII build tag suffix
+            "Invalid wheel filename (invalid build tag '1\u00e9')",
+            InvalidWheelFilename,
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
@@ -402,7 +418,7 @@ def test_validate_wheel_filename_invalid(
             ],
         ),
         ("foo-01.0-py3.py3-none-any.whl", [NonNormalizedVersion, NonNormalizedTags]),
-        ("_foo-01.0-py3-none-any.whl", [NonNormalizedName, NonNormalizedVersion]),
+        ("_foo-01.0-py3-none-any.whl", [InvalidProjectName, NonNormalizedVersion]),
     ],
 )
 def test_validate_wheel_filename_multiple_errors(
@@ -466,6 +482,8 @@ def test_parse_and_create_filename() -> None:
         ({"build_tag": (-1, "")}, "invalid build tag (-1, '')"),
         ({"build_tag": (1, "2")}, "invalid build tag (1, '2')"),
         ({"build_tag": (1, "-x")}, "invalid build tag (1, '-x')"),
+        ({"build_tag": (1.5, "")}, "invalid build tag (1.5, '')"),
+        ({"build_tag": (True, "")}, "invalid build tag (True, '')"),
         ({"variant": ""}, "invalid variant label ''"),
         ({"variant": "Bad-Label"}, "invalid variant label 'Bad-Label'"),
         ({"variant": "x" * 17}, f"invalid variant label {'x' * 17!r}"),
