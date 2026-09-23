@@ -17,6 +17,28 @@ To construct a filename, use ``.from_filename`` on
    >>> from packaging.filenames import WheelFilename
    >>> wheel_filename = WheelFilename.from_filename("foo-1.0-1-py3-none-any.whl")
 
+Parsing accepts legacy filenames. To require a normalized filename, use
+:func:`~packaging.filenames.validate_wheel_filename` or
+:func:`~packaging.filenames.validate_sdist_filename`. These raise
+:class:`~packaging.filenames.InvalidFilename` if the filename is not valid.
+They collect all normalization problems into an
+:external:exc:`ExceptionGroup`. Each problem has its own exception class, so you can use ``except*`` to handle only some of them. For
+example, to accept a non-normalized name and version, but reject all other
+problems:
+
+.. code-block:: python
+
+    from packaging.filenames import (
+        NonNormalizedName,
+        NonNormalizedVersion,
+        validate_wheel_filename,
+    )
+
+    try:
+        validate_wheel_filename("Foo-01.0-py3-none-any.whl")
+    except* (NonNormalizedName, NonNormalizedVersion):
+        pass
+
 
 Converting from older utils
 ---------------------------
@@ -45,16 +67,9 @@ with:
 
 Be sure to check and handle :attr:`~packaging.filenames.WheelFilename.variant`.
 To replace ``validate_order=True``, call
-:func:`~packaging.filenames.validate_ordered_tags` before parsing. To require
-a fully normalized filename, including sorted tags, call
-:func:`~packaging.filenames.validate_wheel_filename` instead:
-
-.. doctest::
-
-    >>> from packaging.filenames import validate_ordered_tags
-    >>> filename = "foo-1.0-1-py3-none-any.whl"
-    >>> validate_ordered_tags(filename)
-    >>> wheel = WheelFilename.from_filename(filename)
+:func:`~packaging.filenames.validate_wheel_filename`. It reports unsorted tags
+with :class:`~packaging.filenames.UnsortedWheelTags`. It also checks that the
+other parts of the filename are normalized.
 
 Reference
 ---------
