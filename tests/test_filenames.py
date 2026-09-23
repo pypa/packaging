@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import pickle
 import subprocess
 import sys
 import typing
@@ -586,6 +587,95 @@ def test_sdist_eq_hash() -> None:
     assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip")
     assert fn != "foo-1.0.tar.gz"
     assert fn != WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
+
+
+@pytest.mark.parametrize(
+    "wf",
+    [
+        WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")}),
+        WheelFilename(
+            "foo",
+            "1.0",
+            {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
+            (1, "abc"),
+            "x86_64_v3",
+        ),
+        WheelFilename.from_filename("_foo.-1.0-py3-none-any.whl"),
+    ],
+)
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_wheel_pickle(wf: WheelFilename, protocol: int) -> None:
+    loaded = pickle.loads(pickle.dumps(wf, protocol))
+    assert loaded == wf
+    assert hash(loaded) == hash(wf)
+
+
+def test_wheel_pickle_state() -> None:
+    tags = {Tag("py3", "none", "any"), Tag("py2", "none", "any")}
+    wf = WheelFilename("Foo", "01.0", tags, (1, "a"), "x86_64_v3")
+    state = ("foo", "1.0", ("py2-none-any", "py3-none-any"), (1, "a"), "x86_64_v3")
+    assert wf.__getstate__() == state
+    loaded = WheelFilename.__new__(WheelFilename)
+    loaded.__setstate__(state)
+    assert loaded == wf
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        None,
+        "foo-1.0-py3-none-any.whl",
+        ("foo", "1.0", (), ()),
+        (1, "1.0", (), (), None),
+        ("foo", 1, (), (), None),
+        ("foo", "x", (), (), None),
+        ("foo", "1.0", (), [], None),
+        ("foo", "1.0", ("py3-none-any",), (1,), None),
+        ("foo", "1.0", ("py3-none-any",), ("1", ""), None),
+        ("foo", "1.0", ["py3-none-any"], (), None),
+        ("foo", "1.0", ("py3-none",), (), None),
+        ("foo", "1.0", (("py3", "none", "any"),), (), None),
+        ("foo", "1.0", (), (), None),
+        ("foo", "1.0", ("py3-none-any", "cp314-cp314-win_amd64"), (), None),
+        ("foo", "1.0", ("py3-none-any",), (), 1),
+    ],
+)
+def test_wheel_setstate_invalid(state: object) -> None:
+    wf = WheelFilename.__new__(WheelFilename)
+    with pytest.raises(TypeError, match="Cannot restore WheelFilename"):
+        wf.__setstate__(state)
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        SourceDistributionFilename("foo", "1.0"),
+        SourceDistributionFilename.from_filename("-foo--01.0.tar.gz"),
+    ],
+)
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_sdist_pickle(fn: SourceDistributionFilename, protocol: int) -> None:
+    loaded = pickle.loads(pickle.dumps(fn, protocol))
+    assert loaded == fn
+    assert repr(loaded) == repr(fn)
+    assert hash(loaded) == hash(fn)
+
+
+def test_sdist_pickle_state() -> None:
+    fn = SourceDistributionFilename("Foo", "01.0")
+    assert fn.__getstate__() == ("foo", "1.0")
+    loaded = SourceDistributionFilename.__new__(SourceDistributionFilename)
+    loaded.__setstate__(("foo", "1.0"))
+    assert loaded == fn
+
+
+@pytest.mark.parametrize(
+    "state", [None, "foo-1.0.tar.gz", ("foo",), (1, "1.0"), ("foo", 1), ("foo", "x")]
+)
+def test_sdist_setstate_invalid(state: object) -> None:
+    fn = SourceDistributionFilename.__new__(SourceDistributionFilename)
+    with pytest.raises(TypeError, match="Cannot restore SourceDistributionFilename"):
+        fn.__setstate__(state)
 
 
 @pytest.mark.parametrize("module", ["filenames", "utils"])

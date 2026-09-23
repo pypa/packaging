@@ -204,11 +204,21 @@ def _compress_tags(tags: frozenset[Tag]) -> str:
     return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
 
 
+def _restore_version(cls: type, version: str, state: object) -> Version:
+    try:
+        return Version(version)
+    except InvalidVersion:
+        raise TypeError(f"Cannot restore {cls.__name__} from {state!r}") from None
+
+
 class WheelFilename:
     """Represents a wheel filename and its parsed components.
 
     Instances are immutable and hashable. Two instances are equal if their
     normalized name, normalized version, build tag, tags, and variant are equal.
+
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging releases.
 
     .. versionadded:: 26.4
     """
@@ -348,6 +358,44 @@ class WheelFilename:
 
     def __hash__(self) -> int:
         return hash(self._key())
+
+    def __getstate__(self) -> tuple[str, str, tuple[str, ...], BuildTag, str | None]:
+        # Tags are sorted strings so the state does not depend on set order.
+        tags = tuple(sorted(map(str, self._tags)))
+        return (self._name, str(self._version), tags, self._build_tag, self._variant)
+
+    def __setstate__(self, state: object) -> None:
+        if isinstance(state, tuple) and len(state) == 5:
+            name, version, tag_strs, build_tag, variant = state
+            if (
+                isinstance(name, str)
+                and isinstance(version, str)
+                and isinstance(tag_strs, tuple)
+                and all(isinstance(t, str) and t.count("-") == 2 for t in tag_strs)
+                and isinstance(build_tag, tuple)
+                and (
+                    not build_tag
+                    or (
+                        len(build_tag) == 2
+                        and isinstance(build_tag[0], int)
+                        and isinstance(build_tag[1], str)
+                    )
+                )
+                and (variant is None or isinstance(variant, str))
+            ):
+                tags = frozenset(Tag(*t.split("-")) for t in tag_strs)
+                try:
+                    _compress_tags(tags)
+                except InvalidWheelFilename:
+                    pass
+                else:
+                    self._name = canonicalize_name(name)
+                    self._version = _restore_version(type(self), version, state)
+                    self._tags = tags
+                    self._build_tag = build_tag
+                    self._variant = variant
+                    return
+        raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
 
     def __str__(self) -> str:
         return self.to_filename()
@@ -554,6 +602,9 @@ class SourceDistributionFilename:
     Instances are immutable and hashable. Two instances are equal if their
     normalized name and normalized version are equal.
 
+    Instances are safe to serialize with :mod:`pickle`. They use a stable
+    format so the same pickle can be loaded in future packaging releases.
+
     .. versionadded:: 26.4
     """
 
@@ -614,6 +665,21 @@ class SourceDistributionFilename:
 
     def __hash__(self) -> int:
         return hash(self._key())
+
+    def __getstate__(self) -> tuple[str, str]:
+        return (self._name, str(self._version))
+
+    def __setstate__(self, state: object) -> None:
+        if (
+            isinstance(state, tuple)
+            and len(state) == 2
+            and isinstance(state[0], str)
+            and isinstance(state[1], str)
+        ):
+            self._name = canonicalize_name(state[0])
+            self._version = _restore_version(type(self), state[1], state)
+            return
+        raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
 
     def __str__(self) -> str:
         return self.to_filename()
