@@ -338,44 +338,15 @@ class WheelFilename:
     def __hash__(self) -> int:
         return hash(self._key())
 
-    def __getstate__(self) -> tuple[str, str, tuple[str, ...], BuildTag, str | None]:
-        # Tags are sorted strings so the state does not depend on set order.
-        tags = tuple(sorted(map(str, self._tags)))
-        return (self._name, str(self._version), tags, self._build_tag, self._variant)
+    def __getstate__(self) -> str:
+        return self.to_filename()
 
     def __setstate__(self, state: object) -> None:
-        if isinstance(state, tuple) and len(state) == 5:
-            name, version, tag_strs, build_tag, variant = state
-            if (
-                isinstance(name, str)
-                and isinstance(version, str)
-                and isinstance(tag_strs, tuple)
-                and all(isinstance(t, str) and t.count("-") == 2 for t in tag_strs)
-                and isinstance(build_tag, tuple)
-                and (
-                    not build_tag
-                    or (
-                        len(build_tag) == 2
-                        and isinstance(build_tag[0], int)
-                        and isinstance(build_tag[1], str)
-                    )
-                )
-                and (variant is None or isinstance(variant, str))
-            ):
-                tags = frozenset(Tag(*t.split("-")) for t in tag_strs)
-                try:
-                    _compress_tags(tags)
-                    parsed_version = Version(version)
-                except (InvalidWheelFilename, InvalidVersion):
-                    pass
-                else:
-                    self._name = canonicalize_name(name)
-                    self._version = parsed_version
-                    self._tags = tags
-                    self._build_tag = build_tag
-                    self._variant = variant
-                    return
-        raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        if not isinstance(state, str):
+            raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        other = WheelFilename.from_filename(state)
+        for attr in WheelFilename.__slots__:
+            setattr(self, attr, getattr(other, attr))
 
     def __str__(self) -> str:
         return self.to_filename()
@@ -683,25 +654,15 @@ class SourceDistributionFilename:
     def __hash__(self) -> int:
         return hash(self._key())
 
-    def __getstate__(self) -> tuple[str, str]:
-        return (self._name, str(self._version))
+    def __getstate__(self) -> str:
+        return self.to_filename()
 
     def __setstate__(self, state: object) -> None:
-        if (
-            isinstance(state, tuple)
-            and len(state) == 2
-            and isinstance(state[0], str)
-            and isinstance(state[1], str)
-        ):
-            try:
-                version = Version(state[1])
-            except InvalidVersion:
-                pass
-            else:
-                self._name = canonicalize_name(state[0])
-                self._version = version
-                return
-        raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        if not isinstance(state, str):
+            raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        other = SourceDistributionFilename.from_filename(state)
+        for attr in SourceDistributionFilename.__slots__:
+            setattr(self, attr, getattr(other, attr))
 
     def __str__(self) -> str:
         return self.to_filename()
