@@ -21,7 +21,7 @@ from .utils import (
 from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable
 
     from typing_extensions import Self, Unpack
 
@@ -110,12 +110,6 @@ class _WheelReplace(TypedDict, total=False):
     build_tag: BuildTag
     tags: Iterable[Tag]
     variant: str | None
-
-
-def _check_replace_keys(kwargs: Mapping[str, object], allowed: frozenset[str]) -> None:
-    if extra := kwargs.keys() - allowed:
-        msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
-        raise TypeError(msg)
 
 
 def _check_normalized(
@@ -252,7 +246,9 @@ class WheelFilename:
 
         :raises InvalidWheelFilename: If a replaced part is not valid.
         """
-        _check_replace_keys(kwargs, _WheelReplace.__optional_keys__)
+        if extra := kwargs.keys() - _WheelReplace.__optional_keys__:
+            msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
+            raise TypeError(msg)
         new = copy.copy(self)
         new._set(**kwargs)
         return new
@@ -648,7 +644,9 @@ class SourceDistributionFilename:
 
         :raises InvalidSdistFilename: If a replaced part is not valid.
         """
-        _check_replace_keys(kwargs, _SdistReplace.__optional_keys__)
+        if extra := kwargs.keys() - _SdistReplace.__optional_keys__:
+            msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
+            raise TypeError(msg)
         new = copy.copy(self)
         new._set(**kwargs)
         return new
