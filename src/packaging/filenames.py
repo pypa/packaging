@@ -52,12 +52,12 @@ _wheel_name_regex = re.compile(r"^[\w._]+\Z", re.UNICODE)
 
 class _SdistReplace(TypedDict, total=False):
     name: str
-    version: str
+    version: Version | str
 
 
 class _WheelReplace(TypedDict, total=False):
     name: str
-    version: str
+    version: Version | str
     build_tag: BuildTag
     tags: Iterable[Tag]
     variant: str | None
@@ -87,41 +87,37 @@ def _compress_tag_set(tags: frozenset[Tag]) -> str:
 class _DistributionFilename(metaclass=abc.ABCMeta):
     """Shared state and behavior for wheel and sdist filenames."""
 
-    __slots__ = ("_original_name", "_original_version", "_version")
+    __slots__ = ("_name", "_version")
 
     _error: ClassVar[type[InvalidFilename]]
     _kind: ClassVar[str]
 
-    def __init__(self, name: str, version: str) -> None:
-        self._check_name(name)
-        self._set_base(name, version, self._parse_version(version))
-
-    def _set_base(self, name: str, version_str: str, version: Version) -> None:
-        self._original_name = name
-        self._original_version = version_str
-        self._version = version
+    def __init__(self, name: str, version: Version | str) -> None:
+        self._name = self._check_name(name)
+        self._version = self._parse_version(version)
 
     def _replace_base(self, new: Self, kwargs: _SdistReplace | _WheelReplace) -> None:
         """Set the name and version on **new**, checking only the changed values."""
-        name = self._original_name
-        if "name" in kwargs:
-            name = kwargs["name"]
-            self._check_name(name)
-        if "version" in kwargs:
-            version_str = kwargs["version"]
-            new._set_base(name, version_str, self._parse_version(version_str))
-        else:
-            new._set_base(name, self._original_version, self._version)
+        new._name = self._check_name(kwargs["name"]) if "name" in kwargs else self._name
+        new._version = (
+            self._parse_version(kwargs["version"])
+            if "version" in kwargs
+            else self._version
+        )
 
     @classmethod
-    def _check_name(cls, name: str) -> None:
+    def _check_name(cls, name: str) -> NormalizedName:
         try:
-            canonicalize_name(name, validate=True)
+            return canonicalize_name(name, validate=True)
         except InvalidName:
             raise cls._invalid(f"invalid project name {name!r}") from None
 
     @classmethod
-    def _parse_version(cls, version: str, filename: str | None = None) -> Version:
+    def _parse_version(
+        cls, version: Version | str, filename: str | None = None
+    ) -> Version:
+        if isinstance(version, Version):
+            return version
         try:
             return Version(version)
         except InvalidVersion as e:
@@ -149,19 +145,9 @@ class _DistributionFilename(metaclass=abc.ABCMeta):
             raise cls._invalid(f"non-normalized version {version_part!r}", filename)
 
     @property
-    def original_name(self) -> str:
-        """The project name as given."""
-        return self._original_name
-
-    @property
-    def original_version(self) -> str:
-        """The version string as given."""
-        return self._original_version
-
-    @property
     def name(self) -> NormalizedName:
         """The normalized project name."""
-        return canonicalize_name(self._original_name)
+        return self._name
 
     @property
     def version(self) -> Version:
@@ -169,7 +155,7 @@ class _DistributionFilename(metaclass=abc.ABCMeta):
         return self._version
 
     def _key(self) -> tuple[object, ...]:
-        return (self.name, str(self._version))
+        return (self._name, str(self._version))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, _DistributionFilename):
@@ -189,9 +175,6 @@ class _DistributionFilename(metaclass=abc.ABCMeta):
 class WheelFilename(_DistributionFilename):
     """Represents a wheel filename and its parsed components.
 
-    Instances preserve the original name and version strings for round-tripping,
-    while exposing normalized and validated views through properties.
-
     Instances are immutable and hashable. Two instances are equal if their
     normalized name, normalized version, build tag, tags, and variant are equal.
 
@@ -207,15 +190,15 @@ class WheelFilename(_DistributionFilename):
     def __init__(
         self,
         name: str,
-        version: str,
+        version: Version | str,
         build_tag: BuildTag = (),
         tags: Iterable[Tag] = (),
         variant: str | None = None,
     ) -> None:
         """Create a wheel filename from its component parts.
 
-        :param name: The project name (in original, filename-style form).
-        :param version: The version string (in original form).
+        :param name: The project name. It is stored in normalized form.
+        :param version: The version.
         :param build_tag: Optional wheel build tag.
         :param tags: The wheel tag set. It must not be empty to make a filename.
         :param variant: The variant label (see :pep:`825`), or ``None``.
@@ -326,8 +309,8 @@ class WheelFilename(_DistributionFilename):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}(name={self._original_name!r}, "
-            f"version={self._original_version!r}, "
+            f"{self.__class__.__name__}(name={self._name!r}, "
+            f"version={str(self._version)!r}, "
             f"build_tag={self._build_tag!r}, "
             f"tags={self._tags!r}, "
             f"variant={self._variant!r})"
@@ -351,7 +334,7 @@ class WheelFilename(_DistributionFilename):
         >>> WheelFilename("foo-bar", "1.0", (), tags).to_filename()
         'foo_bar-1.0-py3-none-any.whl'
         """
-        name = canonicalize_name(self._original_name).replace("-", "_")
+        name = self._name.replace("-", "_")
         file_parts = [name, str(self.version)]
         if self._build_tag:
             file_parts.append(self.build_str)
@@ -438,7 +421,8 @@ class WheelFilename(_DistributionFilename):
 
         # Non-strict parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
-        self._set_base(name, version_part, version)
+        self._name = canonicalize_name(name)
+        self._version = version
         self._set_wheel(build_tag, tags, variant)
 
         # Reconstruct the filename and check that it matches the original
@@ -456,9 +440,6 @@ class WheelFilename(_DistributionFilename):
 class SourceDistributionFilename(_DistributionFilename):
     """Represents a source distribution filename and its parsed components.
 
-    Instances preserve the original name and version strings for round-tripping,
-    while exposing normalized and validated views through properties.
-
     Instances are immutable and hashable. Two instances are equal if their
     normalized name and normalized version are equal.
 
@@ -471,11 +452,11 @@ class SourceDistributionFilename(_DistributionFilename):
     _error = InvalidSdistFilename
     _kind = "sdist"
 
-    def __init__(self, name: str, version: str) -> None:
+    def __init__(self, name: str, version: Version | str) -> None:
         """Create a source distribution filename from name and version.
 
-        :param str name: The project name (in original, filename-style form).
-        :param str version: The version string (in original form).
+        :param str name: The project name. It is stored in normalized form.
+        :param version: The version.
         :raises InvalidSdistFilename: If the name or version is not valid.
         """
         super().__init__(name, version)
@@ -501,8 +482,8 @@ class SourceDistributionFilename(_DistributionFilename):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}(name={self._original_name!r}, "
-            f"version={self._original_version!r})"
+            f"{self.__class__.__name__}(name={self._name!r}, "
+            f"version={str(self._version)!r})"
         )
 
     def to_filename(self) -> str:
@@ -517,7 +498,7 @@ class SourceDistributionFilename(_DistributionFilename):
         >>> SourceDistributionFilename("foo-bar", "1.0").to_filename()
         'foo_bar-1.0.tar.gz'
         """
-        name = canonicalize_name(self._original_name).replace("-", "_")
+        name = self._name.replace("-", "_")
         return f"{name}-{self.version}.tar.gz"
 
     @classmethod
@@ -574,5 +555,6 @@ class SourceDistributionFilename(_DistributionFilename):
 
         # Non-strict parsing accepts legacy names, so skip the constructor checks.
         self = cls.__new__(cls)
-        self._set_base(name_part, version_part, version)
+        self._name = canonicalize_name(name_part)
+        self._version = version
         return self

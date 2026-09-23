@@ -18,6 +18,7 @@ from packaging.filenames import (
     WheelFilename,
 )
 from packaging.tags import Tag
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 if typing.TYPE_CHECKING:
@@ -54,8 +55,8 @@ def test_sdist_not_strict_passes(
 ) -> None:
     fn = SourceDistributionFilename(name, version)
     assert str(fn) == expected_filename
-    assert fn.original_name == name
-    assert fn.original_version == version
+    assert fn.name == canonicalize_name(name)
+    assert fn.version == Version(version)
 
 
 @pytest.mark.parametrize(
@@ -328,8 +329,8 @@ def test_wheel_not_strict_passes(
 ) -> None:
     fn = WheelFilename(name, version, (), {Tag("py3", "none", "any")})
     assert str(fn) == expected_filename
-    assert fn.original_name == name
-    assert fn.original_version == version
+    assert fn.name == canonicalize_name(name)
+    assert fn.version == Version(version)
 
 
 @pytest.mark.parametrize(
@@ -417,7 +418,8 @@ def test_wheel_replace() -> None:
     assert new == WheelFilename(
         "Foo", "2.0", (1, "a"), {Tag("cp314", "cp314", "win_amd64")}, "x86_64_v3"
     )
-    assert new.original_name == "Foo"
+    assert new.name == "foo"
+    assert wf.__replace__(version=Version("2.0")) == wf.__replace__(version="2.0")
     assert wf.__replace__(variant=None, build_tag=()).to_filename() == (
         "foo-1.0-py3-none-any.whl"
     )
@@ -428,7 +430,7 @@ def test_wheel_replace() -> None:
 def test_legacy_name_from_filename() -> None:
     # Non-strict parsing accepts names that the constructor rejects.
     wf = WheelFilename.from_filename("_foo-1.0-py3-none-any.whl", strict=False)
-    assert wf.original_name == "_foo"
+    assert wf.name == "-foo"
     assert wf.__replace__(version="2.0").to_filename() == "_foo-2.0-py3-none-any.whl"
     fn = SourceDistributionFilename.from_filename("_foo-1.0.tar.gz", strict=False)
     assert fn.__replace__(version="2.0").to_filename() == "_foo-2.0.tar.gz"
@@ -436,9 +438,9 @@ def test_legacy_name_from_filename() -> None:
 
 def test_wheel_repr() -> None:
     tags = frozenset({Tag("py3", "none", "any")})
-    wf = WheelFilename("foo", "1.0", (1, "abc"), tags)
+    wf = WheelFilename("Foo.Bar", "01.0", (1, "abc"), tags)
     assert repr(wf) == (
-        f"WheelFilename(name='foo', version='1.0', build_tag=(1, 'abc'), "
+        f"WheelFilename(name='foo-bar', version='1.0', build_tag=(1, 'abc'), "
         f"tags={tags!r}, variant=None)"
     )
 
@@ -471,7 +473,7 @@ def test_sdist_replace() -> None:
 
 
 def test_sdist_repr() -> None:
-    fn = SourceDistributionFilename("foo", "1.0")
+    fn = SourceDistributionFilename("Foo", Version("1.0"))
     assert repr(fn) == "SourceDistributionFilename(name='foo', version='1.0')"
 
 
