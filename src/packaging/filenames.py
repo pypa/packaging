@@ -187,6 +187,23 @@ def _check_variant(variant: str | None, filename: str | None = None) -> None:
         raise _invalid(InvalidWheelFilename, inner, filename)
 
 
+def _compress_tags(tags: frozenset[Tag]) -> str:
+    if not tags:
+        inner = "the tag set must have at least one tag"
+        raise _invalid(InvalidWheelFilename, inner)
+    interpreters = sorted({tag.interpreter for tag in tags})
+    abis = sorted({tag.abi for tag in tags})
+    platforms = sorted({tag.platform for tag in tags})
+    # A compressed tag string always expands to every combination of its fields.
+    if len(tags) != len(interpreters) * len(abis) * len(platforms):
+        inner = (
+            "the tag set cannot be compressed, it must contain every combination: "
+            f"{sorted(map(str, tags))!r}"
+        )
+        raise _invalid(InvalidWheelFilename, inner)
+    return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
+
+
 class WheelFilename:
     """Represents a wheel filename and its parsed components.
 
@@ -197,28 +214,29 @@ class WheelFilename:
     """
 
     __slots__ = ("_build_tag", "_name", "_tags", "_variant", "_version")
-    __match_args__ = ("name", "version", "build_tag", "tags", "variant")
+    __match_args__ = ("name", "version", "tags", "build_tag", "variant")
 
     def __init__(
         self,
         name: str,
         version: Version | str,
+        tags: Iterable[Tag],
         build_tag: BuildTag = (),
-        tags: Iterable[Tag] = (),
         variant: str | None = None,
     ) -> None:
         """Create a wheel filename from its component parts.
 
         :param name: The project name. It is stored in normalized form.
         :param version: The version.
+        :param tags: The wheel tag set. It must not be empty, and it must
+            contain every combination of its interpreters, ABIs, and platforms.
         :param build_tag: Optional wheel build tag.
-        :param tags: The wheel tag set. It must not be empty to make a filename.
         :param variant: The variant label (see :pep:`825`), or ``None``.
-        :raises InvalidWheelFilename: If the name, version, build tag, or
-            variant label is not valid.
+        :raises InvalidWheelFilename: If the name, version, tag set, build tag,
+            or variant label is not valid.
         """
         self._set(
-            name=name, version=version, build_tag=build_tag, tags=tags, variant=variant
+            name=name, version=version, tags=tags, build_tag=build_tag, variant=variant
         )
 
     def _set(self, **kwargs: Unpack[_WheelReplace]) -> None:
@@ -230,21 +248,23 @@ class WheelFilename:
             _check_build_tag(kwargs["build_tag"])
             self._build_tag = kwargs["build_tag"]
         if "tags" in kwargs:
-            self._tags = frozenset(kwargs["tags"])
+            tags = frozenset(kwargs["tags"])
+            _compress_tags(tags)
+            self._tags = tags
         if "variant" in kwargs:
             _check_variant(kwargs["variant"])
             self._variant = kwargs["variant"]
 
     def __replace__(self, **kwargs: Unpack[_WheelReplace]) -> Self:
         """
-        __replace__(*, name=..., version=..., build_tag=..., tags=..., variant=...)
+        __replace__(*, name=..., version=..., tags=..., build_tag=..., variant=...)
 
         Return a new wheel filename with parts replaced. Only the replaced
         parts are checked.
 
         >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
-        >>> wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+        >>> wf = WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
         >>> wf.__replace__(version="2.0").to_filename()
         'foo-2.0-py3-none-any.whl'
 
@@ -284,44 +304,29 @@ class WheelFilename:
     def compressed_tags(self) -> str:
         """The compressed and sorted wheel tag string (interpreter-abi-platform).
 
-        :raises InvalidWheelFilename: If the tag set is empty, or if it does not
-            contain every combination of its interpreters, ABIs, and platforms.
-
         >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
-        >>> wf = WheelFilename("foo", "1.0", tags={Tag("py3", "none", "any")})
+        >>> wf = WheelFilename("foo", "1.0", {Tag("py3", "none", "any")})
         >>> wf.compressed_tags
         'py3-none-any'
         >>> tags = {Tag("py3", "none", "any"), Tag("py2", "none", "any")}
-        >>> wf = WheelFilename("foo", "1.0", tags=tags)
+        >>> wf = WheelFilename("foo", "1.0", tags)
         >>> wf.compressed_tags
         'py2.py3-none-any'
         """
-        tags = self._tags
-        if not tags:
-            inner = "the tag set must have at least one tag"
-            raise _invalid(InvalidWheelFilename, inner)
-        interpreters = sorted({tag.interpreter for tag in tags})
-        abis = sorted({tag.abi for tag in tags})
-        platforms = sorted({tag.platform for tag in tags})
-        # A compressed tag string always expands to every combination of its fields.
-        if len(tags) != len(interpreters) * len(abis) * len(platforms):
-            inner = (
-                "the tag set cannot be compressed, it must contain every combination"
-            )
-            msg = f"Invalid wheel filename ({inner}): {sorted(map(str, tags))!r}"
-            raise InvalidWheelFilename(msg)
-        return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
+        return _compress_tags(self._tags)
 
     @property
     def build_str(self) -> str:
         """The build tag as a string, or an empty string when absent.
 
         >>> from packaging.filenames import WheelFilename
-        >>> wf = WheelFilename("foo", "1.0")
+        >>> from packaging.tags import Tag
+        >>> tags = {Tag("py3", "none", "any")}
+        >>> wf = WheelFilename("foo", "1.0", tags)
         >>> wf.build_str
         ''
-        >>> wf = WheelFilename("foo", "1.0", build_tag=(1, "abc"))
+        >>> wf = WheelFilename("foo", "1.0", tags, build_tag=(1, "abc"))
         >>> wf.build_str
         '1abc'
         """
@@ -351,8 +356,8 @@ class WheelFilename:
         return (
             f"{self.__class__.__name__}(name={self._name!r}, "
             f"version={str(self._version)!r}, "
-            f"build_tag={self._build_tag!r}, "
             f"tags={self._tags!r}, "
+            f"build_tag={self._build_tag!r}, "
             f"variant={self._variant!r})"
         )
 
@@ -365,13 +370,10 @@ class WheelFilename:
         characters are replaced with ``_``. The version is normalized. The
         tag set is compressed into a wheel tag string.
 
-        :raises InvalidWheelFilename: If the tag set cannot be compressed (see
-            :attr:`compressed_tags`).
-
         >>> from packaging.filenames import WheelFilename
         >>> from packaging.tags import Tag
         >>> tags = {Tag("py3", "none", "any")}
-        >>> WheelFilename("foo-bar", "1.0", (), tags).to_filename()
+        >>> WheelFilename("foo-bar", "1.0", tags).to_filename()
         'foo_bar-1.0-py3-none-any.whl'
         """
         name = self._name.replace("-", "_")
