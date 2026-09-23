@@ -469,6 +469,10 @@ def test_parse_and_create_filename() -> None:
         ({"variant": "Bad-Label"}, "invalid variant label 'Bad-Label'"),
         ({"variant": "x" * 17}, f"invalid variant label {'x' * 17!r}"),
         ({"tags": set()}, "the tag set must have at least one tag"),
+        ({"tags": {Tag("py3", "none", "")}}, "invalid tag 'py3-none-'"),
+        ({"tags": {Tag("py3", "none", "a.b")}}, "invalid tag 'py3-none-a.b'"),
+        ({"tags": {Tag("py3", "none", "a-b")}}, "invalid tag 'py3-none-a-b'"),
+        ({"tags": {Tag("3py", "none", "any")}}, "invalid tag '3py-none-any'"),
         (
             {"tags": {Tag("py3", "none", "any"), Tag("cp314", "cp314", "win_amd64")}},
             "the tag set cannot be compressed, it must contain every combination: "
