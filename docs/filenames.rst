@@ -95,10 +95,53 @@ with:
     True
 
 Be sure to check and handle :attr:`~packaging.filenames.WheelFilename.variant`.
+
 To replace ``validate_order=True``, call
 :func:`~packaging.filenames.validate_wheel_filename`. It reports unsorted tags
 with :class:`~packaging.filenames.UnsortedWheelTags`. It also checks that the
-other parts of the filename are normalized.
+other parts of the filename are normalized. To check only the tag order and
+reject variant wheels, like ``parse_wheel_filename(..., validate_order=True)``:
+
+.. testcode::
+
+    import sys
+
+    from packaging.filenames import (
+        InvalidWheelFilename,
+        UnsortedWheelTags,
+        WheelFilename,
+        validate_wheel_filename,
+    )
+
+    if sys.version_info < (3, 11):
+        from packaging.errors import ExceptionGroup
+
+
+    def parse_ordered(filename: str) -> WheelFilename:
+        try:
+            validate_wheel_filename(filename)
+        except ExceptionGroup as group:
+            for error in group.exceptions:
+                if isinstance(error, UnsortedWheelTags):
+                    raise error from None
+        wheel = WheelFilename.from_filename(filename)
+        if wheel.variant is not None:
+            msg = f"Invalid wheel filename (variant wheels are not supported): {filename!r}"
+            raise InvalidWheelFilename(msg)
+        return wheel
+
+.. doctest::
+
+    >>> parse_ordered("Foo-1.0-py3.py2-none-any.whl")
+    Traceback (most recent call last):
+        ...
+    packaging.filenames.UnsortedWheelTags: Invalid wheel filename (compressed tag set components must be in sorted order per PEP 425): 'Foo-1.0-py3.py2-none-any.whl'
+    >>> parse_ordered("foo-1.0-py3-none-any-x86_64_v3.whl")
+    Traceback (most recent call last):
+        ...
+    packaging.filenames.InvalidWheelFilename: Invalid wheel filename (variant wheels are not supported): 'foo-1.0-py3-none-any-x86_64_v3.whl'
+    >>> str(parse_ordered("foo-1.0-py2.py3-none-any.whl"))
+    'foo-1.0-py2.py3-none-any.whl'
 
 Reference
 ---------
