@@ -16,6 +16,9 @@ from packaging.filenames import (
     InvalidWheelFilename,
     SourceDistributionFilename,
     WheelFilename,
+    validate_ordered_tags,
+    validate_sdist_filename,
+    validate_wheel_filename,
 )
 from packaging.tags import Tag
 from packaging.utils import canonicalize_name
@@ -58,73 +61,64 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
     assert fn.version == Version(version)
-    assert (
-        SourceDistributionFilename.from_filename(expected_filename, strict=True) == fn
-    )
+    validate_sdist_filename(expected_filename)
+    assert SourceDistributionFilename.from_filename(expected_filename) == fn
 
 
 @pytest.mark.parametrize(
-    ("filename", "strict", "error_message"),
+    ("filename", "error_message"),
     [
         (
             "bad.extension",  # Bad extension
-            True,
             "Invalid sdist filename (extension must be '.tar.gz')",
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
-            True,
             "Invalid sdist filename (non-normalized project name 'extra-hyphens-1.0')",
         ),
         (
             "no_hyphen.tar.gz",  # No hyphen
-            True,
             "Invalid sdist filename (hyphen must separate name and version parts)",
         ),
         (
             ".invalid.name-1.0.tar.gz",  # Name is not valid
-            True,
             "Invalid sdist filename (invalid project name '.invalid.name')",
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            True,
             "Invalid sdist filename (non-normalized project name 'invalid.name')",
         ),
         (
             "invalid__name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            True,
             "Invalid sdist filename (non-normalized project name 'invalid__name')",
         ),
         (
             "INVALID_NAME-1.0.tar.gz",  # Name is not canonical (casing)
-            True,
             "Invalid sdist filename (non-normalized project name 'INVALID_NAME')",
         ),
         (
             "valid_name-badversion.tar.gz",  # Version is not valid
-            True,
             "Invalid sdist filename (invalid version 'badversion')",
         ),
         (
             "valid_name-01.0.tar.gz",  # Version is not canonical
-            True,
             "Invalid sdist filename (non-normalized version '01.0')",
-        ),
-        (
-            "foo-1.0.tgz",
-            False,
-            "Invalid sdist filename (extension must be '.tar.gz' or '.zip')",
         ),
     ],
 )
-def test_sdist_from_filename_invalid(
-    filename: str, strict: bool, error_message: str
-) -> None:
+def test_validate_sdist_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidFilename) as e:
-        SourceDistributionFilename.from_filename(filename, strict=strict)
+        validate_sdist_filename(filename)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
+
+
+def test_sdist_from_filename_invalid_extension() -> None:
+    with pytest.raises(InvalidSdistFilename) as e:
+        SourceDistributionFilename.from_filename("foo-1.0.tgz")
+    assert str(e.value) == (
+        "Invalid sdist filename (extension must be '.tar.gz' or '.zip'): 'foo-1.0.tgz'"
+    )
 
 
 # Wheels
@@ -181,7 +175,8 @@ def test_sdist_from_filename_invalid(
 def test_wheel_from_filename(
     filename: str, name: str, version: Version, build_tag: BuildTag, tags: set[Tag]
 ) -> None:
-    fn = WheelFilename.from_filename(filename, strict=True)
+    validate_wheel_filename(filename)
+    fn = WheelFilename.from_filename(filename)
     assert fn.name == name
     assert fn.version == version
     assert fn.build_tag == build_tag
@@ -233,7 +228,8 @@ def test_wheel_from_filename(
 def test_wheel_from_filename_variant(
     filename: str, name: str, build_tag: BuildTag, tags: set[Tag], variant: str
 ) -> None:
-    fn = WheelFilename.from_filename(filename, strict=True)
+    validate_wheel_filename(filename)
+    fn = WheelFilename.from_filename(filename)
     assert fn.name == name
     assert fn.build_tag == build_tag
     assert fn.tags == tags
@@ -322,9 +318,9 @@ def test_wheel_from_filename_variant(
         ),
     ],
 )
-def test_wheel_from_filename_invalid(filename: str, error_message: str) -> None:
+def test_validate_wheel_filename_invalid(filename: str, error_message: str) -> None:
     with pytest.raises(InvalidWheelFilename) as e:
-        WheelFilename.from_filename(filename, strict=True)
+        validate_wheel_filename(filename)
 
     assert str(e.value) == f"{error_message}: {filename!r}"
 
@@ -358,16 +354,37 @@ def test_wheel_init(
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
     assert fn.version == Version(version)
-    assert WheelFilename.from_filename(expected_filename, strict=True) == fn
+    validate_wheel_filename(expected_filename)
+    assert WheelFilename.from_filename(expected_filename) == fn
 
 
 def test_parse_and_create_filename() -> None:
     filename = "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
     sorted_f = "numpy-1.23.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
 
-    wf = WheelFilename.from_filename(filename, strict=False)
+    wf = WheelFilename.from_filename(filename)
     composed = wf.to_filename()
     assert sorted_f == composed
+
+
+@pytest.mark.parametrize(
+    ("filename", "error_message"),
+    [
+        (
+            "foo-1.0-py3.py2-none-any.whl",
+            "compressed tag set components must be in sorted order per PEP 425",
+        ),
+        ("foo-1.0-py3.-none-any.whl", "invalid tag component 'py3.-none-any'"),
+    ],
+)
+def test_validate_ordered_tags_invalid(filename: str, error_message: str) -> None:
+    with pytest.raises(InvalidWheelFilename) as e:
+        validate_ordered_tags(filename)
+    assert str(e.value) == f"Invalid wheel filename ({error_message}): {filename!r}"
+
+
+def test_validate_ordered_tags_only_checks_tags() -> None:
+    validate_ordered_tags("Foo-01.0-py3.py3-none-any.whl")
 
 
 @pytest.mark.parametrize(
@@ -414,11 +431,11 @@ def test_wheel_replace() -> None:
 
 
 def test_legacy_name_from_filename() -> None:
-    # Non-strict parsing accepts names that the constructor rejects.
-    wf = WheelFilename.from_filename("_foo-1.0-py3-none-any.whl", strict=False)
+    # Parsing accepts names that the constructor rejects.
+    wf = WheelFilename.from_filename("_foo-1.0-py3-none-any.whl")
     assert wf.name == "-foo"
     assert wf.__replace__(version="2.0").to_filename() == "_foo-2.0-py3-none-any.whl"
-    fn = SourceDistributionFilename.from_filename("_foo-1.0.tar.gz", strict=False)
+    fn = SourceDistributionFilename.from_filename("_foo-1.0.tar.gz")
     assert fn.__replace__(version="2.0").to_filename() == "_foo-2.0.tar.gz"
 
 
@@ -491,8 +508,8 @@ def test_wheel_eq_hash() -> None:
     assert wf != WheelFilename("foo", "1.0", (), tags)
     assert wf != WheelFilename("foo", "1.0", (1, ""), tags, "x86_64_v3")
     assert wf != "foo-1.0-1-py3-none-any.whl"
-    assert len({wf, WheelFilename.from_filename(str(wf), strict=True)}) == 1
-    raw = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl", strict=False)
+    assert len({wf, WheelFilename.from_filename(str(wf))}) == 1
+    raw = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl")
     assert raw == WheelFilename("foo_bar", "1.0", (1, ""), tags)
 
 
@@ -503,7 +520,7 @@ def test_sdist_eq_hash() -> None:
     assert fn != SourceDistributionFilename("foo", "1.0.0")
     assert fn == SourceDistributionFilename("Foo", "01.0")
     assert hash(fn) == hash(SourceDistributionFilename("Foo", "01.0"))
-    assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip", strict=False)
+    assert fn == SourceDistributionFilename.from_filename("foo-1.0.zip")
     assert fn != "foo-1.0.tar.gz"
     assert fn != WheelFilename("foo", "1.0")
 
