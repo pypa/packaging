@@ -17,14 +17,14 @@ To construct a filename, use ``.from_filename`` on
    >>> from packaging.filenames import WheelFilename
    >>> wheel_filename = WheelFilename.from_filename("foo-1.0-1-py3-none-any.whl")
 
-Parsing normalizes non-normalized filenames. To require a normalized filename,
+Parsing normalizes filenames. To ensure a filename is already normalized,
 use :func:`~packaging.filenames.validate_wheel_filename` or
 :func:`~packaging.filenames.validate_sdist_filename`. Like constructing a
 filename, these raise :class:`~packaging.filenames.InvalidFilename` if the
 filename is not valid. They collect all normalization problems into an
 :external:exc:`ExceptionGroup`. Each problem has its own exception class, so
-you can use ``except*`` to handle only some of them. For example, to accept a non-normalized name and version, but reject all other
-problems:
+you can use ``except*`` to handle or ignore only some of them. For example, to
+accept a non-normalized name and version, but reject all other problems:
 
 .. code-block:: python
 
@@ -59,7 +59,7 @@ There are also a few helper properties for wheels:
 * ``compressed_tags``: The sorted, compressed wheel tags as a string.
 * ``build_str``: The build tag as a string, or an empty string.
 
-The immutable classes support most operations as you'd expect:
+The immutable classes support most operations that you would expect:
 
 * Use :func:`copy.replace` (Python 3.13+) or ``__replace__`` to replace parts
   of the filename.
@@ -94,13 +94,12 @@ with:
     >>> wheel.variant is None
     True
 
-Be sure to check and handle :attr:`~packaging.filenames.WheelFilename.variant`.
-
 To replace ``validate_order=True``, call
 :func:`~packaging.filenames.validate_wheel_filename`. It reports unsorted tags
 with :class:`~packaging.filenames.UnsortedWheelTags`. It also checks that the
 other parts of the filename are normalized. To check only the tag order and
-reject variant wheels, like ``parse_wheel_filename(..., validate_order=True)``:
+reject variant wheels, like ``parse_wheel_filename(..., validate_order=True)``,
+this time showing Python 3.10+ compatible syntax:
 
 .. testcode::
 
