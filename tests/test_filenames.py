@@ -287,6 +287,27 @@ def test_wheel_from_filename_variant(
 
 
 @pytest.mark.parametrize(
+    "filename",
+    [
+        "foo-0-py3-none-any.whl",
+        "foo_bar-10.20.0-1-py2.py3-none-any.whl",
+        "foo-1!2.0rc1.post2.dev3+local.1-cp312-cp312-win_amd64.whl",
+        "foo-1.0-py3-none-any-abc.whl",
+    ],
+)
+def test_validate_wheel_filename_valid(filename: str) -> None:
+    WheelFilename.from_filename(filename).validate()
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["foo-0.tar.gz", "foo_bar-10.20.0.tar.gz", "foo-1!2.0rc1.post2.dev3.tar.gz"],
+)
+def test_validate_sdist_filename_valid(filename: str) -> None:
+    SourceDistributionFilename.from_filename(filename).validate()
+
+
+@pytest.mark.parametrize(
     ("filename", "error_message", "error_type"),
     [
         (
@@ -397,6 +418,16 @@ def test_wheel_from_filename_variant(
             "foo-1.0-py3.py3-none-any.whl",
             "Invalid wheel filename (non-normalized tags 'py3.py3-none-any')",
             NonNormalizedTags,
+        ),
+        (  # Uppercase tags
+            "foo-1.0-PY3-none-any.whl",
+            "Invalid wheel filename (non-normalized tags 'PY3-none-any')",
+            NonNormalizedTags,
+        ),
+        (  # Non-normalized post-release
+            "foo-1.0post1-py3-none-any.whl",
+            "Invalid wheel filename (non-normalized version '1.0post1')",
+            NonNormalizedVersion,
         ),
     ],
 )
