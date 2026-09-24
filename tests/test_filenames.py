@@ -151,6 +151,17 @@ def test_validate_sdist_filename_multiple_errors() -> None:
     ]
 
 
+def test_validate_sdist_filename_zip_is_grouped() -> None:
+    with pytest.raises(ExceptionGroup) as e:
+        SourceDistributionFilename.from_filename("Foo-01.0.zip").validate()
+
+    assert [type(error) for error in e.value.exceptions] == [
+        InvalidSdistFilename,
+        NonNormalizedName,
+        NonNormalizedVersion,
+    ]
+
+
 def test_sdist_from_filename_invalid_extension() -> None:
     with pytest.raises(InvalidSdistFilename) as e:
         SourceDistributionFilename.from_filename("foo-1.0.tgz")
@@ -715,9 +726,25 @@ def test_validate_after_replace() -> None:
         wf.validate()
     wf.__replace__(build_tag=()).validate()
     fn = SourceDistributionFilename.from_filename("Foo-01.0.zip")
-    with pytest.raises(InvalidSdistFilename):
+    with pytest.raises(ExceptionGroup):
         fn.validate()
     fn.__replace__().validate()
+
+
+def test_original_filename() -> None:
+    wf = WheelFilename.from_filename("Foo-01.0-py3-none-any.whl")
+    assert wf.original_filename == "Foo-01.0-py3-none-any.whl"
+    assert pickle.loads(pickle.dumps(wf)).original_filename == wf.original_filename
+    assert wf.__replace__().original_filename is None
+    assert copy.copy(wf).original_filename == wf.original_filename
+    assert WheelFilename("foo", "1.0", wf.tags).original_filename is None
+
+    fn = SourceDistributionFilename.from_filename("Foo-01.0.zip")
+    assert fn.original_filename == "Foo-01.0.zip"
+    assert pickle.loads(pickle.dumps(fn)).original_filename == fn.original_filename
+    assert fn.__replace__().original_filename is None
+    assert copy.copy(fn).original_filename == fn.original_filename
+    assert SourceDistributionFilename("foo", "1.0").original_filename is None
 
 
 def test_validate_after_pickle() -> None:

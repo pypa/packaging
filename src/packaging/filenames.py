@@ -292,6 +292,19 @@ class WheelFilename:
         """
         return "".join(map(str, self._build_tag))
 
+    @property
+    def original_filename(self) -> str | None:
+        """The filename passed to :meth:`from_filename`, or ``None``.
+
+        This is ``None`` if the instance was constructed directly or with
+        ``__replace__``.
+
+        >>> from packaging.filenames import WheelFilename
+        >>> WheelFilename.from_filename("Foo-1.0-py3-none-any.whl").original_filename
+        'Foo-1.0-py3-none-any.whl'
+        """
+        return self._filename
+
     def _key(self) -> tuple[object, ...]:
         return (
             self._name,
@@ -540,6 +553,19 @@ class SourceDistributionFilename:
         """The parsed project version."""
         return self._version
 
+    @property
+    def original_filename(self) -> str | None:
+        """The filename passed to :meth:`from_filename`, or ``None``.
+
+        This is ``None`` if the instance was constructed directly or with
+        ``__replace__``.
+
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> SourceDistributionFilename.from_filename("Foo-1.0.zip").original_filename
+        'Foo-1.0.zip'
+        """
+        return self._filename
+
     def _key(self) -> tuple[object, ...]:
         return (self._name, str(self._version))
 
@@ -634,7 +660,6 @@ class SourceDistributionFilename:
         class, such as :class:`NonNormalizedName`, so ``except*`` can select
         the checks to act on.
 
-        :raises InvalidSdistFilename: If the extension is not ``.tar.gz``.
         :raises ExceptionGroup: If the filename is not normalized.
 
         >>> from packaging.filenames import SourceDistributionFilename
@@ -643,13 +668,18 @@ class SourceDistributionFilename:
         filename = self._filename
         if filename is None:
             return
-        if not filename.endswith(".tar.gz"):
-            msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
-            raise InvalidSdistFilename(msg)
-        name_part, _, version_part = filename[: -len(".tar.gz")].rpartition("-")
+        ext = ".tar.gz" if filename.endswith(".tar.gz") else ".zip"
+        stem = filename[: -len(ext)]
+        name_part, _, version_part = stem.rpartition("-")
         with _ErrorCollector().on_exit(
             f"Non-normalized sdist filename: {filename!r}"
         ) as collector:
+            if ext != ".tar.gz":
+                msg = (
+                    "Invalid sdist filename (extension must be '.tar.gz'): "
+                    f"{filename!r}"
+                )
+                collector.error(InvalidSdistFilename(msg))
             try:
                 normalized = canonicalize_name(name_part, validate=True)
             except InvalidName:
