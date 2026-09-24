@@ -17,21 +17,29 @@ To parse a filename, use ``.from_filename`` on
    >>> from packaging.filenames import WheelFilename
    >>> wheel_filename = WheelFilename.from_filename("foo-1.0-1-py3-none-any.whl")
 
-A wheel filename with six parts is ambiguous: the extra part is either a
-build tag or a variant label (:pep:`825`). A build tag must start with a
-digit, and a Python tag never does, so a third part that starts with a digit
-is a build tag. Otherwise, the last part is a variant label. For example,
-``foo-1.0-abc-py3-none-any.whl`` has the tag ``abc-py3-none`` and the variant
-label ``any``.
+Parsing normalizes filenames. To see if a filename was already normalized, call
+``.validate()`` on the parsed filename. It collects all normalization problems
+into an :external:exc:`ExceptionGroup`. Each problem has its own exception
+class, so you can use ``except*`` to handle or ignore only some of them. The
+classes are:
 
-Parsing normalizes filenames. To ensure a filename is already normalized,
-call ``.validate()`` on the parsed filename. It collects all normalization
-problems into an :external:exc:`ExceptionGroup`. Each problem has its own exception class, such
-as :class:`~packaging.filenames.NonNormalizedName` for a valid name that is not
-normalized and :class:`~packaging.filenames.InvalidProjectName` for a name that
-parses but is not a valid project name, so
-you can use ``except*`` to handle or ignore only some of them. For example, to
-accept a non-normalized name and version, but reject all other problems:
+* :class:`~packaging.filenames.InvalidProjectName`: the name parses, but is
+  not a valid project name.
+* :class:`~packaging.filenames.NonNormalizedName`: the name is valid, but not
+  normalized.
+* :class:`~packaging.filenames.NonNormalizedVersion`: the version is valid,
+  but not normalized.
+* :class:`~packaging.filenames.InvalidSdistFilename` (sdist only): the
+  extension is ``.zip``, not ``.tar.gz``.
+* :class:`~packaging.filenames.NonNormalizedBuildTag` (wheel only): the build
+  tag is valid, but not normalized.
+* :class:`~packaging.filenames.UnsortedWheelTags` (wheel only): the parts of
+  the compressed tag set are not in sorted order.
+* :class:`~packaging.filenames.NonNormalizedTags` (wheel only): the tags are
+  sorted, but not normalized.
+
+For example, to accept a non-normalized name and version, but reject all other
+problems:
 
 .. code-block:: python
 
@@ -61,6 +69,8 @@ Filenames have the following properties:
 * ``build_tag`` (wheel only): An empty tuple, or a tuple of (build number,
   build tag suffix). The suffix can be an empty string.
 * ``variant`` (wheel only): The variant label, or ``None``.
+* ``original_filename``: The filename given to ``.from_filename``, or ``None``
+  if the filename was constructed directly or with ``__replace__``.
 
 There are also a few helper properties for wheels:
 
