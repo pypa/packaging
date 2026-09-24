@@ -495,7 +495,9 @@ def test_wheel_init(
     tags: set[Tag] | None,
     expected_filename: str,
 ) -> None:
-    fn = WheelFilename(name, version, tags or {Tag("py3", "none", "any")}, build_tag)
+    fn = WheelFilename(
+        name, version, tags or {Tag("py3", "none", "any")}, build_tag=build_tag
+    )
     assert fn.to_filename() == expected_filename
     assert str(fn) == expected_filename
     assert fn.name == canonicalize_name(name)
@@ -578,10 +580,14 @@ def test_replace_does_not_reparse(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_wheel_replace() -> None:
     tags = {Tag("py3", "none", "any")}
-    wf = WheelFilename("Foo", "1.0", tags, (1, "a"), "x86_64_v3")
+    wf = WheelFilename("Foo", "1.0", tags, build_tag=(1, "a"), variant="x86_64_v3")
     new = wf.__replace__(version="2.0", tags={Tag("cp314", "cp314", "win_amd64")})
     assert new == WheelFilename(
-        "Foo", "2.0", {Tag("cp314", "cp314", "win_amd64")}, (1, "a"), "x86_64_v3"
+        "Foo",
+        "2.0",
+        {Tag("cp314", "cp314", "win_amd64")},
+        build_tag=(1, "a"),
+        variant="x86_64_v3",
     )
     assert new.name == "foo"
     assert wf.__replace__(version=Version("2.0")) == wf.__replace__(version="2.0")
@@ -603,7 +609,7 @@ def test_legacy_name_from_filename() -> None:
 
 def test_wheel_repr() -> None:
     tags = frozenset({Tag("py3", "none", "any")})
-    wf = WheelFilename("Foo.Bar", "01.0", tags, (1, "abc"))
+    wf = WheelFilename("Foo.Bar", "01.0", tags, build_tag=(1, "abc"))
     assert repr(wf) == (
         f"WheelFilename(name='foo-bar', version='1.0', tags={tags!r}, "
         "build_tag=(1, 'abc'), variant=None)"
@@ -645,18 +651,20 @@ def test_sdist_repr() -> None:
 
 def test_wheel_eq_hash() -> None:
     tags = {Tag("py3", "none", "any")}
-    wf = WheelFilename("foo", "1.0", tags, (1, ""))
-    assert wf == WheelFilename("foo", "1.0", tags, (1, ""))
-    assert hash(wf) == hash(WheelFilename("foo", "1.0", tags, (1, "")))
-    assert wf == WheelFilename("Foo", "1.0", tags, (1, ""))
-    assert hash(wf) == hash(WheelFilename("Foo", "1.0", tags, (1, "")))
-    assert wf != WheelFilename("foo", "1.0.0", tags, (1, ""))
+    wf = WheelFilename("foo", "1.0", tags, build_tag=(1, ""))
+    assert wf == WheelFilename("foo", "1.0", tags, build_tag=(1, ""))
+    assert hash(wf) == hash(WheelFilename("foo", "1.0", tags, build_tag=(1, "")))
+    assert wf == WheelFilename("Foo", "1.0", tags, build_tag=(1, ""))
+    assert hash(wf) == hash(WheelFilename("Foo", "1.0", tags, build_tag=(1, "")))
+    assert wf != WheelFilename("foo", "1.0.0", tags, build_tag=(1, ""))
     assert wf != WheelFilename("foo", "1.0", tags)
-    assert wf != WheelFilename("foo", "1.0", tags, (1, ""), "x86_64_v3")
+    assert wf != WheelFilename(
+        "foo", "1.0", tags, build_tag=(1, ""), variant="x86_64_v3"
+    )
     assert wf != "foo-1.0-1-py3-none-any.whl"
     assert len({wf, WheelFilename.from_filename(str(wf))}) == 1
     raw = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl")
-    assert raw == WheelFilename("foo_bar", "1.0", tags, (1, ""))
+    assert raw == WheelFilename("foo_bar", "1.0", tags, build_tag=(1, ""))
 
 
 def test_sdist_eq_hash() -> None:
@@ -679,8 +687,8 @@ def test_sdist_eq_hash() -> None:
             "foo",
             "1.0",
             {Tag("py2", "none", "any"), Tag("py3", "none", "any")},
-            (1, "abc"),
-            "x86_64_v3",
+            build_tag=(1, "abc"),
+            variant="x86_64_v3",
         ),
         WheelFilename.from_filename("_foo.-1.0-py3-none-any.whl"),
     ],
@@ -694,7 +702,7 @@ def test_wheel_pickle(wf: WheelFilename, protocol: int) -> None:
 
 def test_wheel_pickle_state() -> None:
     tags = {Tag("py3", "none", "any"), Tag("py2", "none", "any")}
-    wf = WheelFilename("Foo", "01.0", tags, (1, "a"), "x86_64_v3")
+    wf = WheelFilename("Foo", "01.0", tags, build_tag=(1, "a"), variant="x86_64_v3")
     state = "foo-1.0-1a-py2.py3-none-any-x86_64_v3.whl"
     assert wf.__getstate__() == state
     loaded = WheelFilename.__new__(WheelFilename)
@@ -747,7 +755,7 @@ def test_sdist_setstate_invalid(state: object) -> None:
 
 def test_validate_constructed() -> None:
     tags = {Tag("py3", "none", "any")}
-    WheelFilename("Foo", "01.0", tags, (1, "")).validate()
+    WheelFilename("Foo", "01.0", tags, build_tag=(1, "")).validate()
     SourceDistributionFilename("Foo", "01.0").validate()
 
 

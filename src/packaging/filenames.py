@@ -150,13 +150,14 @@ class WheelFilename:
     """
 
     __slots__ = ("_build_tag", "_filename", "_name", "_tags", "_variant", "_version")
-    __match_args__ = ("name", "version", "tags", "build_tag", "variant")
+    __match_args__ = ("name", "version", "tags")
 
     def __init__(
         self,
         name: str,
         version: Version | str,
         tags: Iterable[Tag],
+        *,
         build_tag: BuildTag = (),
         variant: str | None = None,
     ) -> None:
