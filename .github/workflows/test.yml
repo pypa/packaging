@@ -55,6 +55,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
 
       - name: Run nox
         run: pipx run nox -s tests
@@ -70,7 +72,7 @@ jobs:
       # Alpine ships a genuinely musl-linked Python, so this exercises the
       # musllinux tag detection code paths that glibc runners cannot.
       - name: Install system dependencies
-        run: apk add --no-cache git python3
+        run: apk add --no-cache git python3 tar
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,6 +80,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run tests
         run: uv run --python python3 python -m pytest
@@ -97,10 +101,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run nox
         run: pipx run nox -s property_tests
@@ -137,10 +142,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}-${{ matrix.project }}
 
       - name: Run nox
         env:
@@ -159,10 +165,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run nox
         run: pipx run nox -s test_pickle
