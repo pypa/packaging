@@ -2318,6 +2318,25 @@ class TestSpecifierSet:
         assert hash(a) == hash(b)
         assert str(a) == str(b)
 
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_canonicalization_preserves_prerelease_opt_in(self, reverse: bool) -> None:
+        specs = [
+            Specifier(">=1", prereleases=False),
+            Specifier(">=1", prereleases=True),
+        ]
+        if reverse:
+            specs.reverse()
+
+        specifier_set = SpecifierSet(specs)
+        versions = ["1.5a1", "1.5"]
+        before_policy = specifier_set.prereleases
+        before_filter = list(specifier_set.filter(versions))
+
+        assert before_policy is True
+        assert str(specifier_set) == ">=1"
+        assert specifier_set.prereleases == before_policy
+        assert list(specifier_set.filter(versions)) == before_filter
+
     def test_specifiers_combine_deduplicates(self) -> None:
         result = SpecifierSet(">=1.0") & SpecifierSet(">=1.0,<5.0")
         assert str(result) == "<5.0,>=1.0"

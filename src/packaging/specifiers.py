@@ -831,7 +831,14 @@ class SpecifierSet(BaseSpecifier):
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
         if not self._canonicalized:
-            self._specs = tuple(dict.fromkeys(sorted(self._specs, key=str)))
+            by_canonical_spec: dict[tuple[str, str], Specifier] = {}
+            for spec in sorted(self._specs, key=str):
+                key = spec._canonical_spec
+                previous = by_canonical_spec.get(key)
+                if previous is None or (spec.prereleases and not previous.prereleases):
+                    by_canonical_spec[key] = spec
+
+            self._specs = tuple(sorted(by_canonical_spec.values(), key=str))
             self._canonicalized = True
         return self._specs
 

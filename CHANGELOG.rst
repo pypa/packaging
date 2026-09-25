@@ -8,6 +8,11 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for versions and specifiers:
+
+* Preserve prerelease opt-ins when canonicalizing equal ``Specifier`` objects in a
+  ``SpecifierSet``.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
