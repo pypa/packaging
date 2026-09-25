@@ -775,6 +775,7 @@ class _Validator(Generic[T]):
             if (
                 pathlib.PurePosixPath(path).is_absolute()
                 or pathlib.PureWindowsPath(path).is_absolute()
+                or pathlib.PureWindowsPath(path).drive
             ):
                 raise self._invalid_metadata(
                     f"{path!r} is invalid for {self.raw_name!r}, paths must be relative"
