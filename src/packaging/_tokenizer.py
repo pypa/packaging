@@ -82,7 +82,7 @@ DEFAULT_RULES: dict[str, re.Pattern[str]] = {
         re.VERBOSE | re.IGNORECASE,
     ),
     "AT": re.compile(r"\@"),
-    "URL": re.compile(r"[^ \t]+"),
+    "URL": re.compile(r"\S+"),
     "IDENTIFIER": re.compile(r"\b[a-zA-Z0-9][a-zA-Z0-9._-]*\b"),
     "VERSION_PREFIX_TRAIL": re.compile(r"\.\*"),
     "VERSION_LOCAL_LABEL_TRAIL": re.compile(r"\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*"),

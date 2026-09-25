@@ -8,6 +8,12 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for requirements and markers:
+
+* Reject embedded whitespace in the URL of a direct-reference requirement, so a
+  newline can no longer split one requirement into two when the parsed result is
+  serialized. (:pull:`1379`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
