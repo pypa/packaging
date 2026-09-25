@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import builtins
 import re
 import sys
 import typing
@@ -18,11 +19,10 @@ from typing import (
     Literal,
     NamedTuple,
     SupportsInt,
-    TypedDict,
 )
 
 if typing.TYPE_CHECKING:
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Self
 
 if sys.version_info >= (3, 13):  # pragma: no cover
     from warnings import deprecated as _deprecated
@@ -76,13 +76,9 @@ CmpKey = (
 VersionComparisonMethod = Callable[[CmpKey, CmpKey], bool]
 
 
-class _VersionReplace(TypedDict, total=False):
-    epoch: int | None
-    release: tuple[int, ...] | None
-    pre: tuple[str, int] | None
-    post: int | None
-    dev: int | None
-    local: str | None
+# Sentinel for __replace__, typed as Any so it can be the default for any field.
+# mypy is missing sentinel currently
+_UNSET: Any = object() if sys.version_info < (3, 15) else builtins.sentinel("_UNSET")  # type: ignore[attr-defined]
 
 
 def normalize_pre(letter: str, /) -> str:
@@ -510,7 +506,16 @@ class Version(_BaseVersion):
 
         return new_version
 
-    def __replace__(self, **kwargs: Unpack[_VersionReplace]) -> Self:
+    def __replace__(
+        self,
+        *,
+        epoch: int | None = _UNSET,
+        release: tuple[int, ...] | None = _UNSET,
+        pre: tuple[str, int] | None = _UNSET,
+        post: int | None = _UNSET,
+        dev: int | None = _UNSET,
+        local: str | None = _UNSET,
+    ) -> Self:
         """
         __replace__(*, epoch=..., release=..., pre=..., post=..., dev=..., local=...)
 
@@ -534,37 +539,38 @@ class Version(_BaseVersion):
         .. versionchanged:: 26.1
 
            The pre-release portion is now normalized.
+
+        .. versionchanged:: 26.4
+
+           Unknown keyword arguments now raise :exc:`TypeError` instead of
+           being silently ignored.
         """
-        epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
-        release = (
-            _validate_release(kwargs["release"])
-            if "release" in kwargs
-            else self._release
-        )
-        pre = _validate_pre(kwargs["pre"]) if "pre" in kwargs else self._pre
-        post = _validate_post(kwargs["post"]) if "post" in kwargs else self._post
-        dev = _validate_dev(kwargs["dev"]) if "dev" in kwargs else self._dev
-        local = _validate_local(kwargs["local"]) if "local" in kwargs else self._local
+        _epoch = self._epoch if epoch is _UNSET else _validate_epoch(epoch)
+        _release = self._release if release is _UNSET else _validate_release(release)
+        _pre = self._pre if pre is _UNSET else _validate_pre(pre)
+        _post = self._post if post is _UNSET else _validate_post(post)
+        _dev = self._dev if dev is _UNSET else _validate_dev(dev)
+        _local = self._local if local is _UNSET else _validate_local(local)
 
         if (
-            epoch == self._epoch
-            and release == self._release
-            and pre == self._pre
-            and post == self._post
-            and dev == self._dev
-            and local == self._local
+            _epoch == self._epoch
+            and _release == self._release
+            and _pre == self._pre
+            and _post == self._post
+            and _dev == self._dev
+            and _local == self._local
         ):
             return self
 
         new_version = self.__class__.__new__(self.__class__)
         new_version._key_cache = None
         new_version._hash_cache = None
-        new_version._epoch = epoch
-        new_version._release = release
-        new_version._pre = pre
-        new_version._post = post
-        new_version._dev = dev
-        new_version._local = local
+        new_version._epoch = _epoch
+        new_version._release = _release
+        new_version._pre = _pre
+        new_version._post = _post
+        new_version._dev = _dev
+        new_version._local = _local
 
         return new_version
 
