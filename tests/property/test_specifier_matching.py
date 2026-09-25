@@ -12,6 +12,7 @@ from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
 from packaging.version import Version
 from tests.property.strategies import (
     SETTINGS,
+    compatible_release_version_pairs,
     multi_segment_versions,
     nonlocal_versions,
     ops,
@@ -198,14 +199,14 @@ class TestCompatibleReleaseDefinition:
     and a version identifier. It matches any candidate version that is expected
     to be compatible with the specified version."""
 
-    @given(spec_ver=multi_segment_versions(), candidate=pep440_versions())
+    @given(versions=compatible_release_version_pairs())
     @SETTINGS
     def test_compatible_release_matches_expected_compatible(
-        self, spec_ver: Version, candidate: Version
+        self, versions: tuple[Version, Version]
     ) -> None:
         """~=V matches candidate iff candidate >= V and candidate matches the
         prefix wildcard derived from V."""
-        assume(spec_ver.epoch == candidate.epoch)
+        spec_ver, candidate = versions
         spec = Specifier(f"~={spec_ver}")
         result = candidate in spec
         # Also check via the expanded form
