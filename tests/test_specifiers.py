@@ -1276,22 +1276,9 @@ class TestSpecifierInternal:
         assert spec._canonical_spec_cache is first
 
         assert spec._canonical_spec is first
-        _ = hash(spec)
+        assert hash(spec) == hash(Specifier(specifier))
         assert spec == Specifier(specifier)
         assert spec._canonical_spec_cache is first
-
-    @pytest.mark.parametrize(
-        "specifier",
-        [">=1.0.0", "==1.2.3.0", "~=1.18.0", "==1.0.*", "===1.0.0"],
-    )
-    def test_canonical_spec_cache_matches_fresh_value(self, specifier: str) -> None:
-        """A warmed Specifier is indistinguishable from a freshly built one."""
-        warm = Specifier(specifier)
-        _ = warm._canonical_spec
-
-        assert warm._canonical_spec == Specifier(specifier)._canonical_spec
-        assert hash(warm) == hash(Specifier(specifier))
-        assert warm == Specifier(specifier)
 
     def test_canonical_spec_cache_not_pickled(self) -> None:
         """__getstate__ omits the cache, so it is rebuilt on the far side."""

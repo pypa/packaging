@@ -55,19 +55,14 @@ class TimeSpecSuite:
         for sp in self._warm_compatible._specs:
             sp.contains(self.complex_versions[0])
 
-        specifier_strs = [str(sp) for s in self._cold_specs for sp in s._specs]
-        self._warm_specifiers = [Specifier(s) for s in specifier_strs]
-        others = [Specifier(s) for s in specifier_strs]
+        self._warm_spec_groups = [s._specs for s in self._warm_specs]
+        self._warm_specifiers = [sp for group in self._warm_spec_groups for sp in group]
+        others = [Specifier(str(sp)) for sp in self._warm_specifiers]
         for sp in (*self._warm_specifiers, *others):
             hash(sp)
         self._warm_specifier_pairs = list(
             zip(self._warm_specifiers, others, strict=True)
         )
-
-        self._warm_spec_groups = [s._specs for s in self._warm_specs]
-        for group in self._warm_spec_groups:
-            for sp in group:
-                hash(sp)
 
     def _make_cold(self, spec: SpecifierSet) -> None:
         if hasattr(spec, "_canonicalized"):
