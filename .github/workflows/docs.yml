@@ -25,10 +25,11 @@ jobs:
         name: Install Python
         with:
           python-version: "3.14"
-          cache: "pip"
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Build documentation
         run: pipx run nox -s docs
