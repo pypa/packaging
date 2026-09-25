@@ -11,7 +11,7 @@ Removals:
 Fixes for versions and specifiers:
 
 * Preserve prerelease opt-ins when canonicalizing equal ``Specifier`` objects in a
-  ``SpecifierSet``.
+  ``SpecifierSet``. (:pull:`1421`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
