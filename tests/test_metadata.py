@@ -178,9 +178,6 @@ class TestRawMetadata:
             ("\n       |\n       |text", "\n\ntext"),
             ("\n       ||text", "\n|text"),
             (" \t\n       |café", "\ncafé"),
-            ("\n      |text", "|text"),
-            ("\n        |text", "|text"),
-            ("\n\t|text", "|text"),
         ],
     )
     def test_description_header_unfolding(
@@ -193,6 +190,45 @@ class TestRawMetadata:
 
         assert not unparsed
         assert raw == {"description": expected.replace("\n", newline)}
+
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_description_stripped_prefix(
+        self, monkeypatch: pytest.MonkeyPatch, encode: bool, newline: str
+    ) -> None:
+        original = email.policy.Compat32.header_source_parse
+
+        def strip_prefix(
+            policy: email.policy.Compat32, sourcelines: list[str]
+        ) -> tuple[str, str]:
+            name, value = original(policy, sourcelines)
+            return name, value.lstrip(" \t\r\n")
+
+        # Exercise parsers that strip leading blank lines on every Python version.
+        monkeypatch.setattr(email.policy.Compat32, "header_source_parse", strip_prefix)
+        text = f"Description: {newline}       |text"
+        given: str | bytes = text.encode("utf-8") if encode else text
+
+        raw, unparsed = metadata.parse_email(given)
+
+        assert not unparsed
+        assert raw == {"description": newline + "text"}
+
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("indent", ["      ", "        ", "\t"])
+    def test_description_nonstandard_prefix_unchanged(
+        self, encode: bool, newline: str, indent: str
+    ) -> None:
+        text = f"Description: {newline}{indent}|text"
+        given: str | bytes = text.encode("utf-8") if encode else text
+
+        raw, unparsed = metadata.parse_email(given)
+
+        # Preserve the email parser's version-dependent whitespace handling.
+        expected = email.message_from_string(text)["Description"]
+        assert not unparsed
+        assert raw == {"description": expected}
 
     @pytest.mark.parametrize("encode", [False, True])
     @pytest.mark.parametrize("newline", ["\n", "\r\n"])
@@ -242,8 +278,6 @@ class TestRawMetadata:
                 "description: first\n       |second\n\nbody",
                 ["first\n       |second", "body"],
             ),
-            ("description: \n       |first\ndescription: second", ["|first", "second"]),
-            ("description: \n       |first\n\nbody", ["|first", "body"]),
         ],
     )
     def test_description_multiple(
@@ -254,6 +288,26 @@ class TestRawMetadata:
         assert len(unparsed) == 1
         assert "description" in unparsed
         assert unparsed["description"] == expected
+
+    @pytest.mark.parametrize("encode", [False, True])
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("suffix", ["description: second", "\nbody"])
+    def test_description_ambiguous_prefix_unchanged(
+        self, encode: bool, newline: str, suffix: str
+    ) -> None:
+        text = ("description: \n       |first\n" + suffix).replace("\n", newline)
+        given: str | bytes = text.encode("utf-8") if encode else text
+        parsed = email.message_from_string(text)
+        expected = parsed.get_all("description", [])
+        payload = parsed.get_payload()
+        assert isinstance(payload, str)
+        if payload:
+            expected.append(payload)
+
+        raw, unparsed = metadata.parse_email(given)
+
+        assert not raw
+        assert unparsed == {"description": expected}
 
     @pytest.mark.parametrize("encode", [False, True])
     def test_description_multipart_payload(self, encode: bool) -> None:

@@ -389,8 +389,9 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
                     first_value in {"\n", "\r\n"}
                     and len(sourcelines) > 1
                     and sourcelines[1].startswith("       |")
+                    and not value.startswith(first_value)
                 ):
-                    # The email parser strips this encoded leading blank line.
+                    # Some email parser versions strip this leading blank line.
                     # Retain it separately so unparsed headers stay unchanged.
                     description_prefix = first_value + "       "
             return name, value
