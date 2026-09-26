@@ -101,8 +101,8 @@ class UnsortedTagsError(ValueError):
 
 class InvalidTag(ValueError):
     """
-    Raised when an interpreter component is not an identifier, a tag component
-    is empty, or a tag does not have exactly three components.
+    Raised when a tag has an invalid interpreter, ABI, or platform component,
+    or does not have exactly three components.
 
     .. versionadded:: 26.3
     """
@@ -114,6 +114,9 @@ class TooManyTagsError(ValueError):
 
     .. versionadded:: 26.3
     """
+
+
+_tag_component_regex = re.compile(r"\w+", re.ASCII)
 
 
 class Tag:
@@ -254,9 +257,9 @@ def parse_tag(
     :param int | None limit: The maximum number of tags to parse.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
-    :raises InvalidTag: If the interpreter field is not an identifier; if the
-        interpreter, ABI, or platform field (or any member of a compressed tag
-        set) is empty; or if the tag does not have exactly three components.
+    :raises InvalidTag: If the interpreter, ABI, or platform field (or any member
+        of a compressed tag set) is empty or contains invalid characters, or the
+        tag does not have exactly three components.
     :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
         set would generate more than **limit** tags.
     :raises ValueError: If **limit** is negative.
@@ -270,6 +273,9 @@ def parse_tag(
        three components.
        Added the *limit* parameter. Raises :class:`TooManyTagsError` if the compressed
        tag set would generate more than *limit* tags.
+
+    .. versionchanged:: 26.4
+       Raises :class:`InvalidTag` on invalid tag component characters.
     """
 
     if limit is not None and limit < 0:
@@ -303,6 +309,10 @@ def parse_tag(
     for interpreter in interpreters:
         if not interpreter.isidentifier():
             raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
+    for parts in component_parts:
+        for part in parts:
+            if _tag_component_regex.fullmatch(part) is None:
+                raise InvalidTag(f"Tag {tag!r} has an invalid component: {part!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
         for interpreter in interpreters

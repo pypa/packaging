@@ -237,6 +237,21 @@ class TestParseTag:
     @pytest.mark.parametrize(
         "tag",
         [
+            "py3-none-any/evil",
+            "py3-none-any\\evil",
+            "py3-none-any\0evil",
+            "py3-none-any#evil",
+            "py\N{FULLWIDTH DIGIT THREE}-none-any",
+            "pyé-none-any",
+        ],
+    )
+    def test_invalid_character_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="invalid component"):
+            tags.parse_tag(tag)
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
             "2-none-any",
             "2.7.6-none-any",
             "py3.2-none-any",
