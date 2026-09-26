@@ -376,11 +376,32 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     """
     raw: dict[str, str | list[str] | dict[str, str]] = {}
     unparsed: dict[str, list[str]] = {}
+    description_prefix: str | None = None
+
+    class MetadataPolicy(email.policy.Compat32):
+        def header_source_parse(self, sourcelines: list[str]) -> tuple[str, str]:
+            nonlocal description_prefix
+            name, value = super().header_source_parse(sourcelines)
+            if name.lower() == "description" and description_prefix is None:
+                description_prefix = ""
+                first_value = sourcelines[0].split(":", 1)[1].lstrip(" \t")
+                if (
+                    first_value in {"\n", "\r\n"}
+                    and len(sourcelines) > 1
+                    and sourcelines[1].startswith("       |")
+                    and not value.startswith(first_value)
+                ):
+                    # Some email parser versions strip this leading blank line.
+                    # Retain it separately so unparsed headers stay unchanged.
+                    description_prefix = first_value + "       "
+            return name, value
+
+    policy = MetadataPolicy()
 
     if isinstance(data, str):
-        parsed = email.parser.Parser(policy=email.policy.compat32).parsestr(data)
+        parsed = email.parser.Parser(policy=policy).parsestr(data)
     else:
-        parsed = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(data)
+        parsed = email.parser.BytesParser(policy=policy).parsebytes(data)
 
     # We have to wrap parsed.keys() in a set, because in the case of multiple
     # values for a key (a list), the key will appear multiple times in the
@@ -531,6 +552,11 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
                 unparsed["description"].append(payload)
             else:
                 raw["description"] = payload
+
+    # Unfold the Description header without changing descriptions in the body.
+    if "description" in raw and "description" in parsed:
+        description = (description_prefix or "") + cast("str", raw["description"])
+        raw["description"] = description.replace("\n       |", "\n")
 
     # We need to cast our `raw` to a metadata, because a TypedDict only support
     # literal key names, but we're computing our key names on purpose, but the
