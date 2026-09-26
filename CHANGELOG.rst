@@ -8,6 +8,11 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes:
+
+* Escape backslashes when serializing a marker value so a value containing one
+  survives a ``str()`` round trip. (:pull:`1374`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 

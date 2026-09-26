@@ -99,6 +99,36 @@ class TestNode:
         ):
             Value("a\"b'c").serialize()
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("a\\b", '"a\\\\b"'),
+            ("C:\\temp", '"C:\\\\temp"'),
+            ('a"b\\c', "'a\"b\\\\c'"),
+        ],
+    )
+    def test_value_serialize_escapes_backslash(self, value: str, expected: str) -> None:
+        # process_python_str reads values back with ast.literal_eval, so a
+        # backslash must be doubled on the way out or it gets re-decoded.
+        assert Value(value).serialize() == expected
+
+
+@pytest.mark.parametrize(
+    ("marker_str", "value"),
+    [
+        (r'os_name == "a\\b"', "a\\b"),
+        (r'os_name == "C:\\temp"', "C:\\temp"),
+        (r'os_name == "\\\\host\\share"', "\\\\host\\share"),
+    ],
+)
+def test_marker_with_backslash_value_round_trips(marker_str: str, value: str) -> None:
+    marker = Marker(marker_str)
+    # the value keeps its literal backslash(es) after parsing
+    assert marker._markers[0][2].value == value  # type: ignore[union-attr]
+    # str(marker) must reparse to an equal marker rather than re-decoding the
+    # backslash (e.g. "C:\\temp" -> str -> "C:<TAB>emp").
+    assert Marker(str(marker)) == marker
+
 
 class TestOperatorEvaluation:
     def test_prefers_pep440(self) -> None:
