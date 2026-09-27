@@ -14,7 +14,7 @@ Fixes for versions and specifiers:
   ``Version.__replace__()``. Since ``bool`` is a subclass of ``int``, these
   were previously accepted and could produce versions whose ``str()`` was not
   parseable again, such as ``Version.from_parts(release=(True,))`` rendering as
-  ``"True"``.
+  ``"True"``. (:pull:`1425`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
