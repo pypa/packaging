@@ -13,7 +13,7 @@ Fixes for pylock, direct URLs, and dependency groups:
 * Evaluate the ``environments`` markers in a ``pylock`` file with the gathered
   ``extras`` and ``dependency_groups``, as the installation algorithm does, so
   those marker names no longer raise
-  :exc:`~packaging.markers.UndefinedEnvironmentName`.
+  :exc:`~packaging.markers.UndefinedEnvironmentName`. (:pull:`1424`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
