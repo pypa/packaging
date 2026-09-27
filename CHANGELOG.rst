@@ -8,6 +8,14 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for versions and specifiers:
+
+* Reject ``bool`` values passed to ``Version.from_parts()`` and
+  ``Version.__replace__()``. Since ``bool`` is a subclass of ``int``, these
+  were previously accepted and could produce versions whose ``str()`` was not
+  parseable again, such as ``Version.from_parts(release=(True,))`` rendering as
+  ``"True"``.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 

@@ -1287,6 +1287,46 @@ def test_from_parts_rejects_non_str_pre_letter() -> None:
 
 
 @pytest.mark.parametrize(
+    ("args", "match"),
+    [
+        ({"release": (True,)}, "release must be a non-empty tuple"),
+        ({"release": (1, True)}, "release must be a non-empty tuple"),
+        ({"release": (True, 1)}, "release must be a non-empty tuple"),
+        ({"release": (1,), "epoch": True}, "epoch must be non-negative"),
+        ({"release": (1,), "epoch": False}, "epoch must be non-negative"),
+        ({"release": (1,), "pre": ("a", True)}, "pre must be a tuple"),
+        ({"release": (1,), "post": True}, "post must be non-negative"),
+        ({"release": (1,), "post": False}, "post must be non-negative"),
+        ({"release": (1,), "dev": True}, "dev must be non-negative"),
+        ({"release": (1,), "dev": False}, "dev must be non-negative"),
+    ],
+)
+def test_from_parts_rejects_bool_parts(args: dict[str, typing.Any], match: str) -> None:
+    # bool is a subclass of int, but it must not be accepted as a version part,
+    # since it would stringify to "True"/"False" and break the round-trip that
+    # str(Version) promises.
+    with pytest.raises(InvalidVersion, match=match):
+        Version.from_parts(**args)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"release": (1,)},
+        {"release": (0,), "epoch": 0},
+        {"release": (1,), "epoch": 1},
+        {"release": (1,), "pre": ("a", 0)},
+        {"release": (1,), "post": 0},
+        {"release": (1,), "dev": 0},
+    ],
+)
+def test_from_parts_accepts_zero_parts(args: dict[str, typing.Any]) -> None:
+    # Zero is falsy but valid, and must keep being accepted.
+    version = Version.from_parts(**args)
+    assert str(version) == str(Version(str(version)))
+
+
+@pytest.mark.parametrize(
     "version",
     [
         "1.2.3",

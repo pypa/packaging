@@ -22,6 +22,8 @@ from typing import (
 )
 
 if typing.TYPE_CHECKING:
+    from typing import TypeGuard
+
     from typing_extensions import Self, Unpack
 
 if sys.version_info >= (3, 13):  # pragma: no cover
@@ -261,9 +263,17 @@ _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE | re.
 _SIMPLE_VERSION_INDICATORS = frozenset(".0123456789")
 
 
+def _is_int(value: object, /) -> TypeGuard[int]:
+    # bool is a subclass of int, but is not an acceptable version part: it
+    # stringifies to "True" or "False", which is not a valid version.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _validate_epoch(value: object, /) -> int:
-    epoch = value or 0
-    if isinstance(epoch, int) and epoch >= 0:
+    # Only None means "not given"; other falsy values must still be validated
+    # so that, for example, False is rejected rather than treated as 0.
+    epoch = 0 if value is None else value
+    if _is_int(epoch) and epoch >= 0:
         return epoch
     msg = f"epoch must be non-negative integer, got {epoch}"
     raise InvalidVersion(msg)
@@ -274,7 +284,7 @@ def _validate_release(value: object, /) -> tuple[int, ...]:
     if (
         isinstance(release, tuple)
         and len(release) > 0
-        and all(isinstance(i, int) and i >= 0 for i in release)
+        and all(_is_int(i) and i >= 0 for i in release)
     ):
         return release
     msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
@@ -290,7 +300,7 @@ def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | Non
         if (
             isinstance(letter, str)
             and (normalized := normalize_pre(letter)) in {"a", "b", "rc"}
-            and isinstance(number, int)
+            and _is_int(number)
             and number >= 0
         ):
             # type checkers can't infer the Literal type here on letter
@@ -302,7 +312,7 @@ def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | Non
 def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
     if value is None:
         return value
-    if isinstance(value, int) and value >= 0:
+    if _is_int(value) and value >= 0:
         return ("post", value)
     msg = f"post must be non-negative integer, got {value}"
     raise InvalidVersion(msg)
@@ -311,7 +321,7 @@ def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
 def _validate_dev(value: object, /) -> tuple[Literal["dev"], int] | None:
     if value is None:
         return value
-    if isinstance(value, int) and value >= 0:
+    if _is_int(value) and value >= 0:
         return ("dev", value)
     msg = f"dev must be non-negative integer, got {value}"
     raise InvalidVersion(msg)
@@ -490,6 +500,10 @@ class Version(_BaseVersion):
         :param release: This version tuple is required
 
         .. versionadded:: 26.1
+        .. versionchanged:: 26.4
+
+            ``bool`` values are now rejected for the numeric parts, since
+            ``bool`` is a subclass of ``int``.
         """
         _epoch = _validate_epoch(epoch)
         _release = _validate_release(release)
@@ -534,6 +548,10 @@ class Version(_BaseVersion):
         .. versionchanged:: 26.1
 
            The pre-release portion is now normalized.
+        .. versionchanged:: 26.4
+
+           ``bool`` values are now rejected for the numeric parts, since
+           ``bool`` is a subclass of ``int``.
         """
         epoch = _validate_epoch(kwargs["epoch"]) if "epoch" in kwargs else self._epoch
         release = (
