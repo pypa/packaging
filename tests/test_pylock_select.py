@@ -499,6 +499,45 @@ def test_extras_and_groups(
     assert selected_names == expected
 
 
+def test_environments_marker_sees_extras_and_dependency_groups() -> None:
+    """``environments`` markers are evaluated with the gathered extras and groups.
+
+    The installation algorithm gathers ``extras`` and ``dependency_groups`` for
+    marker evaluation before checking the ``environments`` expressions, so those
+    marker names must be available when they are evaluated.
+    """
+
+    def make(environments: list[Marker]) -> Pylock:
+        pylock = Pylock(
+            lock_version=Version("1.0"),
+            created_by="some_tool",
+            environments=environments,
+            default_groups=["dev"],
+            packages=[
+                Package(
+                    name=cast("NormalizedName", "foo"),
+                    directory=PackageDirectory(path="./foo"),
+                ),
+            ],
+        )
+        pylock.validate()
+        return pylock
+
+    # The group and the extra are both satisfied by the selected set.
+    pylock = make([Marker("'docs' in dependency_groups"), Marker("'feat1' in extras")])
+    selected = list(pylock.select(extras=["feat1"], dependency_groups=["docs"]))
+    assert [package.name for package, _ in selected] == ["foo"]
+
+    # Satisfied by default_groups when no groups are requested.
+    pylock = make([Marker("'dev' in dependency_groups")])
+    selected = list(pylock.select())
+    assert [package.name for package, _ in selected] == ["foo"]
+
+    # Not satisfied when the group is not selected.
+    with pytest.raises(PylockSelectError):
+        list(make([Marker("'dev' in dependency_groups")]).select(dependency_groups=[]))
+
+
 def test_python_prerelease() -> None:
     """Python pre-release versions are not PEP 440 compliant.
     Test that Pylock.requires_python supports that.

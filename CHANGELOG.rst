@@ -8,6 +8,13 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for pylock, direct URLs, and dependency groups:
+
+* Evaluate the ``environments`` markers in a ``pylock`` file with the gathered
+  ``extras`` and ``dependency_groups``, as the installation algorithm does, so
+  those marker names no longer raise
+  :exc:`~packaging.markers.UndefinedEnvironmentName`.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
