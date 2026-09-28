@@ -804,6 +804,9 @@ class SpecifierSet(BaseSpecifier):
         :raises InvalidSpecifier:
             If the given ``specifiers`` are not parseable than this exception will be
             raised.
+        :raises TypeError:
+            If an iterable of anything other than :class:`Specifier` instances is
+            given.
         """
 
         if isinstance(specifiers, str):
@@ -815,9 +818,18 @@ class SpecifierSet(BaseSpecifier):
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
         else:
-            self._specs = tuple(specifiers)
-            # Substring check works for both Specifier objects and plain
-            # strings (setuptools passes lists of strings).
+            # The elements are stored as they are given, so anything that is not a
+            # Specifier would build a set that looks and compares like a real one
+            # but cannot answer anything. Reject it here rather than let it fail
+            # later with an AttributeError, as __setstate__ already does.
+            parsed_specifiers = tuple(specifiers)
+            if not all(isinstance(s, Specifier) for s in parsed_specifiers):
+                raise TypeError(
+                    "specifiers must be an iterable of Specifier instances, got "
+                    f"{[type(s).__name__ for s in parsed_specifiers]}"
+                )
+            self._specs = parsed_specifiers
+            # Substring check works for Specifier objects too.
             self._has_arbitrary = any("===" in str(s) for s in self._specs)
 
         self._canonicalized = len(self._specs) <= 1

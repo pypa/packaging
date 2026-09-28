@@ -1323,6 +1323,27 @@ class TestSpecifierSet:
         spec = SpecifierSet(iter(specs))
         assert set(spec) == set(specs)
 
+    @pytest.mark.parametrize(
+        "specifiers",
+        [
+            [">=1.0"],
+            [Specifier(">=1.0"), "!=1.1"],
+            [1],
+            [None],
+            [Specifier(">=1.0"), 1],
+        ],
+    )
+    def test_create_from_non_specifiers(self, specifiers: list[object]) -> None:
+        """Only ``Specifier`` instances may be passed to the iterable form.
+
+        Storing the elements as they are given let a list of raw strings build a
+        set that compares equal to a valid one - a ``str`` compares equal to a
+        ``Specifier`` - while hashing differently, and that then raised
+        ``AttributeError`` from every semantic operation.
+        """
+        with pytest.raises(TypeError):
+            SpecifierSet(specifiers)  # type: ignore[arg-type]
+
     def test_match_args(self) -> None:
         assert SpecifierSet.__match_args__ == ("_str",)
         assert SpecifierSet(">=1.0,<2")._str == str(SpecifierSet(">=1.0,<2"))
