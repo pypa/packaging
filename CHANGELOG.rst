@@ -8,6 +8,13 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes:
+
+* Raise a ``TypeError`` when the iterable form of :class:`SpecifierSet` is
+  given anything other than :class:`Specifier` instances, instead of building
+  a set that compares equal to a valid one and then fails with an
+  ``AttributeError``. (:pull:`1426`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
