@@ -210,3 +210,28 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     # None is not supported in the type annotation, but it was tested before.
     with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
         assert ef is None
+
+
+def test_parse_elf_missing_executable() -> None:
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-does-not-exist"
+    )
+    with _parse_elf(path) as ef:
+        assert ef is None
+
+
+def test_parse_elf_propagates_caller_error() -> None:
+    # A failure to open or parse the executable is reported as None, but an
+    # error raised by the caller while inspecting the file has to propagate
+    # unchanged instead of being turned into an unrelated exception.
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-x86_64-amd64"
+    )
+
+    def read_elf() -> None:
+        with _parse_elf(path) as ef:
+            assert ef is not None
+            raise ValueError("caller's own error")
+
+    with pytest.raises(ValueError, match="caller's own error"):
+        read_elf()
