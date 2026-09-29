@@ -78,14 +78,6 @@ class Requirement:
     :param str requirement_string: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement_string`` is not
         parseable, then this exception will be raised.
-    :ivar name: The name of the requirement.
-    :ivar url: The URL, if any, where to download the requirement from. Can be
-        ``None``.
-    :ivar extras: A set of extras that the requirement specifies.
-    :ivar specifier: A :class:`~.SpecifierSet` of the version specified by the
-        requirement.
-    :ivar marker: A :class:`~.Marker` of the marker for the requirement. Can be
-        ``None``.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
@@ -102,13 +94,18 @@ class Requirement:
             raise InvalidRequirement(str(e)) from e
 
         self.name: str = parsed.name
+        """The name of the requirement."""
         self.url: str | None = parsed.url or None
+        """The URL to download the requirement from, or ``None``."""
         self.extras: set[str] = set(parsed.extras)
+        """A set of extras that the requirement specifies."""
         try:
             self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+            """A :class:`~.SpecifierSet` of the version specified by the requirement."""
         except InvalidSpecifier as e:
             raise InvalidRequirement(str(e)) from e
         self.marker: Marker | None = None
+        """A :class:`~.Marker` for the requirement, or ``None``."""
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
