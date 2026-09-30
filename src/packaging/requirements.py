@@ -92,6 +92,10 @@ class Requirement:
             self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
         except InvalidSpecifier as e:
             raise InvalidRequirement(str(e)) from e
+        if "===" in parsed.specifier and any(
+            not specifier.version for specifier in self.specifier
+        ):
+            raise InvalidRequirement("Expected version after '==='")
         self.marker: Marker | None = None
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)

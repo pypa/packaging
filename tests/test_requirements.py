@@ -10,7 +10,7 @@ import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -268,6 +268,13 @@ class TestRequirementParsing:
         # THEN
         assert req.name == "name"
         assert req.specifier == ""
+
+    @pytest.mark.parametrize(
+        "specifier", ["===bar===", "===arbitrarystring,>=1", ">=1,===arbitrarystring"]
+    )
+    def test_nonempty_arbitrary_version(self, specifier: str) -> None:
+        req = Requirement(f"foo{specifier}")
+        assert req.specifier == specifier
 
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
@@ -681,6 +688,24 @@ class TestRequirementParsing:
             "        ^"
         )
 
+    @pytest.mark.parametrize(
+        "requirement_string",
+        [
+            "foo===",
+            "foo === ",
+            "foo (=== )",
+            'foo=== ; python_version >= "3"',
+            "foo===,>=1",
+            "foo>=1,===",
+            "foo>=1,===,<=2",
+            "foo===x,===",
+            "foo===x,===,>=1",
+        ],
+    )
+    def test_error_on_missing_arbitrary_version(self, requirement_string: str) -> None:
+        with pytest.raises(InvalidRequirement, match="Expected version after '==='"):
+            Requirement(requirement_string)
+
     def test_error_on_missing_op_after_name(self) -> None:
         # GIVEN
         to_parse = "name 1.0"
@@ -730,6 +755,11 @@ class TestRequirementParsing:
             "    name >= 1.0 <= 2.0\n"
             "         ~~~~~~~^"
         )
+
+
+def test_empty_arbitrary_specifier_compatibility() -> None:
+    assert Specifier("===").version == ""
+    assert str(SpecifierSet("===")) == "==="
 
 
 class TestRequirementBehaviour:
