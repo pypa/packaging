@@ -14,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node, Op, Value, Variable
+from packaging._parser import Node, Op, Value, Variable, process_python_str
 from packaging.markers import (
     InvalidMarker,
     Marker,
@@ -98,6 +98,48 @@ class TestNode:
             match="Cannot serialize marker value containing both quote characters",
         ):
             Value("a\"b'c").serialize()
+
+    @pytest.mark.parametrize(
+        ("python_str", "expected"),
+        [
+            ('"plain"', "plain"),
+            ('"C:/Program Files/Python"', "C:/Program Files/Python"),
+            ('"/Users/name"', "/Users/name"),
+            ('"/home/name"', "/home/name"),
+            ('"a/b/c"', "a/b/c"),
+            ("'a\"b'", 'a"b'),
+        ],
+    )
+    def test_process_python_str_skips_literal_eval_for_plain_string(
+        self, python_str: str, expected: str
+    ) -> None:
+        with mock.patch("packaging._parser.ast.literal_eval") as literal_eval:
+            value = process_python_str(python_str)
+
+        assert value.value == expected
+        literal_eval.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "python_str",
+        [
+            r'"a\\b"',
+            r'"C:\\Program Files\\Python"',
+            '"a\tb"',
+            '"a\nb"',
+            '"a\rb"',
+            '"a\x00b"',
+        ],
+    )
+    def test_process_python_str_uses_literal_eval_for_complex_string(
+        self, python_str: str
+    ) -> None:
+        with mock.patch(
+            "packaging._parser.ast.literal_eval", return_value="decoded"
+        ) as literal_eval:
+            value = process_python_str(python_str)
+
+        assert value.value == "decoded"
+        literal_eval.assert_called_once_with(python_str)
 
 
 class TestOperatorEvaluation:
