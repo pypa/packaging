@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import ast
 import itertools
 import os
 import pickle
@@ -140,6 +141,58 @@ class TestNode:
 
         assert value.value == "decoded"
         literal_eval.assert_called_once_with(python_str)
+
+    @pytest.mark.parametrize(
+        "python_str",
+        [
+            "plain",
+            "\"mismatched'",
+            "'mismatched\"",
+            '"a"b"',
+            "'a'b'",
+            '"',
+            "'",
+            "",
+        ],
+    )
+    def test_process_python_str_does_not_fast_path_invalid_token_shape(
+        self, python_str: str
+    ) -> None:
+        with mock.patch(
+            "packaging._parser.ast.literal_eval", return_value="decoded"
+        ) as literal_eval:
+            value = process_python_str(python_str)
+
+        assert value.value == "decoded"
+        literal_eval.assert_called_once_with(python_str)
+
+    @pytest.mark.parametrize(
+        "python_str",
+        [
+            '"plain"',
+            "'single quoted'",
+            '"with spaces and /slashes/"',
+            "'opposite \"quote\"'",
+            '"café 漢字 😀"',
+            '"\uff3c \uff0f \u2215 \u2216"',
+            r'"a\\b"',
+            r'"C:\\Program Files\\Python"',
+            '"a\tb"',
+        ],
+    )
+    def test_process_python_str_matches_historical_literal_eval(
+        self, python_str: str
+    ) -> None:
+        expected = str(ast.literal_eval(python_str))
+
+        assert process_python_str(python_str).value == expected
+
+    @pytest.mark.parametrize("control", ["\n", "\r", "\x00"])
+    def test_marker_rejects_nonprintable_quoted_string(self, control: str) -> None:
+        marker = f'os_name == "a{control}b"'
+
+        with pytest.raises(InvalidMarker, match="Invalid quoted string"):
+            Marker(marker)
 
 
 class TestOperatorEvaluation:

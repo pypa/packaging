@@ -394,7 +394,17 @@ def process_env_var(env_var: str) -> Variable:
 
 
 def process_python_str(python_str: str) -> Value:
-    if "\\" not in python_str and python_str.isprintable():
+    # Keep the fast path self-contained: even if a future tokenizer change
+    # broadens what reaches this helper, only a complete, unescaped, printable
+    # quoted string may bypass the historical literal_eval validation path.
+    if (
+        len(python_str) >= 2
+        and (quote := python_str[0]) in "\"'"
+        and python_str[-1] == quote
+        and python_str.find(quote, 1, -1) == -1
+        and "\\" not in python_str
+        and python_str.isprintable()
+    ):
         return Value(python_str[1:-1])
 
     value = ast.literal_eval(python_str)
