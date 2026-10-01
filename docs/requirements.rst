@@ -74,3 +74,4 @@ Reference
 
 .. automodule:: packaging.requirements
     :members:
+    :exclude-members: __init__, __new__

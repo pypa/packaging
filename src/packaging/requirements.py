@@ -36,12 +36,8 @@ class InvalidRequirement(ValueError):
 class Requirement:
     """Represent a requirement for a project.
 
-    This class abstracts handling the details of a requirement for a project.
-    Each requirement will be parsed according to the specification.
-
     Parse a given requirement string into its parts, such as name, specifier,
-    URL, and extras. Raises InvalidRequirement on a badly-formed requirement
-    string.
+    URL, and extras, according to the specification.
 
     .. versionadded:: 16.1
 

@@ -83,3 +83,4 @@ Reference
 
 .. automodule:: packaging.pylock
     :members:
+    :exclude-members: __init__, __new__
