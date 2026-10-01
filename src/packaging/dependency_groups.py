@@ -155,10 +155,14 @@ class DependencyGroupResolver:
         with _ErrorCollector().on_exit(
             f"[dependency-groups] data for {group!r} was malformed"
         ) as errors:
-            return self._resolve(group, group, errors)
+            return self._resolve(group, group, errors, set())
 
     def _resolve(
-        self, group: str, requested_group: str, errors: _ErrorCollector
+        self,
+        group: str,
+        requested_group: str,
+        errors: _ErrorCollector,
+        seen_error_groups: set[str],
     ) -> tuple[Requirement, ...]:
         """
         This is a helper for cached resolution to strings. It preserves the name of the
@@ -168,7 +172,14 @@ class DependencyGroupResolver:
         :param group: The normalized name of the group to resolve.
         :param requested_group: The group which was used in the original, user-facing
             request.
+        :param errors: An error collector in active use.
+        :param seen_error_groups: An ephemeral set of group names which have already
+            resolved to errors in the context of the current call. Used to avoid
+            repeating errors for a single group within a call.
         """
+        if group in seen_error_groups:
+            return ()
+
         if group in self._resolve_cache:
             return self._resolve_cache[group]
 
@@ -199,7 +210,9 @@ class DependencyGroupResolver:
                         group,
                     )
                     resolved_group.extend(
-                        self._resolve(include_group, requested_group, errors)
+                        self._resolve(
+                            include_group, requested_group, errors, seen_error_groups
+                        )
                     )
             else:  # pragma: no cover
                 raise NotImplementedError(
@@ -210,6 +223,7 @@ class DependencyGroupResolver:
         # cache the result
         # this ensures that repeated access to a cyclic group will raise multiple errors
         if errors.errors:
+            seen_error_groups.add(group)
             return ()
 
         self._resolve_cache[group] = tuple(resolved_group)
