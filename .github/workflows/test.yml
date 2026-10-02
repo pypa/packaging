@@ -53,8 +53,10 @@ jobs:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
 
       - name: Run nox
         run: pipx run nox -s tests
@@ -70,14 +72,16 @@ jobs:
       # Alpine ships a genuinely musl-linked Python, so this exercises the
       # musllinux tag detection code paths that glibc runners cannot.
       - name: Install system dependencies
-        run: apk add --no-cache git python3
+        run: apk add --no-cache git python3 tar
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run tests
         run: uv run --python python3 python -m pytest
@@ -97,10 +101,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run nox
         run: pipx run nox -s property_tests
@@ -137,10 +142,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}-${{ matrix.project }}
 
       - name: Run nox
         env:
@@ -159,10 +165,11 @@ jobs:
         name: Install Python 3.14
         with:
           python-version: "3.14"
-          cache: "pip"
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         name: Setup uv
+        with:
+          cache-suffix: ${{ github.job }}
 
       - name: Run nox
         run: pipx run nox -s test_pickle
@@ -174,11 +181,14 @@ jobs:
     needs:
       - test
       - musl
+      - property-tests
+      - downstream
+      - pickle
 
     runs-on: ubuntu-slim
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe  # v1.2.2
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35  # v1.3.0
         with:
           jobs: ${{ toJSON(needs) }}
