@@ -6,7 +6,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
-permissions: {}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 env:
   FORCE_COLOR: 1
@@ -33,3 +36,35 @@ jobs:
 
       - name: Build documentation
         run: pipx run nox -s docs
+
+      - name: Copy web validator to docs build
+        run: |
+          mkdir -p docs/_build/html/validator
+          cp web_validator/index.html docs/_build/html/validator/index.html
+          cp web_validator/README.md docs/_build/html/validator/README.md
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs/_build/html
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: docs
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
