@@ -453,6 +453,34 @@ def test_dist_filename(
     assert dist.filename == expected_filename
 
 
+@pytest.mark.parametrize(
+    "directory", ["dist/files\\", "dist\\files/", "C:/dist\\", "C:\\dist/"]
+)
+@pytest.mark.parametrize(
+    ("kind", "filename"),
+    [("sdist", "example-1.0.tar.gz"), ("wheels", "example-1.0-py3-none-any.whl")],
+)
+def test_pylock_mixed_path_separators(directory: str, kind: str, filename: str) -> None:
+    artifact = {"path": directory + filename, "hashes": {"sha256": "f" * 64}}
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "version": "1.0",
+                kind: [artifact] if kind == "wheels" else artifact,
+            }
+        ],
+    }
+    pylock = Pylock.from_dict(data)
+    package = pylock.packages[0]
+    dist = package.wheels[0] if package.wheels else package.sdist
+    assert dist is not None
+    assert dist.filename == filename
+    assert pylock.to_dict() == data
+
+
 def test_missing_sdist_filename() -> None:
     with pytest.raises(PylockValidationError) as exc_info:
         _ = PackageSdist(hashes={}).filename
