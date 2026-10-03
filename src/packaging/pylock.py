@@ -4,6 +4,7 @@ import dataclasses
 import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -609,7 +610,7 @@ class Pylock:
     def select(
         self,
         *,
-        environment: Environment | None = None,
+        environment: Environment | Mapping[str, str | AbstractSet[str]] | None = None,
         tags: Sequence[Tag] | None = None,
         extras: Collection[str] | None = None,
         dependency_groups: Collection[str] | None = None,
@@ -628,7 +629,10 @@ class Pylock:
 
         The *environment* and *tags* parameters represent the environment being
         selected for. If unspecified, ``packaging.markers.default_environment()`` and
-        ``packaging.tags.sys_tags()`` are used.
+        ``packaging.tags.sys_tags()`` are used. *environment* is a set of
+        **overrides** merged over that default, as in
+        ``packaging.markers.Marker.evaluate``, so passing only the keys that
+        differ is enough.
 
         The *extras* parameter represents the extras to install.
 
@@ -699,11 +703,22 @@ class Pylock:
                 ),
             ),
         )
-        env_python_full_version = _pep440_python_full_version(
-            environment["python_full_version"]
-            if environment
-            else default_environment()["python_full_version"]
-        )
+        # ``environment`` only carries overrides: ``Marker.evaluate`` merges it
+        # over ``default_environment()``. Reading a key straight out of it
+        # therefore only works when the caller happens to pass every field,
+        # while an empty mapping is falsy and silently took the other branch.
+        # Any other partial mapping raised a bare ``KeyError`` out of a
+        # generator whose documented failure mode is ``PylockSelectError``.
+        python_full_version = default_environment()["python_full_version"]
+        if environment is not None and "python_full_version" in environment:
+            override = environment["python_full_version"]
+            if not isinstance(override, str):
+                raise PylockSelectError(
+                    "Set-valued 'python_full_version' cannot satisfy requires-python; "
+                    "pass a version string."
+                )
+            python_full_version = override
+        env_python_full_version = _pep440_python_full_version(python_full_version)
 
         # #. Check if the metadata version specified by :ref:`pylock-lock-version` is
         #    supported; an error or warning MUST be raised as appropriate.
