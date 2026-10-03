@@ -252,6 +252,36 @@ class TestRequirementParsing:
         with pytest.raises(InvalidRequirement):
             Requirement(f"name @ https://example.com/name.whl{line_break}evil==1")
 
+    @pytest.mark.parametrize(
+        ("platform_version", "expected"),
+        [("10.0.19045", False), ("10.0.22000", True), ("10.0.22631", True)],
+    )
+    def test_platform_version_marker(
+        self, platform_version: str, expected: bool
+    ) -> None:
+        requirement = Requirement(
+            'name; sys_platform == "win32" and platform_version >= "10.0.22000"'
+        )
+        assert requirement.marker is not None
+        assert (
+            requirement.marker.evaluate(
+                {"sys_platform": "win32", "platform_version": platform_version}
+            )
+            is expected
+        )
+
+    @pytest.mark.parametrize("key", ["platform_release", "platform_version"])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_platform_version_marker_on_other_platform(
+        self, key: str, reverse: bool
+    ) -> None:
+        parts = ['sys_platform == "win32"', f'{key} ~= "10.0.22000"']
+        if reverse:
+            parts.reverse()
+        requirement = Requirement("name; " + " and ".join(parts))
+        assert requirement.marker is not None
+        assert not requirement.marker.evaluate({"sys_platform": "linux", key: "#1 SMP"})
+
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
         assert Requirement("name>=1" + whitespace) == Requirement("name>=1")

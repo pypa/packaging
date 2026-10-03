@@ -109,6 +109,45 @@ class TestOperatorEvaluation:
             dict(python_full_version="2.7.8")
         )
 
+    @pytest.mark.parametrize("key", ["platform_release", "platform_version"])
+    @pytest.mark.parametrize(
+        ("operator", "value", "environment_value", "expected"),
+        [
+            (">=", "10.0.22000", "10.0.22631", True),
+            (">", "10.0.22000", "10.0.22631", True),
+            ("<", "10.0.22000", "10.0.19045", True),
+            ("<=", "13", "13.0", True),
+            ("==", "13", "13.0", True),
+            ("!=", "13", "13.0", False),
+            ("~=", "13.0", "13.2", True),
+            ("===", "13", "13", True),
+            ("===", "13", "13.0", False),
+            ("===", "unknown", "unknown", True),
+            ("==", "#1 SMP", "#1 SMP", True),
+            ("!=", "13", "#1 SMP", True),
+            (">=", "13", "#1 SMP", False),
+            ("~=", "13.0", "#1 SMP", False),
+            ("==", "13.*", "13.*", True),
+            ("!=", "13.*", "13.*", False),
+            ("==", "#1 SMP", "13", False),
+            ("!=", "#1 SMP", "13", True),
+            ("in", "13 14", "13", True),
+            ("not in", "13 14", "15", True),
+        ],
+    )
+    def test_platform_version_or_string_comparisons(
+        self,
+        key: str,
+        operator: str,
+        value: str,
+        environment_value: str,
+        expected: bool,
+    ) -> None:
+        assert (
+            Marker(f"{key} {operator} {value!r}").evaluate({key: environment_value})
+            is expected
+        )
+
     def test_new_string_rules(self) -> None:
         assert not Marker('"b" < python_full_version').evaluate(
             dict(python_full_version="c")
