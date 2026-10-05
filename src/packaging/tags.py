@@ -711,11 +711,12 @@ def mac_platforms(
         version_str, _, cpu_arch = platform.mac_ver()
         if version is None:
             try:
-                version = cast(
-                    "AppleVersion", tuple(map(int, version_str.split(".")[:2]))
-                )
+                version_parts = tuple(map(int, version_str.split(".")[:2]))
             except ValueError:
                 return
+            if len(version_parts) != 2:
+                return
+            version = version_parts
 
             if version == (10, 16):
                 # When built against an older macOS SDK, Python will report macOS 10.16
@@ -736,12 +737,13 @@ def mac_platforms(
                         text=True,
                     )
                     version_str = res.stdout.strip()
-                    if version_str:
-                        version = cast(
-                            "AppleVersion", tuple(map(int, version_str.split(".")[:2]))
-                        )
-                except (subprocess.SubprocessError, ValueError):
-                    pass
+                    version_parts = tuple(map(int, version_str.split(".")[:2]))
+                except (subprocess.SubprocessError, OSError, ValueError):
+                    return
+                if len(version_parts) != 2 or version_parts == (10, 16):
+                    # Do not advertise compatibility from an unresolved OS version.
+                    return
+                version = version_parts
         if arch is None:
             arch = _mac_arch(cpu_arch)
 
