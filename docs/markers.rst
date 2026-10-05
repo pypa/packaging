@@ -71,8 +71,7 @@ Evaluating ``extra`` markers against a set of extras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Installers usually select several extras at once. Passing a set of extra names
-(or an :class:`ExtraSet` instance) as the ``extra`` environment value evaluates
-the marker against the whole set: ``extra == "name"`` matches if ``name`` is
+as the ``extra`` environment value evaluates the marker against the whole set: ``extra == "name"`` matches if ``name`` is
 one of the selected extras, and ``extra != "name"`` matches only if it is not.
 Evaluating once per selected extra instead would make negated markers match
 too broadly.
