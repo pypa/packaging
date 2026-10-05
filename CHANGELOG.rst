@@ -12,8 +12,8 @@ Fixes for tags:
 
 * Prevent ``mac_platforms`` from raising ``ValueError`` when ``platform.mac_ver()``
   returns an invalid version string. Preserve the environment during the macOS
-  10.16 compatibility probe and yield no platform tags if the real version
-  cannot be determined, rather than advertising the compatibility alias.
+  10.16 compatibility probe, and fall back to macOS 11.0 tags if the real
+  version cannot be determined.
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~

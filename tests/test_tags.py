@@ -461,8 +461,10 @@ class TestMacOSPlatforms:
     ) -> None:
         monkeypatch.setattr(platform, "mac_ver", lambda: ("10.16", ("", "", ""), arch))
         monkeypatch.setattr(subprocess, "run", run_func)
-        # A compatibility alias does not identify the actual macOS 11+ release.
-        assert list(tags.mac_platforms(arch=arch)) == []
+        # The 10.16 alias is only reported on macOS 11+, so 11.0 is a safe minimum.
+        assert list(tags.mac_platforms(arch=arch)) == list(
+            tags.mac_platforms((11, 0), arch)
+        )
 
     @pytest.mark.parametrize("arch", ["x86_64", "arm64"])
     def test_version_detection_10_16_successful_probe(

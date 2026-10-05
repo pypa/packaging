@@ -739,11 +739,12 @@ def mac_platforms(
                     version_str = res.stdout.strip()
                     version_parts = tuple(map(int, version_str.split(".")[:2]))
                 except (subprocess.SubprocessError, OSError, ValueError):
-                    return
-                if len(version_parts) != 2 or version_parts == (10, 16):
-                    # Do not advertise compatibility from an unresolved OS version.
-                    return
-                version = version_parts
+                    version_parts = ()
+                if len(version_parts) == 2 and version_parts != (10, 16):
+                    version = version_parts
+                else:
+                    # 10.16 is only reported on macOS 11+, so 11.0 is a safe minimum.
+                    version = (11, 0)
         if arch is None:
             arch = _mac_arch(cpu_arch)
 
