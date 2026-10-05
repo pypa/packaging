@@ -394,6 +394,10 @@ def process_env_var(env_var: str) -> Variable:
 
 
 def process_python_str(python_str: str) -> Value:
+    # The tokenizer guarantees matching delimiters with no embedded delimiter.
+    if "\\" not in python_str and python_str.isprintable():
+        return Value(python_str[1:-1])
+
     value = ast.literal_eval(python_str)
     return Value(str(value))
 
