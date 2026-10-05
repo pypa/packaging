@@ -104,42 +104,37 @@ class TestNode:
         [
             ('"plain"', "plain"),
             ('"C:/Program Files/Python"', "C:/Program Files/Python"),
-            ('"/Users/name"', "/Users/name"),
-            ('"/home/name"', "/home/name"),
-            ('"a/b/c"', "a/b/c"),
             ("'a\"b'", 'a"b'),
+            ('"a\'b"', "a'b"),
+            ('"a\tb"', "a\tb"),
+            ('""', ""),
+            ('"().{}-_*#:;,/?[]!~`@$%^&=+|<>"', "().{}-_*#:;,/?[]!~`@$%^&=+|<>"),
+            ('"na\u00efve"', "na\u00efve"),
+            ('"\u0661\u0662"', "\u0661\u0662"),
         ],
     )
-    def test_process_python_str_skips_literal_eval_for_plain_string(
-        self, python_str: str, expected: str
-    ) -> None:
-        with mock.patch("packaging._parser.ast.literal_eval") as literal_eval:
-            value = process_python_str(python_str)
-
-        assert value.value == expected
-        literal_eval.assert_not_called()
+    def test_process_python_str_valid(self, python_str: str, expected: str) -> None:
+        assert process_python_str(python_str).value == expected
 
     @pytest.mark.parametrize(
         "python_str",
         [
-            r'"a\\b"',
-            r'"C:\\Program Files\\Python"',
-            '"a\tb"',
+            r'"a\b"',
+            r'"linu\x78"',
             '"a\nb"',
             '"a\rb"',
             '"a\x00b"',
+            '"a\x7fb"',
+            '"a\u200bb"',
+            '"a\u00a0b"',
+            '"a\u2013b"',
+            '"\u00bd"',
+            '"\U0001f600"',
         ],
     )
-    def test_process_python_str_uses_literal_eval_for_complex_string(
-        self, python_str: str
-    ) -> None:
-        with mock.patch(
-            "packaging._parser.ast.literal_eval", return_value="decoded"
-        ) as literal_eval:
-            value = process_python_str(python_str)
-
-        assert value.value == "decoded"
-        literal_eval.assert_called_once_with(python_str)
+    def test_process_python_str_invalid(self, python_str: str) -> None:
+        with pytest.raises(ValueError, match="Invalid character"):
+            process_python_str(python_str)
 
 
 class TestOperatorEvaluation:
@@ -270,6 +265,19 @@ class TestMarker:
     )
     def test_parses_invalid(self, marker_string: str) -> None:
         with pytest.raises(InvalidMarker):
+            Marker(marker_string)
+
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            r'sys_platform == "linu\x78"',
+            r"sys_platform == 'linu\x78'",
+            r'sys_platform == "linu\\x78"',
+            'sys_platform == "linu\u200bx"',
+        ],
+    )
+    def test_parses_invalid_quoted_string_character(self, marker_string: str) -> None:
+        with pytest.raises(InvalidMarker, match="Invalid quoted string"):
             Marker(marker_string)
 
     @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
