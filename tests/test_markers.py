@@ -9,10 +9,13 @@ import os
 import pickle
 import platform
 import sys
-from typing import Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 from unittest import mock
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
 
 from packaging._parser import Node, Op, Value, Variable, process_python_str
 from packaging.markers import (
@@ -669,7 +672,7 @@ class TestMarker:
         self, marker_string: str, environment: dict[str, str] | None, expected: bool
     ) -> None:
         """
-        Test for issue #938: ExtraSet are meant to be literal strings, even if
+        Test for issue #938: Extras are meant to be literal strings, even if
         they look like versions, and therefore should not be parsed as version.
         """
         marker = Marker(marker_string)
@@ -924,7 +927,7 @@ def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
         m.__setstate__("this is not a valid marker")
 
 
-class TestExtras:
+class TestExtraSet:
     def test_rejects_single_string(self) -> None:
         with pytest.raises(TypeError, match="iterable of strings"):
             ExtraSet("gpu")
@@ -938,32 +941,21 @@ class TestExtras:
         assert "cpu" not in extras
         not_a_string: object = 3
         assert not_a_string not in extras
-        assert extras == {"pdf", "gpu"}
+        assert extras == frozenset({"pdf", "gpu"})
         assert extras == ExtraSet(["pdf", "GPU"])
-        assert extras != {"pdf"}
+        assert extras != frozenset({"pdf"})
 
     def test_contains_normalizes(self) -> None:
         assert "PDF_Support" in ExtraSet(["pdf.support"])
 
-    def test_string_equality_is_membership(self) -> None:
+    def test_hashable_plain_frozenset(self) -> None:
         extras = ExtraSet({"gpu", "docs"})
-        assert extras == "gpu"
-        assert extras == "GPU"
-        assert extras != "cpu"
-        # ``!=`` is negated membership, not "any member differs".
-        assert (extras != "gpu") is False
-
-    def test_empty_behaves_like_empty_string(self) -> None:
-        assert ExtraSet([]) == ""
-        assert ExtraSet({"gpu"}) != ""
-
-    def test_eq_other_types_not_implemented(self) -> None:
-        assert ExtraSet({"a"}).__eq__(3) is NotImplemented
-        assert ExtraSet({"a"}).__ne__(3) is NotImplemented
-
-    def test_unhashable(self) -> None:
-        with pytest.raises(TypeError):
-            hash(ExtraSet({"gpu"}))
+        assert hash(extras) == hash(frozenset({"gpu", "docs"}))
+        assert extras == frozenset({"docs", "gpu"})
+        # Equality with a string is not membership; that is handled in marker
+        # evaluation only.
+        assert extras != cast("object", "gpu")
+        assert ExtraSet([]) != cast("object", "")
 
     def test_repr(self) -> None:
         assert repr(ExtraSet(["b", "A"])) == "ExtraSet(['a', 'b'])"
@@ -1001,9 +993,11 @@ class TestExtras:
     def test_marker_evaluation(
         self, expression: str, extras: set[str], expected: bool
     ) -> None:
-        # A plain set or frozenset passed as ``extra`` is wrapped into ExtraSet.
-        for wrap in (set, frozenset, ExtraSet):
-            environment = {"extra": wrap(extras)}
+        # Any non-string iterable passed as ``extra`` is wrapped into ExtraSet.
+        for wrap in (set, frozenset, ExtraSet, list, tuple):
+            environment = cast(
+                "dict[str, str | AbstractSet[str]]", {"extra": wrap(extras)}
+            )
             assert Marker(expression).evaluate(environment) is expected
 
     def test_string_environment_unchanged(self) -> None:

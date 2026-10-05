@@ -173,10 +173,9 @@ class Environment(TypedDict):
 class ExtraSet(frozenset[str]):
     """Represents the set of extras selected for a requirement.
 
-    Passing an ``ExtraSet`` instance (or any set of strings, which
-    :meth:`Marker.evaluate` wraps into one) as the ``extra`` environment value
-    evaluates ``extra`` markers against the whole set, following the
-    :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`:
+    Passing an ``ExtraSet`` instance (or any non-string iterable of extra
+    names, which :meth:`Marker.evaluate` wraps into one) as the ``extra``
+    environment value evaluates ``extra`` markers against the whole set:
     ``extra == "name"`` matches if ``name`` is one of the selected extras,
     while ``extra != "name"`` matches only if it is not.
 
@@ -202,22 +201,6 @@ class ExtraSet(frozenset[str]):
         if not isinstance(other, str):
             return False
         return super().__contains__(canonicalize_name(other))
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, str):
-            return canonicalize_name(other) in (self or {""})
-        if isinstance(other, AbstractSet):
-            return frozenset(self) == other
-        return NotImplemented
-
-    def __ne__(self, other: object) -> bool:
-        result = self.__eq__(other)
-        if result is NotImplemented:
-            return NotImplemented
-        return not result
-
-    # Equality with a string is membership, so a consistent hash is impossible.
-    __hash__ = None  # type: ignore[assignment]
 
     # Sorted output
     def __repr__(self) -> str:
@@ -307,12 +290,18 @@ def _eval_op(
     lhs: str | ExtraSet, op: Op, rhs: str | AbstractSet[str], *, key: str
 ) -> bool:
     op_str = op.serialize()
-    if isinstance(lhs, ExtraSet):
-        # An empty selection evaluates like the empty string, matching how
-        # metadata markers evaluate when no extra is requested.
-        members: AbstractSet[str] = lhs or frozenset({""})
-        results = (_eval_op(member, op, rhs, key=key) for member in members)
+    if key == "extra" and not (type(lhs) is str and type(rhs) is str):
+        # Set-wide evaluation over the selected extras. An empty selection
+        # evaluates like the empty string, matching how metadata markers
+        # evaluate when no extra is requested.
+        if isinstance(lhs, ExtraSet):
+            members: AbstractSet[str] = lhs or frozenset({""})
+            results = (_eval_op(member, op, rhs, key=key) for member in members)
+        else:
+            members = cast("ExtraSet", rhs) or frozenset({""})
+            results = (_eval_op(lhs, op, member, key=key) for member in members)
         return all(results) if op_str in _NEGATED_OPS else any(results)
+    lhs = cast("str", lhs)
     if key in MARKERS_REQUIRING_VERSION:
         try:
             spec = Specifier(f"{op_str}{rhs}")
@@ -628,16 +617,17 @@ class Marker:
             current_environment |= environment
             if "extra" in current_environment:
                 extra = current_environment["extra"]
-                if isinstance(extra, AbstractSet):
-                    # A set of selected extras evaluates set-wide.
-                    current_environment["extra"] = ExtraSet(extra)
-                else:
-                    # The API used to allow setting extra to None. We need to
-                    # handle this case for backwards compatibility. Also skip
-                    # running normalize name if extra is empty.
+                if isinstance(extra, str):
                     current_environment["extra"] = (
                         canonicalize_name(extra) if extra else ""
                     )
+                elif extra is None:
+                    # The API used to allow setting extra to None. We need to
+                    # handle this case for backwards compatibility.
+                    current_environment["extra"] = ""
+                else:
+                    # Any other iterable of selected extras evaluates set-wide.
+                    current_environment["extra"] = ExtraSet(extra)
 
         return _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)
