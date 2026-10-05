@@ -34,3 +34,21 @@ def test_licenseref_plus_suffix_is_invalid() -> None:
 def test_invalid_spdx_with_or_licenseref_forms(license_expression: str) -> None:
     with pytest.raises(InvalidLicenseExpression):
         canonicalize_license_expression(license_expression)
+
+
+@pytest.mark.parametrize(
+    ("license_expression", "expected"),
+    [
+        ("LicenseRef-mit OR licenseref-MIT", "LicenseRef-mit OR LicenseRef-mit"),
+        ("licenseref-MIT AND LicenseRef-mit", "LicenseRef-MIT AND LicenseRef-MIT"),
+        (
+            "(LICENSEREF-Foo OR licenseref-foo) AND MIT AND LicenseRef-FOO",
+            "(LicenseRef-Foo OR LicenseRef-Foo) AND MIT AND LicenseRef-Foo",
+        ),
+        ("licenseref-public-domain", "LicenseRef-public-domain"),
+    ],
+)
+def test_licenseref_case_variants_use_first_spelling(
+    license_expression: str, expected: str
+) -> None:
+    assert canonicalize_license_expression(license_expression) == expected
