@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 from packaging._parser import Node, Op, Value, Variable, process_python_str
 from packaging.markers import (
-    ExtraSet,
     InvalidMarker,
     Marker,
     UndefinedComparison,
@@ -927,39 +926,7 @@ def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
         m.__setstate__("this is not a valid marker")
 
 
-class TestExtraSet:
-    def test_rejects_single_string(self) -> None:
-        with pytest.raises(TypeError, match="iterable of strings"):
-            ExtraSet("gpu")
-
-    def test_set_protocol(self) -> None:
-        extras = ExtraSet(["PDF", "gpu"])
-        assert len(extras) == 2
-        assert set(extras) == {"pdf", "gpu"}
-        assert "gpu" in extras
-        assert "PDF" in extras
-        assert "cpu" not in extras
-        not_a_string: object = 3
-        assert not_a_string not in extras
-        assert extras == frozenset({"pdf", "gpu"})
-        assert extras == ExtraSet(["pdf", "GPU"])
-        assert extras != frozenset({"pdf"})
-
-    def test_contains_normalizes(self) -> None:
-        assert "PDF_Support" in ExtraSet(["pdf.support"])
-
-    def test_hashable_plain_frozenset(self) -> None:
-        extras = ExtraSet({"gpu", "docs"})
-        assert hash(extras) == hash(frozenset({"gpu", "docs"}))
-        assert extras == frozenset({"docs", "gpu"})
-        # Equality with a string is not membership; that is handled in marker
-        # evaluation only.
-        assert extras != cast("object", "gpu")
-        assert ExtraSet([]) != cast("object", "")
-
-    def test_repr(self) -> None:
-        assert repr(ExtraSet(["b", "A"])) == "ExtraSet(['a', 'b'])"
-
+class TestExtraSetEvaluation:
     @pytest.mark.parametrize(
         ("expression", "extras", "expected"),
         [
@@ -993,8 +960,8 @@ class TestExtraSet:
     def test_marker_evaluation(
         self, expression: str, extras: set[str], expected: bool
     ) -> None:
-        # Any non-string iterable passed as ``extra`` is wrapped into ExtraSet.
-        for wrap in (set, frozenset, ExtraSet, list, tuple):
+        # Any non-string iterable passed as ``extra`` is accepted.
+        for wrap in (set, frozenset, list, tuple):
             environment = cast(
                 "dict[str, str | AbstractSet[str]]", {"extra": wrap(extras)}
             )
@@ -1005,21 +972,10 @@ class TestExtraSet:
         assert Marker('extra == "gpu"').evaluate({"extra": "cpu"}) is False
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
-    def test_set_valued_keys_reject_lhs_even_with_extras_instance(
-        self, variable: str
-    ) -> None:
+    def test_set_valued_keys_still_reject_lhs(self, variable: str) -> None:
         # The spec only defines the membership form for set-valued lock-file
-        # markers, so the LHS comparison raises even with an ExtraSet value.
-        for value in (frozenset({"gpu"}), ExtraSet({"gpu"})):
-            with pytest.raises(UndefinedComparison):
-                Marker(f'{variable} == "gpu"').evaluate(
-                    {variable: value}, context="lock_file"
-                )
-
-    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
-    def test_extras_instance_as_set_valued_key_membership(self, variable: str) -> None:
-        # An ExtraSet instance is a normalized Set[str], so it works as the
-        # value for the membership form.
-        env = {variable: ExtraSet({"GPU"})}
-        assert Marker(f'"gpu" in {variable}').evaluate(env, context="lock_file")
-        assert not Marker(f'"cpu" in {variable}').evaluate(env, context="lock_file")
+        # markers, so the LHS comparison still raises for them.
+        with pytest.raises(UndefinedComparison):
+            Marker(f'{variable} == "gpu"').evaluate(
+                {variable: frozenset({"gpu"})}, context="lock_file"
+            )
