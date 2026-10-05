@@ -4,8 +4,11 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
+import packaging.utils
 from packaging.tags import Tag
 from packaging.utils import (
     InvalidName,
@@ -196,7 +199,9 @@ def test_parse_wheel_filename(
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
-        ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
+        ("foo-1.0-200-py3-none-any-junk-more.whl"),  # Too many dashes
+        ("foo-1.0-py3-none-any-x86_64_v3.whl"),  # Variant label
+        ("foo-1.0-200-py3-none-any-x86_64_v3.whl"),  # Variant label and build
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
         ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
@@ -253,3 +258,38 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
 def test_parse_sdist_invalid_filename(filename: str) -> None:
     with pytest.raises(InvalidSdistFilename):
         parse_sdist_filename(filename)
+
+
+@pytest.mark.parametrize(
+    ("filename", "message"),
+    [
+        (
+            "foo-1.0-abc-py3-none-any.whl",
+            "invalid build number or unsupported variant label",
+        ),
+        (
+            "foo-1.0-200-py3-none-any-x86_64_v3.whl",
+            "variant wheels are not supported",
+        ),
+    ],
+)
+def test_parse_wheel_filename_variant_message(filename: str, message: str) -> None:
+    with pytest.raises(InvalidWheelFilename, match=message):
+        parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    ("name", "module"),
+    [
+        ("InvalidTag", "packaging.tags"),
+        ("Tag", "packaging.tags"),
+        ("UnsortedTagsError", "packaging.tags"),
+        ("parse_tag", "packaging.tags"),
+        ("InvalidVersion", "packaging.version"),
+        ("Version", "packaging.version"),
+    ],
+)
+def test_backward_compatible_names(name: str, module: str) -> None:
+    assert getattr(packaging.utils, name) is getattr(
+        importlib.import_module(module), name
+    )
