@@ -72,9 +72,7 @@ _validate_regex = re.compile(
     r"[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9]", re.IGNORECASE | re.ASCII
 )
 _normalized_regex = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*", re.ASCII)
-# PEP 427: The build number must start with a digit. The rest of the part is
-# anchored to its end so that a newline cannot be silently dropped from the
-# build tag.
+# PEP 427: The build number must start with a digit.
 _build_tag_regex = re.compile(r"(\d+)(.*)\Z", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
