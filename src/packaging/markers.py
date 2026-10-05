@@ -240,26 +240,27 @@ _operators: dict[str, Operator] = {
 }
 
 
-# Operators whose set-wide evaluation must hold for every selected extra
-# rather than for at least one (De Morgan: a negated any-match).
-_NEGATED_OPS = frozenset({"!=", "not in"})
-
-
 def _eval_extra_set(
-    lhs: str | AbstractSet[str], op: Op, rhs: str | AbstractSet[str]
+    extras: AbstractSet[str], op: Op, literal: str, *, extras_on_lhs: bool
 ) -> bool:
     """Evaluate an ``extra`` comparison against the whole set of selected extras.
 
-    An empty selection evaluates like the empty string, matching how metadata
-    markers evaluate when no extra is requested.
+    Equality is membership. The other operators are folded over the members:
+    a negated operator must hold for every member, the rest for at least one.
     """
-    if isinstance(lhs, str):
-        members = cast("AbstractSet[str]", rhs) or frozenset({""})
-        results = (_eval_op(lhs, op, member, key="extra") for member in members)
+    op_str = op.serialize()
+    if op_str == "==":
+        return literal in extras
+    if op_str == "!=":
+        return literal not in extras
+    oper = _operators.get(op_str)
+    if oper is None:
+        raise UndefinedComparison(f"Undefined {op!r} on {extras!r} and {literal!r}.")
+    if extras_on_lhs:
+        results = (oper(member, literal) for member in extras)
     else:
-        members = lhs or frozenset({""})
-        results = (_eval_op(member, op, rhs, key="extra") for member in members)
-    return all(results) if op.serialize() in _NEGATED_OPS else any(results)
+        results = (oper(literal, member) for member in extras)
+    return all(results) if op_str == "not in" else any(results)
 
 
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
@@ -320,24 +321,25 @@ def _evaluate_markers(
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
-            if isinstance(lhs, Variable):
+            extras_on_lhs = isinstance(lhs, Variable)
+            if extras_on_lhs:
                 environment_key = lhs.value
                 lhs_value = _lookup_environment(environment, environment_key)
                 rhs_value = rhs.value
+                env_value, literal = lhs_value, rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
+                env_value, literal = rhs_value, lhs.value
 
-            if environment_key == "extra" and (
-                type(lhs_value) is frozenset or type(rhs_value) is frozenset
-            ):
+            if environment_key == "extra" and not isinstance(env_value, str):
                 # Set-wide evaluation is only defined for ``extra``.
-                groups[-1].append(_eval_extra_set(lhs_value, op, rhs_value))
+                groups[-1].append(
+                    _eval_extra_set(env_value, op, literal, extras_on_lhs=extras_on_lhs)
+                )
                 continue
             if not isinstance(lhs_value, str):
-                # The set-valued lock-file markers are restricted to the
-                # membership form with the variable on the right-hand side.
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
@@ -578,8 +580,7 @@ class Marker:
             if "extra" in current_environment:
                 extra = current_environment["extra"]
                 if not extra:
-                    # The API used to allow setting extra to None. We need to
-                    # handle this case for backwards compatibility. An empty
+                    # The API used to allow setting extra to None, and an empty
                     # selection of extras also evaluates like the empty string.
                     current_environment["extra"] = ""
                 elif isinstance(extra, str):

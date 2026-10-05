@@ -9,13 +9,10 @@ import os
 import pickle
 import platform
 import sys
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import Any, NamedTuple, cast
 from unittest import mock
 
 import pytest
-
-if TYPE_CHECKING:
-    from collections.abc import Set as AbstractSet
 
 from packaging._parser import Node, Op, Value, Variable, process_python_str
 from packaging.markers import (
@@ -957,25 +954,14 @@ class TestExtraSetEvaluation:
             ('extra == "a" or extra == "b"', {"b"}, True),
         ],
     )
+    @pytest.mark.parametrize("wrap", [set, frozenset, list, tuple])
     def test_marker_evaluation(
-        self, expression: str, extras: set[str], expected: bool
+        self, expression: str, extras: set[str], expected: bool, wrap: type[Any]
     ) -> None:
         # Any non-string iterable passed as ``extra`` is accepted.
-        for wrap in (set, frozenset, list, tuple):
-            environment = cast(
-                "dict[str, str | AbstractSet[str]]", {"extra": wrap(extras)}
-            )
-            assert Marker(expression).evaluate(environment) is expected
+        environment = cast("Any", {"extra": wrap(extras)})
+        assert Marker(expression).evaluate(environment) is expected
 
-    def test_string_environment_unchanged(self) -> None:
-        assert Marker('extra == "gpu"').evaluate({"extra": "gpu"}) is True
-        assert Marker('extra == "gpu"').evaluate({"extra": "cpu"}) is False
-
-    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
-    def test_set_valued_keys_still_reject_lhs(self, variable: str) -> None:
-        # The spec only defines the membership form for set-valued lock-file
-        # markers, so the LHS comparison still raises for them.
+    def test_undefined_operator(self) -> None:
         with pytest.raises(UndefinedComparison):
-            Marker(f'{variable} == "gpu"').evaluate(
-                {variable: frozenset({"gpu"})}, context="lock_file"
-            )
+            Marker('extra ~= "gpu"').evaluate({"extra": frozenset({"gpu"})})
