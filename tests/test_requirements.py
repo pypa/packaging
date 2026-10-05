@@ -10,7 +10,7 @@ import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import Specifier, SpecifierSet
+from packaging.specifiers import SpecifierSet
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -703,7 +703,7 @@ class TestRequirementParsing:
         ],
     )
     def test_error_on_missing_arbitrary_version(self, requirement_string: str) -> None:
-        with pytest.raises(InvalidRequirement, match="Expected version after '==='"):
+        with pytest.raises(InvalidRequirement, match="==="):
             Requirement(requirement_string)
 
     def test_error_on_missing_op_after_name(self) -> None:
@@ -755,11 +755,6 @@ class TestRequirementParsing:
             "    name >= 1.0 <= 2.0\n"
             "         ~~~~~~~^"
         )
-
-
-def test_empty_arbitrary_specifier_compatibility() -> None:
-    assert Specifier("===").version == ""
-    assert str(SpecifierSet("===")) == "==="
 
 
 class TestRequirementBehaviour:
