@@ -114,8 +114,6 @@ addopts = [
     "-p",
     "no:threadexception",  # no threads, avoids extra gc
     "-p",
-    "no:tmpdir",           # no usage of tempdir (mostly sans IO)
-    "-p",
     "no:legacypath",       # no legacy paths
 ]
 xfail_strict = true
