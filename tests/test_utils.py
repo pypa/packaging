@@ -196,6 +196,8 @@ def test_parse_wheel_filename(
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
+        ("foo-1.0-1\n-py3-none-any.whl"),  # Newline in build number
+        ("foo-1.0-1\nabc-py3-none-any.whl"),  # Newline in build number
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
