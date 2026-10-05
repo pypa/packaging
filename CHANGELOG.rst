@@ -4,6 +4,12 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Fixes:
+
+* Reject invalid wheel and sdist filename components, including path separators
+  and null bytes, and make ``parse_tag()`` reject invalid tag components.
+  (:pull:`1337`)
+
 Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
