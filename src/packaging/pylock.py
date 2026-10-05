@@ -1,3 +1,9 @@
+"""Read, validate, and select from pylock files.
+
+The public data model classes are frozen, keyword-only dataclasses whose
+attributes correspond to fields in the pylock file specification.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -324,6 +330,8 @@ class PylockSelectError(Exception):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
+    """A package installed from a version control system."""
+
     type: str
     url: str | None = None
     path: str | None = None
@@ -347,6 +355,8 @@ class PackageVcs:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
+    """A package installed from a local directory."""
+
     path: str
     editable: bool | None = None
     subdirectory: str | None = None
@@ -362,6 +372,8 @@ class PackageDirectory:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
+    """A package installed from an archive."""
+
     url: str | None = None
     path: str | None = None
     size: int | None = None
@@ -385,6 +397,8 @@ class PackageArchive:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
+    """A source distribution for a package."""
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -419,6 +433,8 @@ class PackageSdist:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
+    """A wheel distribution for a package."""
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -450,6 +466,12 @@ class PackageWheel:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
+    """A package entry in a pylock file.
+
+    A package has either distribution files or one direct source (VCS,
+    directory, or archive).
+    """
+
     name: NormalizedName
     version: Version | None = None
     marker: Marker | None = None
@@ -552,7 +574,7 @@ class Package:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
-    """A class representing a pylock file."""
+    """Represent a validated pylock file."""
 
     lock_version: Version
     environments: Sequence[Marker] | None = None
