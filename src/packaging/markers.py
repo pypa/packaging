@@ -245,22 +245,25 @@ _operators: dict[str, Operator] = {
 _NEGATED_OPS = frozenset({"!=", "not in"})
 
 
-def _eval_op(
-    lhs: str | AbstractSet[str], op: Op, rhs: str | AbstractSet[str], *, key: str
+def _eval_extra_set(
+    lhs: str | AbstractSet[str], op: Op, rhs: str | AbstractSet[str]
 ) -> bool:
+    """Evaluate an ``extra`` comparison against the whole set of selected extras.
+
+    An empty selection evaluates like the empty string, matching how metadata
+    markers evaluate when no extra is requested.
+    """
+    if isinstance(lhs, str):
+        members = cast("AbstractSet[str]", rhs) or frozenset({""})
+        results = (_eval_op(lhs, op, member, key="extra") for member in members)
+    else:
+        members = lhs or frozenset({""})
+        results = (_eval_op(member, op, rhs, key="extra") for member in members)
+    return all(results) if op.serialize() in _NEGATED_OPS else any(results)
+
+
+def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
     op_str = op.serialize()
-    if key == "extra" and not (type(lhs) is str and type(rhs) is str):
-        # Set-wide evaluation over the selected extras. An empty selection
-        # evaluates like the empty string, matching how metadata markers
-        # evaluate when no extra is requested.
-        if isinstance(lhs, str):
-            members = cast("AbstractSet[str]", rhs) or frozenset({""})
-            results = (_eval_op(lhs, op, member, key=key) for member in members)
-        else:
-            members = lhs or frozenset({""})
-            results = (_eval_op(member, op, rhs, key=key) for member in members)
-        return all(results) if op_str in _NEGATED_OPS else any(results)
-    lhs = cast("str", lhs)
     if key in MARKERS_REQUIRING_VERSION:
         try:
             spec = Specifier(f"{op_str}{rhs}")
@@ -277,8 +280,8 @@ def _eval_op(
 
 
 def _normalize(
-    lhs: str | AbstractSet[str], rhs: str | AbstractSet[str], key: str
-) -> tuple[str | AbstractSet[str], str | AbstractSet[str]]:
+    lhs: str, rhs: str | AbstractSet[str], key: str
+) -> tuple[str, str | AbstractSet[str]]:
     # PEP 685 - Comparison of extra names for optional distribution dependencies
     # https://peps.python.org/pep-0685/
     # > When comparing extra names, tools MUST normalize the names being
@@ -288,9 +291,6 @@ def _normalize(
         # time, selected extras in Marker.evaluate.
         return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
-        # A set-valued lhs cannot reach here; _evaluate_markers only allows it
-        # for the "extra" key.
-        lhs = cast("str", lhs)
         if isinstance(rhs, str):  # pragma: no cover
             return (canonicalize_name(lhs), canonicalize_name(rhs))
         else:
@@ -329,11 +329,15 @@ def _evaluate_markers(
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
 
-            # Set-wide evaluation is only defined for ``extra``; the set-valued
-            # lock-file markers are restricted to the membership form with the
-            # variable on the right-hand side, so a set value does not make them
-            # usable on the left.
-            if not isinstance(lhs_value, str) and environment_key != "extra":
+            if environment_key == "extra" and (
+                type(lhs_value) is frozenset or type(rhs_value) is frozenset
+            ):
+                # Set-wide evaluation is only defined for ``extra``.
+                groups[-1].append(_eval_extra_set(lhs_value, op, rhs_value))
+                continue
+            if not isinstance(lhs_value, str):
+                # The set-valued lock-file markers are restricted to the
+                # membership form with the variable on the right-hand side.
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
@@ -573,14 +577,13 @@ class Marker:
             current_environment |= environment
             if "extra" in current_environment:
                 extra = current_environment["extra"]
-                if isinstance(extra, str):
-                    current_environment["extra"] = (
-                        canonicalize_name(extra) if extra else ""
-                    )
-                elif extra is None:
+                if not extra:
                     # The API used to allow setting extra to None. We need to
-                    # handle this case for backwards compatibility.
+                    # handle this case for backwards compatibility. An empty
+                    # selection of extras also evaluates like the empty string.
                     current_environment["extra"] = ""
+                elif isinstance(extra, str):
+                    current_environment["extra"] = canonicalize_name(extra)
                 else:
                     # Any other iterable of selected extras evaluates set-wide.
                     # Names are normalized here, so _normalize can skip them.
