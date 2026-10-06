@@ -1,0 +1,48 @@
+form.validator {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+form.validator input {
+  flex: 1 1 12rem;
+  padding: 0.4rem 0.6rem;
+  font-family: var(--font-stack--monospace);
+  color: var(--color-foreground-primary);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.2rem;
+}
+
+form.validator button {
+  padding: 0.4rem 1rem;
+  color: var(--color-background-primary);
+  background: var(--color-brand-primary);
+  border: none;
+  border-radius: 0.2rem;
+  cursor: pointer;
+}
+
+form.validator output {
+  flex-basis: 100%;
+}
+
+form.validator output table {
+  margin: 0;
+}
+
+form.validator output td:last-child {
+  font-family: var(--font-stack--monospace);
+  white-space: pre-wrap;
+}
+
+form.validator output.validator-ok {
+  border-left: 3px solid #3a3;
+  padding-left: 0.5rem;
+}
+
+form.validator output.validator-error {
+  border-left: 3px solid #d33;
+  padding-left: 0.5rem;
+}

@@ -42,11 +42,6 @@ Use ``pip`` to install these utilities::
 
 The ``packaging`` library uses calendar-based versioning (``YY.N``).
 
-Online Validator
-----------------
-
-For quick testing without installation, try our `online validator <https://pypa.github.io/packaging/validator/>`_ to validate versions, requirements, and specifiers directly in your browser.
-
 Discussion
 ----------
 

@@ -179,4 +179,5 @@ flake8-unused-arguments.ignore-variadic-names = true
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]
 "docs/conf.py" = ["INP001", "S", "A001"]
+"docs/_static/validator.py" = ["INP001"]
 "noxfile.py" = ["T20", "S"]
