@@ -1,6 +1,6 @@
 // Runs the packaging source from this docs build in Pyodide, off the main
-// thread. Each request is {id, fn, args}; each reply is {id, result} or
-// {id, error}. The "load" request returns the version info.
+// thread. Each request is {id, args}; each reply is {id, result} or
+// {id, error}. The args go to ``run`` in validator.py.
 
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 
@@ -24,24 +24,14 @@ async function load() {
   pyodide.runPython("import sys; sys.path.insert(0, '/packaging-src')");
   const namespace = pyodide.toPy({});
   pyodide.runPython(source, { globals: namespace });
-  return namespace;
+  return namespace.get("run");
 }
 
-const helpers = load();
+const run = load();
 
-self.addEventListener("message", async ({ data: { id, fn, args } }) => {
+self.addEventListener("message", async ({ data: { id, args } }) => {
   try {
-    const namespace = await helpers;
-    if (fn === "load") {
-      self.postMessage({ id, result: namespace.get("INFO") });
-      return;
-    }
-    const func = namespace.get(fn);
-    try {
-      self.postMessage({ id, result: JSON.parse(func(...args)) });
-    } finally {
-      func.destroy();
-    }
+    self.postMessage({ id, result: JSON.parse((await run)(...args)) });
   } catch (err) {
     self.postMessage({ id, error: String(err.message ?? err) });
   }

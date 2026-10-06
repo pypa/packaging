@@ -37,15 +37,8 @@ form.validator output td:last-child {
   white-space: pre-wrap;
 }
 
-form.validator output[class] {
-  border-left: 3px solid;
-  padding-left: 0.5rem;
-}
-
-form.validator output.validator-ok {
-  border-left-color: #3a3;
-}
-
-form.validator output.validator-error {
-  border-left-color: #d33;
+/* Furo admonitions expect a title; add the top padding it would give. */
+form.validator output.admonition {
+  margin: 0;
+  padding-top: 0.5rem;
 }
