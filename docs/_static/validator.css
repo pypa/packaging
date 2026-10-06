@@ -1,44 +1,183 @@
+.validator-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  font-size: var(--font-size--small);
+  color: var(--color-foreground-secondary);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 1rem;
+}
+
+.validator-status::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--color-foreground-border);
+  border-radius: 50%;
+}
+
+.validator-status[data-state="loading"]::before {
+  background: var(--color-admonition-title--warning);
+  animation: validator-pulse 1s ease-in-out infinite alternate;
+}
+
+.validator-status[data-state="ready"]::before {
+  background: var(--color-admonition-title--tip);
+}
+
+.validator-status[data-state="error"]::before {
+  background: var(--color-admonition-title--danger);
+}
+
+@keyframes validator-pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+
 form.validator {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.6rem 0.5rem;
+  margin: 1rem 0 2rem;
+  padding: 1rem;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.5rem;
 }
 
 form.validator input {
   flex: 1 1 12rem;
-  padding: 0.4rem 0.6rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
   font-family: var(--font-stack--monospace);
+  font-size: var(--font-size--normal);
   color: var(--color-foreground-primary);
   background: var(--color-background-primary);
   border: 1px solid var(--color-background-border);
-  border-radius: 0.2rem;
+  border-radius: 0.3rem;
 }
 
-form.validator button {
-  padding: 0.4rem 1rem;
+form.validator input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-brand-primary) 25%, transparent);
+}
+
+form.validator button[type="submit"] {
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
   color: var(--color-background-primary);
   background: var(--color-brand-primary);
   border: none;
-  border-radius: 0.2rem;
+  border-radius: 0.3rem;
   cursor: pointer;
+}
+
+.validator-examples {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--font-size--small);
+  color: var(--color-foreground-muted);
+}
+
+.validator-examples button {
+  padding: 0.1rem 0.5rem;
+  font-family: var(--font-stack--monospace);
+  font-size: var(--font-size--small--2);
+  color: var(--color-foreground-secondary);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 1rem;
+  cursor: pointer;
+}
+
+.validator-examples button:hover {
+  color: var(--color-brand-content);
+  border-color: var(--color-brand-content);
+}
+
+.validator-examples button.invalid {
+  background: var(--color-admonition-title-background--danger);
+}
+
+.validator-examples button.invalid:hover {
+  border-color: var(--color-admonition-title--danger);
+}
+
+form.validator output:empty {
+  display: none;
 }
 
 form.validator output {
   flex-basis: 100%;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-left: 4px solid var(--result-color, var(--color-foreground-border));
+  border-radius: 0.3rem;
 }
 
-form.validator output table {
-  margin: 0;
+form.validator output.valid {
+  --result-color: var(--color-admonition-title--tip);
+  --result-bg: var(--color-admonition-title-background--tip);
 }
 
-form.validator output td:last-child {
+form.validator output.invalid {
+  --result-color: var(--color-admonition-title--danger);
+  --result-bg: var(--color-admonition-title-background--danger);
+}
+
+.validator-result-title {
+  padding: 0.4rem 1rem;
+  font-weight: 600;
+  background: var(--result-bg);
+}
+
+.validator-normalized {
+  padding: 0.75rem 1rem 0.25rem;
   font-family: var(--font-stack--monospace);
-  white-space: pre-wrap;
+  font-size: 1.15em;
+  overflow-wrap: anywhere;
 }
 
-/* Furo admonitions expect a title; add the top padding it would give. */
-form.validator output.admonition {
+form.validator output dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: baseline;
+  gap: 0.3rem 1.5rem;
   margin: 0;
-  padding-top: 0.5rem;
+  padding: 0.5rem 1rem 0.75rem;
+}
+
+form.validator output dt {
+  font-size: var(--font-size--small);
+  color: var(--color-foreground-muted);
+}
+
+form.validator output dd {
+  margin: 0;
+  font-family: var(--font-stack--monospace);
+  font-size: var(--font-size--small);
+  overflow-wrap: anywhere;
+}
+
+form.validator output dd:is([data-value="None"], [data-value="False"]) {
+  color: var(--color-foreground-muted);
+}
+
+form.validator output pre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-size: var(--font-size--small);
+  background: none;
+  border: none;
 }

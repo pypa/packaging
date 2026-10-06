@@ -4,6 +4,11 @@
 const status = document.getElementById("validator-status");
 let ready = null;
 
+function setStatus(state, text) {
+  status.dataset.state = state;
+  status.textContent = text;
+}
+
 // Starts a worker and resolves to a function that sends it one check.
 async function start() {
   const worker = new Worker(new URL("validator-worker.js", import.meta.url), {
@@ -35,32 +40,55 @@ async function start() {
       worker.postMessage({ id, args });
     });
   const { rows } = await call("info");
-  status.textContent = `Using ${rows.Info}.`;
+  setStatus("ready", `Using ${rows.Info}`);
   return call;
 }
 
 function getReady() {
   if (ready === null) {
-    status.textContent = "Loading Python (Pyodide)…";
+    setStatus("loading", "Loading Python (Pyodide)…");
     ready = start().catch((err) => {
       // Discard the failed worker so the next attempt starts fresh.
       ready = null;
-      status.textContent = `Error: ${err.message}`;
+      setStatus("error", `Error: ${err.message}`);
       throw err;
     });
   }
   return ready;
 }
 
-function render(output, result) {
-  const table = document.createElement("table");
-  for (const [key, value] of Object.entries(result.rows)) {
-    const row = table.insertRow();
-    row.insertCell().textContent = key;
-    row.insertCell().textContent = value;
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
   }
-  output.className = result.ok ? "admonition tip" : "admonition danger";
-  output.replaceChildren(table);
+  if (text !== undefined) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+function render(output, result) {
+  const { Normalized, Error: error, ...rows } = result.rows;
+  output.className = result.ok ? "valid" : "invalid";
+  const title = result.ok ? "✓ Valid" : "✗ Invalid";
+  const parts = [el("div", "validator-result-title", title)];
+  if (Normalized !== undefined) {
+    parts.push(el("div", "validator-normalized", Normalized));
+  }
+  if (Object.keys(rows).length) {
+    const dl = el("dl");
+    for (const [key, value] of Object.entries(rows)) {
+      const dd = el("dd", "", value);
+      dd.dataset.value = value;
+      dl.append(el("dt", "", key), dd);
+    }
+    parts.push(dl);
+  }
+  if (error !== undefined) {
+    parts.push(el("pre", "", error));
+  }
+  output.replaceChildren(...parts);
 }
 
 async function check(event) {
@@ -72,17 +100,46 @@ async function check(event) {
     output.replaceChildren();
     return;
   }
-  output.textContent = "Working…";
+  output.className = "";
+  output.replaceChildren(el("div", "validator-result-title", "Working…"));
   try {
     const call = await getReady();
     render(output, await call(form.dataset.check, ...args));
   } catch (err) {
-    output.className = "admonition danger";
-    output.textContent = err.message;
+    output.className = "invalid";
+    output.replaceChildren(
+      el("div", "validator-result-title", "✗ Error"),
+      el("pre", "", err.message),
+    );
   }
 }
 
+// Adds buttons that fill in and check example inputs.
+function addExamples(form) {
+  const examples = JSON.parse(form.dataset.examples ?? "[]");
+  const invalid = JSON.parse(form.dataset.invalidExamples ?? "[]");
+  if (!examples.length && !invalid.length) {
+    return;
+  }
+  const inputs = form.querySelectorAll("input");
+  const row = el("div", "validator-examples", "Try:");
+  for (const example of [...examples, ...invalid]) {
+    const values = [example].flat();
+    const label = values[1] ? `${values[1]} in ${values[0]}` : values[0];
+    const className = invalid.includes(example) ? "invalid" : "";
+    const button = el("button", className, label);
+    button.type = "button";
+    button.addEventListener("click", () => {
+      inputs.forEach((input, i) => (input.value = values[i] ?? ""));
+      form.requestSubmit();
+    });
+    row.append(button);
+  }
+  form.querySelector("output").before(row);
+}
+
 for (const form of document.querySelectorAll("form.validator")) {
+  addExamples(form);
   form.addEventListener("submit", check);
   // Start the download as soon as the reader shows interest.
   form.addEventListener("focusin", () => getReady().catch(() => {}), {

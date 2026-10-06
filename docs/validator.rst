@@ -8,7 +8,7 @@ form, your browser downloads Python from the Pyodide CDN (approximately 7 MB).
 
 .. raw:: html
 
-    <p id="validator-status">Python is not loaded.</p>
+    <p id="validator-status" class="validator-status">Python is not loaded.</p>
 
 Version
 -------
@@ -18,7 +18,9 @@ specification. See :class:`~packaging.version.Version`.
 
 .. raw:: html
 
-    <form class="validator" data-check="check_version">
+    <form class="validator" data-check="check_version"
+          data-examples='["1.0.POST1", "v2!1.0-rc.1+ubuntu.1", "1.0-dev3"]'
+          data-invalid-examples='["1.0+local+bad"]'>
       <input aria-label="Version" placeholder="1.0.post1" autocomplete="off">
       <button type="submit">Check</button>
       <output aria-live="polite"></output>
@@ -32,7 +34,8 @@ Parse a dependency specifier. See
 
 .. raw:: html
 
-    <form class="validator" data-check="check_requirement">
+    <form class="validator" data-check="check_requirement"
+          data-examples='["requests[security]>=2.8.1,==2.8.*; python_version < \"3.10\"", "pip @ https://github.com/pypa/pip/archive/main.zip", "Django~=4.2.0"]'>
       <input aria-label="Requirement" placeholder="name[extra]>=1.0; python_version>'3.10'" autocomplete="off">
       <button type="submit">Check</button>
       <output aria-live="polite"></output>
@@ -46,7 +49,8 @@ specifier set contains it. See :class:`~packaging.specifiers.SpecifierSet`.
 
 .. raw:: html
 
-    <form class="validator" data-check="check_specifier">
+    <form class="validator" data-check="check_specifier"
+          data-examples='[["~=1.4.5", "1.4.9"], [">=1.0,!=1.5.*", "1.5.2"], [">=1.0", "2.0rc1"]]'>
       <input aria-label="Specifier" placeholder=">=1.0,!=1.5.*" autocomplete="off">
       <input aria-label="Version (optional)" placeholder="Version (optional)" autocomplete="off">
       <button type="submit">Check</button>
