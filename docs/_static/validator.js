@@ -3,6 +3,7 @@
 
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 
+const status = document.getElementById("validator-status");
 let helpers = null;
 
 async function fetchOk(name) {
@@ -13,17 +14,18 @@ async function fetchOk(name) {
   return response;
 }
 
-async function load(status) {
+async function load() {
   status.textContent = "Loading Python (Pyodide)…";
-  const { loadPyodide } = await import(PYODIDE_URL + "pyodide.mjs");
   const [pyodide, zip, source] = await Promise.all([
-    loadPyodide({ indexURL: PYODIDE_URL }),
+    import(PYODIDE_URL + "pyodide.mjs").then((m) =>
+      m.loadPyodide({ indexURL: PYODIDE_URL }),
+    ),
     fetchOk("packaging.zip").then((r) => r.arrayBuffer()),
     fetchOk("validator.py").then((r) => r.text()),
   ]);
   pyodide.unpackArchive(zip, "zip", { extractDir: "/packaging-src" });
   pyodide.runPython("import sys; sys.path.insert(0, '/packaging-src')");
-  const namespace = pyodide.globals.get("dict")();
+  const namespace = pyodide.toPy({});
   pyodide.runPython(source, { globals: namespace });
   status.textContent = `Using ${namespace.get("INFO")}.`;
   return namespace;
@@ -31,8 +33,7 @@ async function load(status) {
 
 function getHelpers() {
   if (helpers === null) {
-    const status = document.getElementById("validator-status");
-    helpers = load(status).catch((err) => {
+    helpers = load().catch((err) => {
       helpers = null;
       status.textContent = `Error: ${err.message}`;
       throw err;
@@ -65,8 +66,11 @@ async function check(event) {
   try {
     const namespace = await getHelpers();
     const fn = namespace.get(form.dataset.check);
-    render(output, JSON.parse(fn(...args)));
-    fn.destroy();
+    try {
+      render(output, JSON.parse(fn(...args)));
+    } finally {
+      fn.destroy();
+    }
   } catch (err) {
     output.className = "validator-error";
     output.textContent = String(err.message ?? err);

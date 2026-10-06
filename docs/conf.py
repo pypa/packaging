@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import zipfile
 from typing import TYPE_CHECKING
 
@@ -152,14 +153,11 @@ def _add_validator_assets(app: Sphinx, pagename: str, *_: object) -> None:
 def _write_packaging_zip(app: Sphinx, exception: Exception | None) -> None:
     if exception is not None or app.builder.format != "html":
         return
-    src = os.path.join(_BASE_DIR, "src")
-    dest = os.path.join(app.outdir, "_static", "packaging.zip")
+    src = pathlib.Path(_BASE_DIR, "src")
+    dest = pathlib.Path(app.outdir, "_static", "packaging.zip")
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, _, files in os.walk(os.path.join(src, "packaging")):
-            for name in files:
-                if name.endswith(".py"):
-                    path = os.path.join(root, name)
-                    zf.write(path, os.path.relpath(path, src))
+        for path in (src / "packaging").rglob("*.py"):
+            zf.write(path, path.relative_to(src))
 
 
 def setup(app: Sphinx) -> None:

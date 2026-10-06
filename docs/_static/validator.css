@@ -37,12 +37,15 @@ form.validator output td:last-child {
   white-space: pre-wrap;
 }
 
-form.validator output.validator-ok {
-  border-left: 3px solid #3a3;
+form.validator output[class] {
+  border-left: 3px solid;
   padding-left: 0.5rem;
 }
 
+form.validator output.validator-ok {
+  border-left-color: #3a3;
+}
+
 form.validator output.validator-error {
-  border-left: 3px solid #d33;
-  padding-left: 0.5rem;
+  border-left-color: #d33;
 }
