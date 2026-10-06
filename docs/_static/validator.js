@@ -1,45 +1,68 @@
-// Runs the packaging source from this docs build in Pyodide. Python is
-// loaded on first use, so the page itself stays light.
-
-const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
+// Sends checks to validator-worker.js, which runs Python in Pyodide. The
+// worker starts on first use, so the page itself stays light.
 
 const status = document.getElementById("validator-status");
-let helpers = null;
+let worker = null;
+let ready = null;
+let nextId = 0;
+const pending = new Map();
 
-async function fetchOk(name) {
-  const response = await fetch(new URL(name, import.meta.url));
-  if (!response.ok) {
-    throw new Error(`Cannot fetch ${name}: ${response.status}`);
-  }
-  return response;
+function startWorker() {
+  worker = new Worker(new URL("validator-worker.js", import.meta.url), {
+    type: "module",
+  });
+  worker.addEventListener("message", ({ data: { id, result, error } }) => {
+    const { resolve, reject } = pending.get(id);
+    pending.delete(id);
+    if (error === undefined) {
+      resolve(result);
+    } else {
+      reject(new Error(error));
+    }
+  });
+  worker.addEventListener("error", (event) => {
+    event.preventDefault();
+    stopWorker(new Error(event.message || "Cannot start the worker"));
+  });
 }
 
-async function load() {
-  status.textContent = "Loading Python (Pyodide)…";
-  const [pyodide, zip, source] = await Promise.all([
-    import(PYODIDE_URL + "pyodide.mjs").then((m) =>
-      m.loadPyodide({ indexURL: PYODIDE_URL }),
-    ),
-    fetchOk("packaging.zip").then((r) => r.arrayBuffer()),
-    fetchOk("validator.py").then((r) => r.text()),
-  ]);
-  pyodide.unpackArchive(zip, "zip", { extractDir: "/packaging-src" });
-  pyodide.runPython("import sys; sys.path.insert(0, '/packaging-src')");
-  const namespace = pyodide.toPy({});
-  pyodide.runPython(source, { globals: namespace });
-  status.textContent = `Using ${namespace.get("INFO")}.`;
-  return namespace;
+function stopWorker(err) {
+  worker.terminate();
+  worker = null;
+  ready = null;
+  for (const { reject } of pending.values()) {
+    reject(err);
+  }
+  pending.clear();
 }
 
-function getHelpers() {
-  if (helpers === null) {
-    helpers = load().catch((err) => {
-      helpers = null;
-      status.textContent = `Error: ${err.message}`;
-      throw err;
-    });
+function call(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, fn, args });
+  });
+}
+
+function getReady() {
+  if (ready === null) {
+    status.textContent = "Loading Python (Pyodide)…";
+    startWorker();
+    ready = call("load").then(
+      (info) => {
+        status.textContent = `Using ${info}.`;
+      },
+      (err) => {
+        // Discard the failed worker so the next attempt starts fresh.
+        if (worker !== null) {
+          stopWorker(err);
+        }
+        status.textContent = `Error: ${err.message}`;
+        throw err;
+      },
+    );
   }
-  return helpers;
+  return ready;
 }
 
 function render(output, result) {
@@ -64,23 +87,18 @@ async function check(event) {
   }
   output.textContent = "Working…";
   try {
-    const namespace = await getHelpers();
-    const fn = namespace.get(form.dataset.check);
-    try {
-      render(output, JSON.parse(fn(...args)));
-    } finally {
-      fn.destroy();
-    }
+    await getReady();
+    render(output, await call(form.dataset.check, ...args));
   } catch (err) {
     output.className = "validator-error";
-    output.textContent = String(err.message ?? err);
+    output.textContent = err.message;
   }
 }
 
 for (const form of document.querySelectorAll("form.validator")) {
   form.addEventListener("submit", check);
   // Start the download as soon as the reader shows interest.
-  form.addEventListener("focusin", () => getHelpers().catch(() => {}), {
+  form.addEventListener("focusin", () => getReady().catch(() => {}), {
     once: true,
   });
 }
