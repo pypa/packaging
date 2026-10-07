@@ -906,6 +906,23 @@ class TestSetRelations:
         assert not whole.is_subset(gapped)
         assert not gapped.is_disjoint(whole)
 
+    def test_disjoint_advances_the_side_that_ends_first(self) -> None:
+        # The overlap is between the second interval of each side, so both
+        # pointers have to step past a non-overlapping pair to reach it.
+        a = vr(">=1.0,<2.0") | vr(">=5.0,<6.0")
+        b = vr(">=3.0,<4.0") | vr(">=5.5,<5.7")
+        assert not a.is_disjoint(b)
+        assert a.is_disjoint(vr(">=3.0,<4.0") | vr(">=7.0,<8.0"))
+
+    def test_disjoint_pin_inside_a_gap(self) -> None:
+        assert vr("!=1.5").is_disjoint(vr("==1.5"))
+        assert not vr("!=1.5").is_disjoint(vr("==1.6"))
+
+        # A local version leaves a gap whose bounds carry that exact version, so
+        # here only the inclusive flags keep the pin out of it.
+        assert vr("!=1.0+local").is_disjoint(vr("==1.0+local"))
+        assert not vr("!=1.0+local").is_disjoint(vr("==1.0+other"))
+
     def test_disjoint_nonempty_excludes_subset(self) -> None:
         a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
         assert a.is_disjoint(b)

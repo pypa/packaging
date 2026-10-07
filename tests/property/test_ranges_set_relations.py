@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from hypothesis import given
+from hypothesis import strategies as st
 
 from packaging.ranges import VersionRange
 
@@ -33,6 +34,14 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.property
 
 
+def _union_all(spec_sets: list[SpecifierSet]) -> VersionRange:
+    """The range accepting any version any of *spec_sets* accepts."""
+    result = spec_sets[0].to_range()
+    for spec_set in spec_sets[1:]:
+        result = result | spec_set.to_range()
+    return result
+
+
 @given(a=specifier_sets(), b=specifier_sets())
 @SETTINGS
 def test_disjoint_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> None:
@@ -45,6 +54,19 @@ def test_disjoint_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> Non
 def test_subset_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> None:
     ra, rb = a.to_range(), b.to_range()
     assert ra.is_subset(rb) == (ra & ~rb).is_empty
+
+
+@given(
+    a=st.lists(rich_specifier_sets(), min_size=2, max_size=4),
+    b=st.lists(rich_specifier_sets(), min_size=2, max_size=4),
+)
+@SETTINGS
+def test_disjoint_matches_algebra_on_stacked_unions(
+    a: list[SpecifierSet], b: list[SpecifierSet]
+) -> None:
+    """A drawn set is usually one interval, so union several to make the walks step."""
+    ra, rb = _union_all(a), _union_all(b)
+    assert ra.is_disjoint(rb) == (ra & rb).is_empty
 
 
 @given(

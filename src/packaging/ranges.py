@@ -218,6 +218,25 @@ def _difference_ranges(
             yield lower, upper
 
 
+def _ranges_are_disjoint(
+    left: tuple[Interval, ...], right: tuple[Interval, ...]
+) -> bool:
+    """Test disjointness. Both inputs must be sorted, disjoint and non-touching."""
+    left_index = right_index = 0
+    while left_index < len(left) and right_index < len(right):
+        left_lower, left_upper = left[left_index]
+        right_lower, right_upper = right[right_index]
+
+        if range_is_empty(left_lower, right_upper):
+            right_index += 1
+        elif range_is_empty(right_lower, left_upper):
+            left_index += 1
+        else:
+            return False
+
+    return True
+
+
 def _canonical_floor(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
     """Collapse the PEP 440 floor in a sorted interval list.
 
@@ -1549,9 +1568,9 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
-        # Plain ranges: disjointness is an empty bounds intersection.
+        # Plain ranges: stop as soon as the bounds overlap.
         if self._is_plain() and other._is_plain():
-            return not intersect_ranges(self._bounds, other._bounds)
+            return _ranges_are_disjoint(self._bounds, other._bounds)
         return self.intersection(other).is_empty
 
     def _same_releases(self, other: VersionRange) -> bool:
