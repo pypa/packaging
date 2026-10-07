@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os.path
 import re
+import stat
 import sys
+import time
+from datetime import datetime, timezone
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path, PurePath
@@ -214,8 +217,25 @@ class TestWheelReader:
                 "Test_foo_bar-1.0.0.dist-info/RECORD,,\n",
             )
 
-        with WheelReader(wheel_path):
-            pass
+        with WheelReader(wheel_path) as wf:
+            assert wf.name == "test-foo-bar"
+            assert wf.dist_info_dir == "Test_foo_bar-1.0.0.dist-info"
+
+    def test_hyphenated_name_uses_expected_dist_info_dir(self, tmp_path: Path) -> None:
+        # The .dist-info directory uses the underscore form of the name, so it must
+        # be found directly instead of via the fallback scan (which would pick the
+        # decoy written last).
+        wheel_path = tmp_path / "foo_bar-1.0-py3-none-any.whl"
+        with ZipFile(wheel_path, "w") as zf:
+            zf.writestr(
+                "foo_bar-1.0.dist-info/RECORD", "foo_bar-1.0.dist-info/RECORD,,\n"
+            )
+            zf.writestr("zzz-9.dist-info/RECORD", "zzz-9.dist-info/RECORD,,\n")
+
+        with WheelReader(wheel_path) as wf:
+            assert wf.name == "foo-bar"
+            assert wf.dist_info_dir == "foo_bar-1.0.dist-info"
+            assert wf.data_dir == "foo_bar-1.0.data"
 
     def test_read_file(self, valid_wheel: Path) -> None:
         with WheelReader(valid_wheel) as wf:
@@ -631,17 +651,23 @@ class TestWheelWriter:
         with pytest.raises(WheelError, match="path_or_fd is not a path"):
             WheelWriter(BytesIO(), generator="generator 1.0")
 
-    def test_exception_skips_record(self, wheel_path: Path) -> None:
+    def test_exception_skips_record(self) -> None:
+        # A file object is left as is (minus RECORD), as it cannot be removed.
+        buffer = BytesIO()
+        metadata = WheelMetadata.from_filename("test-1.0-py2.py3-none-any.whl")
+
         def build_and_fail() -> None:
-            with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            with WheelWriter(
+                buffer, generator="generator 1.0", metadata=metadata
+            ) as wf:
                 wf.write_file("hello.py", "x = 1\n")
                 raise RuntimeError("boom")
 
         with pytest.raises(RuntimeError, match="boom"):
             build_and_fail()
 
-        with ZipFile(wheel_path, "r") as zf:
-            assert "test-1.0.dist-info/RECORD" not in zf.namelist()
+        with ZipFile(buffer, "r") as zf:
+            assert zf.namelist() == ["hello.py"]
 
     def test_manual_wheel_file_kept(self, wheel_path: Path) -> None:
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
@@ -685,3 +711,119 @@ class TestWheelWriter:
 
         assert "stale" not in record
         assert "hello.py" in record
+
+    def test_hyphenated_name_dist_info_dir(self, tmp_path: Path) -> None:
+        wheel_path = tmp_path / "foo_bar-1.0-py3-none-any.whl"
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_data_file("scripts/tool", b"")
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert zf.namelist() == [
+                "foo_bar-1.0.data/scripts/tool",
+                "foo_bar-1.0.dist-info/WHEEL",
+                "foo_bar-1.0.dist-info/RECORD",
+            ]
+
+    def test_bytes_member_is_regular_file(self, wheel_path: Path) -> None:
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("test", b"test content")
+
+        with ZipFile(wheel_path, "r") as zf:
+            for info in zf.infolist():
+                assert info.external_attr == (0o664 | stat.S_IFREG) << 16
+
+    def test_stream_size_counts_bytes_read(self, wheel_path: Path) -> None:
+        buffer = BytesIO(b"0123456789")
+        buffer.read(5)
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("test", buffer)
+
+        with ZipFile(wheel_path, "r") as zf:
+            record = zf.read("test-1.0.dist-info/RECORD").decode("utf-8")
+
+        assert record.splitlines()[0].endswith(",5")
+
+    def test_write_files_from_directory_sorted(
+        self, wheel_path: Path, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        build_dir = tmp_path_factory.mktemp("build")
+        for name in ("z.py", "b/x.py", "a.py", "b/a.py", "c/y.py"):
+            path = build_dir / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(name)
+
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_files_from_directory(build_dir)
+
+        with ZipFile(wheel_path, "r") as zf:
+            names = zf.namelist()[:5]
+
+        assert names == ["a.py", "z.py", "b/a.py", "b/x.py", "c/y.py"]
+
+    def test_exception_removes_partial_wheel(self, wheel_path: Path) -> None:
+        def build_and_fail() -> None:
+            with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+                wf.write_file("test", b"test content")
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            build_and_fail()
+
+        assert not wheel_path.exists()
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="time.tzset is POSIX only")
+    def test_naive_timestamp_is_utc(
+        self, wheel_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TZ", "America/New_York")
+        time.tzset()
+        try:
+            with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+                wf.write_file(
+                    "test",
+                    b"x",
+                    timestamp=datetime(2020, 1, 2, 12, 30),  # noqa: DTZ001
+                )
+        finally:
+            monkeypatch.undo()
+            time.tzset()
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert zf.getinfo("test").date_time == (2020, 1, 2, 12, 30, 0)
+
+    @pytest.mark.parametrize(
+        ("timestamp", "expected"),
+        [
+            pytest.param(
+                datetime(1970, 1, 1, tzinfo=timezone.utc),
+                (1980, 1, 1, 0, 0, 0),
+                id="too-early",
+            ),
+            pytest.param(
+                datetime(2200, 1, 1, tzinfo=timezone.utc),
+                (2107, 12, 31, 23, 59, 58),
+                id="too-late",
+            ),
+        ],
+    )
+    def test_timestamp_clamped_to_zip_range(
+        self,
+        wheel_path: Path,
+        timestamp: datetime,
+        expected: tuple[int, int, int, int, int, int],
+    ) -> None:
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("test", b"x", timestamp=timestamp)
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert zf.getinfo("test").date_time == expected
+
+    def test_backslash_arcname_normalized(self, wheel_path: Path) -> None:
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("pkg\\mod.py", b"x")
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert zf.namelist()[0] == "pkg/mod.py"
+            record = zf.read("test-1.0.dist-info/RECORD").decode("utf-8")
+
+        assert record.startswith("pkg/mod.py,")

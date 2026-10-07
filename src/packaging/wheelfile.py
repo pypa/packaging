@@ -15,10 +15,9 @@ import csv
 import hashlib
 import os.path
 import stat
-import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import OrderedDict
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from datetime import datetime, timezone
 from email.message import Message
 from email.policy import EmailPolicy
@@ -32,6 +31,7 @@ from .utils import (
     BuildTag,
     InvalidWheelFilename,
     NormalizedName,
+    canonicalize_name,
     parse_wheel_filename,
 )
 from .version import Version
@@ -49,7 +49,11 @@ if TYPE_CHECKING:  # pragma: no cover
         from typing_extensions import Self
 
 _exclude_filenames = ("RECORD", "RECORD.jws", "RECORD.p7s")
-_default_timestamp = datetime(1980, 1, 1, tzinfo=timezone.utc)
+# The ZIP format can only represent timestamps from 1980-01-01 to 2107-12-31, with
+# a two second resolution.
+_min_timestamp = datetime(1980, 1, 1, tzinfo=timezone.utc)
+_max_timestamp = datetime(2107, 12, 31, 23, 59, 58, tzinfo=timezone.utc)
+_default_timestamp = _min_timestamp
 _email_policy = EmailPolicy(max_line_length=0, mangle_from_=False, utf8=True)
 
 
@@ -91,6 +95,20 @@ def _encode_hash_value(hash_value: bytes) -> str:
 def _decode_hash_value(encoded_hash: str) -> bytes:
     pad = b"=" * (4 - (len(encoded_hash) & 3))
     return urlsafe_b64decode(encoded_hash.encode("ascii") + pad)
+
+
+def _dist_info_prefix(name: NormalizedName, version: Version) -> str:
+    # The .dist-info and .data directories use the escaped form of the name.
+    return f"{name.replace('-', '_')}-{version}"
+
+
+def _zip_date_time(timestamp: datetime) -> tuple[int, int, int, int, int, int]:
+    # A naive datetime is taken as UTC; the value is clamped to the ZIP range.
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+    timestamp = min(max(timestamp, _min_timestamp), _max_timestamp)
+    return timestamp.astimezone(timezone.utc).timetuple()[:6]
 
 
 class WheelError(Exception):
@@ -177,14 +195,15 @@ class WheelReader:
         # match the expectation there.
         dist_info_dir: str | None = None
         if hasattr(self, "name"):
-            dist_info_dir = f"{self.name}-{self.version}.dist-info"
+            prefix = _dist_info_prefix(self.name, self.version)
+            dist_info_dir = f"{prefix}.dist-info"
             try:
                 self._zip.getinfo(f"{dist_info_dir}/RECORD")
             except KeyError:
                 dist_info_dir = None
             else:
                 self._dist_info_dir = dist_info_dir
-                self._data_dir = f"{self.name}-{self.version}.data"
+                self._data_dir = f"{prefix}.data"
 
         # If no .dist-info directory could not be found yet, resort to scanning the
         # archive's file names for any .dist-info directory containing a RECORD file.
@@ -205,7 +224,7 @@ class WheelReader:
                 namever = dist_info_dir.rsplit(".", 1)[0]
                 name, version = namever.rpartition("-")[::2]
                 if name and version:
-                    self.name = NormalizedName(name)
+                    self.name = canonicalize_name(name)
                     self.version = Version(version)
                     self._dist_info_dir = dist_info_dir
                     self._data_dir = dist_info_dir.replace(".dist-info", ".data")
@@ -428,8 +447,9 @@ class WheelWriter:
                 f"Weak hash algorithm ({hash_algorithm}) is not permitted by PEP 427"
             )
 
-        self._dist_info_dir = f"{self.metadata.name}-{self.metadata.version}.dist-info"
-        self._data_dir = f"{self.metadata.name}-{self.metadata.version}.data"
+        prefix = _dist_info_prefix(self.metadata.name, self.metadata.version)
+        self._dist_info_dir = f"{prefix}.dist-info"
+        self._data_dir = f"{prefix}.data"
         self._record_path = f"{self._dist_info_dir}/RECORD"
         self._record_entries: dict[str, WheelRecordEntry] = OrderedDict()
 
@@ -451,6 +471,10 @@ class WheelWriter:
                 self._write_record()
         finally:
             self._zip.close()
+            if exc_type and isinstance(self.path_or_fd, (str, PathLike)):
+                # Do not leave a truncated wheel behind.
+                with suppress(OSError):
+                    os.remove(self.path_or_fd)
 
     def _write_record(self) -> None:
         data = StringIO()
@@ -503,11 +527,11 @@ class WheelWriter:
         *,
         timestamp: datetime = _default_timestamp,
     ) -> None:
-        arcname = PurePath(name).as_posix()
-        gmtime = time.gmtime(timestamp.timestamp())
-        zinfo = ZipInfo(arcname, gmtime[:6])
+        # Backslashes are never valid separators in a wheel, even on POSIX.
+        arcname = PurePath(name).as_posix().replace("\\", "/")
+        zinfo = ZipInfo(arcname, _zip_date_time(timestamp))
         zinfo.compress_type = self._compress_type
-        zinfo.external_attr = 0o664 << 16
+        zinfo.external_attr = (0o664 | stat.S_IFREG) << 16
         with ExitStack() as exit_stack:
             fp = exit_stack.enter_context(self._zip.open(zinfo, "w"))
             if isinstance(contents, str):
@@ -530,13 +554,14 @@ class WheelWriter:
                     ) << 16
 
                 hash_ = hashlib.new(self.hash_algorithm)
+                file_size = 0
                 while True:
                     buffer = contents.read(65536)
                     if not buffer:
-                        file_size = contents.tell()
                         break
 
                     hash_.update(buffer)
+                    file_size += len(buffer)
                     fp.write(buffer)
 
         self._record_entries[arcname] = WheelRecordEntry(
@@ -550,8 +575,10 @@ class WheelWriter:
         elif not basedir.is_dir():
             raise WheelError(f"{basedir} is not a directory")
 
-        for root, _dirs, files in os.walk(basedir):
-            for fname in files:
+        for root, dirs, files in os.walk(basedir):
+            # Sort in place so os.walk descends in a deterministic order.
+            dirs.sort()
+            for fname in sorted(files):
                 path = Path(root) / fname
                 relative = path.relative_to(basedir)
                 if relative.as_posix() != self._record_path:
