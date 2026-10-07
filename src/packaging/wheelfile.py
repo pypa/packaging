@@ -15,6 +15,7 @@ __all__ = [
 import csv
 import hashlib
 import os.path
+import pathlib
 import stat
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import OrderedDict
@@ -65,6 +66,8 @@ _email_policy = EmailPolicy(max_line_length=0, mangle_from_=False, utf8=True)
 
 
 class WheelMetadata(NamedTuple):
+    """The parts of a wheel filename that identify the wheel."""
+
     name: NormalizedName
     version: Version
     build_tag: BuildTag
@@ -72,18 +75,28 @@ class WheelMetadata(NamedTuple):
 
     @classmethod
     def from_filename(cls, fname: str) -> WheelMetadata:
+        """
+        Parse a wheel filename.
+
+        :raises packaging.utils.InvalidWheelFilename: if the filename is invalid
+        """
         name, version, build, tags = parse_wheel_filename(fname)
         return cls(name, version, build, tags)
 
 
 class WheelRecordEntry(NamedTuple):
+    """One row of the ``RECORD`` file."""
+
     hash_algorithm: str
     hash_value: bytes
     filesize: int
 
 
 class WheelContentElement(NamedTuple):
-    path: PurePath
+    """A file yielded by :meth:`WheelReader.iterate_contents`."""
+
+    # Qualified so that Sphinx can resolve the generated signature.
+    path: pathlib.PurePath
     hash_value: bytes
     size: int
     stream: WheelArchiveFile
@@ -131,10 +144,17 @@ def _zip_date_time(timestamp: datetime) -> tuple[int, int, int, int, int, int]:
 
 
 class WheelError(Exception):
-    pass
+    """Raised when a wheel is malformed or fails validation."""
 
 
 class WheelArchiveFile:
+    """
+    A read-only binary stream for one member of a wheel.
+
+    The contents are checked against the ``RECORD`` file as they are read. A size
+    or hash mismatch raises :exc:`WheelError` once the stream has been read in full.
+    """
+
     def __init__(
         self, fp: IO[bytes], arcname: str, record_entry: WheelRecordEntry | None
     ) -> None:
@@ -188,6 +208,16 @@ class WheelArchiveFile:
 
 
 class WheelReader:
+    """
+    Read a wheel file, verifying its contents against ``RECORD``.
+
+    This is a context manager; the archive is opened on entry and closed on exit.
+
+    :param path_or_fd: path to the wheel, or a binary file object; with a path, the
+        name and version are taken from the filename
+    :raises WheelError: if the filename is not a valid wheel filename
+    """
+
     name: NormalizedName
     version: Version
     _zip: ZipFile
@@ -312,14 +342,17 @@ class WheelReader:
 
     @property
     def dist_info_dir(self) -> str:
+        """The name of the ``.dist-info`` directory."""
         return self._dist_info_dir
 
     @property
     def data_dir(self) -> str:
+        """The name of the ``.data`` directory."""
         return self._data_dir
 
     @property
     def dist_info_filenames(self) -> list[PurePath]:
+        """The paths of all files in the ``.dist-info`` directory."""
         return [
             PurePath(fname)
             for fname in self._zip.namelist()
@@ -328,6 +361,7 @@ class WheelReader:
 
     @property
     def filenames(self) -> list[PurePath]:
+        """The paths of all files in the archive."""
         return [PurePath(fname) for fname in self._zip.namelist()]
 
     def iterate_contents(self) -> Iterator[WheelContentElement]:
@@ -344,7 +378,12 @@ class WheelReader:
                 )
 
     def validate_record(self) -> None:
-        """Verify the integrity of the contained files."""
+        """
+        Read every file in the archive and check it against ``RECORD``.
+
+        :raises WheelError: if a file is missing from ``RECORD``, or its size or
+            hash does not match
+        """
         for zinfo in self._zip.infolist():
             # Ignore signature files
             basename = os.path.basename(zinfo.filename)
@@ -357,6 +396,13 @@ class WheelReader:
                         break
 
     def extractall(self, base_path: str | PathLike[str]) -> None:
+        """
+        Extract all files into an existing directory, verifying them against
+        ``RECORD``.
+
+        :raises WheelError: if the directory does not exist, a file fails
+            validation, or a member path escapes the directory
+        """
         basedir = Path(base_path)
         if not basedir.exists():
             raise WheelError(f"{basedir} does not exist")
@@ -381,6 +427,12 @@ class WheelReader:
                     outfile.write(data)
 
     def open(self, archive_name: str) -> WheelArchiveFile:
+        """
+        Open a file in the archive for reading.
+
+        :param archive_name: the full path of the file inside the archive
+        :raises WheelError: if the file is not listed in ``RECORD``
+        """
         basename = os.path.basename(archive_name)
         if basename in _exclude_filenames:
             record_entry = None
@@ -395,14 +447,17 @@ class WheelReader:
         )
 
     def read_file(self, archive_name: str) -> bytes:
+        """Read a file in the archive, verifying it against ``RECORD``."""
         with self.open(archive_name) as fp:
             return fp.read()
 
     def read_data_file(self, filename: str) -> bytes:
+        """Read a file relative to the ``.data`` directory."""
         archive_path = self._data_dir + "/" + filename.strip("/")
         return self.read_file(archive_path)
 
     def read_dist_info_file(self, filename: str) -> bytes:
+        """Read a file relative to the ``.dist-info`` directory."""
         archive_path = self._dist_info_dir + "/" + filename.strip("/")
         return self.read_file(archive_path)
 
@@ -419,6 +474,14 @@ def write_wheelfile(
     build_tag: BuildTag = (),
     root_is_purelib: bool,
 ) -> None:
+    """
+    Write the contents of a ``WHEEL`` file to a binary stream.
+
+    :param generator: the name and version of the tool creating the wheel
+    :param tags: the compatibility tags of the wheel
+    :param build_tag: the build tag of the wheel, if any
+    :param root_is_purelib: whether the root of the archive is ``purelib``
+    """
     msg = Message(policy=_email_policy)
     msg["Wheel-Version"] = "1.0"  # of the spec
     msg["Generator"] = generator
@@ -447,11 +510,27 @@ class WheelWriter:
         mode: int = 0o664,
     ) -> None:
         """
+        Write a wheel file, generating ``WHEEL`` and ``RECORD``.
+
+        This is a context manager; the archive is created on entry. On a clean
+        exit, ``WHEEL`` is written unless it was written explicitly, and ``RECORD``
+        is written last. If the body raises, a wheel given by path is removed.
+
+        :param path_or_fd: path of the wheel to create, or a binary file object
+        :param generator: the name and version of the tool creating the wheel
+        :param metadata: the wheel name, version, build tag and tags; if omitted,
+            they are parsed from the filename
+        :param root_is_purelib: whether the root of the archive is ``purelib``
+        :param compress: whether to deflate the archive members
+        :param hash_algorithm: the :mod:`hashlib` algorithm used in ``RECORD``
         :param timestamp: the default timestamp for every archive member, including
             the generated ``WHEEL`` and ``RECORD`` files; if omitted, the value of
             the ``SOURCE_DATE_EPOCH`` environment variable, or else 1980-01-01
-        :param mode: the default permission bits for members written from bytes,
-            strings or file objects, including ``WHEEL`` and ``RECORD``
+        :param mode: the default permission bits for members written from bytes
+            or file objects, including ``WHEEL`` and ``RECORD``
+        :raises WheelError: if a file object is given without ``metadata``, or
+            ``SOURCE_DATE_EPOCH`` is not an integer
+        :raises ValueError: if the hash algorithm is unavailable or weak
         """
         self.path_or_fd = path_or_fd
         self.generator = generator
@@ -543,6 +622,9 @@ class WheelWriter:
         mode: int | None = None,
     ) -> None:
         """
+        Write a file to the archive and record its hash.
+
+        :param name: the path of the file inside the archive
         :param contents: the file contents, a path to a file to copy, or a binary
             file object; a ``str`` is rejected, as it is too easy to mistake for a path
         :param timestamp: the timestamp of the member; the writer default if omitted
@@ -599,6 +681,14 @@ class WheelWriter:
         )
 
     def write_files_from_directory(self, directory: str | PathLike[str]) -> None:
+        """
+        Write every file under a directory, in sorted order, keeping relative paths.
+
+        An existing ``RECORD`` file is skipped, so an unpacked wheel can be packed
+        again. An existing ``WHEEL`` file is kept as is.
+
+        :raises WheelError: if the directory does not exist
+        """
         basedir = Path(directory)
         if not basedir.exists():
             raise WheelError(f"{basedir} does not exist")
@@ -623,8 +713,11 @@ class WheelWriter:
         mode: int | None = None,
     ) -> None:
         """
+        Write a file relative to the ``.data`` directory.
+
         :param filename: path inside the ``.data`` directory, starting with one of
             ``purelib``, ``platlib``, ``headers``, ``scripts`` or ``data``
+        :raises WheelError: if the first path component is not one of those
         """
         filename = filename.strip("/")
         subdir = filename.partition("/")[0]
@@ -645,6 +738,7 @@ class WheelWriter:
         timestamp: datetime | None = None,
         mode: int | None = None,
     ) -> None:
+        """Write a file relative to the ``.dist-info`` directory."""
         archive_path = self._dist_info_dir + "/" + filename.strip("/")
         self.write_file(archive_path, contents, timestamp=timestamp, mode=mode)
 
