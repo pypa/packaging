@@ -2,15 +2,13 @@ name: Linting
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/lint.yml"
-      - ".pre-commit-config.yaml"
-      - "**.py"
+  workflow_dispatch:
   push:
-    paths:
-      - ".github/workflows/lint.yml"
-      - ".pre-commit-config.yaml"
-      - "**.py"
+    branches-ignore:
+      - dependabot/**
+      - pypa/**
+      - stack/**
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
