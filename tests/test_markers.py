@@ -674,6 +674,41 @@ class TestMarker:
         marker = Marker(marker_string)
         assert marker.evaluate(environment) is expected
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'python_version >= "3.10" and sys_platform == "linux"',
+            '(os_name == "posix" or sys_platform == "win32") and extra == "Some_Extra"',
+        ],
+    )
+    def test_repeated_serialization_reuses_the_string(self, text: str) -> None:
+        marker = Marker(text)
+        expected = str(marker)
+
+        assert str(marker) is expected
+        assert repr(marker) == f"<Marker({expected!r})>"
+        assert hash(marker) == hash(expected)
+        assert marker == Marker(expected)
+
+    @pytest.mark.parametrize("operator", ["and", "or"])
+    def test_combined_markers_have_their_own_serialization(self, operator: str) -> None:
+        left = Marker('python_version >= "3.10"')
+        right = Marker('sys_platform == "linux"')
+        left_text, right_text = str(left), str(right)
+        combined = left & right if operator == "and" else left | right
+
+        assert str(combined) == f"{left_text} {operator} {right_text}"
+        assert str(left) == left_text
+        assert str(right) == right_text
+
+    def test_reinitialization_discards_cached_serialization(self) -> None:
+        marker = Marker('os_name == "posix"')
+        assert str(marker) == 'os_name == "posix"'
+
+        Marker.__init__(marker, 'sys_platform == "win32"')
+
+        assert str(marker) == 'sys_platform == "win32"'
+
 
 def test_and_operator_evaluates_true() -> None:
     env = {"python_version": "3.8", "os_name": "posix"}
@@ -767,6 +802,34 @@ def test_evaluation_of_combined_markers() -> None:
         & Marker('platform_system == "Linux"')
     )
     assert m.evaluate(env) is True
+
+
+@pytest.mark.parametrize("format", ["string", "dict", "slots"])
+def test_restoring_state_discards_cached_serialization(format: str) -> None:
+    marker = Marker('os_name == "posix"')
+    assert str(marker) == 'os_name == "posix"'
+    replacement = Marker('sys_platform == "win32"')
+    state: object = str(replacement)
+    if format == "dict":
+        state = {"_markers": replacement._markers}
+    elif format == "slots":
+        state = (None, {"_markers": replacement._markers})
+
+    marker.__setstate__(state)
+
+    assert str(marker) == str(replacement)
+    assert hash(marker) == hash(replacement)
+    assert marker == replacement
+
+
+def test_pickle_contains_only_the_expression() -> None:
+    marker = Marker('sys_platform == "linux"')
+    expected = str(marker)
+
+    assert marker.__getstate__() == expected
+    restored = pickle.loads(pickle.dumps(marker))
+    assert str(restored) == expected
+    assert restored == marker
 
 
 @pytest.mark.parametrize(

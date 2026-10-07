@@ -860,6 +860,34 @@ class TestRequirementBehaviour:
     def test_compare_with_string(self) -> None:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'python_version >= "3.10" and sys_platform == "linux"',
+            '(os_name == "posix" or sys_platform == "win32") and extra == "Some_Extra"',
+        ],
+    )
+    def test_marker_serialization_reuses_the_string(self, text: str) -> None:
+        marker = Requirement(f"demo; {text}").marker
+        assert marker is not None
+        expected = str(marker)
+
+        assert str(marker) is expected
+        assert repr(marker) == f"<Marker({expected!r})>"
+        assert hash(marker) == hash(expected)
+        assert marker == Marker(expected)
+
+    def test_requirement_serialization_uses_replaced_marker(self) -> None:
+        requirement = Requirement('demo; sys_platform == "linux"')
+        original = str(requirement)
+
+        requirement.marker = Marker('sys_platform == "win32"')
+
+        expected = Requirement('demo; sys_platform == "win32"')
+        assert str(requirement) == str(expected)
+        assert hash(requirement) == hash(expected)
+        assert str(requirement) != original
+
 
 def test_requirement_slots() -> None:
     # Requirement defines __slots__, so instances have no __dict__ and reject
