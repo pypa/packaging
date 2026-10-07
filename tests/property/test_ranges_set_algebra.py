@@ -275,6 +275,20 @@ def test_difference_equals_intersect_complement(
     )
 
 
+@pytest.mark.parametrize("prereleases", [None, False, True])
+@given(a=rich_specifier_sets(), b=rich_specifier_sets())
+@SETTINGS
+def test_subset_matches_intersect_complement(
+    a: SpecifierSet, b: SpecifierSet, prereleases: bool | None
+) -> None:
+    first = SpecifierSet(str(a), prereleases=prereleases).to_range()
+    second = SpecifierSet(str(b), prereleases=prereleases).to_range()
+    expected = (first & ~second).is_empty
+
+    assert first.is_subset(second) is expected
+    assert second.is_superset(first) is expected
+
+
 @given(spec_set=specifier_sets())
 @SETTINGS
 def test_operator_aliases(spec_set: SpecifierSet) -> None:

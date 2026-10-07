@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from packaging import ranges
 from packaging._ranges import (
     NEG_INF,
     POS_INF,
@@ -22,7 +23,9 @@ from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
+
+    from packaging._ranges import Interval
 
 
 def vr(spec: str, prereleases: bool | None = None) -> VersionRange:
@@ -411,6 +414,80 @@ class TestSetAlgebra:
         assert Version("3.0") in d
         assert Version("1.0") not in d
         assert Version("2.0") not in d
+
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            ("<0", "!=2"),
+            (">=3", "<2"),
+            ("<2", ">=3"),
+            (">=1,<=5", ">=2,<4"),
+            (">=1,<=5", ">=2,<=5"),
+            (">=1,<=5", ">=2"),
+            (">=1,<=5", "<0"),
+            ("!=1,!=3", "==2"),
+            ("!=1,!=3", "!=2,!=4"),
+            ("", ""),
+            (">=1", ">1"),
+            ("<=1", "<1"),
+            (">1a1", "<1a2.dev0"),
+            ("<=1.post0.dev0", "<=1"),
+            ("==1.*", "==1.1.*"),
+            ("==1+local", "==1"),
+            ("!=0.dev0", "<1.dev0"),
+            (">=2!1", "<2!1.post1"),
+        ],
+    )
+    def test_difference_matches_complement_intersection(
+        self, left: str, right: str, prereleases: bool | None
+    ) -> None:
+        first = SpecifierSet(left, prereleases=prereleases).to_range()
+        second = SpecifierSet(right, prereleases=prereleases).to_range()
+
+        assert first - second == first & ~second
+
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_difference_reuses_a_spanning_exclusion(
+        self, prereleases: bool | None
+    ) -> None:
+        first = (
+            vr("==1", prereleases)
+            | vr("==3", prereleases)
+            | vr("==5", prereleases)
+            | vr("==7", prereleases)
+            | vr("==9", prereleases)
+        )
+        second = vr(">=2,<8", prereleases)
+        expected = vr("==1", prereleases) | vr("==9", prereleases)
+
+        assert first - second == expected
+
+    def test_difference_preserves_arbitrary_equality(self) -> None:
+        literal = SpecifierSet("===legacy").to_range()
+        numeric = SpecifierSet(">=1").to_range()
+
+        assert literal - numeric == literal
+        assert (literal - literal).is_empty
+        assert "legacy" in (literal | numeric) - numeric
+
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_subtraction_does_not_construct_a_complement(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        prereleases: bool | None,
+    ) -> None:
+        first = SpecifierSet(">=1,<5", prereleases=prereleases).to_range()
+        second = SpecifierSet("!=2,!=4", prereleases=prereleases).to_range()
+        expected = first & ~second
+
+        def refuse_complement(_bounds: Sequence[Interval]) -> list[Interval]:
+            raise AssertionError("subtraction constructed a complement")
+
+        monkeypatch.setattr(ranges, "_complement_ranges", refuse_complement)
+        assert first - second == expected
+        assert first.is_subset(second) is expected.is_empty
+        assert second.is_superset(first) is expected.is_empty
 
 
 class TestPrereleaseRegion:
@@ -1777,6 +1854,34 @@ class TestSyntheticEmptyGaps:
     def test_double_complement_of_empty(self) -> None:
         r = vr(">1.0a1,<1.0a2.dev0")
         assert (~~r).is_empty
+
+    @pytest.mark.parametrize("right_is_empty", [False, True])
+    def test_empty_interval_contributes_no_difference(
+        self, right_is_empty: bool
+    ) -> None:
+        left = ((LowerBound(Version("1"), False), UpperBound(Version("1"), True)),)
+        right = (
+            ()
+            if right_is_empty
+            else ((LowerBound(Version("2"), True), UpperBound(Version("3"), True)),)
+        )
+
+        assert tuple(ranges._difference_ranges(left, right)) == ()
+
+    def test_subtraction_drops_a_gap_below_a_boundary_successor(self) -> None:
+        boundary = BoundaryVersion(Version("1a1"), BoundaryKind.AFTER_POSTS)
+        left = ((LowerBound(boundary, False), UpperBound(Version("2"), True)),)
+        right = (
+            (
+                LowerBound(Version("1a2.dev0"), True),
+                UpperBound(Version("1a3.dev0"), False),
+            ),
+        )
+
+        # The apparent gap ends at the first version after the synthetic boundary.
+        assert tuple(ranges._difference_ranges(left, right)) == (
+            (LowerBound(Version("1a3.dev0"), True), UpperBound(Version("2"), True)),
+        )
 
 
 class TestBoundaryCanonicalization:

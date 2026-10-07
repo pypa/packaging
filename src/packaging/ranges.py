@@ -84,8 +84,8 @@ def __dir__() -> list[str]:
 
 
 # Range algebra: intersection and the empty-interval test live in the engine
-# (``intersect_ranges`` / ``range_is_empty``); union and complement are only
-# needed here, so they live in this module.
+# (``intersect_ranges`` / ``range_is_empty``); union, complement and difference
+# are only needed here, so they live in this module.
 
 
 def _union_ranges(
@@ -181,6 +181,41 @@ def _complement_ranges(ranges: Sequence[Interval]) -> list[Interval]:
         result.append((gap_lower, POS_INF))
 
     return result
+
+
+def _difference_ranges(
+    left: tuple[Interval, ...], right: tuple[Interval, ...]
+) -> Iterator[Interval]:
+    """Subtract right from left. Both inputs are sorted, disjoint and non-touching."""
+    if right == FULL_RANGE:
+        return
+
+    right_index = 0
+    for left_lower, upper in left:
+        lower = left_lower
+        unconsumed = True
+        while right_index < len(right):
+            right_lower, right_upper = right[right_index]
+            if range_is_empty(lower, right_upper):
+                right_index += 1
+                continue
+            if range_is_empty(right_lower, upper):
+                break
+
+            if lower < right_lower:
+                gap_upper = UpperBound(right_lower.version, not right_lower.inclusive)
+                if not range_is_empty(lower, gap_upper):
+                    yield lower, gap_upper
+            if right_upper >= upper:
+                # Keep this exclusion for any later left intervals it overlaps.
+                unconsumed = False
+                break
+
+            lower = LowerBound(right_upper.version, not right_upper.inclusive)
+            right_index += 1
+
+        if unconsumed and not range_is_empty(lower, upper):
+            yield lower, upper
 
 
 def _canonical_floor(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
@@ -1340,11 +1375,7 @@ class VersionRange:
         if not other._bounds and not other._admit:
             return self
 
-        # Bound complement is two-way, so subtracting other's versions is an
-        # intersection with its gaps.
-        new_bounds = tuple(
-            intersect_ranges(self._bounds, _complement_ranges(other._bounds))
-        )
+        new_bounds = tuple(_difference_ranges(self._bounds, other._bounds))
 
         # Match ``self & ~other`` on the opt-in region: a complement carries no
         # opt-in, so only ``self``'s region survives. ``other`` acts as a
@@ -1479,7 +1510,7 @@ class VersionRange:
 
         # Plain ranges: subset reduces to bounds containment, no algebra needed.
         if self._is_plain() and other._is_plain():
-            return not intersect_ranges(self._bounds, _complement_ranges(other._bounds))
+            return next(_difference_ranges(self._bounds, other._bounds), None) is None
 
         # difference (unlike intersection with the one-way complement) resolves
         # ``===`` literals against both operands, so it stays correct for them.
