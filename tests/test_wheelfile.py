@@ -9,11 +9,12 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path, PurePath
-from textwrap import dedent
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
+from packaging import wheelfile
+from packaging.tags import Tag
 from packaging.utils import InvalidWheelFilename
 from packaging.wheelfile import (
     WheelArchiveFile,
@@ -22,6 +23,7 @@ from packaging.wheelfile import (
     WheelReader,
     WheelWriter,
     _encode_hash_value,
+    write_wheelfile,
 )
 
 
@@ -307,9 +309,9 @@ class TestWheelReader:
 
         assert contents == b'print("H\xc3\xa9ll\xc3\xb6, world!")\n'
 
-    def test_read_distinfo_file(self, valid_wheel: Path) -> None:
+    def test_read_dist_info_file(self, valid_wheel: Path) -> None:
         with WheelReader(valid_wheel) as wf:
-            contents = wf.read_distinfo_file("RECORD")
+            contents = wf.read_dist_info_file("RECORD")
 
         assert (
             contents == b"hello/h\xc3\xa9ll\xc3\xb6.py,"
@@ -330,6 +332,22 @@ class TestWheelReader:
                     element.stream.read() == b'print("H\xc3\xa9ll\xc3\xb6, world!")\n'
                 )
                 assert repr(element) == "WheelContentElement('hello/héllö.py', size=25)"
+
+    def test_iterate_contents_verifies_hash(self, wheel_path: Path) -> None:
+        with ZipFile(wheel_path, "w") as zf:
+            zf.writestr("hello/héllö.py", 'print("Héllö, w0rld!")\n')
+            zf.writestr(
+                "test-1.0.dist-info/RECORD",
+                "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25",
+            )
+
+        def read_all() -> None:
+            with WheelReader(wheel_path) as wf:
+                for element in wf.iterate_contents():
+                    element.stream.read()
+
+        with pytest.raises(WheelError, match="hash mismatch"):
+            read_all()
 
     def test_extractall(
         self, valid_wheel: Path, tmp_path_factory: pytest.TempPathFactory
@@ -406,12 +424,12 @@ class TestWheelReader:
                 PurePath("test-1.0.dist-info/RECORD"),
             }
 
-    def test_read_dist_info_missing(self, valid_wheel: Path) -> None:
+    def test_read_dist_info_file_missing(self, valid_wheel: Path) -> None:
         with (
             WheelReader(valid_wheel) as wf,
-            pytest.raises(WheelError, match=r"not found$"),
+            pytest.raises(WheelError, match=r"^No hash found for file "),
         ):
-            wf.read_dist_info("NONEXISTENT")
+            wf.read_dist_info_file("NONEXISTENT")
 
     def test_extractall_dest_missing(self, valid_wheel: Path, tmp_path: Path) -> None:
         dest = tmp_path / "nope"
@@ -488,10 +506,10 @@ class TestWheelWriter:
 
     def test_write_files(self, wheel_path: Path) -> None:
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            wf.write_file("hello/héllö.py", 'print("Héllö, world!")\n')
-            wf.write_file("hello/h,ll,.py", 'print("Héllö, world!")\n')
-            wf.write_data_file("mydata.txt", "Dummy")
-            wf.write_distinfo_file("LICENSE.txt", "License text")
+            wf.write_file("hello/héllö.py", 'print("Héllö, world!")\n'.encode())
+            wf.write_file("hello/h,ll,.py", 'print("Héllö, world!")\n'.encode())
+            wf.write_data_file("data/mydata.txt", b"Dummy")
+            wf.write_dist_info_file("LICENSE.txt", b"License text")
 
         with ZipFile(wheel_path, "r") as zf:
             infolist = zf.infolist()
@@ -500,7 +518,7 @@ class TestWheelWriter:
             assert infolist[0].file_size == 25
             assert infolist[1].filename == "hello/h,ll,.py"
             assert infolist[1].file_size == 25
-            assert infolist[2].filename == "test-1.0.data/mydata.txt"
+            assert infolist[2].filename == "test-1.0.data/data/mydata.txt"
             assert infolist[2].file_size == 5
             assert infolist[3].filename == "test-1.0.dist-info/LICENSE.txt"
             assert infolist[4].filename == "test-1.0.dist-info/WHEEL"
@@ -511,7 +529,7 @@ class TestWheelWriter:
                 "hello/héllö.py,sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,25\n"
                 '"hello/h,ll,.py",sha256=bv-QV3RciQC2v3zL8Uvhd_arp40J5A9xmyubN34OVwo,'
                 "25\n"
-                "test-1.0.data/mydata.txt,"
+                "test-1.0.data/data/mydata.txt,"
                 "sha256=0mB6s81UJCwa14-jUFK6fIqv1PR4FQPyJ0wxBjqF9WA,5\n"
                 "test-1.0.dist-info/LICENSE.txt,"
                 "sha256=Bk_bWStYk3YYSmcUeZRgnr3cqIs1oJW485Zb_XBvOgM,12\n"
@@ -520,57 +538,58 @@ class TestWheelWriter:
                 "test-1.0.dist-info/RECORD,,\n"
             )
 
-    def test_write_metadata(self, wheel_path: Path) -> None:
-        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            wf.write_metadata(
-                [
-                    ("Foo", "Bar"),
-                    ("Description", "Long description\nspanning\nthree rows"),
-                ]
-            )
-
-        with ZipFile(wheel_path, "r") as zf:
-            infolist = zf.infolist()
-            assert len(infolist) == 3
-            assert infolist[0].filename == "test-1.0.dist-info/METADATA"
-            assert infolist[1].filename == "test-1.0.dist-info/WHEEL"
-            assert infolist[2].filename == "test-1.0.dist-info/RECORD"
-
-            metadata = zf.read("test-1.0.dist-info/METADATA")
-            assert metadata.decode("utf-8") == dedent(
-                """\
-                Foo: Bar
-                Metadata-Version: 2.3
-                Name: test
-                Version: 1.0
-
-                Long description
-                spanning
-                three rows"""
-            )
-
     def test_timestamp(
         self,
         tmp_path_factory: pytest.TempPathFactory,
         wheel_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        # An environment variable can be used to influence the timestamp on
-        # TarInfo objects inside the zip.  See issue #143.
+        # SOURCE_DATE_EPOCH sets the default timestamp of every member, including
+        # the generated WHEEL and RECORD files.
         build_dir = tmp_path_factory.mktemp("build")
         for filename in ("one", "two", "three"):
             build_dir.joinpath(filename).write_text(filename + "\n")
 
-        # The earliest date representable in TarInfos, 1980-01-01
-        monkeypatch.setenv("SOURCE_DATE_EPOCH", "315576060")
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1577967000")
 
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
             wf.write_files_from_directory(build_dir)
 
         with ZipFile(wheel_path, "r") as zf:
             for info in zf.infolist():
-                assert info.date_time == (1980, 1, 1, 0, 0, 0)
+                assert info.date_time == (2020, 1, 2, 12, 10, 0)
                 assert info.compress_type == ZIP_DEFLATED
+
+    def test_source_date_epoch_clamped(
+        self, wheel_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "0")
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("test", b"x")
+
+        with ZipFile(wheel_path, "r") as zf:
+            assert zf.getinfo("test").date_time == (1980, 1, 1, 0, 0, 0)
+
+    def test_source_date_epoch_invalid(
+        self, wheel_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "soon")
+        with pytest.raises(WheelError, match=r"^Invalid SOURCE_DATE_EPOCH: 'soon'$"):
+            WheelWriter(wheel_path, generator="generator 1.0")
+
+    def test_explicit_timestamp_beats_source_date_epoch(
+        self, wheel_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1577967000")
+        timestamp = datetime(2021, 1, 1, tzinfo=timezone.utc)
+        with WheelWriter(
+            wheel_path, generator="generator 1.0", timestamp=timestamp
+        ) as wf:
+            wf.write_file("test", b"x")
+
+        with ZipFile(wheel_path, "r") as zf:
+            for info in zf.infolist():
+                assert info.date_time == (2021, 1, 1, 0, 0, 0)
 
     @pytest.mark.skipif(
         sys.platform == "win32", reason="Windows does not support UNIX-like permissions"
@@ -640,7 +659,7 @@ class TestWheelWriter:
         with WheelWriter(
             wheel_path, generator="generator 1.0", metadata=metadata
         ) as wf:
-            wf.write_file("hello.py", "x = 1\n")
+            wf.write_file("hello.py", b"x = 1\n")
 
         with ZipFile(wheel_path, "r") as zf:
             wheel = zf.read("test-1.0.dist-info/WHEEL").decode("utf-8")
@@ -660,7 +679,7 @@ class TestWheelWriter:
             with WheelWriter(
                 buffer, generator="generator 1.0", metadata=metadata
             ) as wf:
-                wf.write_file("hello.py", "x = 1\n")
+                wf.write_file("hello.py", b"x = 1\n")
                 raise RuntimeError("boom")
 
         with pytest.raises(RuntimeError, match="boom"):
@@ -671,29 +690,12 @@ class TestWheelWriter:
 
     def test_manual_wheel_file_kept(self, wheel_path: Path) -> None:
         with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            wf.write_distinfo_file("WHEEL", "Wheel-Version: 1.0\n")
+            wf.write_dist_info_file("WHEEL", b"Wheel-Version: 1.0\n")
 
         with ZipFile(wheel_path, "r") as zf:
             wheel = zf.read("test-1.0.dist-info/WHEEL").decode("utf-8")
 
         assert wheel == "Wheel-Version: 1.0\n"
-
-    def test_write_metadata_keeps_provided_headers(self, wheel_path: Path) -> None:
-        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
-            wf.write_metadata(
-                [
-                    ("Metadata-Version", "2.1"),
-                    ("Name", "othername"),
-                    ("Version", "9.9"),
-                ]
-            )
-
-        with ZipFile(wheel_path, "r") as zf:
-            metadata = zf.read("test-1.0.dist-info/METADATA").decode("utf-8")
-
-        assert "Metadata-Version: 2.1" in metadata
-        assert "Name: othername" in metadata
-        assert "Version: 9.9" in metadata
 
     def test_write_files_from_directory_skips_record(
         self, wheel_path: Path, tmp_path_factory: pytest.TempPathFactory
@@ -840,7 +842,7 @@ class TestWheelWriter:
             wf.write_file("from_path", source, mode=0o644)
             wf.write_file("from_path_default", source)
             wf.write_data_file("scripts/tool", b"x", mode=0o755)
-            wf.write_distinfo_file("extra", b"x", mode=0o600)
+            wf.write_dist_info_file("extra", b"x", mode=0o600)
 
         with ZipFile(wheel_path, "r") as zf:
             modes = {info.filename: info.external_attr >> 16 for info in zf.infolist()}
@@ -896,3 +898,55 @@ class TestWheelWriter:
         assert infos["from_path"].date_time == (2020, 1, 2, 12, 30, 0)
         assert infos["explicit"].external_attr == (0o755 | stat.S_IFREG) << 16
         assert infos["explicit"].date_time == (2021, 1, 1, 0, 0, 0)
+
+    def test_write_file_rejects_str(self, wheel_path: Path) -> None:
+        with (
+            WheelWriter(wheel_path, generator="generator 1.0") as wf,
+            pytest.raises(TypeError, match=r"^contents must be bytes, a path or a"),
+        ):
+            wf.write_file("test", "text")  # type: ignore[arg-type]
+
+    def test_write_data_file_rejects_unknown_subdir(self, wheel_path: Path) -> None:
+        with (
+            WheelWriter(wheel_path, generator="generator 1.0") as wf,
+            pytest.raises(
+                WheelError,
+                match=r"^Invalid data directory 'bogus' in 'bogus/thing\.txt'",
+            ),
+        ):
+            wf.write_data_file("bogus/thing.txt", b"x")
+
+    def test_record_failure_removes_partial_wheel(
+        self, wheel_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail(_self: WheelWriter) -> None:
+            raise OSError("disk full")
+
+        def build_and_fail() -> None:
+            with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+                wf.write_file("test", b"x")
+
+        monkeypatch.setattr(WheelWriter, "_write_record", fail)
+        with pytest.raises(OSError, match="disk full"):
+            build_and_fail()
+
+        assert not wheel_path.exists()
+
+
+def test_write_wheelfile() -> None:
+    buffer = BytesIO()
+    write_wheelfile(
+        buffer,
+        generator="generator 1.0",
+        tags={Tag("py3", "none", "any"), Tag("py2", "none", "any")},
+        build_tag=(3, "foo"),
+        root_is_purelib=False,
+    )
+    assert buffer.getvalue() == (
+        b"Wheel-Version: 1.0\nGenerator: generator 1.0\nRoot-Is-Purelib: false\n"
+        b"Build: 3foo\nTag: py2-none-any\nTag: py3-none-any\n\n"
+    )
+
+
+def test_dir() -> None:
+    assert sorted(dir(wheelfile)) == sorted(wheelfile.__all__)
