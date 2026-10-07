@@ -425,11 +425,21 @@ class WheelWriter:
         root_is_purelib: bool = True,
         compress: bool = True,
         hash_algorithm: str = "sha256",
+        timestamp: datetime = _default_timestamp,
+        mode: int = 0o664,
     ) -> None:
+        """
+        :param timestamp: the default timestamp for every archive member, including
+            the generated ``WHEEL`` and ``RECORD`` files
+        :param mode: the default permission bits for members written from bytes,
+            strings or file objects, including ``WHEEL`` and ``RECORD``
+        """
         self.path_or_fd = path_or_fd
         self.generator = generator
         self.root_is_purelib = root_is_purelib
         self.hash_algorithm = hash_algorithm
+        self.timestamp = timestamp
+        self.mode = mode
         self._compress_type = ZIP_DEFLATED if compress else ZIP_STORED
 
         if metadata:
@@ -525,13 +535,23 @@ class WheelWriter:
         name: str | PurePath,
         contents: bytes | str | PathLike[str] | IO[bytes],
         *,
-        timestamp: datetime = _default_timestamp,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
     ) -> None:
+        """
+        :param timestamp: the timestamp of the member; the writer default if omitted
+        :param mode: the permission bits of the member; if omitted, a path or file
+            object keeps its own permissions and anything else gets the writer default
+        """
         # Backslashes are never valid separators in a wheel, even on POSIX.
         arcname = PurePath(name).as_posix().replace("\\", "/")
+        if timestamp is None:
+            timestamp = self.timestamp
         zinfo = ZipInfo(arcname, _zip_date_time(timestamp))
         zinfo.compress_type = self._compress_type
-        zinfo.external_attr = (0o664 | stat.S_IFREG) << 16
+        zinfo.external_attr = (
+            (self.mode if mode is None else mode) | stat.S_IFREG
+        ) << 16
         with ExitStack() as exit_stack:
             fp = exit_stack.enter_context(self._zip.open(zinfo, "w"))
             if isinstance(contents, str):
@@ -544,14 +564,15 @@ class WheelWriter:
                 fp.write(contents)
                 hash_ = hashlib.new(self.hash_algorithm, contents)
             else:
-                try:
-                    st = os.stat(contents.fileno())
-                except (AttributeError, UnsupportedOperation):
-                    pass
-                else:
-                    zinfo.external_attr = (
-                        stat.S_IMODE(st.st_mode) | stat.S_IFMT(st.st_mode)
-                    ) << 16
+                if mode is None:
+                    try:
+                        st = os.stat(contents.fileno())
+                    except (AttributeError, UnsupportedOperation):
+                        pass
+                    else:
+                        zinfo.external_attr = (
+                            stat.S_IMODE(st.st_mode) | stat.S_IFMT(st.st_mode)
+                        ) << 16
 
                 hash_ = hashlib.new(self.hash_algorithm)
                 file_size = 0
@@ -589,20 +610,22 @@ class WheelWriter:
         filename: str,
         contents: bytes | str | PathLike[str] | IO[bytes],
         *,
-        timestamp: datetime = _default_timestamp,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
     ) -> None:
         archive_path = self._data_dir + "/" + filename.strip("/")
-        self.write_file(archive_path, contents, timestamp=timestamp)
+        self.write_file(archive_path, contents, timestamp=timestamp, mode=mode)
 
     def write_distinfo_file(
         self,
         filename: str,
-        contents: bytes | str | IO[bytes],
+        contents: bytes | str | PathLike[str] | IO[bytes],
         *,
-        timestamp: datetime = _default_timestamp,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
     ) -> None:
         archive_path = self._dist_info_dir + "/" + filename.strip("/")
-        self.write_file(archive_path, contents, timestamp=timestamp)
+        self.write_file(archive_path, contents, timestamp=timestamp, mode=mode)
 
     def __repr__(self) -> str:
         return (

@@ -827,3 +827,72 @@ class TestWheelWriter:
             record = zf.read("test-1.0.dist-info/RECORD").decode("utf-8")
 
         assert record.startswith("pkg/mod.py,")
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows does not support UNIX-like permissions"
+    )
+    def test_write_file_mode(self, wheel_path: Path, tmp_path: Path) -> None:
+        source = tmp_path / "source"
+        source.write_text("x")
+        source.chmod(0o600)
+        with WheelWriter(wheel_path, generator="generator 1.0") as wf:
+            wf.write_file("from_bytes", b"x", mode=0o755)
+            wf.write_file("from_path", source, mode=0o644)
+            wf.write_file("from_path_default", source)
+            wf.write_data_file("scripts/tool", b"x", mode=0o755)
+            wf.write_distinfo_file("extra", b"x", mode=0o600)
+
+        with ZipFile(wheel_path, "r") as zf:
+            modes = {info.filename: info.external_attr >> 16 for info in zf.infolist()}
+
+        assert modes["from_bytes"] == 0o755 | stat.S_IFREG
+        assert modes["from_path"] == 0o644 | stat.S_IFREG
+        assert modes["from_path_default"] == 0o600 | stat.S_IFREG
+        assert modes["test-1.0.data/scripts/tool"] == 0o755 | stat.S_IFREG
+        assert modes["test-1.0.dist-info/extra"] == 0o600 | stat.S_IFREG
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows does not support UNIX-like permissions"
+    )
+    def test_writer_defaults_apply_to_generated_files(
+        self, wheel_path: Path, tmp_path: Path
+    ) -> None:
+        source = tmp_path / "source"
+        source.write_text("x")
+        source.chmod(0o600)
+        timestamp = datetime(2020, 1, 2, 12, 30, tzinfo=timezone.utc)
+        with WheelWriter(
+            wheel_path, generator="generator 1.0", timestamp=timestamp, mode=0o644
+        ) as wf:
+            wf.write_file("from_bytes", b"x")
+            wf.write_file("from_path", source)
+            wf.write_file(
+                "explicit",
+                b"x",
+                timestamp=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                mode=0o755,
+            )
+
+        with ZipFile(wheel_path, "r") as zf:
+            infos = {info.filename: info for info in zf.infolist()}
+
+        assert set(infos) == {
+            "from_bytes",
+            "from_path",
+            "explicit",
+            "test-1.0.dist-info/WHEEL",
+            "test-1.0.dist-info/RECORD",
+        }
+        for name in (
+            "from_bytes",
+            "test-1.0.dist-info/WHEEL",
+            "test-1.0.dist-info/RECORD",
+        ):
+            assert infos[name].external_attr == (0o644 | stat.S_IFREG) << 16
+            assert infos[name].date_time == (2020, 1, 2, 12, 30, 0)
+
+        # A path keeps its own permissions unless a mode is given explicitly.
+        assert infos["from_path"].external_attr == (0o600 | stat.S_IFREG) << 16
+        assert infos["from_path"].date_time == (2020, 1, 2, 12, 30, 0)
+        assert infos["explicit"].external_attr == (0o755 | stat.S_IFREG) << 16
+        assert infos["explicit"].date_time == (2021, 1, 1, 0, 0, 0)
