@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import sys
 import typing
-from typing import Any, Dict, List, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict
 
 if sys.version_info < (3, 11):
     if typing.TYPE_CHECKING:
@@ -90,23 +90,23 @@ ProjectTable = TypedDict(
         "name": Required[str],
         "version": str,
         "description": str,
-        "license": Union[LicenseTable, str],
-        "license-files": List[str],
-        "readme": Union[str, ReadmeTable],
+        "license": LicenseTable | str,
+        "license-files": list[str],
+        "readme": str | ReadmeTable,
         "requires-python": str,
-        "dependencies": List[str],
-        "optional-dependencies": Dict[str, List[str]],
-        "entry-points": Dict[str, Dict[str, str]],
-        "authors": List[ContactTable],
-        "maintainers": List[ContactTable],
-        "urls": Dict[str, str],
-        "classifiers": List[str],
-        "keywords": List[str],
-        "scripts": Dict[str, str],
-        "gui-scripts": Dict[str, str],
-        "import-names": List[str],
-        "import-namespaces": List[str],
-        "dynamic": List[Dynamic],
+        "dependencies": list[str],
+        "optional-dependencies": dict[str, list[str]],
+        "entry-points": dict[str, dict[str, str]],
+        "authors": list[ContactTable],
+        "maintainers": list[ContactTable],
+        "urls": dict[str, str],
+        "classifiers": list[str],
+        "keywords": list[str],
+        "scripts": dict[str, str],
+        "gui-scripts": dict[str, str],
+        "import-names": list[str],
+        "import-namespaces": list[str],
+        "dynamic": list[Dynamic],
     },
     total=False,
 )
@@ -115,8 +115,8 @@ BuildSystemTable = TypedDict(
     "BuildSystemTable",
     {
         "build-backend": str,
-        "requires": List[str],
-        "backend-path": List[str],
+        "requires": list[str],
+        "backend-path": list[str],
     },
     total=False,
 )
@@ -134,8 +134,8 @@ PyProjectTable = TypedDict(
     {
         "build-system": BuildSystemTable,
         "project": ProjectTable,
-        "tool": Dict[str, Any],
-        "dependency-groups": Dict[str, List[Union[str, IncludeGroupTable]]],
+        "tool": dict[str, Any],
+        "dependency-groups": dict[str, list[str | IncludeGroupTable]],
     },
     total=False,
 )

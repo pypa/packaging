@@ -1194,11 +1194,14 @@ def test_readme_content_type(
 
 def test_readme_content_type_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(DIR / "project/unknown-readme-type")
-    with raises_single(
-        packaging.errors.ConfigurationError,
-        "Could not infer content type for readme file 'README.just-made-this-up-now'",
-        "Failed to parse pyproject.toml",
-    ), open("pyproject.toml", "rb") as f:
+    with (
+        raises_single(
+            packaging.errors.ConfigurationError,
+            "Could not infer content type for readme file 'README.just-made-this-up-now'",
+            "Failed to parse pyproject.toml",
+        ),
+        open("pyproject.toml", "rb") as f,
+    ):
         packaging.project.StandardMetadata.from_pyproject(tomllib.load(f))
 
 
