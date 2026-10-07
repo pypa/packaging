@@ -18,7 +18,7 @@ from packaging._ranges import (
     LowerBound,
     UpperBound,
 )
-from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
+from packaging.ranges import _MAX_EXCLUSION_RUN, RangeRelation, VersionRange
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
@@ -1016,6 +1016,178 @@ class TestSetRelations:
             vr(">=1.0").is_disjoint("x")  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected VersionRange"):
             vr(">=1.0").is_superset("x")  # type: ignore[arg-type]
+
+
+class TestRangeRelation:
+    def test_members_partition_the_flag_space(self) -> None:
+        flags = {(rel.is_subset, rel.is_disjoint) for rel in RangeRelation}
+        assert flags == {(True, True), (True, False), (False, True), (False, False)}
+
+    @pytest.mark.parametrize(
+        ("relation", "is_subset", "is_disjoint"),
+        [
+            (RangeRelation.EMPTY, True, True),
+            (RangeRelation.SUBSET, True, False),
+            (RangeRelation.DISJOINT, False, True),
+            (RangeRelation.OVERLAPPING, False, False),
+        ],
+    )
+    def test_flags(
+        self, relation: RangeRelation, is_subset: bool, is_disjoint: bool
+    ) -> None:
+        assert relation.is_subset is is_subset
+        assert relation.is_disjoint is is_disjoint
+
+    def test_flags_are_read_only(self) -> None:
+        # Members are process-wide singletons, so a writable flag would let
+        # one caller rewrite every later answer.
+        with pytest.raises(AttributeError):
+            # Deliberately assign to a read-only property to check refusal.
+            RangeRelation.SUBSET.is_subset = False  # type: ignore[misc]
+
+    def test_repr_is_the_qualified_member_name(self) -> None:
+        assert repr(RangeRelation.SUBSET) == "RangeRelation.SUBSET"
+
+
+class TestRelation:
+    @pytest.mark.parametrize("spec", ["<0", "", ">=1", "===legacy"])
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_identity_and_equal_bounds(
+        self, spec: str, prereleases: bool | None
+    ) -> None:
+        source = vr(spec, prereleases)
+        equivalent = vr(spec, prereleases)
+        expected = RangeRelation.EMPTY if source.is_empty else RangeRelation.SUBSET
+
+        assert source.relation(source) is expected
+        assert source.relation(equivalent) is expected
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            # A single interval inside a single interval, and the reverse.
+            (">=1.5,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<1.8", RangeRelation.OVERLAPPING),
+            # Partial overlap on either side.
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.5,<2.5", ">=1.0,<2.0", RangeRelation.OVERLAPPING),
+            # Separated, with self below and above other.
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            (">=3.0,<4.0", ">=1.0,<2.0", RangeRelation.DISJOINT),
+            # Touching but sharing no version, then sharing the endpoint.
+            (">=1.0,<2.0", ">=2.0,<3.0", RangeRelation.DISJOINT),
+            (">=1.0,<=2.0", ">=2.0,<3.0", RangeRelation.OVERLAPPING),
+            # Identical bounds, which is containment both ways.
+            (">=1.0,<2.0", ">=1.0,<2.0", RangeRelation.SUBSET),
+            # An exclusion splits self into two intervals, both covered; the
+            # other way round self spans the hole the exclusion leaves, which
+            # no single interval covers.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.0,<2.0,!=1.5", RangeRelation.OVERLAPPING),
+            # Two intervals a side, matched pairwise, so the walk advances
+            # both pointers before it runs out.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0,!=1.5", RangeRelation.SUBSET),
+            # An empty self is EMPTY whatever other is; an empty other shares
+            # nothing.
+            (">=2.0,<1.0", ">=1.0", RangeRelation.EMPTY),
+            (">=2.0,<1.0", ">=2.0,<1.0", RangeRelation.EMPTY),
+            (">=1.0", ">=2.0,<1.0", RangeRelation.DISJOINT),
+        ],
+    )
+    def test_plain_ranges(self, left: str, right: str, expected: RangeRelation) -> None:
+        assert vr(left).relation(vr(right)) is expected
+
+    def test_covered_interval_beside_a_separated_one(self) -> None:
+        # The first interval is covered and the second is not, so the walk
+        # finishes with an overlap recorded and a left interval unmatched.
+        split = vr(">=1.0,<1.2") | vr(">=5.0,<6.0")
+        assert split.relation(vr(">=1.0,<2.0")) is RangeRelation.OVERLAPPING
+
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            (">=1.5,<1.8", ">=1.0,<2.0"),
+            (">=1.0,<2.0", ">=1.5,<1.8"),
+            (">=1.0,<2.0", ">=1.5,<2.5"),
+            (">=1.0,<2.0", ">=3.0,<4.0"),
+            (">=1.0,<2.0", ">=1.0,<2.0"),
+            (">=2.0,<1.0", ">=1.0"),
+            (">=1.0", ">=2.0,<1.0"),
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0"),
+        ],
+    )
+    def test_agrees_with_the_predicates(self, left: str, right: str) -> None:
+        a, b = vr(left), vr(right)
+        relation = a.relation(b)
+
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+        # There is no superset member; reversing the operands answers it.
+        assert b.relation(a).is_subset == a.is_superset(b)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">=1.2,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            # Only pre-releases are in range, which the policy excludes.
+            ("==1.0a1", ">=1.0", RangeRelation.EMPTY),
+        ],
+    )
+    def test_prerelease_excluding_policy(
+        self, left: str, right: str, expected: RangeRelation
+    ) -> None:
+        # An excluding pre-release policy requires the algebra fallback.
+        a, b = vr(left, prereleases=False), vr(right, prereleases=False)
+        relation = a.relation(b)
+
+        assert relation is expected
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+    def test_literal_ranges(self) -> None:
+        a = vr("===a")
+        ab = vr("===a") | vr("===b")
+        assert a.relation(ab) is RangeRelation.SUBSET
+        assert ab.relation(a) is RangeRelation.OVERLAPPING
+        assert a.relation(vr("===b")) is RangeRelation.DISJOINT
+
+    def test_literal_on_one_side_only(self) -> None:
+        # A literal on either operand alone still defers to the predicates:
+        # the walk would miss ``===1.0``, whose member no bounds cover.
+        plain, literal = vr(">=1.0"), vr("===1.0")
+        assert plain.relation(literal) is RangeRelation.OVERLAPPING
+        assert literal.relation(plain) is RangeRelation.SUBSET
+
+    def test_arbitrary_admission_is_one_way(self) -> None:
+        # ``full()`` admits non-version strings that the versions-only full
+        # range does not, matching what is_subset already documents.
+        full = VersionRange.full()
+        versions_only = VersionRange.full(admit_arbitrary=False)
+        assert full.relation(versions_only) is RangeRelation.OVERLAPPING
+        assert versions_only.relation(full) is RangeRelation.SUBSET
+        assert full.relation(full) is RangeRelation.SUBSET
+
+    def test_empty_describes_self_not_other(self) -> None:
+        empty = VersionRange.empty()
+        assert empty.relation(VersionRange.full()) is RangeRelation.EMPTY
+        assert VersionRange.full().relation(empty) is RangeRelation.DISJOINT
+
+    # relation checks the policy before it picks a path, so a plain other
+    # (``None``) and a non-plain one (``False``) raise from the same place.
+    @pytest.mark.parametrize("other_policy", [None, False])
+    def test_policy_mismatch_raises(self, other_policy: bool | None) -> None:
+        left = vr(">=1.0", prereleases=True)
+        right = vr("<2.0", prereleases=other_policy)
+        with pytest.raises(ValueError, match="different"):
+            left.relation(right)
+
+    def test_wrong_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            # Deliberately pass an invalid type to check the public error.
+            vr(">=1.0").relation("x")  # type: ignore[arg-type]
 
 
 class TestFilter:
