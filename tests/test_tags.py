@@ -235,6 +235,30 @@ class TestParseTag:
             tags.parse_tag(tag)
 
     @pytest.mark.parametrize(
+        "args",
+        [
+            ("", "none", "any"),
+            ("py3", "", "any"),
+            ("py3", "none", ""),
+        ],
+    )
+    def test_tag_constructor_rejects_empty(self, args: tuple[str, str, str]) -> None:
+        with pytest.raises(tags.InvalidTag, match="non-empty"):
+            tags.Tag(*args)
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "py3-none-any,",  # Trailing junk on platform
+            "py3-none-any ",  # Trailing whitespace on platform
+            "py3-none+-any",  # Invalid abi character
+        ],
+    )
+    def test_invalid_abi_or_platform_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="invalid (abi|platform)"):
+            tags.parse_tag(tag)
+
+    @pytest.mark.parametrize(
         "tag",
         [
             "2-none-any",
