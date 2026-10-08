@@ -69,6 +69,10 @@ exclude = [
   "build/__pycache__",
 ]
 
+[tool.typos.default]
+# Base64 hash digests in wheel RECORD test data.
+extend-ignore-re = ["[A-Za-z0-9_-]{22,}={0,2}"]
+
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
 ANDed = "ANDed"
@@ -109,8 +113,6 @@ addopts = [
     "no:logging",          # no test uses caplog and its per-test setup is measurable
     "-p",
     "no:threadexception",  # no threads, avoids extra gc
-    "-p",
-    "no:tmpdir",           # no usage of tempdir (mostly sans IO)
     "-p",
     "no:legacypath",       # no legacy paths
 ]
