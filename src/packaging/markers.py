@@ -18,6 +18,7 @@ from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
 from .utils import canonicalize_name
+from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -54,6 +55,7 @@ MARKERS_ALLOWING_SET = {"extras", "dependency_groups"}
 MARKERS_REQUIRING_VERSION = {
     "implementation_version",
     "platform_release",
+    "platform_version",
     "python_full_version",
     "python_version",
 }
@@ -245,10 +247,20 @@ def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool
     if key in MARKERS_REQUIRING_VERSION:
         try:
             spec = Specifier(f"{op_str}{rhs}")
+            # Platform fields may contain non-version strings on other systems.
+            version = (
+                Version(lhs)
+                if key in {"platform_release", "platform_version"} and op_str != "==="
+                else lhs
+            )
         except InvalidSpecifier:
             pass
+        except InvalidVersion:
+            if op_str == "~=":
+                # Preserve False for version constraints on other platforms.
+                return False
         else:
-            return spec.contains(lhs, prereleases=True)
+            return spec.contains(version, prereleases=True)
 
     oper: Operator | None = _operators.get(op_str)
     if oper is None:
