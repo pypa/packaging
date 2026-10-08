@@ -8,6 +8,12 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes for requirements and markers:
+
+* Warn when ``python_version`` / ``python_full_version`` marker comparisons
+  fall back to string comparison because the right-hand side is not a valid
+  PEP 440 version (for example ``"3.9."``). (:issue:`633`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
