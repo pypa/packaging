@@ -10,6 +10,7 @@ import dataclasses
 import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -626,7 +627,7 @@ class Pylock:
     def select(
         self,
         *,
-        environment: Environment | None = None,
+        environment: Environment | Mapping[str, str | AbstractSet[str]] | None = None,
         tags: Sequence[Tag] | None = None,
         extras: Collection[str] | None = None,
         dependency_groups: Collection[str] | None = None,
@@ -645,7 +646,17 @@ class Pylock:
 
         The *environment* and *tags* parameters represent the environment being
         selected for. If unspecified, ``packaging.markers.default_environment()`` and
-        ``packaging.tags.sys_tags()`` are used.
+        ``packaging.tags.sys_tags()`` are used. *environment* is a set of
+        **overrides** merged over that default, as in
+        ``packaging.markers.Marker.evaluate``, so passing only the keys that
+        differ is enough.
+
+        ``python_version`` and ``python_full_version`` describe the same
+        interpreter, and ``python_full_version`` is the one that pins it: it
+        wins when both are passed, and the ``major.minor`` spelling is derived
+        from it. Passing only ``python_version`` is an error, because it does
+        not pin the patch level that the ``requires-python`` checks are made
+        against.
 
         The *extras* parameter represents the extras to install.
 
@@ -716,11 +727,53 @@ class Pylock:
                 ),
             ),
         )
-        env_python_full_version = _pep440_python_full_version(
-            environment["python_full_version"]
-            if environment
-            else default_environment()["python_full_version"]
-        )
+        # ``environment`` only carries overrides: ``Marker.evaluate`` merges it
+        # over ``default_environment()``. Reading a key straight out of it
+        # therefore only worked when the caller happened to pass every field,
+        # while an empty mapping is falsy and silently took the other branch.
+        # Any other partial mapping raised a bare ``KeyError`` out of a
+        # generator whose documented failure mode is ``PylockSelectError``.
+        #
+        # ``python_version`` and ``python_full_version`` are two spellings of
+        # the same interpreter, and they used to be resolved from different
+        # places: the markers saw the override while ``requires-python`` saw
+        # whatever ``python_full_version`` was passed -- or the host's, when
+        # only ``python_version`` was. Resolve the pair once, on the mapping
+        # handed to the markers, and read every check from it.
+        #
+        # ``python_full_version`` pins the interpreter, so it wins and the
+        # ``major.minor`` spelling is derived from it. ``python_version`` on its
+        # own cannot: it does not pin the patch level that ``requires-python``
+        # is checked against, so guessing one would check a version nobody
+        # asked for.
+        default_env = default_environment()
+        full_version = default_env["python_full_version"]
+        short_version = default_env["python_version"]
+        if environment is not None:
+            override_full = environment.get("python_full_version")
+            override_short = environment.get("python_version")
+            if override_full is not None and not isinstance(override_full, str):
+                raise PylockSelectError(
+                    "Set-valued 'python_full_version' cannot satisfy "
+                    "requires-python; pass a version string."
+                )
+            if override_short is not None and not isinstance(override_short, str):
+                raise PylockSelectError(
+                    "Set-valued 'python_version' cannot satisfy "
+                    "requires-python; pass a version string."
+                )
+            if isinstance(override_full, str):
+                full_version = override_full
+                short_version = ".".join(override_full.split(".")[:2])
+            elif isinstance(override_short, str):
+                raise PylockSelectError(
+                    f"'python_version' {override_short!r} does not pin the patch "
+                    f"level that requires-python is checked against; pass "
+                    f"'python_full_version' instead."
+                )
+        env_python_full_version = _pep440_python_full_version(full_version)
+        env["python_full_version"] = env_python_full_version
+        env["python_version"] = short_version
 
         # #. Check if the metadata version specified by :ref:`pylock-lock-version` is
         #    supported; an error or warning MUST be raised as appropriate.
@@ -743,9 +796,7 @@ class Pylock:
         #    expression is satisfied.
         if self.environments is not None:
             for env_marker in self.environments:
-                if env_marker.evaluate(
-                    cast("dict[str, str]", environment or {}), context="requirement"
-                ):
+                if env_marker.evaluate(env, context="requirement"):
                     break
             else:
                 raise PylockSelectError(
