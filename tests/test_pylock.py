@@ -43,6 +43,69 @@ def test_pylock_file_name(file_name: str, valid: bool) -> None:
     assert is_valid_pylock_path(Path(file_name)) is valid
 
 
+@pytest.mark.parametrize("distribution", ["archive", "sdist", "wheels"])
+@pytest.mark.parametrize(
+    ("upload_time", "valid"),
+    [
+        (datetime.datetime(2026, 1, 1), False),  # noqa: DTZ001 - Test naive input.
+        (
+            datetime.datetime(
+                2026, 1, 1, tzinfo=datetime.timezone(datetime.timedelta(hours=1))
+            ),
+            False,
+        ),
+        (
+            datetime.datetime(
+                2026, 1, 1, tzinfo=datetime.timezone(datetime.timedelta(hours=-8))
+            ),
+            False,
+        ),
+        (datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc), True),
+        (
+            datetime.datetime(
+                2026, 1, 1, tzinfo=datetime.timezone(datetime.timedelta(0), "GMT")
+            ),
+            True,
+        ),
+        (None, True),
+    ],
+)
+def test_pylock_upload_time_requires_utc(
+    distribution: str, upload_time: datetime.datetime | None, valid: bool
+) -> None:
+    artifact: dict[str, Any] = {
+        "url": "https://example.com/"
+        + {
+            "archive": "example.zip",
+            "sdist": "example-1.0.tar.gz",
+            "wheels": "example-1.0-py3-none-any.whl",
+        }[distribution],
+        "hashes": {"sha256": "a" * 64},
+    }
+    if upload_time is not None:
+        artifact["upload-time"] = upload_time
+    data = {
+        "lock-version": "1.0",
+        "created-by": "example",
+        "packages": [
+            {
+                "name": "example",
+                distribution: [artifact] if distribution == "wheels" else artifact,
+            }
+        ],
+    }
+    if valid:
+        result = Pylock.from_dict(data).to_dict()["packages"][0][distribution]
+        assert result == ([artifact] if distribution == "wheels" else artifact)
+        return
+    context = "wheels[0]" if distribution == "wheels" else distribution
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        f"Upload time must be in UTC in 'packages[0].{context}.upload-time'"
+    )
+
+
 def test_toml_roundtrip() -> None:
     pep751_example = (
         Path(__file__).parent / "pylock" / "pylock.spec-example.toml"
