@@ -50,10 +50,11 @@ repos:
         files: "^\\.github"
         args: [--persona=auditor]
 
-  - repo: https://github.com/rhysd/actionlint
-    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0494aa7fa1314e98913a41227d8f0a515b2c1049  # frozen: 0.38.2
     hooks:
-      - id: actionlint
+      - id: check-dependabot
+      - id: check-github-workflows
 
   - repo: local
     hooks:
