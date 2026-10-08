@@ -32,11 +32,16 @@ _ALLOWED_ARCHS = {
 
 @contextlib.contextmanager
 def _parse_elf(path: str) -> Generator[ELFFile | None]:
-    try:
-        with open(path, "rb") as f:
-            yield ELFFile(f)
-    except (OSError, TypeError, ValueError):
-        yield None
+    # The guard deliberately does not cover the yield below: only a failure to
+    # open or parse the executable is reported as None, while an error raised by
+    # the caller inspecting the file has to propagate unchanged.
+    with contextlib.ExitStack() as stack:
+        try:
+            ef: ELFFile | None = ELFFile(stack.enter_context(open(path, "rb")))
+        except (OSError, TypeError, ValueError):
+            yield None
+            return
+        yield ef
 
 
 def _is_linux_armhf(executable: str) -> bool:
