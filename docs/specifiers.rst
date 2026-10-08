@@ -85,6 +85,35 @@ rejected; call :meth:`~packaging.specifiers.SpecifierSet.to_range` on both
 sides for those.
 
 
+Arbitrary equality
+------------------
+
+The ``===`` operator performs case-insensitive string comparison without
+version normalization. It is intended as an escape hatch for legacy versions
+that do not follow the `Version Specifiers Specification`_. Prefer standard
+version comparisons, such as ``==``, when possible.
+
+When using arbitrary equality in dependency specifiers, use only ASCII
+letters, digits, ``-``, ``_``, ``.``, ``*``, ``+``, and ``!`` in the version
+string. These are the characters allowed by the `dependency specifier
+grammar`_; other characters may not work, even if a standalone
+:class:`~packaging.specifiers.Specifier` accepts them.
+
+In particular, a comma separates specifiers when constructing a
+:class:`~packaging.specifiers.SpecifierSet` from a string. It is not part of
+an arbitrary equality version in that form:
+
+.. doctest::
+
+    >>> from packaging.specifiers import Specifier, SpecifierSet
+    >>> Specifier("===legacy,").version
+    'legacy,'
+    >>> next(iter(SpecifierSet("===legacy,"))).version
+    'legacy'
+
+.. _dependency specifier grammar: https://packaging.python.org/en/latest/specifications/dependency-specifiers/#grammar
+
+
 Reference
 ---------
 
