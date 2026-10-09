@@ -84,7 +84,8 @@ _PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
 def is_valid_pylock_path(path: Path) -> bool:
     """Check if the given path is a valid pylock file path."""
-    return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.match(path.name))
+    # 2026-10-09: Do not accept a newline after the TOML suffix.
+    return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.fullmatch(path.name))
 
 
 def _toml_key(key: str) -> str:
