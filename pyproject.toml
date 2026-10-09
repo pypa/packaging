@@ -178,5 +178,6 @@ flake8-unused-arguments.ignore-variadic-names = true
 "tasks/check_frozen_revs.py" = ["ANN401"]
 "tests/test_requirements.py" = ["UP032"]
 "src/packaging/_musllinux.py" = ["T20"]
-"docs/conf.py" = ["INP001", "S", "A001"]
+"docs/**" = ["INP001"]
+"docs/conf.py" = ["S", "A001"]
 "noxfile.py" = ["T20", "S"]
