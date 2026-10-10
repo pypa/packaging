@@ -37,7 +37,6 @@ else:
         ("pylock.spam.toml", True),
         ("pylock.json", False),
         ("pylock..toml", False),
-        # 2026-10-09: Require the TOML suffix to reach the end of the name.
         ("pylock.spam.toml\n", False),
     ],
 )
