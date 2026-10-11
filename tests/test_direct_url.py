@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+from collections import UserDict
+from types import MappingProxyType
+from typing import TYPE_CHECKING
+
 import pytest
 
 from packaging.direct_url import (
@@ -10,6 +15,9 @@ from packaging.direct_url import (
     VcsInfo,
     _strip_url,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 @pytest.mark.parametrize(
@@ -357,3 +365,25 @@ def test_to_dict_strip_url_git_safe_default() -> None:
         vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
     )
     assert direct_url.to_dict()["url"] == "ssh://git@g.c/user/repo.git"
+
+
+@pytest.mark.parametrize("mapping_type", [MappingProxyType, UserDict])
+@pytest.mark.parametrize("hashes", [{}, {"sha256": "abc"}])
+@pytest.mark.parametrize("generate_legacy_hash", [False, True])
+def test_to_dict_with_hash_mappings(
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+    hashes: dict[str, str],
+    generate_legacy_hash: bool,
+) -> None:
+    mapping = mapping_type(hashes)
+    direct_url = DirectUrl.from_dict(
+        {"url": "https://example.com/archive.zip", "archive_info": {"hashes": mapping}}
+    )
+    serialized = direct_url.to_dict(generate_legacy_hash=generate_legacy_hash)
+    expected: dict[str, object] = {"hashes": hashes}
+    if generate_legacy_hash and hashes:
+        expected["hash"] = "sha256=abc"
+    assert json.loads(json.dumps(serialized))["archive_info"] == expected
+    assert direct_url.archive_info is not None
+    assert direct_url.archive_info.hashes is mapping
+    direct_url.validate()
