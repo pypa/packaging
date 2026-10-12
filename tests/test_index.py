@@ -116,10 +116,11 @@ class TestParseList(ParseBaseTests):
             <html>
             <body>
                 <a href="/frob/">
+                    <!-- This should be ignored. -->
                     frob
                 </a>
                 <a href="/spamspamspam/">
-                    spamspamspam
+                    spamspam<!-- bacon -->spam
                 </a>
             </body>
             </html>
@@ -293,7 +294,8 @@ class TestParseDetails(ParseBaseTests):
             <html>
             <body>
             <a href="https://files.pythonhosted.org/spam/spam-1.0.tar.gz">
-                spam-1.0.tar.gz
+                <!-- Comments are ignored. -->
+                spam-1.0<!-- ... -->.tar.gz
             </a>
             </body>
             </html>

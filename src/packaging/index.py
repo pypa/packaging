@@ -170,8 +170,15 @@ class RawProjectDetails(_RawProjectDetailsRequired, _RawProjectDetailsOptional):
 
 class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
     api_version: str = "1.0"
+    data: str
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.data = ""
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            self.data = ""
         tag_method = f"_handle_{tag}_tag"
         if hasattr(self, tag_method):
             attr_dict = dict(attrs)
@@ -188,6 +195,9 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
     def _handle_repository_version_content(self, content: str) -> None:
         self.api_version = content
 
+    def handle_data(self, data: str) -> None:
+        self.data += data
+
 
 class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
     names: list[str]
@@ -196,18 +206,12 @@ class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.names = []
-        self.parsing_anchor = False
-
-    def _handle_a_tag(self, _attrs: dict[str, str | None]) -> None:
-        self.parsing_anchor = True
-
-    def handle_data(self, data: str) -> None:
-        if self.parsing_anchor:
-            self.names.append(data.strip())
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "a":
-            self.parsing_anchor = False
+            self.names.append(self.data.strip())
+            self.data = ""
+        super().handle_endtag(tag)
 
 
 def _normalize_content_type(content_type: str) -> str:
@@ -336,13 +340,13 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
             raise InvalidHTMLAttributeValue("a", "data-provenance", value)
         self.current_file["provenance"] = value
 
-    def handle_data(self, data: str) -> None:
-        self.current_file["filename"] = data.strip()
-
     def handle_endtag(self, tag: str) -> None:
         if tag == "a":
+            self.current_file["filename"] = self.data.strip()
             self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
+            self.data = ""
             self.current_file = self._new_file()
+        super().handle_endtag(tag)
 
 
 @typing.overload
