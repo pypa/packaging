@@ -14,13 +14,13 @@ def is_exception(exc: object) -> TypeGuard[type[index.IndexServerException]]:
 
 
 class ParseBaseTests:
-    def test_invalid_content_type(self) -> None:
+    def test_invalid_content_type(self, content_type: str) -> None:
         raise NotImplementedError
 
     def test_html_content_type(self, content_type: str) -> None:
         raise NotImplementedError
 
-    def test_json_content_type(self) -> None:
+    def test_json_content_type(self, content_type: str) -> None:
         raise NotImplementedError
 
     def test_html_api_version(self, meta_tag: str, api_version: str) -> None:
@@ -34,10 +34,6 @@ class ParseBaseTests:
 
 
 class TestParseList(ParseBaseTests):
-    def test_invalid_content_type(self) -> None:
-        with pytest.raises(index.InvalidContentType):
-            index.parse_list("invalid/content-type", "")
-
     @pytest.mark.parametrize(
         "content_type", [*index._ACCEPT_HTML_VALUES, "text/html; charset=utf-8"]
     )
@@ -69,9 +65,12 @@ class TestParseList(ParseBaseTests):
         result = index.parse_list(content_type, json.dumps(expect))
         assert result == expect
 
-    def test_json_invalid_content_type(self) -> None:
+    @pytest.mark.parametrize(
+        "content_type", [index.ACCEPT_JSON_V1 + "spam", HTML_CONTENT_TYPE + "spam"]
+    )
+    def test_invalid_content_type(self, content_type: str) -> None:
         with pytest.raises(index.InvalidContentType):
-            index.parse_list(index.ACCEPT_JSON_V1 + "spam", "")
+            index.parse_list(content_type, "")
 
     @pytest.mark.parametrize(
         ("meta_tag", "api_version"),
@@ -182,9 +181,12 @@ class TestParseList(ParseBaseTests):
 
 
 class TestParseDetails(ParseBaseTests):
-    def test_invalid_content_type(self) -> None:
+    @pytest.mark.parametrize(
+        "content_type", [index.ACCEPT_JSON_V1 + "spam", HTML_CONTENT_TYPE + "spam"]
+    )
+    def test_invalid_content_type(self, content_type: str) -> None:
         with pytest.raises(index.InvalidContentType):
-            index.parse_details("invalid/content-type", "", name="spam")
+            index.parse_details(content_type, "", name="spam")
 
     @pytest.mark.parametrize(
         "content_type", [*index._ACCEPT_HTML_VALUES, "text/html; charset=utf-8"]
@@ -229,10 +231,6 @@ class TestParseDetails(ParseBaseTests):
         }
         result = index.parse_details(content_type, json.dumps(expect), name="spam")
         assert result == expect
-
-    def test_json_invalid_content_type(self) -> None:
-        with pytest.raises(index.InvalidContentType):
-            index.parse_details(index.ACCEPT_JSON_V1 + "spam", "", name="spam")
 
     @pytest.mark.parametrize(
         "url",
