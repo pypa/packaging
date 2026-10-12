@@ -58,13 +58,20 @@ class TestParseList(ParseBaseTests):
         }
         assert result == expect
 
-    def test_json_content_type(self) -> None:
+    @pytest.mark.parametrize(
+        "content_type", [index.ACCEPT_JSON_V1, index.ACCEPT_JSON_V1 + ";charset=utf-8"]
+    )
+    def test_json_content_type(self, content_type: str) -> None:
         expect: index.RawProjectList = {
             "meta": {"api-version": "1.0"},
             "projects": [{"name": "frob"}, {"name": "spamspamspam"}],
         }
-        result = index.parse_list(index.ACCEPT_JSON_V1, json.dumps(expect))
+        result = index.parse_list(content_type, json.dumps(expect))
         assert result == expect
+
+    def test_json_invalid_content_type(self) -> None:
+        with pytest.raises(index.InvalidContentType):
+            index.parse_list(index.ACCEPT_JSON_V1 + "spam", "")
 
     @pytest.mark.parametrize(
         ("meta_tag", "api_version"),
@@ -205,7 +212,10 @@ class TestParseDetails(ParseBaseTests):
 
         assert result == expect
 
-    def test_json_content_type(self) -> None:
+    @pytest.mark.parametrize(
+        "content_type", [index.ACCEPT_JSON_V1, index.ACCEPT_JSON_V1 + ";charset=utf-8"]
+    )
+    def test_json_content_type(self, content_type: str) -> None:
         expect: index.RawProjectDetails = {
             "meta": {"api-version": "1.0"},
             "name": "spam",
@@ -217,11 +227,12 @@ class TestParseDetails(ParseBaseTests):
                 }
             ],
         }
-        result = index.parse_details(
-            index.ACCEPT_JSON_V1, json.dumps(expect), name="spam"
-        )
-
+        result = index.parse_details(content_type, json.dumps(expect), name="spam")
         assert result == expect
+
+    def test_json_invalid_content_type(self) -> None:
+        with pytest.raises(index.InvalidContentType):
+            index.parse_details(index.ACCEPT_JSON_V1 + "spam", "", name="spam")
 
     @pytest.mark.parametrize(
         "url",
