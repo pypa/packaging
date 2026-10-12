@@ -177,7 +177,7 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
 
     def _handle_meta_tag(self, attrs: dict[str, str | None]) -> None:
         if (name := attrs.get("name")) and name.startswith("pypi:"):
-            if not (content := attrs.get("content")):
+            if (content := attrs.get("content")) is None:
                 raise InvalidHTMLAttributeValue("meta", "content", content)
             pypi_name = name.removeprefix("pypi:")
             method_name = f"_handle_{pypi_name.replace('-', '_')}_content"
@@ -417,7 +417,7 @@ def parse_details(
                 "_PROJECT_STATUSES", parser.status
             )
 
-        if parser.status_reason:
+        if parser.status_reason is not None:
             project_details.setdefault("project-status", {})["reason"] = (
                 parser.status_reason
             )

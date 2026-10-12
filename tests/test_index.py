@@ -372,16 +372,17 @@ class TestParseDetails(ParseBaseTests):
 
             assert result == expect
 
-    def test_html_project_reason(self) -> None:
-        given = """
+    @pytest.mark.parametrize("reason", ["something", ""])
+    def test_html_project_reason(self, reason: str) -> None:
+        given = f"""
             <html>
-            <meta name="pypi:project-status-reason" content="something" />
+            <meta name="pypi:project-status-reason" content="{reason}" />
             </html>
         """
         expect: index.RawProjectDetails = {
             "meta": {"api-version": "1.0"},
             "name": "spam",
-            "project-status": {"reason": "something"},
+            "project-status": {"reason": reason},
             "files": [],
         }
         result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
