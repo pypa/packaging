@@ -4,12 +4,14 @@ from __future__ import annotations
 # doesn't pay an unnecessary import penalty for other code.
 __lazy_modules__ = {
     "contextlib",
+    "email.message",
     "html",
     "json",
     "urllib.parse",
     f"{__spec__.parent}.utils",
 }
 import contextlib
+import email.message
 import html
 import html.parser  # HTMLParser used as a base class.
 import json
@@ -208,6 +210,18 @@ class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
             self.parsing_anchor = False
 
 
+def _normalize_content_type(content_type: str) -> str:
+    """Normalize the content type for comparing.
+
+    Critically, this lowercases the content type and remove parameters.
+
+    If a content type is malformed, it defaults to ``text/plain``.
+    """
+    message = email.message.EmailMessage()
+    message["Content-Type"] = content_type
+    return message.get_content_type()
+
+
 def parse_list(content_type: str, data: str) -> RawProjectList:
     """Parse the project list based on the specified content type.
 
@@ -219,12 +233,13 @@ def parse_list(content_type: str, data: str) -> RawProjectList:
     Regardless of content type, all data is normalized by storing the canonical
     project names. No other normalization or validation is performed.
     """
-    content_type = content_type.lower()
+    cleaned_content_type = _normalize_content_type(content_type)
     project_list: RawProjectList
-    if content_type == ACCEPT_JSON_V1:
+    if cleaned_content_type == ACCEPT_JSON_V1:
         project_list = json.loads(data)
-    # Watch out for content types that specify the encoding!
-    elif any(content_type.startswith(mime_type) for mime_type in _ACCEPT_HTML_VALUES):
+    elif cleaned_content_type not in _ACCEPT_HTML_VALUES:
+        raise InvalidContentType(content_type)
+    else:
         with contextlib.closing(_RawProjectListHTMLParser()) as parser:
             parser.feed(data)
         meta = typing.cast("_RawProjectMeta", {"api-version": parser.api_version})
@@ -232,8 +247,6 @@ def parse_list(content_type: str, data: str) -> RawProjectList:
             "meta": meta,
             "projects": [{"name": name} for name in parser.names],
         }
-    else:
-        raise InvalidContentType(content_type)
 
     for project in project_list["projects"]:
         project["name"] = utils.canonicalize_name(project["name"])
@@ -385,14 +398,11 @@ def parse_details(
     """
     if name is None and request_url is None:
         raise TypeError("expected either 'name' or request_url to be provided")
-    content_type = content_type.lower()
+    cleaned_content_type = _normalize_content_type(content_type)
     project_details: RawProjectDetails
-    if content_type == ACCEPT_JSON_V1:
+    if cleaned_content_type == ACCEPT_JSON_V1:
         project_details = json.loads(data)
-    # Watch out for content types that specify the encoding!
-    elif not any(
-        content_type.startswith(mime_type) for mime_type in _ACCEPT_HTML_VALUES
-    ):
+    elif cleaned_content_type not in _ACCEPT_HTML_VALUES:
         raise InvalidContentType(content_type)
     else:
         with contextlib.closing(_RawProjectDetailsHTMLParser()) as parser:
