@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import operator
+import os
 import platform
 import re
 import struct
@@ -709,25 +710,41 @@ def mac_platforms(
     if version is None or arch is None:
         version_str, _, cpu_arch = platform.mac_ver()
         if version is None:
-            version = cast("AppleVersion", tuple(map(int, version_str.split(".")[:2])))
+            try:
+                version_parts = tuple(map(int, version_str.split(".")[:2]))
+            except ValueError:
+                return
+            if len(version_parts) != 2:
+                return
+            version = version_parts
+
             if version == (10, 16):
                 # When built against an older macOS SDK, Python will report macOS 10.16
                 # instead of the real version.
-                version_str = subprocess.run(
-                    [
-                        sys.executable,
-                        "-sS",
-                        "-c",
-                        "import platform; print(platform.mac_ver()[0])",
-                    ],
-                    check=True,
-                    env={"SYSTEM_VERSION_COMPAT": "0"},
-                    stdout=subprocess.PIPE,
-                    text=True,
-                ).stdout
-                version = cast(
-                    "AppleVersion", tuple(map(int, version_str.split(".")[:2]))
-                )
+                env = os.environ.copy()
+                env["SYSTEM_VERSION_COMPAT"] = "0"
+                try:
+                    res = subprocess.run(
+                        [
+                            sys.executable,
+                            "-sS",
+                            "-c",
+                            "import platform; print(platform.mac_ver()[0])",
+                        ],
+                        check=True,
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        text=True,
+                    )
+                    version_str = res.stdout.strip()
+                    version_parts = tuple(map(int, version_str.split(".")[:2]))
+                except (subprocess.SubprocessError, OSError, ValueError):
+                    version_parts = ()
+                if len(version_parts) == 2 and version_parts != (10, 16):
+                    version = version_parts
+                else:
+                    # 10.16 is only reported on macOS 11+, so 11.0 is a safe minimum.
+                    version = (11, 0)
         if arch is None:
             arch = _mac_arch(cpu_arch)
 
