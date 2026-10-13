@@ -921,3 +921,47 @@ def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
     m = Marker.__new__(Marker)
     with pytest.raises(TypeError, match="Cannot restore Marker"):
         m.__setstate__("this is not a valid marker")
+
+
+class TestExtraSetEvaluation:
+    @pytest.mark.parametrize(
+        ("expression", "extras", "expected"),
+        [
+            ('extra == "gpu"', {"gpu"}, True),
+            ('extra == "gpu"', {"cpu"}, False),
+            ('extra == "gpu"', set(), False),
+            ('extra != "gpu"', {"cpu"}, True),
+            ('extra != "gpu"', {"gpu"}, False),
+            # The pypa/pip#14139 case: a negated marker must not match when
+            # the named extra is selected alongside others.
+            ('extra != "gpu"', {"gpu", "cpu"}, False),
+            ('extra != "gpu"', set(), True),
+            ('extra == ""', set(), True),
+            ('extra == ""', {"gpu"}, False),
+            ('"gpu" == extra', {"gpu"}, True),
+            ('"gpu" != extra', {"gpu", "cpu"}, False),
+            ('"gpu" in extra', {"gpu"}, True),
+            ('"gpu" in extra', set(), False),
+            ('"gpu" not in extra', {"cpu"}, True),
+            ('extra in "gpu,docs"', {"docs"}, True),
+            ('extra in "gpu,docs"', {"cpu"}, False),
+            ('extra not in "gpu"', {"cpu"}, True),
+            ('extra not in "gpu"', {"cpu", "gpu"}, False),
+            ('extra == "PDF_Support"', {"pdf.support"}, True),
+            # Two required extras can only both match set-wide.
+            ('extra == "a" and extra == "b"', {"a", "b"}, True),
+            ('extra == "a" and extra == "b"', {"a"}, False),
+            ('extra == "a" or extra == "b"', {"b"}, True),
+        ],
+    )
+    @pytest.mark.parametrize("wrap", [set, frozenset, list, tuple])
+    def test_marker_evaluation(
+        self, expression: str, extras: set[str], expected: bool, wrap: type[Any]
+    ) -> None:
+        # Any non-string iterable passed as ``extra`` is accepted.
+        environment = cast("Any", {"extra": wrap(extras)})
+        assert Marker(expression).evaluate(environment) is expected
+
+    def test_undefined_operator(self) -> None:
+        with pytest.raises(UndefinedComparison):
+            Marker('extra ~= "gpu"').evaluate({"extra": frozenset({"gpu"})})
