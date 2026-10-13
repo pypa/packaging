@@ -2,7 +2,15 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import os
+import pathlib
+import zipfile
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
 
 # -- Project information loading ----------------------------------------------
 
@@ -66,6 +74,7 @@ html_theme_options = {
         },
     ],
 }
+html_static_path = ["_static"]
 html_copy_source = False
 html_show_sourcelink = False
 
@@ -129,3 +138,28 @@ nitpick_ignore = [
     ("py:class", "UnparsedVersion"),
     ("py:class", "UnparsedVersionVar"),
 ]
+
+
+# -- Online validator ---------------------------------------------------------
+# ``validator.rst`` runs the packaging source from this build in Pyodide.
+
+
+def _add_validator_assets(app: Sphinx, pagename: str, *_: object) -> None:
+    if pagename == "validator":
+        app.add_css_file("validator.css")
+        app.add_js_file("validator.js", type="module")
+
+
+def _write_packaging_zip(app: Sphinx, exception: Exception | None) -> None:
+    if exception is not None or app.builder.format != "html":
+        return
+    src = pathlib.Path(_BASE_DIR, "src")
+    dest = pathlib.Path(app.outdir, "_static", "packaging.zip")
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in (src / "packaging").rglob("*.py"):
+            zf.write(path, path.relative_to(src))
+
+
+def setup(app: Sphinx) -> None:
+    app.connect("html-page-context", _add_validator_assets)
+    app.connect("build-finished", _write_packaging_zip)
