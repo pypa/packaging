@@ -231,6 +231,7 @@ class Specifier(BaseSpecifier):
     """
 
     __slots__ = (
+        "_canonical_spec_cache",
         "_prereleases",
         "_ranges",
         "_spec",
@@ -380,6 +381,9 @@ class Specifier(BaseSpecifier):
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[Interval] | None = None
 
+        # Canonical (operator, version) cache (populated by _canonical_spec)
+        self._canonical_spec_cache: tuple[str, str] | None = None
+
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
         if self._spec_version is not None and self._spec_version[0] == version:
@@ -465,6 +469,7 @@ class Specifier(BaseSpecifier):
         # Always discard cached values - they will be recomputed on demand.
         self._spec_version = None
         self._ranges = None
+        self._canonical_spec_cache = None
 
         if isinstance(state, tuple):
             if len(state) == 2:
@@ -542,17 +547,24 @@ class Specifier(BaseSpecifier):
 
     @property
     def _canonical_spec(self) -> tuple[str, str]:
+        cached = self._canonical_spec_cache
+        if cached is not None:
+            return cached
+
         operator, version = self._spec
         if operator == "===" or version.endswith(".*"):
-            return operator, version
+            result = self._spec
+        else:
+            canonical = canonicalize_version(
+                self._require_spec_version(version),
+                strip_trailing_zero=(operator != "~="),
+            )
+            # Most versions are already canonical, so reuse the existing tuple rather
+            # than retaining a second copy of a string equal to the one we hold.
+            result = self._spec if canonical == version else (operator, canonical)
 
-        spec_version = self._require_spec_version(version)
-
-        canonical_version = canonicalize_version(
-            spec_version, strip_trailing_zero=(operator != "~=")
-        )
-
-        return operator, canonical_version
+        self._canonical_spec_cache = result
+        return result
 
     def __hash__(self) -> int:
         return hash(self._canonical_spec)
