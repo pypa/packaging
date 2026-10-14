@@ -258,6 +258,12 @@ class TestParseTag:
         with pytest.raises(tags.InvalidTag, match="invalid (abi|platform)"):
             tags.parse_tag(tag)
 
+    def test_digit_leading_abi_parses(self) -> None:
+        # Spec ABI hashes are base64 and may start with a digit.
+        assert tags.parse_tag("py3-0abcDEF1-any") == {
+            tags.Tag("py3", "0abcdef1", "any")
+        }
+
     @pytest.mark.parametrize(
         "tag",
         [

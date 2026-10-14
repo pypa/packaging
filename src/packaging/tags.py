@@ -237,6 +237,12 @@ class Tag:
         raise TypeError(f"Cannot restore Tag from {state!r}")
 
 
+# ABI and platform are not Python identifiers. The compatibility-tag spec
+# allows an ABI to be 8 base64 characters, so a component may start with a
+# digit. Platform tags are ASCII letters, digits, and underscores.
+_TAG_COMPONENT_RE = re.compile(r"[0-9A-Za-z_]+")
+
+
 def parse_tag(
     tag: str, *, validate_order: bool = False, limit: int | None = None
 ) -> frozenset[Tag]:
@@ -260,10 +266,11 @@ def parse_tag(
     :param int | None limit: The maximum number of tags to parse.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
-    :raises InvalidTag: If the interpreter, ABI, or platform field is not an
-        identifier; if the interpreter, ABI, or platform field (or any member
-        of a compressed tag set) is empty; or if the tag does not have exactly
-        three components.
+    :raises InvalidTag: If the interpreter field is not an identifier; if an
+        ABI or platform field is not an ASCII tag component (letters, digits,
+        and underscore, including a leading digit); if the interpreter, ABI,
+        or platform field (or any member of a compressed tag set) is empty;
+        or if the tag does not have exactly three components.
     :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
         set would generate more than **limit** tags.
     :raises ValueError: If **limit** is negative.
@@ -311,10 +318,10 @@ def parse_tag(
         if not interpreter.isidentifier():
             raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
     for abi in abis:
-        if not abi.isidentifier():
+        if _TAG_COMPONENT_RE.fullmatch(abi) is None:
             raise InvalidTag(f"Tag {tag!r} has an invalid abi: {abi!r}")
     for platform_ in platforms:
-        if not platform_.isidentifier():
+        if _TAG_COMPONENT_RE.fullmatch(platform_) is None:
             raise InvalidTag(f"Tag {tag!r} has an invalid platform: {platform_!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
