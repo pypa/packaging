@@ -293,7 +293,15 @@ class DirectUrl:
             should not be stripped from the URL even if `strip_user_password` is
             True.
         """
-        res = dataclasses.asdict(self, dict_factory=_json_dict_factory)
+        source = self
+        if self.archive_info is not None and self.archive_info.hashes is not None:
+            source = dataclasses.replace(
+                self,
+                archive_info=dataclasses.replace(
+                    self.archive_info, hashes=dict(self.archive_info.hashes)
+                ),
+            )
+        res = dataclasses.asdict(source, dict_factory=_json_dict_factory)
         if generate_legacy_hash and self.archive_info and self.archive_info.hashes:
             hash_algorithm, hash_value = next(iter(self.archive_info.hashes.items()))
             res["archive_info"]["hash"] = f"{hash_algorithm}={hash_value}"
