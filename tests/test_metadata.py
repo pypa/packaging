@@ -635,6 +635,76 @@ class TestMetadata:
             metadata.Metadata.from_raw(raw, validate=True)
 
     @pytest.mark.parametrize(
+        ("import_names", "import_namespaces"),
+        [
+            (["spam"], ["spam"]),
+            (["spam ; private"], ["spam"]),
+            (["spam"], ["spam;private"]),
+            (["ham", "spam.eggs"], ["spam", "spam.eggs"]),
+        ],
+    )
+    def test_import_name_and_namespace_overlap(
+        self, import_names: list[str], import_namespaces: list[str]
+    ) -> None:
+        raw: RawMetadata = {
+            "metadata_version": "2.5",
+            "name": "spam",
+            "version": "1.0",
+            "import_names": import_names,
+            "import_namespaces": import_namespaces,
+        }
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw, validate=True)
+
+        assert len(exc_info.value.exceptions) == 1
+        exc = exc_info.value.exceptions[0]
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "import-name"
+        assert "listed in both 'import-name' and 'import-namespace'" in str(exc)
+
+    @pytest.mark.parametrize(
+        ("import_names", "import_namespaces"),
+        [
+            (["spam.eggs"], ["spam"]),
+            (["spam"], ["spam.eggs"]),
+            ([], ["spam"]),
+        ],
+    )
+    def test_import_name_and_namespace_distinct(
+        self, import_names: list[str], import_namespaces: list[str]
+    ) -> None:
+        raw: RawMetadata = {
+            "metadata_version": "2.5",
+            "name": "spam",
+            "version": "1.0",
+            "import_names": import_names,
+            "import_namespaces": import_namespaces,
+        }
+
+        meta = metadata.Metadata.from_raw(raw, validate=True)
+
+        assert meta.import_names == import_names
+        assert meta.import_namespaces == import_namespaces
+
+    def test_import_name_and_namespace_overlap_invalid_name(self) -> None:
+        raw: RawMetadata = {
+            "metadata_version": "2.5",
+            "name": "spam",
+            "version": "1.0",
+            "import_names": ["spam", "not-valid"],
+            "import_namespaces": ["spam"],
+        }
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw, validate=True)
+
+        # Only the invalid identifier is reported; the overlap check needs
+        # both fields to be valid first.
+        assert len(exc_info.value.exceptions) == 1
+        assert "not a valid identifier" in str(exc_info.value.exceptions[0])
+
+    @pytest.mark.parametrize(
         "attribute",
         [
             "description",
