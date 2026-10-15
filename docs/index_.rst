@@ -39,10 +39,13 @@ Low Level Interface
 '''''''''''''''''''
 
 .. autoclass:: packaging.index.RawProjectList
+    :exclude-members: __init__, __new__
 
 .. autoclass:: packaging.index.RawProjectDetails
+    :exclude-members: __init__, __new__
 
 .. autoclass:: packaging.index.RawProjectDetailsFile
+    :exclude-members: __init__, __new__
 
 .. autofunction:: packaging.index.parse_list
 
