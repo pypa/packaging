@@ -1045,6 +1045,13 @@ class Metadata:
                         message[email_name] = ",".join(value)
                     elif email_name == "import-name" and value == []:
                         message[email_name] = ""
+                    elif email_name == "provides-extra" and len(value) != len(
+                        set(value)
+                    ):
+                        raise InvalidMetadata(
+                            email_name,
+                            "'provides-extra' names must be unique after normalization",
+                        )
                     elif isinstance(value, list):
                         for item in value:
                             message[email_name] = str(item)

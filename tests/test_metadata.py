@@ -1173,6 +1173,28 @@ class TestMetadataWriting:
             written == "metadata-version: 2.6\nname: packaging\nversion: 2023.0.0\n\n"
         )
 
+    @pytest.mark.parametrize(
+        "extras",
+        [
+            ["dev_test", "dev-test"],
+            ["DEV.test", "dev-test"],
+            ["dev-test", "dev-test"],
+        ],
+    )
+    def test_write_metadata_with_colliding_extras(self, extras: list[str]) -> None:
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.1",
+                "name": "example",
+                "version": "1.0",
+                "provides_extra": extras,
+            }
+        )
+
+        with pytest.raises(metadata.InvalidMetadata, match="unique") as exc_info:
+            meta.as_rfc822()
+        assert exc_info.value.field == "provides-extra"
+
     def test_write_metadata_with_description(self) -> None:
         # Intentionally out of order to make sure it is written in order
         meta = metadata.Metadata.from_raw(
