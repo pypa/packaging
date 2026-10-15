@@ -175,6 +175,13 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             (1000, ""),
             {Tag("py3", "none", "any")},
         ),
+        (
+            "foo-1.0-py3-0abc+EF1-any.whl",
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "0abc+ef1", "any")},
+        ),
     ],
 )
 def test_parse_wheel_filename(
@@ -201,6 +208,8 @@ def test_parse_wheel_filename(
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
         ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
         ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
+        ("foo-1.0-py3-none/-any.whl"),  # Slash is not a wheel filename character
+        ("foo-1.0-py3-none-any+.whl"),  # Plus is legal in ABI, not in platform
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:

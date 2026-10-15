@@ -237,10 +237,13 @@ class Tag:
         raise TypeError(f"Cannot restore Tag from {state!r}")
 
 
-# ABI and platform are not Python identifiers. The compatibility-tag spec
-# allows an ABI to be 8 base64 characters, so a component may start with a
-# digit. Platform tags are ASCII letters, digits, and underscores.
-_TAG_COMPONENT_RE = re.compile(r"[0-9A-Za-z_]+")
+# ABI is not a Python identifier. The compatibility-tag spec allows an
+# unstable ABI to be 8 standard base64 characters, so a component may start
+# with a digit and may include "+". "/" stays rejected: it is not a wheel
+# filename character. "-" stays rejected: it separates filename fields.
+# Platform tags are ASCII letters, digits, and underscores.
+_ABI_COMPONENT_RE = re.compile(r"[0-9A-Za-z_+]+")
+_PLATFORM_COMPONENT_RE = re.compile(r"[0-9A-Za-z_]+")
 
 
 def parse_tag(
@@ -267,10 +270,11 @@ def parse_tag(
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
     :raises InvalidTag: If the interpreter field is not an identifier; if an
-        ABI or platform field is not an ASCII tag component (letters, digits,
-        and underscore, including a leading digit); if the interpreter, ABI,
-        or platform field (or any member of a compressed tag set) is empty;
-        or if the tag does not have exactly three components.
+        ABI field is not letters, digits, underscore, or "+" (including a
+        leading digit); if a platform field is not letters, digits, and
+        underscore; if the interpreter, ABI, or platform field (or any member
+        of a compressed tag set) is empty; or if the tag does not have exactly
+        three components.
     :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
         set would generate more than **limit** tags.
     :raises ValueError: If **limit** is negative.
@@ -318,10 +322,10 @@ def parse_tag(
         if not interpreter.isidentifier():
             raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
     for abi in abis:
-        if _TAG_COMPONENT_RE.fullmatch(abi) is None:
+        if _ABI_COMPONENT_RE.fullmatch(abi) is None:
             raise InvalidTag(f"Tag {tag!r} has an invalid abi: {abi!r}")
     for platform_ in platforms:
-        if _TAG_COMPONENT_RE.fullmatch(platform_) is None:
+        if _PLATFORM_COMPONENT_RE.fullmatch(platform_) is None:
             raise InvalidTag(f"Tag {tag!r} has an invalid platform: {platform_!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
