@@ -1,0 +1,749 @@
+from __future__ import annotations
+
+__all__ = [
+    "WheelArchiveFile",
+    "WheelContentElement",
+    "WheelError",
+    "WheelMetadata",
+    "WheelReader",
+    "WheelRecordEntry",
+    "WheelWriter",
+    "write_wheelfile",
+]
+
+
+import csv
+import hashlib
+import os.path
+import pathlib
+import stat
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+from collections import OrderedDict
+from contextlib import ExitStack, suppress
+from datetime import datetime, timezone
+from email.message import Message
+from email.policy import EmailPolicy
+from io import BytesIO, StringIO, UnsupportedOperation
+from os import PathLike
+from pathlib import Path, PurePath
+from typing import IO, TYPE_CHECKING, NamedTuple
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
+
+from .utils import (
+    BuildTag,
+    InvalidWheelFilename,
+    NormalizedName,
+    canonicalize_name,
+    parse_wheel_filename,
+)
+from .version import Version
+
+if TYPE_CHECKING:  # pragma: no cover
+    import sys
+    from collections.abc import Iterable, Iterator
+    from types import TracebackType
+
+    from .tags import Tag
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
+
+
+def __dir__() -> list[str]:
+    return __all__
+
+
+_exclude_filenames = ("RECORD", "RECORD.jws", "RECORD.p7s")
+_data_subdirs = frozenset({"purelib", "platlib", "headers", "scripts", "data"})
+# The ZIP format can only represent timestamps from 1980-01-01 to 2107-12-31, with
+# a two second resolution.
+_min_timestamp = datetime(1980, 1, 1, tzinfo=timezone.utc)
+_max_timestamp = datetime(2107, 12, 31, 23, 59, 58, tzinfo=timezone.utc)
+_default_timestamp = _min_timestamp
+_email_policy = EmailPolicy(max_line_length=0, mangle_from_=False, utf8=True)
+
+
+class WheelMetadata(NamedTuple):
+    """The parts of a wheel filename that identify the wheel."""
+
+    name: NormalizedName
+    version: Version
+    build_tag: BuildTag
+    tags: frozenset[Tag]
+
+    @classmethod
+    def from_filename(cls, fname: str) -> WheelMetadata:
+        """
+        Parse a wheel filename.
+
+        :raises packaging.utils.InvalidWheelFilename: if the filename is invalid
+        """
+        name, version, build, tags = parse_wheel_filename(fname)
+        return cls(name, version, build, tags)
+
+
+class WheelRecordEntry(NamedTuple):
+    """One row of the ``RECORD`` file."""
+
+    hash_algorithm: str
+    hash_value: bytes
+    filesize: int
+
+
+class WheelContentElement(NamedTuple):
+    """A file yielded by :meth:`WheelReader.iterate_contents`."""
+
+    # Qualified so that Sphinx can resolve the generated signature.
+    path: pathlib.PurePath
+    hash_value: bytes
+    size: int
+    stream: WheelArchiveFile
+
+    def __repr__(self) -> str:
+        # Archive paths are always posix; keep the repr stable across platforms.
+        return (
+            f"{self.__class__.__name__}({self.path.as_posix()!r}, size={self.size!r})"
+        )
+
+
+def _encode_hash_value(hash_value: bytes) -> str:
+    return urlsafe_b64encode(hash_value).rstrip(b"=").decode("ascii")
+
+
+def _decode_hash_value(encoded_hash: str) -> bytes:
+    pad = b"=" * (4 - (len(encoded_hash) & 3))
+    return urlsafe_b64decode(encoded_hash.encode("ascii") + pad)
+
+
+def _dist_info_prefix(name: NormalizedName, version: Version) -> str:
+    # The .dist-info and .data directories use the escaped form of the name.
+    return f"{name.replace('-', '_')}-{version}"
+
+
+def _default_writer_timestamp() -> datetime:
+    # Honor SOURCE_DATE_EPOCH for reproducible builds, as the "wheel" project did.
+    raw = os.environ.get("SOURCE_DATE_EPOCH")
+    if raw is None:
+        return _default_timestamp
+
+    try:
+        return datetime.fromtimestamp(int(raw), tz=timezone.utc)
+    except (ValueError, OverflowError, OSError):
+        raise WheelError(f"Invalid SOURCE_DATE_EPOCH: {raw!r}") from None
+
+
+def _zip_date_time(timestamp: datetime) -> tuple[int, int, int, int, int, int]:
+    # A naive datetime is taken as UTC; the value is clamped to the ZIP range.
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+    timestamp = min(max(timestamp, _min_timestamp), _max_timestamp)
+    return timestamp.astimezone(timezone.utc).timetuple()[:6]
+
+
+class WheelError(Exception):
+    """Raised when a wheel is malformed or fails validation."""
+
+
+class WheelArchiveFile:
+    """
+    A read-only binary stream for one member of a wheel.
+
+    The contents are checked against the ``RECORD`` file as they are read. A size
+    or hash mismatch raises :exc:`WheelError` once the stream has been read in full.
+    """
+
+    def __init__(
+        self, fp: IO[bytes], arcname: str, record_entry: WheelRecordEntry | None
+    ) -> None:
+        self._fp = fp
+        self._arcname = arcname
+        self._record_entry = record_entry
+        if record_entry:
+            self._hash = hashlib.new(record_entry.hash_algorithm)
+            self._num_bytes_read = 0
+
+    def read(self, amount: int = -1) -> bytes:
+        data = self._fp.read(amount)
+        if self._record_entry is None:
+            return data
+
+        if data:
+            self._hash.update(data)
+            self._num_bytes_read += len(data)
+
+        if amount < 0 or len(data) < amount:
+            # The file has been read in full - check that hash and file size match
+            # with the entry in RECORD
+            if self._num_bytes_read != self._record_entry.filesize:
+                raise WheelError(
+                    f"{self._arcname}: file size mismatch: "
+                    f"{self._record_entry.filesize} bytes in RECORD, "
+                    f"{self._num_bytes_read} bytes in archive"
+                )
+            elif self._hash.digest() != self._record_entry.hash_value:
+                raise WheelError(
+                    f"{self._arcname}: hash mismatch: "
+                    f"{self._record_entry.hash_value.hex()} in RECORD, "
+                    f"{self._hash.hexdigest()} in archive"
+                )
+
+        return data
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self._fp.close()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._arcname!r})"
+
+
+class WheelReader:
+    """
+    Read a wheel file, verifying its contents against ``RECORD``.
+
+    This is a context manager; the archive is opened on entry and closed on exit.
+
+    :param path_or_fd: path to the wheel, or a binary file object; with a path, the
+        name and version are taken from the filename
+    :raises WheelError: if the filename is not a valid wheel filename
+    """
+
+    name: NormalizedName
+    version: Version
+    _zip: ZipFile
+    _dist_info_dir: str
+    _data_dir: str
+    _record_entries: OrderedDict[str, WheelRecordEntry]
+
+    def __init__(self, path_or_fd: str | PathLike[str] | IO[bytes]) -> None:
+        self.path_or_fd = path_or_fd
+
+        if isinstance(path_or_fd, (str, PathLike)):
+            fname = Path(path_or_fd).name
+            try:
+                self.name, self.version = parse_wheel_filename(fname)[:2]
+            except InvalidWheelFilename as exc:
+                raise WheelError(str(exc)) from None
+
+    def __enter__(self) -> Self:
+        self._zip = ZipFile(self.path_or_fd, "r")
+
+        # See if the expected .dist-info directory is in place by searching for RECORD
+        # in the expected directory. Wheels made with older versions of "wheel" did not
+        # properly normalize the names, so the name of the .dist-info directory does not
+        # match the expectation there.
+        dist_info_dir: str | None = None
+        if hasattr(self, "name"):
+            prefix = _dist_info_prefix(self.name, self.version)
+            dist_info_dir = f"{prefix}.dist-info"
+            try:
+                self._zip.getinfo(f"{dist_info_dir}/RECORD")
+            except KeyError:
+                dist_info_dir = None
+            else:
+                self._dist_info_dir = dist_info_dir
+                self._data_dir = f"{prefix}.data"
+
+        # If no .dist-info directory could not be found yet, resort to scanning the
+        # archive's file names for any .dist-info directory containing a RECORD file.
+        if dist_info_dir is None:
+            try:
+                self._find_dist_info_dir()
+            except BaseException:
+                self._zip.close()
+                raise
+
+        self._record_entries = self._read_record()
+        return self
+
+    def _find_dist_info_dir(self) -> None:
+        for zinfo in reversed(self._zip.infolist()):
+            if zinfo.filename.endswith(".dist-info/RECORD"):
+                dist_info_dir = zinfo.filename.rsplit("/", 1)[0]
+                namever = dist_info_dir.rsplit(".", 1)[0]
+                name, version = namever.rpartition("-")[::2]
+                if name and version:
+                    self.name = canonicalize_name(name)
+                    self.version = Version(version)
+                    self._dist_info_dir = dist_info_dir
+                    self._data_dir = dist_info_dir.replace(".dist-info", ".data")
+                    return
+
+        raise WheelError(
+            "Cannot find a valid .dist-info directory. Is this really a wheel file?"
+        )
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self._zip.close()
+        self._record_entries.clear()
+        del self._zip
+
+    def _read_record(self) -> OrderedDict[str, WheelRecordEntry]:
+        entries = OrderedDict()
+        # RECORD is exempt from hash checks, so it can be read before the entries exist.
+        contents = self.read_dist_info_file("RECORD").decode("utf-8")
+        reader = csv.reader(
+            contents.strip().split("\n"),
+            delimiter=",",
+            quotechar='"',
+            lineterminator="\n",
+        )
+        record_path = f"{self._dist_info_dir}/RECORD"
+        for row in reader:
+            if not row:
+                break
+
+            try:
+                path, hash_digest, filesize = row
+            except ValueError:
+                raise WheelError(
+                    f"Invalid RECORD row in {record_path}: {row!r}"
+                ) from None
+
+            if hash_digest:
+                try:
+                    algorithm, hash_digest = hash_digest.split("=")
+                except ValueError:
+                    raise WheelError(
+                        f"Invalid RECORD hash in {record_path}: {hash_digest!r}"
+                    ) from None
+                try:
+                    hashlib.new(algorithm)
+                except ValueError:
+                    raise WheelError(
+                        f"Unsupported hash algorithm: {algorithm}"
+                    ) from None
+
+                if algorithm.lower() in {"md5", "sha1"}:
+                    raise WheelError(
+                        f"Weak hash algorithm ({algorithm}) is not permitted by PEP 427"
+                    )
+
+                entries[path] = WheelRecordEntry(
+                    algorithm, _decode_hash_value(hash_digest), int(filesize)
+                )
+
+        return entries
+
+    @property
+    def dist_info_dir(self) -> str:
+        """The name of the ``.dist-info`` directory."""
+        return self._dist_info_dir
+
+    @property
+    def data_dir(self) -> str:
+        """The name of the ``.data`` directory."""
+        return self._data_dir
+
+    @property
+    def dist_info_filenames(self) -> list[PurePath]:
+        """The paths of all files in the ``.dist-info`` directory."""
+        return [
+            PurePath(fname)
+            for fname in self._zip.namelist()
+            if fname.startswith(self._dist_info_dir)
+        ]
+
+    @property
+    def filenames(self) -> list[PurePath]:
+        """The paths of all files in the archive."""
+        return [PurePath(fname) for fname in self._zip.namelist()]
+
+    def iterate_contents(self) -> Iterator[WheelContentElement]:
+        """
+        Iterate over the files listed in RECORD.
+
+        The stream of each element is checked against RECORD as it is read, and
+        closed when the iteration advances to the next element.
+        """
+        for fname, entry in self._record_entries.items():
+            with self.open(fname) as stream:
+                yield WheelContentElement(
+                    PurePath(fname), entry.hash_value, entry.filesize, stream
+                )
+
+    def validate_record(self) -> None:
+        """
+        Read every file in the archive and check it against ``RECORD``.
+
+        :raises WheelError: if a file is missing from ``RECORD``, or its size or
+            hash does not match
+        """
+        for zinfo in self._zip.infolist():
+            # Ignore signature files
+            basename = os.path.basename(zinfo.filename)
+            if basename in _exclude_filenames:
+                continue
+
+            with self.open(zinfo.filename) as fp:
+                while True:
+                    if not fp.read(65536):
+                        break
+
+    def extractall(self, base_path: str | PathLike[str]) -> None:
+        """
+        Extract all files into an existing directory, verifying them against
+        ``RECORD``.
+
+        :raises WheelError: if the directory does not exist, a file fails
+            validation, or a member path escapes the directory
+        """
+        basedir = Path(base_path)
+        if not basedir.exists():
+            raise WheelError(f"{basedir} does not exist")
+        elif not basedir.is_dir():
+            raise WheelError(f"{basedir} is not a directory")
+
+        resolved_base = basedir.resolve()
+        for fname in self._zip.namelist():
+            target_path = basedir.joinpath(fname)
+            # Reject members that would land outside the destination, whether via
+            # ".." components or an absolute path (PEP 427 forbids both).
+            if not target_path.resolve().is_relative_to(resolved_base):
+                raise WheelError(f"{fname!r} escapes the destination directory")
+
+            target_path.parent.mkdir(0o755, True, True)
+            with self.open(fname) as infile, target_path.open("wb") as outfile:
+                while True:
+                    data = infile.read(65536)
+                    if not data:
+                        break
+
+                    outfile.write(data)
+
+    def open(self, archive_name: str) -> WheelArchiveFile:
+        """
+        Open a file in the archive for reading.
+
+        :param archive_name: the full path of the file inside the archive
+        :raises WheelError: if the file is not listed in ``RECORD``
+        """
+        basename = os.path.basename(archive_name)
+        if basename in _exclude_filenames:
+            record_entry = None
+        else:
+            try:
+                record_entry = self._record_entries[archive_name]
+            except KeyError:
+                raise WheelError(f"No hash found for file {archive_name!r}") from None
+
+        return WheelArchiveFile(
+            self._zip.open(archive_name), archive_name, record_entry
+        )
+
+    def read_file(self, archive_name: str) -> bytes:
+        """Read a file in the archive, verifying it against ``RECORD``."""
+        with self.open(archive_name) as fp:
+            return fp.read()
+
+    def read_data_file(self, filename: str) -> bytes:
+        """Read a file relative to the ``.data`` directory."""
+        archive_path = self._data_dir + "/" + filename.strip("/")
+        return self.read_file(archive_path)
+
+    def read_dist_info_file(self, filename: str) -> bytes:
+        """Read a file relative to the ``.dist-info`` directory."""
+        archive_path = self._dist_info_dir + "/" + filename.strip("/")
+        return self.read_file(archive_path)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.path_or_fd})"
+
+
+def write_wheelfile(
+    fp: IO[bytes],
+    /,
+    *,
+    generator: str,
+    tags: Iterable[Tag],
+    build_tag: BuildTag = (),
+    root_is_purelib: bool,
+) -> None:
+    """
+    Write the contents of a ``WHEEL`` file to a binary stream.
+
+    :param generator: the name and version of the tool creating the wheel
+    :param tags: the compatibility tags of the wheel
+    :param build_tag: the build tag of the wheel, if any
+    :param root_is_purelib: whether the root of the archive is ``purelib``
+    """
+    msg = Message(policy=_email_policy)
+    msg["Wheel-Version"] = "1.0"  # of the spec
+    msg["Generator"] = generator
+    msg["Root-Is-Purelib"] = str(root_is_purelib).lower()
+    if build_tag:
+        msg["Build"] = str(build_tag[0]) + build_tag[1]
+
+    for tag in sorted(tags, key=lambda t: (t.interpreter, t.abi, t.platform)):
+        msg["Tag"] = f"{tag.interpreter}-{tag.abi}-{tag.platform}"
+
+    fp.write(msg.as_bytes())
+
+
+class WheelWriter:
+    def __init__(
+        self,
+        path_or_fd: str | PathLike[str] | IO[bytes],
+        /,
+        *,
+        generator: str,
+        metadata: WheelMetadata | None = None,
+        root_is_purelib: bool = True,
+        compress: bool = True,
+        hash_algorithm: str = "sha256",
+        timestamp: datetime | None = None,
+        mode: int = 0o664,
+    ) -> None:
+        """
+        Write a wheel file, generating ``WHEEL`` and ``RECORD``.
+
+        This is a context manager; the archive is created on entry. On a clean
+        exit, ``WHEEL`` is written unless it was written explicitly, and ``RECORD``
+        is written last. If the body raises, a wheel given by path is removed.
+
+        :param path_or_fd: path of the wheel to create, or a binary file object
+        :param generator: the name and version of the tool creating the wheel
+        :param metadata: the wheel name, version, build tag and tags; if omitted,
+            they are parsed from the filename
+        :param root_is_purelib: whether the root of the archive is ``purelib``
+        :param compress: whether to deflate the archive members
+        :param hash_algorithm: the :mod:`hashlib` algorithm used in ``RECORD``
+        :param timestamp: the default timestamp for every archive member, including
+            the generated ``WHEEL`` and ``RECORD`` files; if omitted, the value of
+            the ``SOURCE_DATE_EPOCH`` environment variable, or else 1980-01-01
+        :param mode: the default permission bits for members written from bytes
+            or file objects, including ``WHEEL`` and ``RECORD``
+        :raises WheelError: if a file object is given without ``metadata``, or
+            ``SOURCE_DATE_EPOCH`` is not an integer
+        :raises ValueError: if the hash algorithm is unavailable or weak
+        """
+        self.path_or_fd = path_or_fd
+        self.generator = generator
+        self.root_is_purelib = root_is_purelib
+        self.hash_algorithm = hash_algorithm
+        self.timestamp = _default_writer_timestamp() if timestamp is None else timestamp
+        self.mode = mode
+        self._compress_type = ZIP_DEFLATED if compress else ZIP_STORED
+
+        if metadata:
+            self.metadata = metadata
+        elif isinstance(path_or_fd, (str, PathLike)):
+            filename = Path(path_or_fd).name
+            self.metadata = WheelMetadata.from_filename(filename)
+        else:
+            raise WheelError("path_or_fd is not a path, and metadata was not provided")
+
+        if hash_algorithm not in hashlib.algorithms_available:
+            raise ValueError(f"Hash algorithm {hash_algorithm!r} is not available")
+        elif hash_algorithm in ("md5", "sha1"):
+            raise ValueError(
+                f"Weak hash algorithm ({hash_algorithm}) is not permitted by PEP 427"
+            )
+
+        prefix = _dist_info_prefix(self.metadata.name, self.metadata.version)
+        self._dist_info_dir = f"{prefix}.dist-info"
+        self._data_dir = f"{prefix}.data"
+        self._record_path = f"{self._dist_info_dir}/RECORD"
+        self._record_entries: dict[str, WheelRecordEntry] = OrderedDict()
+
+    def __enter__(self) -> Self:
+        self._zip = ZipFile(self.path_or_fd, "w", compression=self._compress_type)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        success = False
+        try:
+            if not exc_type:
+                if f"{self._dist_info_dir}/WHEEL" not in self._record_entries:
+                    self._write_wheelfile()
+
+                self._write_record()
+                success = True
+        finally:
+            self._zip.close()
+            if not success and isinstance(self.path_or_fd, (str, PathLike)):
+                # Do not leave a truncated wheel behind.
+                with suppress(OSError):
+                    os.remove(self.path_or_fd)
+
+    def _write_record(self) -> None:
+        data = StringIO()
+        writer = csv.writer(data, delimiter=",", quotechar='"', lineterminator="\n")
+        writer.writerows(
+            [
+                (
+                    fname,
+                    entry.hash_algorithm + "=" + _encode_hash_value(entry.hash_value),
+                    entry.filesize,
+                )
+                for fname, entry in self._record_entries.items()
+            ]
+        )
+        writer.writerow((self._record_path, "", ""))
+        self.write_dist_info_file("RECORD", data.getvalue().encode("utf-8"))
+
+    def _write_wheelfile(self) -> None:
+        buffer = BytesIO()
+        write_wheelfile(
+            buffer,
+            generator=self.generator,
+            tags=self.metadata.tags,
+            build_tag=self.metadata.build_tag,
+            root_is_purelib=self.root_is_purelib,
+        )
+        self.write_dist_info_file("WHEEL", buffer.getvalue())
+
+    def write_file(
+        self,
+        name: str | PurePath,
+        contents: bytes | PathLike[str] | IO[bytes],
+        *,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
+    ) -> None:
+        """
+        Write a file to the archive and record its hash.
+
+        :param name: the path of the file inside the archive
+        :param contents: the file contents, a path to a file to copy, or a binary
+            file object; a ``str`` is rejected, as it is too easy to mistake for a path
+        :param timestamp: the timestamp of the member; the writer default if omitted
+        :param mode: the permission bits of the member; if omitted, a path or file
+            object keeps its own permissions and anything else gets the writer default
+        """
+        # Backslashes are never valid separators in a wheel, even on POSIX.
+        arcname = PurePath(name).as_posix().replace("\\", "/")
+        if timestamp is None:
+            timestamp = self.timestamp
+        zinfo = ZipInfo(arcname, _zip_date_time(timestamp))
+        zinfo.compress_type = self._compress_type
+        zinfo.external_attr = (
+            (self.mode if mode is None else mode) | stat.S_IFREG
+        ) << 16
+        with ExitStack() as exit_stack:
+            if isinstance(contents, str):
+                raise TypeError(
+                    "contents must be bytes, a path or a binary file object, not str"
+                )
+
+            fp = exit_stack.enter_context(self._zip.open(zinfo, "w"))
+            if isinstance(contents, PathLike):
+                contents = exit_stack.enter_context(Path(contents).open("rb"))
+
+            if isinstance(contents, bytes):
+                file_size = len(contents)
+                fp.write(contents)
+                hash_ = hashlib.new(self.hash_algorithm, contents)
+            else:
+                if mode is None:
+                    try:
+                        st = os.stat(contents.fileno())
+                    except (AttributeError, UnsupportedOperation):
+                        pass
+                    else:
+                        zinfo.external_attr = (
+                            stat.S_IMODE(st.st_mode) | stat.S_IFMT(st.st_mode)
+                        ) << 16
+
+                hash_ = hashlib.new(self.hash_algorithm)
+                file_size = 0
+                while True:
+                    buffer = contents.read(65536)
+                    if not buffer:
+                        break
+
+                    hash_.update(buffer)
+                    file_size += len(buffer)
+                    fp.write(buffer)
+
+        self._record_entries[arcname] = WheelRecordEntry(
+            self.hash_algorithm, hash_.digest(), file_size
+        )
+
+    def write_files_from_directory(self, directory: str | PathLike[str]) -> None:
+        """
+        Write every file under a directory, in sorted order, keeping relative paths.
+
+        An existing ``RECORD`` file is skipped, so an unpacked wheel can be packed
+        again. An existing ``WHEEL`` file is kept as is.
+
+        :raises WheelError: if the directory does not exist
+        """
+        basedir = Path(directory)
+        if not basedir.exists():
+            raise WheelError(f"{basedir} does not exist")
+        elif not basedir.is_dir():
+            raise WheelError(f"{basedir} is not a directory")
+
+        for root, dirs, files in os.walk(basedir):
+            # Sort in place so os.walk descends in a deterministic order.
+            dirs.sort()
+            for fname in sorted(files):
+                path = Path(root) / fname
+                relative = path.relative_to(basedir)
+                if relative.as_posix() != self._record_path:
+                    self.write_file(relative, path)
+
+    def write_data_file(
+        self,
+        filename: str,
+        contents: bytes | PathLike[str] | IO[bytes],
+        *,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
+    ) -> None:
+        """
+        Write a file relative to the ``.data`` directory.
+
+        :param filename: path inside the ``.data`` directory, starting with one of
+            ``purelib``, ``platlib``, ``headers``, ``scripts`` or ``data``
+        :raises WheelError: if the first path component is not one of those
+        """
+        filename = filename.strip("/")
+        subdir = filename.partition("/")[0]
+        if subdir not in _data_subdirs:
+            raise WheelError(
+                f"Invalid data directory {subdir!r} in {filename!r}; expected one of "
+                + ", ".join(sorted(_data_subdirs))
+            )
+
+        archive_path = self._data_dir + "/" + filename
+        self.write_file(archive_path, contents, timestamp=timestamp, mode=mode)
+
+    def write_dist_info_file(
+        self,
+        filename: str,
+        contents: bytes | PathLike[str] | IO[bytes],
+        *,
+        timestamp: datetime | None = None,
+        mode: int | None = None,
+    ) -> None:
+        """Write a file relative to the ``.dist-info`` directory."""
+        archive_path = self._dist_info_dir + "/" + filename.strip("/")
+        self.write_file(archive_path, contents, timestamp=timestamp, mode=mode)
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}({self.path_or_fd}, "
+            f"generator={self.generator!r})"
+        )
