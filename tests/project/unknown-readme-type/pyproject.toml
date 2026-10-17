@@ -1,0 +1,4 @@
+[project]
+name = 'unknown-readme-type'
+version = '1.0.0'
+readme = 'README.just-made-this-up-now'
