@@ -398,8 +398,17 @@ class Specifier(BaseSpecifier):
     ) -> Self:
         """__replace__(*, operator=..., version=..., prereleases=...)
 
-        Return a specifier with the given parts replaced. ``None`` clears an
-        explicit ``prereleases`` override. If no part changes, return ``self``.
+        Return a specifier with the given parts replaced. If no part changes,
+        return ``self``.
+
+        :param str operator:
+            Replacement comparison operator. Omit to retain the current operator.
+        :param str version:
+            Replacement version string. Omit to retain the current version.
+        :param prereleases:
+            Replacement prerelease override. Omit to retain the current override;
+            ``None`` restores automatic detection.
+        :type prereleases: bool | None
 
         .. versionadded:: 26.4
         """
@@ -875,9 +884,17 @@ class SpecifierSet(BaseSpecifier):
     ) -> Self:
         """__replace__(*, specifiers=..., prereleases=...)
 
-        Return a specifier set with the given parts replaced. ``None`` clears
-        an explicit ``prereleases`` override. If ``specifiers`` is omitted and
-        the prerelease override is unchanged, return ``self``.
+        Return a specifier set with the given parts replaced. If ``specifiers``
+        is omitted and the prerelease override is unchanged, return ``self``.
+
+        :param specifiers:
+            Replacement specifiers as a string or an iterable of ``Specifier``
+            instances. Omit to retain the current specifiers.
+        :type specifiers: str | Iterable[Specifier]
+        :param prereleases:
+            Replacement prerelease override. Omit to retain the current override;
+            ``None`` restores automatic detection.
+        :type prereleases: bool | None
 
         .. versionadded:: 26.4
         """
