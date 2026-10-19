@@ -38,6 +38,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
     from typing import TypeGuard
 
+    from typing_extensions import Self
+
     from . import ranges
     from ._ranges import Interval
 
@@ -70,6 +72,13 @@ def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
 T = TypeVar("T")
 UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
+
+class _Unset:
+    __slots__ = ()
+
+
+_UNSET = _Unset()
 
 
 # Operators whose result is just a direct Version comparison, given a parsed
@@ -379,6 +388,36 @@ class Specifier(BaseSpecifier):
 
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[Interval] | None = None
+
+    def __replace__(
+        self,
+        *,
+        operator: str | _Unset = _UNSET,
+        version: str | _Unset = _UNSET,
+        prereleases: bool | _Unset | None = _UNSET,
+    ) -> Self:
+        """__replace__(*, operator=..., version=..., prereleases=...)
+
+        Return a specifier with the given parts replaced. ``None`` clears an
+        explicit ``prereleases`` override. If no part changes, return ``self``.
+
+        .. versionadded:: 26.4
+        """
+        new_operator = self.operator if isinstance(operator, _Unset) else operator
+        new_version = self.version if isinstance(version, _Unset) else version
+        new_prereleases = (
+            self._prereleases if isinstance(prereleases, _Unset) else prereleases
+        )
+        if (
+            new_operator == self.operator
+            and new_version == self.version
+            and new_prereleases == self._prereleases
+        ):
+            return self
+
+        return self.__class__(
+            f"{new_operator}{new_version}", prereleases=new_prereleases
+        )
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -827,6 +866,29 @@ class SpecifierSet(BaseSpecifier):
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
         self._prereleases = prereleases
+
+    def __replace__(
+        self,
+        *,
+        specifiers: str | Iterable[Specifier] | _Unset = _UNSET,
+        prereleases: bool | _Unset | None = _UNSET,
+    ) -> Self:
+        """__replace__(*, specifiers=..., prereleases=...)
+
+        Return a specifier set with the given parts replaced. ``None`` clears
+        an explicit ``prereleases`` override. If ``specifiers`` is omitted and
+        the prerelease override is unchanged, return ``self``.
+
+        .. versionadded:: 26.4
+        """
+        new_specifiers = self._specs if isinstance(specifiers, _Unset) else specifiers
+        new_prereleases = (
+            self._prereleases if isinstance(prereleases, _Unset) else prereleases
+        )
+        if isinstance(specifiers, _Unset) and new_prereleases == self._prereleases:
+            return self
+
+        return self.__class__(new_specifiers, prereleases=new_prereleases)
 
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
