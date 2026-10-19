@@ -33,3 +33,8 @@ class TimeMarkerSuite:
     def time_evaluate(self) -> None:
         for m in self.markers:
             m.evaluate(self.env)
+
+    @add_attributes(pretty_name="Marker str")
+    def time_str(self) -> None:
+        for m in self.markers:
+            str(m)

@@ -235,6 +235,7 @@ class TestRequirementParsing:
         [
             "name>=1",
             'name; python_version >= "3"',
+            "name @ https://example.com/name.whl",
         ],
     )
     def test_error_when_suffixed_with_line_break(
@@ -242,6 +243,14 @@ class TestRequirementParsing:
     ) -> None:
         with pytest.raises(InvalidRequirement):
             Requirement(requirement + line_break)
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
+    def test_error_when_url_embeds_line_break(self, line_break: str) -> None:
+        # A line break inside the URL must not let the remainder be
+        # absorbed into the URL and later serialized as a second
+        # requirement line.
+        with pytest.raises(InvalidRequirement):
+            Requirement(f"name @ https://example.com/name.whl{line_break}evil==1")
 
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
@@ -268,6 +277,13 @@ class TestRequirementParsing:
         # THEN
         assert req.name == "name"
         assert req.specifier == ""
+
+    @pytest.mark.parametrize(
+        "specifier", ["===bar===", "===arbitrarystring,>=1", ">=1,===arbitrarystring"]
+    )
+    def test_nonempty_arbitrary_version(self, specifier: str) -> None:
+        req = Requirement(f"foo{specifier}")
+        assert req.specifier == specifier
 
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
@@ -680,6 +696,24 @@ class TestRequirementParsing:
             "    name==\n"
             "        ^"
         )
+
+    @pytest.mark.parametrize(
+        "requirement_string",
+        [
+            "foo===",
+            "foo === ",
+            "foo (=== )",
+            'foo=== ; python_version >= "3"',
+            "foo===,>=1",
+            "foo>=1,===",
+            "foo>=1,===,<=2",
+            "foo===x,===",
+            "foo===x,===,>=1",
+        ],
+    )
+    def test_error_on_missing_arbitrary_version(self, requirement_string: str) -> None:
+        with pytest.raises(InvalidRequirement, match="==="):
+            Requirement(requirement_string)
 
     def test_error_on_missing_op_after_name(self) -> None:
         # GIVEN

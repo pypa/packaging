@@ -1,3 +1,9 @@
+"""Read, validate, and select from pylock files.
+
+The public data model classes are frozen, keyword-only dataclasses whose
+attributes correspond to fields in the pylock file specification.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -25,6 +31,7 @@ from .specifiers import SpecifierSet
 from .tags import create_compatible_tags_selector, sys_tags
 from .utils import (
     NormalizedName,
+    canonicalize_name,
     is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
@@ -77,7 +84,7 @@ _PYLOCK_FILE_NAME_RE = re.compile(r"^pylock\.([^.]+)\.toml$")
 
 def is_valid_pylock_path(path: Path) -> bool:
     """Check if the given path is a valid pylock file path."""
-    return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.match(path.name))
+    return path.name == "pylock.toml" or bool(_PYLOCK_FILE_NAME_RE.fullmatch(path.name))
 
 
 def _toml_key(key: str) -> str:
@@ -251,12 +258,7 @@ def _path_name(path: str | None) -> str | None:
         return None
     # If the path is relative it MAY use POSIX-style path separators explicitly
     # for portability
-    if "/" in path:
-        return path.rsplit("/", 1)[-1]
-    elif "\\" in path:
-        return path.rsplit("\\", 1)[-1]
-    else:
-        return path
+    return path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
 
 
 def _url_name(url: str | None) -> str | None:
@@ -323,6 +325,8 @@ class PylockSelectError(Exception):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
+    """A package installed from a version control system."""
+
     type: str
     url: str | None = None
     path: str | None = None
@@ -346,6 +350,8 @@ class PackageVcs:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
+    """A package installed from a local directory."""
+
     path: str
     editable: bool | None = None
     subdirectory: str | None = None
@@ -361,6 +367,8 @@ class PackageDirectory:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
+    """A package installed from an archive."""
+
     url: str | None = None
     path: str | None = None
     size: int | None = None
@@ -384,6 +392,8 @@ class PackageArchive:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
+    """A source distribution for a package."""
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -418,6 +428,8 @@ class PackageSdist:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
+    """A wheel distribution for a package."""
+
     name: str | None = None
     upload_time: datetime | None = None
     url: str | None = None
@@ -449,6 +461,12 @@ class PackageWheel:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
+    """A package entry in a pylock file.
+
+    A package has either distribution files or one direct source (VCS,
+    directory, or archive).
+    """
+
     name: NormalizedName
     version: Version | None = None
     marker: Marker | None = None
@@ -551,7 +569,7 @@ class Package:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
-    """A class representing a pylock file."""
+    """Represent a validated pylock file."""
 
     lock_version: Version
     environments: Sequence[Marker] | None = None
@@ -647,7 +665,35 @@ class Pylock:
 
         .. versionchanged:: 26.3
             Added the *prefer_sdist_predicate* parameter.
+
+        .. versionchanged:: 26.4
+            Raise :class:`PylockSelectError` if passed extras or dependency groups
+            that are not declared in the corresponding pylock fields.
         """
+        canonical_extras = {canonicalize_name(extra) for extra in extras or ()}
+        unknown_extras = canonical_extras - set(self.extras or ())
+        if unknown_extras:
+            raise PylockSelectError(
+                f"Undeclared extras: {', '.join(sorted(unknown_extras))}"
+            )
+
+        canonical_dependency_groups = {
+            canonicalize_name(dependency_group)
+            for dependency_group in dependency_groups or ()
+        }
+        unknown_dependency_groups = canonical_dependency_groups - {
+            canonicalize_name(dependency_group)
+            for dependency_group in [
+                *(self.dependency_groups or ()),
+                *(self.default_groups or ()),
+            ]
+        }
+        if unknown_dependency_groups:
+            raise PylockSelectError(
+                f"Undeclared dependency groups: "
+                f"{', '.join(sorted(unknown_dependency_groups))}"
+            )
+
         compatible_tags_selector = create_compatible_tags_selector(
             tags if tags is not None else sys_tags()
         )
@@ -662,11 +708,11 @@ class Pylock:
             "dict[str, str | frozenset[str]]",
             dict(
                 environment or {},  # Marker.evaluate will fill-up
-                extras=frozenset(extras or []),
+                extras=frozenset(canonical_extras),
                 dependency_groups=frozenset(
                     (self.default_groups or [])
                     if dependency_groups is None  # to allow selecting no group
-                    else dependency_groups
+                    else canonical_dependency_groups
                 ),
             ),
         )

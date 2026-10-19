@@ -61,6 +61,8 @@ class TestSpecifier:
             "=>2.0",
             # Version-less specifier
             "==",
+            "===",
+            "=== ",
             # Local segment on operators which don't support them
             "~=1.0+5",
             ">=1.0+deadbeef",
@@ -1251,6 +1253,11 @@ class TestSpecifierInternal:
 
 
 class TestSpecifierSet:
+    @pytest.mark.parametrize("specifier", ["===", ">=1,===", "===,===x"])
+    def test_empty_arbitrary_version_invalid(self, specifier: str) -> None:
+        with pytest.raises(InvalidSpecifier):
+            SpecifierSet(specifier)
+
     @pytest.mark.parametrize("version", VERSIONS)
     def test_empty_specifier(self, version: str) -> None:
         spec = SpecifierSet(prereleases=True)

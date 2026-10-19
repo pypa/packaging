@@ -107,11 +107,15 @@ def canonicalize_license_expression(
     # whitespace.
     license_expression = raw_license_expression.replace("(", " ( ").replace(")", " ) ")
     licenseref_prefix = "LicenseRef-"
-    license_refs = {
-        ref.lower(): "LicenseRef-" + ref[len(licenseref_prefix) :]
-        for ref in license_expression.split()
-        if ref.lower().startswith(licenseref_prefix.lower())
-    }
+
+    # The idstring of a LicenseRef- is case-insensitive in SPDX, so all case
+    # variants of one ref use the spelling of the first occurrence.
+    license_refs: dict[str, str] = {}
+    for ref in license_expression.split():
+        if ref.lower().startswith(licenseref_prefix.lower()):
+            license_refs.setdefault(
+                ref.lower(), licenseref_prefix + ref[len(licenseref_prefix) :]
+            )
 
     # Normalize to lower case so we can look up licenses/exceptions
     # and so boolean operators are Python-compatible.

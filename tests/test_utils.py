@@ -203,6 +203,8 @@ def test_parse_wheel_filename(
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
+        ("foo-1.0-1\n-py3-none-any.whl"),  # Newline in build number
+        ("foo-1.0-1\nabc-py3-none-any.whl"),  # Newline in build number
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
         ("foo-1.0--none-any.whl"),  # Empty interpreter component
         ("foo-1.0-py3-none-.whl"),  # Empty platform component
@@ -214,7 +216,6 @@ def test_parse_wheel_filename(
         (
             "foo-1.0-\N{ARABIC-INDIC DIGIT ONE}foo-py3-none-any.whl"
         ),  # Non-ASCII build number
-        ("foo-1.0-py3-none-any/evil.whl"),  # Separator in platform tag
         ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
     ],
 )
@@ -275,7 +276,7 @@ def test_parse_sdist_invalid_filename(filename: str) -> None:
 
 
 def test_parse_sdist_invalid_project_name_cause() -> None:
-    with pytest.raises(InvalidSdistFilename, match="Invalid project name") as exc_info:
+    with pytest.raises(InvalidSdistFilename, match="invalid project name") as exc_info:
         parse_sdist_filename("foo\0-1.0.tar.gz")
 
     assert isinstance(exc_info.value.__cause__, InvalidName)

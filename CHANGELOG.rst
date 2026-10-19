@@ -6,8 +6,8 @@ Changelog
 
 Fixes:
 
-* Reject invalid wheel and sdist filename components, including path separators
-  and null bytes, and make ``parse_tag()`` reject invalid tag components.
+* Reject invalid sdist project names and wheel build tags containing path
+  separators, null bytes, or NTFS stream delimiters.
   (:pull:`1337`)
 
 Removals:

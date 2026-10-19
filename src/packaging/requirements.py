@@ -26,18 +26,18 @@ def __dir__() -> list[str]:
 
 class InvalidRequirement(ValueError):
     """
-    An invalid requirement was found, users should refer to PEP 508.
+    Raised when attempting to create a :class:`Requirement` with a string that
+    does not conform to the specification. Users should refer to PEP 508.
 
     .. versionadded:: 16.1
     """
 
 
 class Requirement:
-    """Parse a requirement.
+    """Represent a requirement for a project.
 
     Parse a given requirement string into its parts, such as name, specifier,
-    URL, and extras. Raises InvalidRequirement on a badly-formed requirement
-    string.
+    URL, and extras, according to the specification.
 
     .. versionadded:: 16.1
 
@@ -70,6 +70,10 @@ class Requirement:
         Equality and hashing normalize requirement names, extras, and
         equivalent specifiers. The string representation still preserves the
         parsed name and extras spelling.
+
+    :param str requirement_string: The string representation of a requirement.
+    :raises InvalidRequirement: If the given ``requirement_string`` is not
+        parseable, then this exception will be raised.
     """
 
     # TODO: Can we test whether something is contained within a requirement?
@@ -86,13 +90,18 @@ class Requirement:
             raise InvalidRequirement(str(e)) from e
 
         self.name: str = parsed.name
+        """The name of the requirement."""
         self.url: str | None = parsed.url or None
+        """The URL to download the requirement from, or ``None``."""
         self.extras: set[str] = set(parsed.extras)
+        """A set of extras that the requirement specifies."""
         try:
             self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+            """A :class:`~.SpecifierSet` of the version specified by the requirement."""
         except InvalidSpecifier as e:
             raise InvalidRequirement(str(e)) from e
         self.marker: Marker | None = None
+        """A :class:`~.Marker` for the requirement, or ``None``."""
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)

@@ -130,7 +130,7 @@ def test_expand_contract_model_only_does_inner_lookup_once() -> None:
         # each of the `mid` nodes will call resolution with `contract`, but only the
         # first of those evaluations should call for resolution of `leaf` -- after that,
         # `contract` will be in the cache and `leaf` will not need to be resolved
-        spy.assert_any_call("leaf", "root", unittest.mock.ANY)
+        spy.assert_any_call("leaf", "root", unittest.mock.ANY, unittest.mock.ANY)
         leaf_calls = [c for c in spy.mock_calls if c.args[0] == "leaf"]
         assert len(leaf_calls) == 1
 
@@ -541,3 +541,31 @@ def test_resolution_can_capture_multiple_errors_at_once() -> None:
         TypeError,
         match=r"Dependency group 'invalid-type' contained a string rather than a list.",
     )
+
+
+def test_diamond_shaped_dependencies_result_in_one_error() -> None:
+    data: GroupsTable = {
+        "root": [{"include-group": "group1"}, {"include-group": "group2"}],
+        "group1": [{"include-group": "err"}],
+        "group2": [{"include-group": "err"}],
+        "err": ["invalid requirement"],
+    }
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(data, "root")
+    assert len(excinfo.value.exceptions) == 1
+
+
+def test_error_in_later_sibling_include_is_collected() -> None:
+    groups: GroupsTable = {
+        "root": [{"include-group": "bad"}, {"include-group": "wrapper"}],
+        "bad": ["!!! bad invalid"],
+        "wrapper": [{"include-group": "also-bad"}],
+        "also-bad": ["!!! also invalid"],
+    }
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    messages = [str(e) for e in excinfo.value.exceptions]
+    assert len(messages) == 2
+    assert "!!! bad invalid" in messages[0]
+    assert "!!! also invalid" in messages[1]
