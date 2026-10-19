@@ -12,7 +12,7 @@ import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -1126,6 +1126,22 @@ def test_replace_validates_and_normalizes() -> None:
     # An explicit prereleases override on the specifier is preserved.
     r3 = r.__replace__(specifier=SpecifierSet(">=2.0", prereleases=True))
     assert r3.specifier.prereleases is True
+
+
+@pytest.mark.parametrize("new_specifier", [False, True])
+def test_replace_keeps_inner_specifier_prereleases(new_specifier: bool) -> None:
+    spec = SpecifierSet([Specifier(">=1", prereleases=True)])
+    if new_specifier:
+        r = Requirement("demo").__replace__(specifier=spec)
+    else:
+        orig = Requirement("demo")
+        orig.specifier = spec
+        r = orig.__replace__(name="other")
+    assert list(r.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+
+    # The result does not share mutable specifiers with the input.
+    assert r.specifier is not spec
+    assert all(a is not b for a, b in zip(r.specifier, spec, strict=True))
 
 
 def test_replace_keeps_subclass() -> None:

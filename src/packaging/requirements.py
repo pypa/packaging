@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import builtins
+import copy
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -154,7 +155,8 @@ class Requirement:
             raise InvalidRequirement(
                 f"Replacement fields do not round-trip: {str(tmp)!r}"
             )
-        result.specifier._prereleases = tmp.specifier._prereleases
+        # Specifiers technically can be mutated, so deep copy needed
+        result.specifier = copy.deepcopy(tmp.specifier)
         return result
 
     def _iter_parts(self, name: str) -> Iterator[str]:
