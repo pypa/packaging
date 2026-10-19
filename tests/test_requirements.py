@@ -1136,6 +1136,20 @@ def test_replace_keeps_subclass() -> None:
     assert type(r) is MyRequirement
 
 
+def test_replace_subclass_with_init_state() -> None:
+    class TaggedRequirement(Requirement):
+        def __init__(self, requirement_string: str) -> None:
+            super().__init__(requirement_string)
+            self.tag = "tagged"
+
+        def __str__(self) -> str:
+            return f"{super().__str__()}  # {self.tag}"
+
+    r = TaggedRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is TaggedRequirement
+    assert str(r) == "flask>=2.0  # tagged"
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 13), reason="copy.replace() requires Python 3.13"
 )

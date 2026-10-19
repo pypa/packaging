@@ -136,7 +136,7 @@ class Requirement:
 
         .. versionadded:: 26.4
         """
-        tmp = self.__class__.__new__(self.__class__)
+        tmp = Requirement.__new__(Requirement)
         tmp.name = self.name if name is _UNSET else name
         tmp.url = self.url if url is _UNSET else url or None
         tmp.extras = self.extras if extras is _UNSET else extras
