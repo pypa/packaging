@@ -7,12 +7,16 @@ from __future__ import annotations
 import copy
 import pickle
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import Specifier, SpecifierSet
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -904,6 +908,38 @@ def test_pickle_requirement_preserves_prereleases(prereleases: bool | None) -> N
     assert loaded == r
 
 
+@pytest.mark.parametrize(
+    "roundtrip",
+    [lambda r: pickle.loads(pickle.dumps(r)), copy.copy, copy.deepcopy],
+    ids=["pickle", "copy", "deepcopy"],
+)
+def test_requirement_copy_preserves_inner_prereleases(
+    roundtrip: Callable[[Requirement], Requirement],
+) -> None:
+    r = Requirement("demo")
+    r.specifier = SpecifierSet([Specifier(">=1", prereleases=True)])
+    loaded = roundtrip(r)
+    assert list(loaded.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+    assert loaded == r
+
+    # The copy does not share mutable specifiers with the original.
+    assert loaded.specifier is not r.specifier
+    assert all(a is not b for a, b in zip(loaded.specifier, r.specifier, strict=True))
+
+
+def test_pickle_requirement_keeps_26_3_format() -> None:
+    # Without inner overrides, keep the format older releases can read.
+    r = Requirement("foo>=1.0")
+    r.specifier.prereleases = True
+    assert r.__getstate__() == ("foo>=1.0", True)
+
+
+def test_pickle_requirement_setstate_rejects_mismatched_specifier() -> None:
+    r = Requirement.__new__(Requirement)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__(("foo>=1.0", SpecifierSet(">=2.0")))
+
+
 def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
     # Cover the TypeError branches in __setstate__ for invalid input.
     r = Requirement.__new__(Requirement)
@@ -1019,6 +1055,25 @@ _PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
     b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\r\x00\x00"
     b"\x00requests>=2.0q\x02\x88\x86q\x03b."
 )
+
+
+# Pickle bytes generated with packaging==26.4, Python 3.14.7, pickle protocol 2,
+# for ``Requirement("demo")`` after setting
+# ``r.specifier = SpecifierSet([Specifier(">=1", prereleases=True)])``.
+# Format: (requirement string, SpecifierSet).
+_PACKAGING_26_4_PICKLE_DEMO_GE_1_INNER_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\x07\x00\x00"
+    b"\x00demo>=1q\x02cpackaging.specifiers\nSpecifierSet\nq\x03)\x81q\x04"
+    b"cpackaging.specifiers\nSpecifier\nq\x05)\x81q\x06X\x02\x00\x00\x00>=q\x07"
+    b"X\x01\x00\x00\x001q\x08\x86q\t\x88\x86q\nb\x85q\x0bN\x86q\x0cb\x86q\rb."
+)
+
+
+def test_pickle_requirement_26_4_format_preserves_inner_prereleases() -> None:
+    r = pickle.loads(_PACKAGING_26_4_PICKLE_DEMO_GE_1_INNER_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("demo>=1")
+    assert list(r.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
 
 
 def test_pickle_requirement_old_format_preserves_prereleases() -> None:
