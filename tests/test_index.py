@@ -26,6 +26,9 @@ class ParseBaseTests:
     def test_html_api_version(self, meta_tag: str, api_version: str) -> None:
         raise NotImplementedError
 
+    def test_html_unknown_meta_tag_name(self) -> None:
+        raise NotImplementedError
+
     def test_html_data_whitespace(self) -> None:
         raise NotImplementedError
 
@@ -115,6 +118,31 @@ class TestParseList(ParseBaseTests):
             result = index.parse_list(HTML_CONTENT_TYPE, html)
 
             assert result == expect
+
+    def test_html_unknown_meta_tag_name(self) -> None:
+        html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="pypi:not-real" content="boo" />
+            </head>
+            <body>
+                <a href="/frob/">frob</a>
+                <a href="/spamspamspam/">spamspamspam</a>
+            </body>
+            </html>
+        """
+
+        expect: index.RawProjectList = typing.cast(
+            "index.RawProjectList",
+            {
+                "meta": {"api-version": "1.0"},
+                "projects": [{"name": "frob"}, {"name": "spamspamspam"}],
+            },
+        )
+        result = index.parse_list(HTML_CONTENT_TYPE, html)
+
+        assert result == expect
 
     def test_html_data_whitespace(self) -> None:
         html = """
@@ -297,6 +325,35 @@ class TestParseDetails(ParseBaseTests):
             result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
 
             assert result == expect
+
+    def test_html_unknown_meta_tag_name(self) -> None:
+        given = """
+            <html>
+            <head>
+                <meta name="pypi:not-real" content="boo" />
+            <body>
+                <a href="https://files.pythonhosted.org/spam/spam-1.0.tar.gz">spam-1.0.tar.gz</a>
+            </body>
+            </html>
+        """
+
+        expect: index.RawProjectDetails = typing.cast(
+            "index.RawProjectDetails",
+            {
+                "meta": {"api-version": "1.0"},
+                "name": "spam",
+                "files": [
+                    {
+                        "filename": "spam-1.0.tar.gz",
+                        "url": "https://files.pythonhosted.org/spam/spam-1.0.tar.gz",
+                        "hashes": {},
+                    }
+                ],
+            },
+        )
+        result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
+
+        assert result == expect
 
     def test_html_data_whitespace(self) -> None:
         given = """

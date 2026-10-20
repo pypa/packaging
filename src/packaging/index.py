@@ -196,10 +196,15 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
             if content is None:
                 raise InvalidHTMLAttributeValue("meta", "content", content)
             pypi_name = name.removeprefix("pypi:")
-            method_name = f"_handle_{pypi_name.replace('-', '_')}_content"
-            getattr(self, method_name)(content)
+            method_name = f"handle_{pypi_name.replace('-', '_')}_content"
+            try:
+                method = getattr(self, method_name)
+            except AttributeError:
+                pass
+            else:
+                method(content)
 
-    def _handle_repository_version_content(self, content: str) -> None:
+    def handle_repository_version_content(self, content: str) -> None:
         self.api_version = content
 
     def handle_data(self, data: str) -> None:
@@ -283,13 +288,13 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     def _new_file(self) -> dict[str, typing.Any]:
         return {"hashes": {}}
 
-    def _handle_project_status_content(self, content: str) -> None:
+    def handle_project_status_content(self, content: str) -> None:
         content_lower = content.lower()
         if content_lower not in {"active", "archived", "quarantined", "deprecated"}:
             raise InvalidHTMLAttributeValue("meta", "content", content)
         self.status = content_lower
 
-    def _handle_project_status_reason_content(self, content: str) -> None:
+    def handle_project_status_reason_content(self, content: str) -> None:
         self.status_reason = content
 
     def handle_a_starttag(self, attrs: list[tuple[str, str | None]]) -> None:
