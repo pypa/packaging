@@ -186,7 +186,7 @@ def _complement_ranges(ranges: Sequence[Interval]) -> list[Interval]:
 def _difference_ranges(
     left: tuple[Interval, ...], right: tuple[Interval, ...]
 ) -> Iterator[Interval]:
-    """Subtract right from left. Both inputs must be sorted, disjoint and non-touching."""
+    """Subtract right from left. Both must be sorted, disjoint and non-touching."""
     if right == FULL_RANGE:
         return
 
