@@ -683,7 +683,9 @@ class TestParseDetails(ParseBaseTests):
 
             assert result == expect
 
-    @pytest.mark.parametrize(("attr", "value"), [("", True), ('="bad"', "bad")])
+    @pytest.mark.parametrize(
+        ("attr", "value"), [("", True), ('=""', True), ('="bad"', "bad")]
+    )
     def test_html_yanked(self, attr: str, value: str) -> None:
         given = f"""
             <html>

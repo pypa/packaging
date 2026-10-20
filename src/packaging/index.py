@@ -179,14 +179,21 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "a":
             self.data = ""
-        tag_method = f"_handle_{tag}_tag"
+        tag_method = f"handle_{tag}_starttag"
         if hasattr(self, tag_method):
-            attr_dict = dict(attrs)
-            getattr(self, tag_method)(attr_dict)
+            getattr(self, tag_method)(attrs)
 
-    def _handle_meta_tag(self, attrs: dict[str, str | None]) -> None:
-        if (name := attrs.get("name")) and name.startswith("pypi:"):
-            if (content := attrs.get("content")) is None:
+    def handle_meta_starttag(self, attrs: list[tuple[str, str | None]]) -> None:
+        name = None
+        content = None
+        for attr, value in attrs:
+            match attr:
+                case "name":
+                    name = value
+                case "content":
+                    content = value
+        if name and name.startswith("pypi:"):
+            if content is None:
                 raise InvalidHTMLAttributeValue("meta", "content", content)
             pypi_name = name.removeprefix("pypi:")
             method_name = f"_handle_{pypi_name.replace('-', '_')}_content"
@@ -198,6 +205,12 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
     def handle_data(self, data: str) -> None:
         self.data += data
 
+    def handle_endtag(self, tag: str) -> None:
+        tag_method = f"handle_{tag}_endtag"
+        if hasattr(self, tag_method):
+            getattr(self, tag_method)()
+        super().handle_endtag(tag)
+
 
 class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
     names: list[str]
@@ -207,11 +220,9 @@ class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
         super().__init__()
         self.names = []
 
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "a":
-            self.names.append(self.data.strip())
-            self.data = ""
-        super().handle_endtag(tag)
+    def handle_a_endtag(self) -> None:
+        self.names.append(self.data.strip())
+        self.data = ""
 
 
 def _normalize_content_type(content_type: str) -> str:
@@ -281,14 +292,14 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     def _handle_project_status_reason_content(self, content: str) -> None:
         self.status_reason = content
 
-    def _handle_a_tag(self, attrs: dict[str, str | None]) -> None:
+    def handle_a_starttag(self, attrs: list[tuple[str, str | None]]) -> None:
         self.current_file = self._new_file()
-        for name, value in attrs.items():
-            method_name = f"_handle_{name.replace('-', '_')}"
+        for name, value in attrs:
+            method_name = f"handle_{name.replace('-', '_')}_attr"
             if hasattr(self, method_name):  # pragma: no cover
                 getattr(self, method_name)(value)
 
-    def _handle_href(self, value: str | None) -> None:
+    def handle_href_attr(self, value: str | None) -> None:
         if value:  # pragma: no cover
             self.current_file["url"] = value
             if fragment := urllib.parse.urlsplit(value).fragment:
@@ -311,13 +322,13 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
                 raise InvalidHTMLAttributeValue("a", f"data-{key}", value)
         self.current_file[key] = result
 
-    def _handle_data_core_metadata(self, value: str | None) -> None:
+    def handle_data_core_metadata_attr(self, value: str | None) -> None:
         self._process_metadata("core-metadata", value)
 
-    def _handle_data_dist_info_metadata(self, value: str | None) -> None:
+    def handle_data_dist_info_metadata_attr(self, value: str | None) -> None:
         self._process_metadata("dist-info-metadata", value)
 
-    def _handle_data_gpg_sig(self, value: str | None) -> None:
+    def handle_data_gpg_sig_attr(self, value: str | None) -> None:
         match value:
             case "true":
                 has_sig = True
@@ -327,26 +338,24 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
                 raise InvalidHTMLAttributeValue("a", "data-gpg-sig", value)
         self.current_file["gpg-sig"] = has_sig
 
-    def _handle_data_requires_python(self, value: str | None) -> None:
+    def handle_data_requires_python_attr(self, value: str | None) -> None:
         if value is None:
             raise InvalidHTMLAttributeValue("a", "data-requires-python", value)
         self.current_file["requires-python"] = html.unescape(value)
 
-    def _handle_data_yanked(self, value: str | None) -> None:
-        self.current_file["yanked"] = True if value is None else value
+    def handle_data_yanked_attr(self, value: str | None) -> None:
+        self.current_file["yanked"] = value or True
 
-    def _handle_data_provenance(self, value: str | None) -> None:
+    def handle_data_provenance_attr(self, value: str | None) -> None:
         if value is None:
             raise InvalidHTMLAttributeValue("a", "data-provenance", value)
         self.current_file["provenance"] = value
 
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "a":
-            self.current_file["filename"] = self.data.strip()
-            self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
-            self.data = ""
-            self.current_file = self._new_file()
-        super().handle_endtag(tag)
+    def handle_a_endtag(self) -> None:
+        self.current_file["filename"] = self.data.strip()
+        self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
+        self.data = ""
+        self.current_file = self._new_file()
 
 
 @typing.overload
