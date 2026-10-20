@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import operator
+from typing import TYPE_CHECKING
+
 import pytest
 
 from packaging._ranges import (
@@ -17,6 +20,9 @@ from packaging._ranges import (
 from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def vr(spec: str, prereleases: bool | None = None) -> VersionRange:
@@ -276,9 +282,7 @@ class TestSetAlgebra:
         assert not (full - plain).complement().contains("wat")
 
     def test_difference_by_empty_keeps_arbitrary_admission(self) -> None:
-        # ``~full()`` admits nothing (empty bounds, no literal, no region), so the
-        # difference short-circuit returns self untouched, keeping full's
-        # arbitrary admission (``full() - ~full() == full()``).
+        # Subtracting an empty range preserves arbitrary-string admission.
         full = VersionRange.full()
         assert (full - ~full) == full
         assert (full - ~full).contains("wat")
@@ -514,7 +518,7 @@ class TestPrereleaseRegion:
         self,
     ) -> None:
         # ``a - b == a & ~b`` even when ``b`` is complement-derived: a complement
-        # carries no opt-in region, so both spellings admit none of ~b's in-bounds
+        # carries no opt-in region, so both expressions admit none of ~b's in-bounds
         # pre-releases. (Two region-bearing operands are covered above.)
         a = vr("<5.0")
         b = vr(">=2.0b1").complement()
@@ -860,7 +864,7 @@ class TestSetRelations:
 
     def test_prerelease_excluding_policy_matches_algebra(self) -> None:
         # ``prereleases=False`` ranges are not plain, so both relations take
-        # the algebra fallback; pin concrete non-trivial answers there.
+        # the algebra fallback.
         inner = vr(">=1.2,<1.8", prereleases=False)
         outer = vr(">=1.0,<2.0", prereleases=False)
         far = vr(">=5.0,<6.0", prereleases=False)
@@ -1126,7 +1130,7 @@ class TestToSpecifierSet:
         assert str(SpecifierSet("").to_range().to_specifier_set()) == ""
 
     def test_full_no_arbitrary_none(self) -> None:
-        # The only full-bounds spelling ``>=0.dev0`` opts pre-releases in
+        # The full-range specifier ``>=0.dev0`` opts pre-releases in
         # (whole-bounds region), but this range has an empty opt-in region, so
         # no candidate round-trips.
         assert VersionRange.full(admit_arbitrary=False).to_specifier_set() is None
@@ -1156,8 +1160,7 @@ class TestToSpecifierSet:
 
     def test_arbitrary_literal_with_comma_none(self) -> None:
         # A ``===`` literal may hold a comma (its arbitrary version excludes only
-        # whitespace, ``;`` and ``)``), which the set string splits on, so it has
-        # no single specifier-set spelling. It must return ``None``, not raise.
+        # whitespace, ``;`` and ``)``), but a specifier set treats commas as separators.
         r = SpecifierSet([Specifier("===a,b")]).to_range()
         assert r.to_specifier_set() is None
 
@@ -1273,15 +1276,11 @@ class TestToSpecifierSet:
 
     def test_cross_epoch_dev_gap_none(self) -> None:
         # A dev-run gap whose family sits in another epoch is not a
-        # wildcard-plus-run shape; the gap has no exclusion spelling and the
-        # disjoint union has no single-set form.
+        # wildcard-plus-run shape, so its disjoint union has no single-set form.
         assert (vr("<1") | vr(">=1!0.dev1,!=1!0.dev1")).to_specifier_set() is None
 
     def test_recovery_caps_long_dev_runs(self) -> None:
-        # A ``.dev`` run longer than ``_MAX_EXCLUSION_RUN`` also has no practical
-        # single-set form. The bound encoders keep the terse ``>=V,!=V`` spelling
-        # or return None rather than spell out a huge ``!=`` chain from a short
-        # input. The four run sites, driven by an attacker-controlled dev number:
+        # Long dev runs use a compact specifier or fail recovery.
         dev = _MAX_EXCLUSION_RUN
         anchor = vr(f">=1.dev{dev},!=1.dev{dev}").to_specifier_set()
         assert str(anchor) == f"!=1.dev{dev},>=1.dev{dev}"
@@ -1361,7 +1360,6 @@ class TestToSpecifierSet:
             ("!=0.*", "!=0.*"),
             ("!=0.0.*", "!=0.0.*"),
             ("!=0.dev0", "!=0.dev0"),
-            # Post-release boundary and dev0 upper keep their clean spellings.
             (">3.8.post1", ">3.8.post1"),
             ("<3.8.post1", "<3.8.post1"),
             # AFTER_LOCALS(dev0) lower, then a wildcard-chain + dev0-point gap.
@@ -1369,7 +1367,7 @@ class TestToSpecifierSet:
             ("!=3.9.dev0,!=3.8.*", "!=3.8.*,!=3.9.dev0"),
         ],
     )
-    def test_prerelease_free_recovery_spelling(self, spec: str, expected: str) -> None:
+    def test_prerelease_free_recovery_form(self, spec: str, expected: str) -> None:
         # With an empty opt-in region the encoder must avoid a synthetic
         # ``.dev0`` so the recovered set opts no pre-release in either.
         recovered = vr(spec).to_specifier_set()
@@ -1427,8 +1425,7 @@ class TestToSpecifierSet:
     @pytest.mark.parametrize(
         ("spec", "expected"),
         [
-            # The epoch-zero family floor: 1!0.dev0 has no >=P,!=P.* spelling, so
-            # within its family it recovers as ==1!0.* trimmed by the upper.
+            # The family floor uses ==1!0.* trimmed by the upper bound.
             ("==1!0.*,<=1!0", "<=1!0,==1!0.*"),
             ("==1!0.*,<1!0.5", "<1!0.5,==1!0.*"),
             ("==2!0.*,<=2!0", "<=2!0,==2!0.*"),
@@ -1515,7 +1512,7 @@ class TestToSpecifierSet:
 
     def test_epoch_prerelease_singleton_no_opt_in_none(self) -> None:
         # ``~(!=1!0a0.dev0)`` holds just ``1!0a0.dev0`` and its locals, which
-        # ``==1!0a0.dev0`` also spells, but that spelling opts the pre-release in
+        # ``==1!0a0.dev0`` also selects, but that specifier opts the pre-release in
         # (whole-bounds region) while this range carries no opt-in, so None.
         r = ~vr("!=1!0a0.dev0")
         assert not r.is_empty
@@ -1562,7 +1559,7 @@ class TestToSpecifierSet:
 
     def test_prerelease_dev_singleton_no_opt_in_none(self) -> None:
         # ``~(!=1.0a1.dev1)`` is the singleton ``{1.0a1.dev1}`` with no opt-in
-        # region; every spelling of a pre-release singleton opts it in, so None.
+        # region; a specifier for this pre-release singleton would opt it in.
         r = ~vr("!=1.0a1.dev1")
         assert not r.is_empty
         assert r._pre_region == ()
@@ -1571,7 +1568,7 @@ class TestToSpecifierSet:
     def test_epoch_prerelease_floor_lower_declines_family_form(self) -> None:
         # An epoch>0 floor lower that names a pre-release (``1!0a0.dev0``) has no
         # ``==1!0.*`` family form, so the encoder falls back to the generic
-        # ``>=,<`` spelling.
+        # ``>=,<`` form.
         r = vr(">=1!0a0.dev0,<1!5")
         recovered = r.to_specifier_set()
         assert recovered is not None
@@ -1832,9 +1829,9 @@ class TestBoundaryCanonicalization:
 
 
 class TestUnboundedEnds:
-    """An unbounded end has one spelling: ``inclusive`` is not part of it."""
+    """Inclusivity is ignored at unbounded endpoints."""
 
-    def test_lower_spellings_are_one_bound(self) -> None:
+    def test_lower_inclusivity_is_ignored_when_unbounded(self) -> None:
         bound = LowerBound(None, True)
         assert bound.inclusive is False
 
@@ -1842,7 +1839,7 @@ class TestUnboundedEnds:
         assert hash(bound) == hash(NEG_INF)
         assert len({bound, NEG_INF}) == 1
 
-    def test_upper_spellings_are_one_bound(self) -> None:
+    def test_upper_inclusivity_is_ignored_when_unbounded(self) -> None:
         bound = UpperBound(None, True)
         assert bound.inclusive is False
 
@@ -1859,6 +1856,144 @@ class TestUnboundedEnds:
         a, b = UpperBound(None, True), UpperBound(None, False)
         assert (a < b, a > b, a <= b, a >= b) == (False, False, True, True)
         assert (b < a, b > a, b <= a, b >= a) == (False, False, True, True)
+
+
+BoundInput = tuple[str, bool]
+
+
+def bound_value(text: str) -> Version | BoundaryVersion | None:
+    """Parse a version or boundary without building a comparison key."""
+    # An empty string is unbounded; /L and /P mean after locals and after posts.
+    if not text:
+        return None
+
+    version, _, suffix = text.partition("/")
+    if not suffix:
+        return Version(version)
+
+    kind = BoundaryKind.AFTER_LOCALS if suffix == "L" else BoundaryKind.AFTER_POSTS
+    return BoundaryVersion(Version(version), kind)
+
+
+def warm_key(bound: LowerBound | UpperBound) -> None:
+    """Build a plain version's comparison key, leaving other endpoints alone."""
+    if isinstance(bound.version, Version):
+        hash(bound.version)
+
+
+# Expected order is negative, zero or positive, as in a three-way comparison.
+LOWER_BOUND_ORDER: list[tuple[BoundInput, BoundInput, int]] = [
+    (("", False), ("", False), 0),
+    (("", False), ("1.0", True), -1),
+    (("1.0", True), ("", False), 1),
+    (("1.0", True), ("2.0", True), -1),
+    (("2.0", True), ("1.0", True), 1),
+    (("1.0", True), ("1.0", False), -1),
+    (("1.0", False), ("1.0", True), 1),
+    (("1.0", True), ("1.0", True), 0),
+    (("1.0", False), ("1.0", False), 0),
+    (("1.0+local", True), ("1.0+local", False), -1),
+    (("1.0", True), ("1.0/L", False), -1),
+    (("1.0/L", False), ("1.0", True), 1),
+    (("1.0/L", False), ("1.0/P", False), -1),
+    (("1.0/P", False), ("1.0/L", False), 1),
+    (("1.0/L", True), ("1.0/L", False), -1),
+    (("1.0/L", False), ("1.0/L", False), 0),
+    (("1.0/L", False), ("2.0", True), -1),
+    (("2.0", True), ("1.0/L", False), 1),
+]
+
+# Upper bounds reverse the ordering of infinity and inclusivity.
+UPPER_BOUND_ORDER: list[tuple[BoundInput, BoundInput, int]] = [
+    (("", False), ("", False), 0),
+    (("", False), ("1.0", True), 1),
+    (("1.0", True), ("", False), -1),
+    (("1.0", True), ("2.0", True), -1),
+    (("2.0", True), ("1.0", True), 1),
+    (("1.0", False), ("1.0", True), -1),
+    (("1.0", True), ("1.0", False), 1),
+    (("1.0", True), ("1.0", True), 0),
+    (("1.0", False), ("1.0", False), 0),
+    (("1.0+local", False), ("1.0+local", True), -1),
+    (("1.0", True), ("1.0/L", True), -1),
+    (("1.0/L", True), ("1.0", True), 1),
+    (("1.0/L", True), ("1.0/P", True), -1),
+    (("1.0/P", True), ("1.0/L", True), 1),
+    (("1.0/L", False), ("1.0/L", True), -1),
+    (("1.0/L", True), ("1.0/L", True), 0),
+    (("1.0/L", True), ("2.0", False), -1),
+    (("2.0", False), ("1.0/L", True), 1),
+]
+
+
+class TestBoundOrdering:
+    @pytest.mark.parametrize(
+        "compare", [operator.lt, operator.gt, operator.le, operator.ge, operator.eq]
+    )
+    @pytest.mark.parametrize("warm", [(), ("left",), ("right",), ("left", "right")])
+    @pytest.mark.parametrize(("left", "right", "expected"), LOWER_BOUND_ORDER)
+    def test_lower_bounds(
+        self,
+        left: BoundInput,
+        right: BoundInput,
+        expected: int,
+        warm: tuple[str, ...],
+        compare: Callable[[LowerBound | int, LowerBound | int], bool],
+    ) -> None:
+        a = LowerBound(bound_value(left[0]), left[1])
+        b = LowerBound(bound_value(right[0]), right[1])
+        if "left" in warm:
+            warm_key(a)
+        if "right" in warm:
+            warm_key(b)
+
+        # Each operator gets fresh bounds so earlier comparisons cannot warm them.
+        assert compare(a, b) is compare(expected, 0)
+
+    @pytest.mark.parametrize(
+        "compare", [operator.lt, operator.gt, operator.le, operator.ge, operator.eq]
+    )
+    @pytest.mark.parametrize("warm", [(), ("left",), ("right",), ("left", "right")])
+    @pytest.mark.parametrize(("left", "right", "expected"), UPPER_BOUND_ORDER)
+    def test_upper_bounds(
+        self,
+        left: BoundInput,
+        right: BoundInput,
+        expected: int,
+        warm: tuple[str, ...],
+        compare: Callable[[UpperBound | int, UpperBound | int], bool],
+    ) -> None:
+        a = UpperBound(bound_value(left[0]), left[1])
+        b = UpperBound(bound_value(right[0]), right[1])
+        if "left" in warm:
+            warm_key(a)
+        if "right" in warm:
+            warm_key(b)
+
+        assert compare(a, b) is compare(expected, 0)
+
+    def test_cached_keys_avoid_version_comparisons(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_comparison(_self: Version, _other: object) -> bool:
+            raise AssertionError("cached bound dispatched a version comparison")
+
+        lower_a = LowerBound(Version("1.0"), True)
+        lower_b = LowerBound(Version("2.0"), True)
+        upper_a = UpperBound(Version("1.0"), True)
+        upper_b = UpperBound(Version("2.0"), True)
+        for bound in (lower_a, lower_b, upper_a, upper_b):
+            warm_key(bound)
+
+        for name in ("__eq__", "__ne__", "__lt__"):
+            monkeypatch.setattr(Version, name, refuse_comparison)
+
+        assert lower_a < lower_b
+        assert not lower_a > lower_b
+        assert lower_a <= lower_b
+
+        assert upper_a < upper_b
+        assert not upper_a > upper_b
 
 
 class TestEmptyMatchesUnsatisfiable:
@@ -1974,9 +2109,7 @@ class TestCoverageEdges:
         assert recovered.to_range() == r
 
     def test_after_posts_boundary_total_order_consistent(self) -> None:
-        # ``AFTER_POSTS(1.0)`` and ``AFTER_POSTS(1.0.post1)`` mark the same point
-        # on the version line, so equality must agree with the ordering:
-        # exactly one of ``<``, ``==``, ``>`` holds for any two boundaries.
+        # AFTER_POSTS places a version and its post-releases at the same boundary.
         a = BoundaryVersion(Version("1.0"), BoundaryKind.AFTER_POSTS)
         b = BoundaryVersion(Version("1.0.post1"), BoundaryKind.AFTER_POSTS)
         assert a == b
@@ -2060,7 +2193,7 @@ class TestCoverageEdges:
 
     def test_exact_equals_successor_interval_bounds(self) -> None:
         # ``==1.0`` and ``>=1.0,<1.0.post0.dev0`` share bounds; the dev
-        # spelling carries an opt-in region, so they stay unequal.
+        # expression carries an opt-in region, so they stay unequal.
         a, b = vr("==1.0"), vr(">=1.0,<1.0.post0.dev0")
         assert a._bounds == b._bounds
         assert a != b
@@ -2083,8 +2216,7 @@ class TestCoverageEdges:
         assert comp.to_specifier_set() is None
 
     def test_two_singletons_complement_no_form(self) -> None:
-        # The strict-point gaps have no ``!=`` spelling (``!=1.0`` would also
-        # drop 1.0's locals), so the three intervals cannot fuse.
+        # ``!=1.0`` also drops local versions, so it cannot express these gaps.
         r = ~(VersionRange.singleton("1.0") | VersionRange.singleton("2.0"))
         assert Version("1.5") in r
         assert Version("1.0") not in r

@@ -3124,8 +3124,11 @@ class TestIsUnsatisfiable:
         [(lower, upper)] = Specifier(">=1.0")._to_ranges()
         assert lower.__eq__(object()) is NotImplemented
         assert lower.__lt__(object()) is NotImplemented  # type: ignore[operator]
+        assert lower.__gt__(object()) is NotImplemented  # type: ignore[operator]
+        assert lower.__le__(object()) is NotImplemented  # type: ignore[operator]
         assert upper.__eq__(object()) is NotImplemented
         assert upper.__lt__(object()) is NotImplemented  # type: ignore[operator]
+        assert upper.__gt__(object()) is NotImplemented  # type: ignore[operator]
 
 
 @pytest.mark.parametrize(
@@ -3422,8 +3425,8 @@ def test_pickle_specifierset_26_1_slots_format_loads() -> None:
 
 # Pickle bytes generated with packaging==26.2.dev0 (the 26.2 clean-tuple format),
 # Python 3.13.13, pickle protocol 2.
-# Format: Specifier state is ((operator, version), prereleases). SpecifierSet state
-# is (tuple[Specifier, ...], prereleases). No slot dicts or __dict__ wrappers.
+# Specifier stores ((operator, version), prereleases).
+# SpecifierSet stores (tuple[Specifier, ...], prereleases).
 _PACKAGING_26_2_PICKLE_GE_3_10 = (
     b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01X\x02\x00"
     b"\x00\x00>=q\x02X\x04\x00\x00\x003.10q\x03\x86q\x04N\x86q\x05b."
@@ -3439,8 +3442,6 @@ _PACKAGING_26_2_PICKLE_SS_GE_3_10_LT_4_0 = (
 
 
 def test_pickle_specifier_26_2_tuple_format_loads() -> None:
-    # Verify that Specifier pickles created with packaging 26.2+ (compact 2-tuple
-    # state: ((operator, version), prereleases)) load correctly.
     s = pickle.loads(_PACKAGING_26_2_PICKLE_GE_3_10)
     assert isinstance(s, Specifier)
     assert str(s) == ">=3.10"
@@ -3604,9 +3605,7 @@ def test_specifierset_contains_reads_cached_bounds() -> None:
     assert ss.contains("2.0") is False
 
 
-# Every shape ``SpecifierSet`` can take: each operator, wildcards, ``===``,
-# epochs, pre/post/dev/local boundaries, multi-spec sets, and unsatisfiable
-# sets. Used to prove ``to_range()`` preserves membership and filtering.
+# Representative specifier sets for range-equivalence checks.
 _EQUIV_SPECS = [
     "",
     ">=1.0",

@@ -76,6 +76,11 @@ class TimeSpecSuite:
         for s in self.spec_strs:
             SpecifierSet(s)
 
+    @add_attributes(pretty_name="SpecifierSet is_unsatisfiable (complex, cold)")
+    def time_is_unsatisfiable_complex_cold(self) -> None:
+        self._make_cold(self._cold_complex)
+        self._cold_complex.is_unsatisfiable()
+
     @add_attributes(pretty_name="SpecifierSet contains (cold)")
     def time_contains_cold(self) -> None:
         for spec in self._cold_specs:

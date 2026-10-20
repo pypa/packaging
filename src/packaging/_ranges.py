@@ -82,6 +82,9 @@ class BoundaryVersion:
         "version",
     )
 
+    # Synthetic boundaries must use version operators rather than cached keys.
+    _key_cache: None = None
+
     def __init__(self, version: Version, kind: BoundaryKind) -> None:
         self.version = version
         self.kind = kind
@@ -223,10 +226,55 @@ class LowerBound:
             return other.version is not None
         if other.version is None:
             return False
-        if self.version != other.version:
-            return self.version < other.version
+
+        # Use cached keys when both exist; cold versions and boundaries use operators.
+        self_key = self.version._key_cache
+        other_key = other.version._key_cache
+        if self_key is None or other_key is None:
+            if self.version != other.version:
+                return self.version < other.version
+        elif self_key != other_key:
+            return self_key < other_key
+
         # [v < (v: inclusive starts earlier.
         return self.inclusive and not other.inclusive
+
+    # Explicit operators avoid total_ordering's repeated comparison dispatch.
+    def __gt__(self, other: LowerBound) -> bool:
+        if not isinstance(other, LowerBound):
+            return NotImplemented
+        if self.version is None:
+            return False
+        if other.version is None:
+            return True
+
+        self_key = self.version._key_cache
+        other_key = other.version._key_cache
+        if self_key is None or other_key is None:
+            if self.version != other.version:
+                return other.version < self.version
+        elif self_key != other_key:
+            return other_key < self_key
+
+        return other.inclusive and not self.inclusive
+
+    def __le__(self, other: LowerBound) -> bool:
+        if not isinstance(other, LowerBound):
+            return NotImplemented
+        if self.version is None:
+            return True
+        if other.version is None:
+            return False
+
+        self_key = self.version._key_cache
+        other_key = other.version._key_cache
+        if self_key is None or other_key is None:
+            if self.version != other.version:
+                return self.version < other.version
+        elif self_key != other_key:
+            return self_key < other_key
+
+        return self.inclusive or not other.inclusive
 
     def __hash__(self) -> int:
         return hash((self.version, self.inclusive))
@@ -282,15 +330,41 @@ class UpperBound:
     def __lt__(self, other: UpperBound) -> bool:
         if not isinstance(other, UpperBound):
             return NotImplemented
-        # Nothing < +inf (except +inf itself).
+        # An unbounded upper endpoint does not sort before any endpoint.
         if self.version is None:
             return False
         if other.version is None:
             return True
-        if self.version != other.version:
-            return self.version < other.version
+
+        # Use cached keys when both exist; cold versions and boundaries use operators.
+        self_key = self.version._key_cache
+        other_key = other.version._key_cache
+        if self_key is None or other_key is None:
+            if self.version != other.version:
+                return self.version < other.version
+        elif self_key != other_key:
+            return self_key < other_key
+
         # v) < v]: exclusive ends earlier.
         return not self.inclusive and other.inclusive
+
+    def __gt__(self, other: UpperBound) -> bool:
+        if not isinstance(other, UpperBound):
+            return NotImplemented
+        if self.version is None:
+            return other.version is not None
+        if other.version is None:
+            return False
+
+        self_key = self.version._key_cache
+        other_key = other.version._key_cache
+        if self_key is None or other_key is None:
+            if self.version != other.version:
+                return other.version < self.version
+        elif self_key != other_key:
+            return other_key < self_key
+
+        return self.inclusive and not other.inclusive
 
     def __hash__(self) -> int:
         return hash((self.version, self.inclusive))

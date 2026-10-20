@@ -2,7 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-"""Property tests for ``VersionRange`` Boolean lattice laws.
+"""Property tests for range ordering and Boolean lattice laws.
 
 Identity, idempotence, commutativity, associativity, distributivity,
 double-complement, De Morgan, and consistency with ``__contains__``.
@@ -10,12 +10,20 @@ double-complement, De Morgan, and consistency with ``__contains__``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import itertools
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 from hypothesis import given
+from hypothesis import strategies as st
 
-from packaging._ranges import intersect_ranges
+from packaging._ranges import (
+    BoundaryKind,
+    BoundaryVersion,
+    LowerBound,
+    UpperBound,
+    intersect_ranges,
+)
 from packaging.ranges import VersionRange
 from packaging.specifiers import SpecifierSet
 
@@ -29,9 +37,13 @@ from .strategies import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from packaging.version import Version
 
 pytestmark = pytest.mark.property
+
+_BoundT = TypeVar("_BoundT", LowerBound, UpperBound)
 
 
 def _to_range(spec_set: SpecifierSet) -> VersionRange:
@@ -138,7 +150,7 @@ def test_complement_partitions(spec_set: SpecifierSet) -> None:
 @given(spec_set=specifier_sets())
 @SETTINGS
 def test_filter_nonemptiness_ignores_region(spec_set: SpecifierSet) -> None:
-    # The region changes which versions come out first, never whether any do.
+    # The region changes version order without changing whether any match.
     r = _to_range(spec_set)
     stripped = ~~r
     assert bool(list(r.filter(VERSION_POOL))) == bool(
@@ -249,8 +261,8 @@ def test_difference_equals_intersect_complement(
 ) -> None:
     """``a - b == a & ~b`` over pre-release-naming pairs.
 
-    ``rich_specifier_sets`` draws pre/post/dev/local/epoch RHS versions (no
-    ``===`` and no configured policy), so the two agree on bounds and region.
+    The strategy excludes ``===`` and configured policies, so both results
+    agree on bounds and region.
     They would diverge over ``===`` literals and the arbitrary-string flag, which
     this strategy does not draw; a configured-policy mismatch (where difference
     raises like intersection) is covered by the unit tests in ``test_ranges.py``.
@@ -480,3 +492,122 @@ def test_idempotence_under_each_policy(spec_set: SpecifierSet) -> None:
     r = spec_set.to_range()
     assert r & r == r
     assert r | r == r
+
+
+@st.composite
+def _inner_values(draw: st.DrawFn) -> Version | BoundaryVersion | None:
+    """Generate an endpoint the range engine can construct."""
+    shape = draw(st.sampled_from(["unbounded", "version", "boundary"]))
+    if shape == "unbounded":
+        return None
+
+    version = draw(pep440_versions())
+    if shape == "version":
+        return version
+
+    # The engine uses AFTER_POSTS only without dev or post segments.
+    kinds = [BoundaryKind.AFTER_LOCALS]
+    if version.dev is None and version.post is None:
+        kinds.append(BoundaryKind.AFTER_POSTS)
+
+    return BoundaryVersion(version, draw(st.sampled_from(kinds)))
+
+
+@st.composite
+def _lower_bounds(draw: st.DrawFn) -> LowerBound:
+    """Generate a lower bound over one inner value and either inclusivity."""
+    return LowerBound(draw(_inner_values()), draw(st.booleans()))
+
+
+@st.composite
+def _upper_bounds(draw: st.DrawFn) -> UpperBound:
+    """Generate an upper bound over one inner value and either inclusivity."""
+    return UpperBound(draw(_inner_values()), draw(st.booleans()))
+
+
+def _assert_totally_ordered(pool: list[_BoundT]) -> None:
+    """Check comparability, transitivity and sorting for a pool of bounds."""
+    for a, b in itertools.product(pool, repeat=2):
+        assert a <= b or b <= a
+        assert [a < b, a == b, a > b].count(True) == 1
+        assert (a <= b) == (a < b or a == b)
+        assert (a >= b) == (a > b or a == b)
+
+    for a, b, c in itertools.permutations(pool, 3):
+        if a < b < c:
+            assert a < c
+
+    ascending = sorted(pool)
+    assert all(x <= y for x, y in itertools.pairwise(ascending))
+
+    reversed_pool = list(reversed(pool))
+    assert sorted(reversed_pool) == ascending
+
+
+def _reference_lower_lt(left: LowerBound, right: LowerBound) -> bool:
+    """``LowerBound.__lt__`` written against the version operators alone."""
+    if left.version is None:
+        return right.version is not None
+    if right.version is None:
+        return False
+    if left.version != right.version:
+        return left.version < right.version
+    return left.inclusive and not right.inclusive
+
+
+def _reference_upper_lt(left: UpperBound, right: UpperBound) -> bool:
+    """``UpperBound.__lt__`` written against the version operators alone."""
+    if left.version is None:
+        return False
+    if right.version is None:
+        return True
+    if left.version != right.version:
+        return left.version < right.version
+    return not left.inclusive and right.inclusive
+
+
+def _assert_matches_reference(
+    pool: list[_BoundT], reference: Callable[[_BoundT, _BoundT], bool]
+) -> None:
+    """Compare bound operators with the version-based reference order."""
+    # The reference builds version keys, so a second pass exercises warm bounds.
+    for _ in range(2):
+        for a, b in itertools.product(pool, repeat=2):
+            answers = (a < b, a > b, a <= b, a >= b)
+            equal = a == b
+            expected_lt = reference(a, b)
+
+            assert answers == (
+                expected_lt,
+                not expected_lt and not equal,
+                expected_lt or equal,
+                not expected_lt,
+            )
+
+
+@given(pool=st.lists(_lower_bounds(), min_size=2, max_size=5))
+@SETTINGS
+def test_lower_bounds_are_totally_ordered(pool: list[LowerBound]) -> None:
+    _assert_totally_ordered(pool)
+
+
+@given(pool=st.lists(_upper_bounds(), min_size=2, max_size=5))
+@SETTINGS
+def test_upper_bounds_are_totally_ordered(pool: list[UpperBound]) -> None:
+    _assert_totally_ordered(pool)
+
+
+@given(pool=st.lists(_lower_bounds(), min_size=2, max_size=5))
+@SETTINGS
+def test_lower_bounds_order_as_the_version_operators_do(
+    pool: list[LowerBound],
+) -> None:
+    _assert_matches_reference(pool, _reference_lower_lt)
+
+
+@given(pool=st.lists(_upper_bounds(), min_size=2, max_size=5))
+@SETTINGS
+def test_upper_bounds_order_as_the_version_operators_do(
+    pool: list[UpperBound],
+) -> None:
+    _assert_matches_reference(pool, _reference_upper_lt)
