@@ -414,7 +414,7 @@ def parse_details(
 
     Some normalization is done regardless of the content type. The 'name' key
     is made canonical. If *request_url* -- which is expected to be the URL used
-    to make the request -- is provided then the 'filename' key is used to make
+    to make the request -- is provided then the 'url' key is used to make
     sure the URL provided is absolute. If either the 'core-metadata' or
     'dist-info-metadata' key is set and the other is not then the unset key is
     filled with the other's value. Any dictionaries containing hash algorithm
