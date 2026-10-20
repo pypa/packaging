@@ -279,6 +279,7 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     current_file: dict[str, typing.Any]
     status: str | None = None
     status_reason: str | None = None
+    base_url: str | None = None
 
     def __init__(self) -> None:
         super().__init__()
@@ -356,6 +357,12 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
             raise InvalidHTMLAttributeValue("a", "data-provenance", value)
         self.current_file["provenance"] = value
 
+    def handle_base_starttag(self, attrs: list[tuple[str, str | None]]) -> None:
+        for attr, value in attrs:
+            if attr == "href":
+                self.base_url = value
+                break
+
     def handle_a_endtag(self) -> None:
         self.current_file["filename"] = self.data.strip()
         self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
@@ -416,6 +423,7 @@ def parse_details(
     """
     if name is None and request_url is None:
         raise TypeError("expected either 'name' or request_url to be provided")
+    base_url = request_url
     cleaned_content_type = _normalize_content_type(content_type)
     project_details: RawProjectDetails
     if cleaned_content_type == ACCEPT_JSON_V1:
@@ -433,6 +441,9 @@ def parse_details(
             # request_url is guaranteed to be a string if 'name' is not set.
             path = typing.cast("str", urllib.parse.urlsplit(request_url).path)
             project_name = path.removesuffix("/").rpartition("/")[-1]
+
+        if parser.base_url:
+            base_url = parser.base_url
 
         project_details = {
             "meta": meta,
@@ -465,10 +476,10 @@ def parse_details(
         elif "dist-info-metadata" in file and "core-metadata" not in file:
             file["core-metadata"] = file["dist-info-metadata"]
         if (
-            request_url
+            base_url
             and "url" in file
             and not file["url"].startswith(("http://", "https://", "file://"))
         ):
-            file["url"] = urllib.parse.urljoin(request_url, file["url"])
+            file["url"] = urllib.parse.urljoin(base_url, file["url"])
 
     return project_details

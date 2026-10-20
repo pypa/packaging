@@ -884,6 +884,35 @@ class TestParseDetails(ParseBaseTests):
 
         assert result == expect
 
+    def test_html_base_tag(self) -> None:
+        given = """
+            <html>
+            <head>
+                <base href="https://pypi.org/simple/spam/" />
+            <body>
+            <a
+                href="spam-1.0.tar.gz"
+            >spam-1.0.tar.gz</a>
+            </body>
+            </html>
+        """
+        expect: index.RawProjectDetails = {
+            "meta": {"api-version": "1.0"},
+            "name": "spam",
+            "files": [
+                {
+                    "filename": "spam-1.0.tar.gz",
+                    "url": "https://pypi.org/simple/spam/spam-1.0.tar.gz",
+                    "hashes": {},
+                }
+            ],
+        }
+        result = index.parse_details(
+            HTML_CONTENT_TYPE, given, request_url="https://example.com/simple/spam/"
+        )
+
+        assert result == expect
+
     def test_name_or_request_url_provided(self) -> None:
         with pytest.raises(TypeError):
             index.parse_details(HTML_CONTENT_TYPE, "")  # type: ignore[call-overload]
