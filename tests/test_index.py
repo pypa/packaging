@@ -913,6 +913,12 @@ class TestParseDetails(ParseBaseTests):
 
         assert result == expect
 
-    def test_name_or_request_url_provided(self) -> None:
+    @pytest.mark.parametrize("bad_value", ["", None])
+    def test_name_or_request_url_provided(self, bad_value: str | None) -> None:
         with pytest.raises(TypeError):
-            index.parse_details(HTML_CONTENT_TYPE, "")  # type: ignore[call-overload]
+            index.parse_details(
+                HTML_CONTENT_TYPE,
+                "",
+                name=bad_value,  # type: ignore[arg-type]
+                request_url=bad_value,
+            )

@@ -421,7 +421,7 @@ def parse_details(
     filled with the other's value. Any dictionaries containing hash algorithm
     names as keys will have those name lowercased.
     """
-    if name is None and request_url is None:
+    if not name and not request_url:
         raise TypeError("expected either 'name' or request_url to be provided")
     base_url = request_url
     cleaned_content_type = _normalize_content_type(content_type)
