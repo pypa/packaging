@@ -218,7 +218,6 @@ class _RawProjectMetaHTMLParser(html.parser.HTMLParser):
 
 class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
     names: list[str]
-    parsing_anchor: bool
 
     def __init__(self) -> None:
         super().__init__()
