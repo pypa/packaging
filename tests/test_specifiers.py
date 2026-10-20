@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import copy
 import itertools
 import operator
 import pickle
@@ -44,6 +45,59 @@ SPECIFIERS = [
 
 
 class TestSpecifier:
+    def test_replace_parts(self) -> None:
+        original = Specifier(">=1.0a1", prereleases=False)
+        assert original.contains("2.0")
+
+        changed = original.__replace__(operator="<", version="2.0")
+        assert str(changed) == "<2.0"
+        assert changed.prereleases is False
+        assert not changed.contains("2.0")
+        assert str(original) == ">=1.0a1"
+
+        cleared = original.__replace__(prereleases=None)
+        assert cleared.prereleases is True
+        assert original.prereleases is False
+
+        unchanged = original.__replace__()
+        assert unchanged is original
+        assert original.__replace__(prereleases=False) is original
+        unchanged.prereleases = True
+        assert original.prereleases is True
+
+    def test_replace_arbitrary_version(self) -> None:
+        original = Specifier("===anything")
+        assert str(original.__replace__(version="else")) == "===else"
+
+    def test_replace_validates(self) -> None:
+        specifier = Specifier(">=1.0")
+        with pytest.raises(InvalidSpecifier):
+            specifier.__replace__(operator="?")
+        with pytest.raises(InvalidSpecifier):
+            specifier.__replace__(version="bad")
+
+    def test_replace_preserves_subclass(self) -> None:
+        class CustomSpecifier(Specifier):
+            pass
+
+        original = CustomSpecifier(">=1.0")
+        assert isinstance(original.__replace__(version="2.0"), CustomSpecifier)
+
+    def test_copy_replace(self) -> None:
+        if sys.version_info < (3, 13):
+            pytest.skip("copy.replace requires Python 3.13")
+
+        class CustomSpecifier(Specifier):
+            pass
+
+        original = CustomSpecifier(">=1.0")
+        changed = copy.replace(original, version="2.0")
+        assert isinstance(changed, CustomSpecifier)
+        assert str(changed) == ">=2.0"
+        assert copy.replace(original) is original
+        with pytest.raises(TypeError):
+            copy.replace(original, unexpected="1")
+
     @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_valid(self, specifier: str) -> None:
         Specifier(specifier)
@@ -1253,6 +1307,53 @@ class TestSpecifierInternal:
 
 
 class TestSpecifierSet:
+    def test_replace_specifiers_and_prereleases(self) -> None:
+        original = SpecifierSet(">=1.0a1,<2.0", prereleases=False)
+        assert original.contains("1.5")
+
+        changed = original.__replace__(specifiers=iter([Specifier("==2.0")]))
+        assert str(changed) == "==2.0"
+        assert changed.prereleases is False
+        assert changed.contains("2.0")
+        assert str(original) == "<2.0,>=1.0a1"
+
+        cleared = original.__replace__(prereleases=None)
+        assert cleared.prereleases is True
+        assert original.prereleases is False
+
+        unchanged = original.__replace__()
+        assert unchanged is original
+        assert original.__replace__(prereleases=False) is original
+        unchanged.prereleases = True
+        assert original.prereleases is True
+
+    def test_replace_validates(self) -> None:
+        specifiers = SpecifierSet(">=1.0")
+        with pytest.raises(InvalidSpecifier):
+            specifiers.__replace__(specifiers=">=bad")
+
+    def test_replace_preserves_subclass(self) -> None:
+        class CustomSpecifierSet(SpecifierSet):
+            pass
+
+        original = CustomSpecifierSet(">=1.0")
+        assert isinstance(original.__replace__(specifiers="<2.0"), CustomSpecifierSet)
+
+    def test_copy_replace(self) -> None:
+        if sys.version_info < (3, 13):
+            pytest.skip("copy.replace requires Python 3.13")
+
+        class CustomSpecifierSet(SpecifierSet):
+            pass
+
+        original = CustomSpecifierSet(">=1.0")
+        changed = copy.replace(original, specifiers="<2.0")
+        assert isinstance(changed, CustomSpecifierSet)
+        assert str(changed) == "<2.0"
+        assert copy.replace(original) is original
+        with pytest.raises(TypeError):
+            copy.replace(original, unexpected="1")
+
     @pytest.mark.parametrize("specifier", ["===", ">=1,===", "===,===x"])
     def test_empty_arbitrary_version_invalid(self, specifier: str) -> None:
         with pytest.raises(InvalidSpecifier):
