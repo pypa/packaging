@@ -12,7 +12,6 @@ __lazy_modules__ = {
 }
 import contextlib
 import email.message
-import html
 import html.parser  # HTMLParser used as a base class.
 import json
 import typing  # The `from ... import` forces an eager import.
@@ -347,7 +346,7 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     def handle_data_requires_python_attr(self, value: str | None) -> None:
         if value is None:
             raise InvalidHTMLAttributeValue("a", "data-requires-python", value)
-        self.current_file["requires-python"] = html.unescape(value)
+        self.current_file["requires-python"] = value
 
     def handle_data_yanked_attr(self, value: str | None) -> None:
         self.current_file["yanked"] = value or True
