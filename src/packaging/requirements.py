@@ -181,15 +181,12 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
-    def __getstate__(self) -> tuple[str, bool | SpecifierSet | None]:
+    def __getstate__(self) -> tuple[str, SpecifierSet]:
         # Return the requirement string for compactness and stability, paired
-        # with the specifier's explicit prereleases override, which is not
-        # captured by the string form. Re-parsed on load to reconstruct all
-        # other fields. If an inner Specifier has its own override, store the
-        # whole SpecifierSet instead.
-        if any(s._prereleases is not None for s in self.specifier._specs):
-            return (str(self), self.specifier)
-        return (str(self), self.specifier._prereleases)
+        # with the SpecifierSet, which holds prereleases overrides that the
+        # string form does not capture. Re-parsed on load to reconstruct all
+        # other fields.
+        return (str(self), self.specifier)
 
     def __setstate__(self, state: object) -> None:
         if isinstance(state, str):

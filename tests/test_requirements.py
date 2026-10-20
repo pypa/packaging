@@ -927,11 +927,12 @@ def test_requirement_copy_preserves_inner_prereleases(
     assert all(a is not b for a, b in zip(loaded.specifier, r.specifier, strict=True))
 
 
-def test_pickle_requirement_keeps_26_3_format() -> None:
-    # Without inner overrides, keep the format older releases can read.
+def test_pickle_requirement_state() -> None:
     r = Requirement("foo>=1.0")
     r.specifier.prereleases = True
-    assert r.__getstate__() == ("foo>=1.0", True)
+    state = r.__getstate__()
+    assert state == ("foo>=1.0", r.specifier)
+    assert state[1] is r.specifier
 
 
 def test_pickle_requirement_setstate_rejects_mismatched_specifier() -> None:
