@@ -307,13 +307,11 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     def handle_href_attr(self, value: str | None) -> None:
         if value:  # pragma: no cover
             self.current_file["url"] = value
-            if fragment := urllib.parse.urlsplit(value).fragment:
-                if fragment.count("=") != 1:
-                    raise InvalidHTMLAttributeValue("a", "href", value)
+            fragment = urllib.parse.urlsplit(value).fragment
+            if fragment and fragment.count("=") == 1:
                 hash_algo, _, hash_value = fragment.partition("=")
-                if not hash_algo or not hash_value:
-                    raise InvalidHTMLAttributeValue("a", "href", value)
-                self.current_file["hashes"][hash_algo] = hash_value
+                if hash_algo and hash_value:
+                    self.current_file["hashes"][hash_algo] = hash_value
 
     def _process_metadata(self, key: str, value: str | None) -> None:
         result: dict[str, str] | bool = True
