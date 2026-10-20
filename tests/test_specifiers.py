@@ -2505,9 +2505,12 @@ class TestSpecifierSet:
             ("", ">=3.12", False),
         ],
     )
-    def test_is_subset(self, left: str, right: str, expected: bool) -> None:
-        spec = SpecifierSet(left)
-        other = SpecifierSet(right)
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_is_subset(
+        self, left: str, right: str, expected: bool, prereleases: bool | None
+    ) -> None:
+        spec = SpecifierSet(left, prereleases=prereleases)
+        other = SpecifierSet(right, prereleases=prereleases)
 
         assert spec.is_subset(other) is expected
         assert spec.is_subset(other) == spec.to_range().is_subset(other.to_range())
@@ -2525,9 +2528,12 @@ class TestSpecifierSet:
             (">=3.12", "", False),
         ],
     )
-    def test_is_superset(self, left: str, right: str, expected: bool) -> None:
-        spec = SpecifierSet(left)
-        other = SpecifierSet(right)
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_is_superset(
+        self, left: str, right: str, expected: bool, prereleases: bool | None
+    ) -> None:
+        spec = SpecifierSet(left, prereleases=prereleases)
+        other = SpecifierSet(right, prereleases=prereleases)
 
         assert spec.is_superset(other) is expected
         assert spec.is_superset(other) == spec.to_range().is_superset(other.to_range())
