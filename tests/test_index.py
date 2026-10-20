@@ -35,6 +35,9 @@ class ParseBaseTests:
     def test_html_extra_tags(self) -> None:
         raise NotImplementedError
 
+    def test_html_worthless_a_tag(self) -> None:
+        raise NotImplementedError
+
 
 class TestParseList(ParseBaseTests):
     @pytest.mark.parametrize(
@@ -180,6 +183,23 @@ class TestParseList(ParseBaseTests):
         expect: index.RawProjectList = {
             "meta": {"api-version": "1.0"},
             "projects": [{"name": "frob"}, {"name": "spamspamspam"}],
+        }
+        assert result == expect
+
+    def test_html_worthless_a_tag(self) -> None:
+        given = """
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <a href="/frob/"></a><br />
+                <a href="/spamspamspam/">spamspamspam</a>
+            </body>
+            </html>
+        """
+        result = index.parse_list(HTML_CONTENT_TYPE, given)
+        expect: index.RawProjectList = {
+            "meta": {"api-version": "1.0"},
+            "projects": [{"name": "spamspamspam"}],
         }
         assert result == expect
 
@@ -399,6 +419,23 @@ class TestParseDetails(ParseBaseTests):
                     "hashes": {},
                 }
             ],
+        }
+        result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
+
+        assert result == expect
+
+    def test_html_worthless_a_tag(self) -> None:
+        given = """
+            <html>
+            <body>
+            <a>spam-1.0.tar.gz</a>
+            </body>
+            </html>
+        """
+        expect: index.RawProjectDetails = {
+            "meta": {"api-version": "1.0"},
+            "name": "spam",
+            "files": [],
         }
         result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
 

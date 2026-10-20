@@ -224,8 +224,9 @@ class _RawProjectListHTMLParser(_RawProjectMetaHTMLParser):
         self.names = []
 
     def handle_a_endtag(self) -> None:
-        self.names.append(self.data.strip())
-        self.data = ""
+        if data := self.data.strip():
+            self.names.append(data)
+            self.data = ""
 
 
 def _normalize_content_type(content_type: str) -> str:
@@ -362,8 +363,9 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
                 break
 
     def handle_a_endtag(self) -> None:
-        self.current_file["filename"] = self.data.strip()
-        self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
+        if "url" in self.current_file:  # No href, no file.
+            self.current_file["filename"] = self.data.strip()
+            self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
         self.data = ""
         self.current_file = self._new_file()
 
