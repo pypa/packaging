@@ -4,13 +4,15 @@
 
 from __future__ import annotations
 
+import copy
 import pickle
+import sys
 
 import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -1085,3 +1087,90 @@ def test_pickle_requirement_25_0_format_loads() -> None:
     assert str(r.specifier) == ">=2.0"
     assert r.marker is None
     assert r == Requirement("requests>=2.0")
+
+
+def test_replace() -> None:
+    r = Requirement('requests[security]>=2.0; python_version >= "3"')
+    r2 = r.__replace__(name="flask")
+    assert r2.name == "flask"
+    assert r2.extras == r.extras
+    assert r2.specifier == r.specifier
+    assert r2.marker == r.marker
+    # The original is untouched.
+    assert r.name == "requests"
+    # A URL requirement may not keep a version specifier, so clear it.
+    r_url = r.__replace__(url="https://example.com/flask.zip", specifier=SpecifierSet())
+    assert r_url.url == "https://example.com/flask.zip"
+    assert not r_url.specifier
+    # No changes gives an equal but distinct instance.
+    r3 = r.__replace__()
+    assert r3 == r
+    assert r3 is not r
+    with pytest.raises(TypeError):
+        r.__replace__(nonexistent=1)  # type: ignore[call-arg]
+
+
+def test_replace_validates_and_normalizes() -> None:
+    r = Requirement("requests>=2.0")
+    # Invalid fields are rejected by the parser round-trip.
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(name="not a name!")
+    # A field that would smuggle in extra syntax is rejected too.
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(name="foo[bar]")
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(extras={"a,b"})
+    # Marker extras are normalized like they are when parsing.
+    r2 = r.__replace__(marker=Marker('extra == "Foo_Bar"'))
+    assert str(r2.marker) == 'extra == "foo-bar"'
+    # An explicit prereleases override on the specifier is preserved.
+    r3 = r.__replace__(specifier=SpecifierSet(">=2.0", prereleases=True))
+    assert r3.specifier.prereleases is True
+
+
+@pytest.mark.parametrize("new_specifier", [False, True])
+def test_replace_keeps_inner_specifier_prereleases(new_specifier: bool) -> None:
+    spec = SpecifierSet([Specifier(">=1", prereleases=True)])
+    if new_specifier:
+        r = Requirement("demo").__replace__(specifier=spec)
+    else:
+        orig = Requirement("demo")
+        orig.specifier = spec
+        r = orig.__replace__(name="other")
+    assert list(r.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+
+    # The result does not share mutable specifiers with the input.
+    assert r.specifier is not spec
+    assert all(a is not b for a, b in zip(r.specifier, spec, strict=True))
+
+
+def test_replace_keeps_subclass() -> None:
+    class MyRequirement(Requirement):
+        pass
+
+    r = MyRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is MyRequirement
+
+
+def test_replace_subclass_with_init_state() -> None:
+    class TaggedRequirement(Requirement):
+        def __init__(self, requirement_string: str) -> None:
+            super().__init__(requirement_string)
+            self.tag = "tagged"
+
+        def __str__(self) -> str:
+            return f"{super().__str__()}  # {self.tag}"
+
+    r = TaggedRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is TaggedRequirement
+    assert str(r) == "flask>=2.0  # tagged"
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="copy.replace() requires Python 3.13"
+)
+def test_copy_replace() -> None:
+    r = Requirement("requests>=2.0")
+    r2 = copy.replace(r, specifier=SpecifierSet(">=3.0"))  # type: ignore[attr-defined]
+    assert str(r2) == "requests>=3.0"
+    assert str(r) == "requests>=2.0"
