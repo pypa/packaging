@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import abc
+import builtins
 import re
+import sys
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -74,11 +76,9 @@ UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 
 
-class _Unset:
-    __slots__ = ()
-
-
-_UNSET = _Unset()
+# Sentinel for __replace__, typed as Any so it can be the default for any field.
+# mypy is missing sentinel currently
+_UNSET: Any = object() if sys.version_info < (3, 15) else builtins.sentinel("_UNSET")  # type: ignore[attr-defined]
 
 
 # Operators whose result is just a direct Version comparison, given a parsed
@@ -392,9 +392,9 @@ class Specifier(BaseSpecifier):
     def __replace__(
         self,
         *,
-        operator: str | _Unset = _UNSET,
-        version: str | _Unset = _UNSET,
-        prereleases: bool | _Unset | None = _UNSET,
+        operator: str = _UNSET,
+        version: str = _UNSET,
+        prereleases: bool | None = _UNSET,
     ) -> Self:
         """__replace__(*, operator=..., version=..., prereleases=...)
 
@@ -412,11 +412,9 @@ class Specifier(BaseSpecifier):
 
         .. versionadded:: 26.4
         """
-        new_operator = self.operator if isinstance(operator, _Unset) else operator
-        new_version = self.version if isinstance(version, _Unset) else version
-        new_prereleases = (
-            self._prereleases if isinstance(prereleases, _Unset) else prereleases
-        )
+        new_operator = self.operator if operator is _UNSET else operator
+        new_version = self.version if version is _UNSET else version
+        new_prereleases = self._prereleases if prereleases is _UNSET else prereleases
         if (
             new_operator == self.operator
             and new_version == self.version
@@ -879,8 +877,8 @@ class SpecifierSet(BaseSpecifier):
     def __replace__(
         self,
         *,
-        specifiers: str | Iterable[Specifier] | _Unset = _UNSET,
-        prereleases: bool | _Unset | None = _UNSET,
+        specifiers: str | Iterable[Specifier] = _UNSET,
+        prereleases: bool | None = _UNSET,
     ) -> Self:
         """__replace__(*, specifiers=..., prereleases=...)
 
@@ -898,11 +896,9 @@ class SpecifierSet(BaseSpecifier):
 
         .. versionadded:: 26.4
         """
-        new_specifiers = self._specs if isinstance(specifiers, _Unset) else specifiers
-        new_prereleases = (
-            self._prereleases if isinstance(prereleases, _Unset) else prereleases
-        )
-        if isinstance(specifiers, _Unset) and new_prereleases == self._prereleases:
+        new_specifiers = self._specs if specifiers is _UNSET else specifiers
+        new_prereleases = self._prereleases if prereleases is _UNSET else prereleases
+        if specifiers is _UNSET and new_prereleases == self._prereleases:
             return self
 
         return self.__class__(new_specifiers, prereleases=new_prereleases)
