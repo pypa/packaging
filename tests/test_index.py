@@ -127,7 +127,7 @@ class TestParseList(ParseBaseTests):
             <!DOCTYPE html>
             <html>
             <head>
-                <meta name="pypi:not-real" content="boo" />
+                <meta name="pypi:not-real" content="boo" ignore="me" />
             </head>
             <body>
                 <a href="/frob/">frob</a>
@@ -921,6 +921,9 @@ class TestParseDetails(ParseBaseTests):
             <html>
             <head>
                 <base href="https://pypi.org/simple/spam/" />
+                <!-- For test coverage -->
+                <base />
+                <base ignore="me">
             <body>
             <a
                 href="spam-1.0.tar.gz"
