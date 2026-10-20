@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import abc
+import builtins
 import re
+import sys
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -37,6 +39,8 @@ from .version import Version
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
     from typing import TypeGuard
+
+    from typing_extensions import Self
 
     from . import ranges
     from ._ranges import Interval
@@ -70,6 +74,11 @@ def _validate_pre(pre: object, /) -> TypeGuard[bool | None]:
 T = TypeVar("T")
 UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
+
+# Sentinel for __replace__, typed as Any so it can be the default for any field.
+# mypy is missing sentinel currently
+_UNSET: Any = object() if sys.version_info < (3, 15) else builtins.sentinel("_UNSET")  # type: ignore[attr-defined]
 
 
 # Operators whose result is just a direct Version comparison, given a parsed
@@ -379,6 +388,43 @@ class Specifier(BaseSpecifier):
 
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[Interval] | None = None
+
+    def __replace__(
+        self,
+        *,
+        operator: str = _UNSET,
+        version: str = _UNSET,
+        prereleases: bool | None = _UNSET,
+    ) -> Self:
+        """__replace__(*, operator=..., version=..., prereleases=...)
+
+        Return a specifier with the given parts replaced. If no part changes,
+        return ``self``.
+
+        :param str operator:
+            Replacement comparison operator. Omit to retain the current operator.
+        :param str version:
+            Replacement version string. Omit to retain the current version.
+        :param prereleases:
+            Replacement prerelease override. Omit to retain the current override;
+            ``None`` restores automatic detection.
+        :type prereleases: bool | None
+
+        .. versionadded:: 26.4
+        """
+        new_operator = self.operator if operator is _UNSET else operator
+        new_version = self.version if version is _UNSET else version
+        new_prereleases = self._prereleases if prereleases is _UNSET else prereleases
+        if (
+            new_operator == self.operator
+            and new_version == self.version
+            and new_prereleases == self._prereleases
+        ):
+            return self
+
+        return self.__class__(
+            f"{new_operator}{new_version}", prereleases=new_prereleases
+        )
 
     def _get_spec_version(self, version: str) -> Version | None:
         """One element cache, as only one spec Version is needed per Specifier."""
@@ -827,6 +873,35 @@ class SpecifierSet(BaseSpecifier):
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
         self._prereleases = prereleases
+
+    def __replace__(
+        self,
+        *,
+        specifiers: str | Iterable[Specifier] = _UNSET,
+        prereleases: bool | None = _UNSET,
+    ) -> Self:
+        """__replace__(*, specifiers=..., prereleases=...)
+
+        Return a specifier set with the given parts replaced. If ``specifiers``
+        is omitted and the prerelease override is unchanged, return ``self``.
+
+        :param specifiers:
+            Replacement specifiers as a string or an iterable of ``Specifier``
+            instances. Omit to retain the current specifiers.
+        :type specifiers: str | Iterable[Specifier]
+        :param prereleases:
+            Replacement prerelease override. Omit to retain the current override;
+            ``None`` restores automatic detection.
+        :type prereleases: bool | None
+
+        .. versionadded:: 26.4
+        """
+        new_specifiers = self._specs if specifiers is _UNSET else specifiers
+        new_prereleases = self._prereleases if prereleases is _UNSET else prereleases
+        if specifiers is _UNSET and new_prereleases == self._prereleases:
+            return self
+
+        return self.__class__(new_specifiers, prereleases=new_prereleases)
 
     def _canonical_specs(self) -> tuple[Specifier, ...]:
         """Deduplicate, sort, and cache specs for order-sensitive operations."""
