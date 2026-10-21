@@ -5,6 +5,7 @@ from __future__ import annotations
 __lazy_modules__ = {
     "contextlib",
     "email.message",
+    "hashlib",
     "html",
     "json",
     "urllib.parse",
@@ -12,6 +13,7 @@ __lazy_modules__ = {
 }
 import contextlib
 import email.message
+import hashlib
 import html.parser  # HTMLParser used as a base class.
 import json
 import typing  # The `from ... import` forces an eager import.
@@ -305,13 +307,19 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
                 getattr(self, method_name)(value)
 
     def handle_href_attr(self, value: str | None) -> None:
-        if value:  # pragma: no cover
+        if value:
+            hashes = {}
             self.current_file["url"] = value
-            fragment = urllib.parse.urlsplit(value).fragment
-            if fragment and fragment.count("=") == 1:
-                hash_algo, _, hash_value = fragment.partition("=")
-                if hash_algo and hash_value:
-                    self.current_file["hashes"][hash_algo] = hash_value
+            _, fragment = urllib.parse.urldefrag(value)
+            for item in fragment.split("&"):
+                key, _, val = item.partition("=")
+                if not (key and val) or "=" in val:
+                    continue
+                hash_algo = key.lower()
+                if hash_algo not in hashlib.algorithms_available:
+                    continue
+                hashes[hash_algo] = val
+            self.current_file["hashes"] = hashes
 
     def _process_metadata(self, key: str, value: str | None) -> None:
         result: dict[str, str] | bool = True

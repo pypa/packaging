@@ -35,7 +35,7 @@ class ParseBaseTests:
     def test_html_extra_tags(self) -> None:
         raise NotImplementedError
 
-    def test_html_worthless_a_tag(self) -> None:
+    def test_html_worthless_a_tag(self, tag_contents: str) -> None:
         raise NotImplementedError
 
 
@@ -186,20 +186,20 @@ class TestParseList(ParseBaseTests):
         }
         assert result == expect
 
-    def test_html_worthless_a_tag(self) -> None:
-        given = """
+    @pytest.mark.parametrize("tag_contents", ['<a href="/frob/"></a>', "<a href></a>"])
+    def test_html_worthless_a_tag(self, tag_contents: str) -> None:
+        given = f"""
             <!DOCTYPE html>
             <html>
             <body>
-                <a href="/frob/"></a><br />
-                <a href="/spamspamspam/">spamspamspam</a>
+                {tag_contents}
             </body>
             </html>
         """
         result = index.parse_list(HTML_CONTENT_TYPE, given)
         expect: index.RawProjectList = {
             "meta": {"api-version": "1.0"},
-            "projects": [{"name": "spamspamspam"}],
+            "projects": [],
         }
         assert result == expect
 
@@ -424,11 +424,12 @@ class TestParseDetails(ParseBaseTests):
 
         assert result == expect
 
-    def test_html_worthless_a_tag(self) -> None:
-        given = """
+    @pytest.mark.parametrize("tag_contents", ["a", "a href"])
+    def test_html_worthless_a_tag(self, tag_contents: str) -> None:
+        given = f"""
             <html>
             <body>
-            <a>spam-1.0.tar.gz</a>
+            <{tag_contents}>spam-1.0.tar.gz</a>
             </body>
             </html>
         """
@@ -541,22 +542,35 @@ class TestParseDetails(ParseBaseTests):
         assert result == expect
 
     @pytest.mark.parametrize(
-        ("url", "hash"),
+        ("fragment", "hash"),
         [
-            ("https://example.com/spam#sha256=abcd1234", {"sha256": "abcd1234"}),
-            ("https://example.com/spam#SHA256=abcd1234", {"sha256": "abcd1234"}),
-            ("https://example.com/spam", {}),
-            ("https://example.com/spam/", {}),
+            # Guaranteed algorithm
+            ("sha256=abcd1234", {"sha256": "abcd1234"}),
+            # Hash algorithm name not lowercase
+            ("SHA256=abcd1234", {"sha256": "abcd1234"}),
+            # Available algorithm
+            ("sha512_256=abcd1234", {"sha512_256": "abcd1234"}),
+            # Multiple algorithms
             (
-                "https://example.com/spam#sha256==abcd1234",
-                {},
+                "sha256=abcd1234&sha512=1234abcd",
+                {"sha256": "abcd1234", "sha512": "1234abcd"},
             ),
-            ("https://example.com/spam#sha256=", {}),
-            ("https://example.com/spam#=abcd1234", {}),
-            ("https://example.com/spam#sha256", {}),
+            # Extra fragment items are ignored
+            ("subdir=spam&sha256=abcd1234", {"sha256": "abcd1234"}),
+            ("sha256=abcd1234&subdir=spam", {"sha256": "abcd1234"}),
+            # Malformed
+            ("sha256==abcd1234", {}),
+            ("sha256=", {}),
+            ("=abcd1234", {}),
+            ("sha256", {}),
+            ("spam", {}),
+            # Not hash algorithms
+            ("egg=spam", {}),
+            ("spam=1234", {}),
         ],
     )
-    def test_html_hashes(self, url: str, hash: dict[str, str]) -> None:
+    def test_html_hashes(self, fragment: str, hash: dict[str, str]) -> None:
+        url = "https://pypi.org/spam/spam-1.0.tar.gz#" + fragment
         given = f"""
             <html>
             <body>
