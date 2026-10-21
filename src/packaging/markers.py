@@ -396,7 +396,7 @@ class Marker:
         release.
     """
 
-    __slots__ = ("_markers",)
+    __slots__ = ("_markers", "_serialized")
 
     def __init__(self, marker: str) -> None:
         # Note: We create a Marker object without calling this constructor in
@@ -406,6 +406,7 @@ class Marker:
         # If this fails and throws an error, the repr still expects _markers to
         # be defined.
         self._markers: MarkerList = []
+        self._serialized: str | None = None
 
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
@@ -436,10 +437,14 @@ class Marker:
         """
         new = cls.__new__(cls)
         new._markers = markers
+        new._serialized = None
         return new
 
     def __str__(self) -> str:
-        return _format_marker(self._markers)
+        # The parsed tree is private, so its formatted text can be reused.
+        if self._serialized is None:
+            self._serialized = _format_marker(self._markers)
+        return self._serialized
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}({str(self)!r})>"
@@ -459,6 +464,8 @@ class Marker:
         return str(self)
 
     def __setstate__(self, state: object) -> None:
+        # State restoration can replace the tree on an existing instance.
+        self._serialized = None
         if isinstance(state, str):
             # New format (26.2+): just the marker expression string.
             try:

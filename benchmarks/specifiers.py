@@ -17,7 +17,8 @@ class TimeSpecSuite:
     COMPLEX_SPEC = ">=3.8,!=3.9.*,!=3.10.0,!=3.10.1,~=3.10.2,<3.14,!=3.11.0,!=3.12.0"
     COMPATIBLE_SPEC = "~=3.10"
 
-    def setup(self) -> None:
+    def setup(self, *_parameters: object) -> None:
+        """Build shared inputs; benchmarks may apply extra parameters."""
         with (DIR / "specs_sample.txt").open() as f:
             self.spec_strs = [s.strip() for s in f.readlines()]
 
@@ -75,6 +76,21 @@ class TimeSpecSuite:
     def time_constructor(self) -> None:
         for s in self.spec_strs:
             SpecifierSet(s)
+
+    @add_attributes(pretty_name="SpecifierSet is_unsatisfiable (complex, cold)")
+    def time_is_unsatisfiable_complex_cold(self) -> None:
+        self._make_cold(self._cold_complex)
+        self._cold_complex.is_unsatisfiable()
+
+    @add_attributes(
+        pretty_name="SpecifierSet constructor and is_subset",
+        params=[None, False, True],
+        param_names=["prereleases"],
+    )
+    def time_constructor_and_subset(self, prereleases: bool | None) -> None:
+        other = SpecifierSet(self.COMPLEX_SPEC, prereleases=prereleases)
+        for text in self.spec_strs:
+            SpecifierSet(text, prereleases=prereleases).is_subset(other)
 
     @add_attributes(pretty_name="SpecifierSet contains (cold)")
     def time_contains_cold(self) -> None:

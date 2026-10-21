@@ -119,6 +119,7 @@ class Requirement:
         if parsed.marker is not None:
             self.marker = Marker.__new__(Marker)
             self.marker._markers = _normalize_extra_values(parsed.marker)
+            self.marker._serialized = None
 
     def __replace__(
         self,

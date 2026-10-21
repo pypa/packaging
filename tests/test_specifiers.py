@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import copy
 import itertools
 import operator
 import pickle
@@ -44,6 +45,59 @@ SPECIFIERS = [
 
 
 class TestSpecifier:
+    def test_replace_parts(self) -> None:
+        original = Specifier(">=1.0a1", prereleases=False)
+        assert original.contains("2.0")
+
+        changed = original.__replace__(operator="<", version="2.0")
+        assert str(changed) == "<2.0"
+        assert changed.prereleases is False
+        assert not changed.contains("2.0")
+        assert str(original) == ">=1.0a1"
+
+        cleared = original.__replace__(prereleases=None)
+        assert cleared.prereleases is True
+        assert original.prereleases is False
+
+        unchanged = original.__replace__()
+        assert unchanged is original
+        assert original.__replace__(prereleases=False) is original
+        unchanged.prereleases = True
+        assert original.prereleases is True
+
+    def test_replace_arbitrary_version(self) -> None:
+        original = Specifier("===anything")
+        assert str(original.__replace__(version="else")) == "===else"
+
+    def test_replace_validates(self) -> None:
+        specifier = Specifier(">=1.0")
+        with pytest.raises(InvalidSpecifier):
+            specifier.__replace__(operator="?")
+        with pytest.raises(InvalidSpecifier):
+            specifier.__replace__(version="bad")
+
+    def test_replace_preserves_subclass(self) -> None:
+        class CustomSpecifier(Specifier):
+            pass
+
+        original = CustomSpecifier(">=1.0")
+        assert isinstance(original.__replace__(version="2.0"), CustomSpecifier)
+
+    def test_copy_replace(self) -> None:
+        if sys.version_info < (3, 13):
+            pytest.skip("copy.replace requires Python 3.13")
+
+        class CustomSpecifier(Specifier):
+            pass
+
+        original = CustomSpecifier(">=1.0")
+        changed = copy.replace(original, version="2.0")
+        assert isinstance(changed, CustomSpecifier)
+        assert str(changed) == ">=2.0"
+        assert copy.replace(original) is original
+        with pytest.raises(TypeError):
+            copy.replace(original, unexpected="1")
+
     @pytest.mark.parametrize("specifier", SPECIFIERS)
     def test_specifiers_valid(self, specifier: str) -> None:
         Specifier(specifier)
@@ -1253,6 +1307,53 @@ class TestSpecifierInternal:
 
 
 class TestSpecifierSet:
+    def test_replace_specifiers_and_prereleases(self) -> None:
+        original = SpecifierSet(">=1.0a1,<2.0", prereleases=False)
+        assert original.contains("1.5")
+
+        changed = original.__replace__(specifiers=iter([Specifier("==2.0")]))
+        assert str(changed) == "==2.0"
+        assert changed.prereleases is False
+        assert changed.contains("2.0")
+        assert str(original) == "<2.0,>=1.0a1"
+
+        cleared = original.__replace__(prereleases=None)
+        assert cleared.prereleases is True
+        assert original.prereleases is False
+
+        unchanged = original.__replace__()
+        assert unchanged is original
+        assert original.__replace__(prereleases=False) is original
+        unchanged.prereleases = True
+        assert original.prereleases is True
+
+    def test_replace_validates(self) -> None:
+        specifiers = SpecifierSet(">=1.0")
+        with pytest.raises(InvalidSpecifier):
+            specifiers.__replace__(specifiers=">=bad")
+
+    def test_replace_preserves_subclass(self) -> None:
+        class CustomSpecifierSet(SpecifierSet):
+            pass
+
+        original = CustomSpecifierSet(">=1.0")
+        assert isinstance(original.__replace__(specifiers="<2.0"), CustomSpecifierSet)
+
+    def test_copy_replace(self) -> None:
+        if sys.version_info < (3, 13):
+            pytest.skip("copy.replace requires Python 3.13")
+
+        class CustomSpecifierSet(SpecifierSet):
+            pass
+
+        original = CustomSpecifierSet(">=1.0")
+        changed = copy.replace(original, specifiers="<2.0")
+        assert isinstance(changed, CustomSpecifierSet)
+        assert str(changed) == "<2.0"
+        assert copy.replace(original) is original
+        with pytest.raises(TypeError):
+            copy.replace(original, unexpected="1")
+
     @pytest.mark.parametrize("specifier", ["===", ">=1,===", "===,===x"])
     def test_empty_arbitrary_version_invalid(self, specifier: str) -> None:
         with pytest.raises(InvalidSpecifier):
@@ -2404,9 +2505,12 @@ class TestSpecifierSet:
             ("", ">=3.12", False),
         ],
     )
-    def test_is_subset(self, left: str, right: str, expected: bool) -> None:
-        spec = SpecifierSet(left)
-        other = SpecifierSet(right)
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_is_subset(
+        self, left: str, right: str, expected: bool, prereleases: bool | None
+    ) -> None:
+        spec = SpecifierSet(left, prereleases=prereleases)
+        other = SpecifierSet(right, prereleases=prereleases)
 
         assert spec.is_subset(other) is expected
         assert spec.is_subset(other) == spec.to_range().is_subset(other.to_range())
@@ -2424,9 +2528,12 @@ class TestSpecifierSet:
             (">=3.12", "", False),
         ],
     )
-    def test_is_superset(self, left: str, right: str, expected: bool) -> None:
-        spec = SpecifierSet(left)
-        other = SpecifierSet(right)
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_is_superset(
+        self, left: str, right: str, expected: bool, prereleases: bool | None
+    ) -> None:
+        spec = SpecifierSet(left, prereleases=prereleases)
+        other = SpecifierSet(right, prereleases=prereleases)
 
         assert spec.is_superset(other) is expected
         assert spec.is_superset(other) == spec.to_range().is_superset(other.to_range())
@@ -3124,8 +3231,11 @@ class TestIsUnsatisfiable:
         [(lower, upper)] = Specifier(">=1.0")._to_ranges()
         assert lower.__eq__(object()) is NotImplemented
         assert lower.__lt__(object()) is NotImplemented  # type: ignore[operator]
+        assert lower.__gt__(object()) is NotImplemented  # type: ignore[operator]
+        assert lower.__le__(object()) is NotImplemented  # type: ignore[operator]
         assert upper.__eq__(object()) is NotImplemented
         assert upper.__lt__(object()) is NotImplemented  # type: ignore[operator]
+        assert upper.__gt__(object()) is NotImplemented  # type: ignore[operator]
 
 
 @pytest.mark.parametrize(
@@ -3422,8 +3532,8 @@ def test_pickle_specifierset_26_1_slots_format_loads() -> None:
 
 # Pickle bytes generated with packaging==26.2.dev0 (the 26.2 clean-tuple format),
 # Python 3.13.13, pickle protocol 2.
-# Format: Specifier state is ((operator, version), prereleases). SpecifierSet state
-# is (tuple[Specifier, ...], prereleases). No slot dicts or __dict__ wrappers.
+# Specifier stores ((operator, version), prereleases).
+# SpecifierSet stores (tuple[Specifier, ...], prereleases).
 _PACKAGING_26_2_PICKLE_GE_3_10 = (
     b"\x80\x02cpackaging.specifiers\nSpecifier\nq\x00)\x81q\x01X\x02\x00"
     b"\x00\x00>=q\x02X\x04\x00\x00\x003.10q\x03\x86q\x04N\x86q\x05b."
@@ -3439,8 +3549,6 @@ _PACKAGING_26_2_PICKLE_SS_GE_3_10_LT_4_0 = (
 
 
 def test_pickle_specifier_26_2_tuple_format_loads() -> None:
-    # Verify that Specifier pickles created with packaging 26.2+ (compact 2-tuple
-    # state: ((operator, version), prereleases)) load correctly.
     s = pickle.loads(_PACKAGING_26_2_PICKLE_GE_3_10)
     assert isinstance(s, Specifier)
     assert str(s) == ">=3.10"
@@ -3604,9 +3712,7 @@ def test_specifierset_contains_reads_cached_bounds() -> None:
     assert ss.contains("2.0") is False
 
 
-# Every shape ``SpecifierSet`` can take: each operator, wildcards, ``===``,
-# epochs, pre/post/dev/local boundaries, multi-spec sets, and unsatisfiable
-# sets. Used to prove ``to_range()`` preserves membership and filtering.
+# Representative specifier sets for range-equivalence checks.
 _EQUIV_SPECS = [
     "",
     ">=1.0",
