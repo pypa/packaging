@@ -881,6 +881,23 @@ class Metadata:
                 except InvalidMetadata as exc:
                     collector.error(exc)
 
+            # A name listed in both Import-Name and Import-Namespace is
+            # ambiguous, and the spec requires tools to raise an error. Only
+            # fields that passed validation above are cached in __dict__.
+            import_names = ins.__dict__.get("import_names")
+            import_namespaces = ins.__dict__.get("import_namespaces")
+            if import_names and import_namespaces:
+                names = {n.partition(";")[0].strip() for n in import_names}
+                namespaces = {n.partition(";")[0].strip() for n in import_namespaces}
+                for name in sorted(names & namespaces):
+                    collector.error(
+                        InvalidMetadata(
+                            "import-name",
+                            f"{name!r} is listed in both 'import-name' and "
+                            "'import-namespace'",
+                        )
+                    )
+
             collector.finalize("invalid metadata")
 
         return ins
