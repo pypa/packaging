@@ -21,7 +21,7 @@ permissions: {}
 jobs:
   test:
     name: ${{ matrix.os }} / ${{ matrix.python_version }}
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ${{ matrix.runner || format('{0}-latest', matrix.os) }}
     strategy:
       fail-fast: false
       matrix:
@@ -29,14 +29,19 @@ jobs:
         python_version:
           ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.13t", "3.14t", "3.15t", "pypy3.10", "pypy3.11"]
         include:
+          # These older Python builds are unavailable on Ubuntu 26.04.
           - os: Ubuntu
             python_version: "3.11.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.12.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.13.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.14.0"
+            runner: ubuntu-24.04
         exclude:
           # Slow, sometimes fails to build in CI (not packaging's fault)
           - os: Windows
