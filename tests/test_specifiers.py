@@ -1336,14 +1336,20 @@ class TestSpecifierInternal:
         assert spec == Specifier(specifier)
         assert spec._canonical_spec_cache is first
 
-    def test_canonical_spec_cache_not_pickled(self) -> None:
+    @pytest.mark.parametrize(
+        ("specifier", "expected"),
+        [(">=1.0.0", (">=", "1")), (">=3.8", (">=", "3.8"))],
+    )
+    def test_canonical_spec_cache_not_pickled(
+        self, specifier: str, expected: tuple[str, str]
+    ) -> None:
         """__getstate__ omits the cache, so it is rebuilt on the far side."""
-        spec = Specifier(">=1.0.0")
-        assert spec._canonical_spec == (">=", "1")
+        spec = Specifier(specifier)
+        assert spec._canonical_spec == expected
 
         loaded = pickle.loads(pickle.dumps(spec))
         assert loaded._canonical_spec_cache is None
-        assert loaded._canonical_spec == (">=", "1")
+        assert loaded._canonical_spec == expected
         assert hash(loaded) == hash(spec)
 
     def test_canonical_spec_cache_dropped_by_setstate(self) -> None:
