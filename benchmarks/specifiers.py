@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import Version
 
 from . import add_attributes
@@ -55,6 +55,16 @@ class TimeSpecSuite:
             sp.contains(self.complex_versions[0])
         for sp in self._warm_compatible._specs:
             sp.contains(self.complex_versions[0])
+
+        self._warm_spec_groups = [s._specs for s in self._warm_specs]
+        self._warm_specifiers = [sp for group in self._warm_spec_groups for sp in group]
+        others = [Specifier(str(sp)) for sp in self._warm_specifiers]
+        for sp in (*self._warm_specifiers, *others):
+            hash(sp)
+        self._warm_specifier_pairs = list(
+            zip(self._warm_specifiers, others, strict=True)
+        )
+        self._dedup_set = SpecifierSet()
 
     def _make_cold(self, spec: SpecifierSet) -> None:
         if hasattr(spec, "_canonicalized"):
@@ -132,3 +142,21 @@ class TimeSpecSuite:
     @add_attributes(pretty_name="SpecifierSet filter (compatible, warm)")
     def time_filter_compatible_warm(self) -> None:
         list(self._warm_compatible.filter(self.complex_versions))
+
+    @add_attributes(pretty_name="Specifier hash (warm)")
+    def time_hash_specifier_warm(self) -> None:
+        for sp in self._warm_specifiers:
+            hash(sp)
+
+    @add_attributes(pretty_name="Specifier equality (warm)")
+    def time_eq_specifier_warm(self) -> None:
+        for a, b in self._warm_specifier_pairs:
+            _ = a == b
+
+    @add_attributes(pretty_name="SpecifierSet sort + dedup (warm)")
+    def time_sort_and_dedup_warm(self) -> None:
+        dedup_set = self._dedup_set
+        for group in self._warm_spec_groups:
+            dedup_set._specs = group
+            dedup_set._canonicalized = len(group) <= 1
+            dedup_set._canonical_specs()
