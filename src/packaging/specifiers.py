@@ -1095,7 +1095,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __len__(self) -> int:
         """Returns the number of specifiers in this specifier set."""
-        return len(self._specs)
+        return len(self._canonical_specs())
 
     def __iter__(self) -> Iterator[Specifier]:
         """
@@ -1105,7 +1105,7 @@ class SpecifierSet(BaseSpecifier):
         >>> sorted(SpecifierSet(">=1.0.0,!=1.0.1"), key=str)
         [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
         """
-        return iter(self._specs)
+        return iter(self._canonical_specs())
 
     def _get_ranges(self) -> Sequence[Interval]:
         """Intersect all specifiers into a single sequence of version ranges.
