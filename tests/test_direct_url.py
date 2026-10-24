@@ -47,6 +47,36 @@ def test_direct_url_round_trips(direct_url_dict: dict[str, object]) -> None:
     assert DirectUrl.from_dict(direct_url_dict).to_dict() == direct_url_dict
 
 
+@pytest.mark.parametrize(
+    "url",
+    ["file://[::1/project", "file://[invalid]/project", "https://[::1/archive.zip"],
+)
+@pytest.mark.parametrize("validate_instance", [False, True])
+def test_malformed_url_validation(url: str, validate_instance: bool) -> None:
+    direct_url = (
+        DirectUrl(url=url, dir_info=DirInfo())
+        if url.startswith("file:")
+        else DirectUrl(url=url, archive_info=ArchiveInfo())
+    )
+    if validate_instance:
+        with pytest.raises(DirectUrlValidationError) as exc_info:
+            direct_url.validate()
+    else:
+        with pytest.raises(DirectUrlValidationError) as exc_info:
+            DirectUrl.from_dict(direct_url.to_dict(strip_user_password=False))
+    assert exc_info.value.context == "url"
+    assert isinstance(exc_info.value.__cause__, ValueError)
+
+
+def test_validate_url_type_before_serialization() -> None:
+    direct_url = DirectUrl(url=123, dir_info=DirInfo())  # type: ignore[arg-type]
+    with pytest.raises(
+        DirectUrlValidationError, match="Unexpected type int"
+    ) as exc_info:
+        direct_url.validate()
+    assert exc_info.value.context == "url"
+
+
 def test_legacy_hash_populates_hashes() -> None:
     direct_url = DirectUrl.from_dict(
         {
