@@ -189,6 +189,7 @@ _LIST_FIELDS = {
 _DICT_FIELDS = {
     "project_urls",
 }
+ALL_FIELDS = _STRING_FIELDS | _LIST_FIELDS | _DICT_FIELDS
 
 
 def _parse_keywords(data: str) -> list[str]:
@@ -793,6 +794,8 @@ class _Validator(Generic[T]):
             name, semicolon, private = import_name.partition(";")
             name = name.rstrip()
             for identifier in name.split("."):
+                if identifier == "":
+                    continue
                 if not identifier.isidentifier():
                     raise self._invalid_metadata(
                         f"{name!r} is invalid for {self.raw_name!r}; "
