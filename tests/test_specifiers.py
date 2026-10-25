@@ -1175,6 +1175,29 @@ class TestSpecifier:
         assert len(spec) == len(expected_items)
         assert [str(item) for item in spec] == expected_items
 
+    @pytest.mark.parametrize("prereleases", [(False, True), (True, False)])
+    @pytest.mark.parametrize(
+        "operation",
+        [len, bool, lambda spec: list(iter(spec))],
+        ids=["len", "bool", "iter"],
+    )
+    def test_length_and_iteration_keep_prereleases(
+        self,
+        prereleases: tuple[bool, bool],
+        operation: Callable[[SpecifierSet], object],
+    ) -> None:
+        # Equal specifiers may differ in their prereleases override, so
+        # deduplicating them for len()/bool()/iter() must not drop one of them.
+        spec = SpecifierSet(
+            [
+                Specifier(">=1", prereleases=prereleases[0]),
+                Specifier(">=1", prereleases=prereleases[1]),
+            ]
+        )
+        operation(spec)
+        assert spec.prereleases is True
+        assert list(spec.filter(["1.5a1", "1.5"])) == ["1.5a1", "1.5"]
+
     def test_specifier_equal_for_compatible_operator(self) -> None:
         assert Specifier("~=1.18.0") != Specifier("~=1.18")
 
