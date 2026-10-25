@@ -269,6 +269,12 @@ def _url_name(url: str | None) -> str | None:
     return unquote(url_path.rsplit("/", 1)[-1])
 
 
+def _validate_size(size: int) -> int:
+    if size < 0:
+        raise ValueError("Size must be non-negative")
+    return size
+
+
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
@@ -381,7 +387,7 @@ class PackageArchive:
         package_archive = cls(
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
-            size=_get(d, int, "size"),
+            size=_get_as(d, int, _validate_size, "size"),
             upload_time=_get(d, datetime, "upload-time"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
             subdirectory=_get(d, str, "subdirectory"),
@@ -408,7 +414,7 @@ class PackageSdist:
             upload_time=_get(d, datetime, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
-            size=_get(d, int, "size"),
+            size=_get_as(d, int, _validate_size, "size"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_sdist.path, package_sdist.url)
@@ -444,7 +450,7 @@ class PackageWheel:
             upload_time=_get(d, datetime, "upload-time"),
             url=_get(d, str, "url"),
             path=_get(d, str, "path"),
-            size=_get(d, int, "size"),
+            size=_get_as(d, int, _validate_size, "size"),
             hashes=_get_required_as(d, Mapping, _validate_hashes, "hashes"),  # type: ignore[type-abstract]
         )
         _validate_path_url(package_wheel.path, package_wheel.url)
