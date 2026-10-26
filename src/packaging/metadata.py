@@ -655,6 +655,14 @@ class _Validator(Generic[T]):
             raise self._invalid_metadata(f"{self.raw_name!r} must be a single line")
         return value
 
+    def _process_project_urls(self, value: dict[str, str]) -> dict[str, str]:
+        for label, url in value.items():
+            if not url.strip():
+                raise self._invalid_metadata(
+                    f"{self.raw_name!r} has an empty URL for label {label!r}"
+                )
+        return value
+
     def _process_description_content_type(self, value: str) -> str:
         content_types = {"text/plain", "text/x-rst", "text/markdown"}
         invalid_msg = (

@@ -806,10 +806,43 @@ class TestMetadata:
         urls = {
             "Documentation": "https://example.com/BeagleVote",
             "Bug Tracker": "http://bitbucket.org/tarek/distribute/issues/",
+            "Comma": "https://example.com/a,b",
         }
         meta = metadata.Metadata.from_raw({"project_urls": urls}, validate=False)
 
         assert meta.project_urls == urls
+
+    @pytest.mark.parametrize("url", ["", " ", "\t\r\n"])
+    def test_project_urls_reject_blank_url(self, url: str) -> None:
+        meta = metadata.Metadata.from_raw(
+            {"project_urls": {"Documentation": url}}, validate=False
+        )
+        self._invalid_with_cause(meta, "project_urls", field="project-url")
+
+    @pytest.mark.parametrize("url", ["", " ", "\t\r\n"])
+    def test_project_urls_eager_validation(self, url: str) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(
+                {**_RAW_EXAMPLE, "project_urls": {"Documentation": url}}
+            )
+        exceptions = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        assert len(exceptions) == 1
+        assert exceptions[0].field == "project-url"
+
+    @pytest.mark.parametrize("value", ["just-a-url", "Docs,", "Docs, \t", ""])
+    @pytest.mark.parametrize("as_bytes", [False, True])
+    def test_project_urls_email_rejects_missing_url(
+        self, value: str, *, as_bytes: bool
+    ) -> None:
+        data = (
+            "Metadata-Version: 2.4\nName: demo\nVersion: 1\n"
+            f"Project-URL: {value}\n"
+        )
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(data.encode() if as_bytes else data)
+        exceptions = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        assert len(exceptions) == 1
+        assert exceptions[0].field == "project-url"
 
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
     def test_valid_requires_python(self, specifier: str) -> None:
