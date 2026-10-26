@@ -94,8 +94,6 @@ class TestRawMetadata:
     @pytest.mark.parametrize(
         ("given", "expected"),
         [
-            ("", {"": ""}),
-            ("A", {"A": ""}),
             ("A,B", {"A": "B"}),
             ("A, B", {"A": "B"}),
             (" A,B", {"A": "B"}),
@@ -110,6 +108,13 @@ class TestRawMetadata:
         assert len(raw) == 1
         assert "project_urls" in raw
         assert raw["project_urls"] == expected
+
+    @pytest.mark.parametrize("given", ["", "A", "A,", ",B"])
+    def test_malformed_project_urls_are_unparsed(self, given: str) -> None:
+        raw, unparsed = metadata.parse_email(f"Project-URL: {given}")
+
+        assert "project_urls" not in raw
+        assert unparsed == {"project-url": [given]}
 
     def test_duplicate_project_urls(self) -> None:
         header = "project-url: A, B\nproject-url: A, C"
@@ -395,6 +400,24 @@ class TestMetadata:
             metadata.Metadata.from_email(
                 "Project-URL: A, B\nProject-URL: A, C", validate=True
             )
+
+    @pytest.mark.parametrize(
+        "project_url",
+        ["just-a-url", "Docs, ", ", https://x.example"],
+    )
+    def test_from_email_rejects_malformed_project_url(self, project_url: str) -> None:
+        raw = (
+            "Metadata-Version: 2.6\n"
+            "Name: packaging\n"
+            "Version: 1.0\n"
+            f"Project-URL: {project_url}\n"
+        )
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(raw, validate=True)
+
+        invalid_metadata = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        assert {exc.field for exc in invalid_metadata} == {"project-url"}
 
     def test_from_email_empty_metadata_uses_from_email_error_message(self) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
