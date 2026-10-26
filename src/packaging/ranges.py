@@ -943,7 +943,8 @@ class VersionRange:
     :class:`~packaging.specifiers.SpecifierSet`.
 
     Construct via :meth:`~packaging.specifiers.SpecifierSet.to_range`, or with
-    the :meth:`full`, :meth:`empty`, and :meth:`singleton` class methods.
+    the :meth:`full`, :meth:`empty`, :meth:`singleton`, and :meth:`from_bounds`
+    class methods.
     Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`, and
     :meth:`difference` (or the ``&`` / ``|`` / ``~`` / ``-`` operators). Test
     membership with ``in`` or :meth:`contains`, filter an iterable with
@@ -1036,7 +1037,8 @@ class VersionRange:
         raise TypeError(
             "cannot create 'VersionRange' instances directly; use "
             "SpecifierSet.to_range(), VersionRange.full(), "
-            "VersionRange.empty(), or VersionRange.singleton() instead"
+            "VersionRange.empty(), VersionRange.singleton(), or "
+            "VersionRange.from_bounds() instead"
         )
 
     @classmethod
@@ -1225,6 +1227,51 @@ class VersionRange:
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
         return cls._build(
             _canonical_floor(((lower, upper),)),
+            prereleases_configured=prereleases,
+        )
+
+    @classmethod
+    def from_bounds(
+        cls,
+        lower: Version | str | None = None,
+        upper: Version | str | None = None,
+        *,
+        include_lower: bool = True,
+        include_upper: bool = True,
+        prereleases: bool | None = None,
+    ) -> VersionRange:
+        """Construct an interval using PEP 440 version ordering.
+
+        Bounds are inclusive by default; ``None`` means unbounded. Inverted
+        bounds, or equal bounds with either endpoint excluded, give an empty
+        range. Specifier-specific exclusions do not apply.
+
+        :param lower: the lower version, or ``None`` for no lower bound.
+        :param upper: the upper version, or ``None`` for no upper bound.
+        :param include_lower: whether to include the lower endpoint.
+        :param include_upper: whether to include the upper endpoint.
+        :param prereleases: the configured pre-release policy. ``None`` leaves
+            it unset; ``False`` excludes pre-releases within the bounds.
+        :raises packaging.version.InvalidVersion: if a bound is an invalid
+            version string.
+
+        .. versionadded:: 26.4
+        """
+        if lower is not None and not isinstance(lower, Version):
+            lower = Version(lower)
+        if upper is not None and not isinstance(upper, Version):
+            upper = Version(upper)
+
+        if lower is not None and upper is not None:
+            closed = include_lower and include_upper
+            if lower > upper or (lower == upper and not closed):
+                return cls.empty(prereleases=prereleases)
+
+        lower_bound = NEG_INF if lower is None else LowerBound(lower, include_lower)
+        upper_bound = POS_INF if upper is None else UpperBound(upper, include_upper)
+
+        return cls._build(
+            _canonical_floor(((lower_bound, upper_bound),)),
             prereleases_configured=prereleases,
         )
 
