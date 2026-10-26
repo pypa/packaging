@@ -51,6 +51,26 @@ Usage
     >>> str(r.to_specifier_set())
     '<2.0,>=1.0'
 
+Building from raw bounds
+------------------------
+
+:meth:`VersionRange.from_bounds` constructs an interval using version ordering,
+without the additional exclusions of specifier comparisons. Bounds are inclusive
+by default; use ``include_lower=False`` or ``include_upper=False`` to exclude an
+endpoint, or ``None`` for an unbounded end.
+
+.. doctest::
+
+    >>> window = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+    >>> "1.0" in window
+    False
+    >>> "1.0.post1" in window
+    True
+    >>> "1.0.post1" in SpecifierSet(">1.0,<=2.0").to_range()
+    False
+
+.. versionadded:: 26.4
+
 Pre-releases
 ------------
 
