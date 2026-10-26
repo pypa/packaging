@@ -199,8 +199,7 @@ def test_package_select_by_marker() -> None:
 
 
 def test_package_marker_is_evaluated_in_the_lock_file_context() -> None:
-    # extra is not defined in the lock file context, so a package marker naming
-    # it is an error rather than a package that can never be selected.
+    # extra is undefined in the lock file context.
     pylock = Pylock(
         lock_version=Version("1.0"),
         created_by="some_tool",

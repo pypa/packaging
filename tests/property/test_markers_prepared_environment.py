@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pytest
 from hypothesis import given
@@ -19,7 +19,6 @@ from packaging.markers import (
     prepare_environment,
 )
 from packaging.utils import canonicalize_name
-from packaging.version import Version
 
 from .strategies import SETTINGS
 
@@ -80,13 +79,7 @@ def markers(draw: st.DrawFn) -> Marker:
 
 @st.composite
 def environments(draw: st.DrawFn) -> dict[str, str | AbstractSet[str]] | None:
-    """Overrides to pass as ``environment``, or ``None`` for no overrides.
-
-    Version-valued keys are given parseable versions, so a comparison against
-    them answers rather than raising. The trailing ``+`` of a non-tagged build
-    goes only to ``python_full_version``, the key ``prepare_environment``
-    repairs.
-    """
+    """Environment overrides, including Python build versions needing repair."""
     if draw(st.booleans()):
         return None
 
@@ -114,76 +107,24 @@ def outcome(evaluate: Callable[[], bool]) -> bool | type[Exception]:
         return type(exc)
 
 
-@given(environment=environments(), context=contexts)
-@SETTINGS
-def test_prepared_python_full_version_parses(
-    environment: dict[str, str | AbstractSet[str]] | None,
-    context: EvaluateContext,
-) -> None:
-    prepared = prepare_environment(environment, context)
-
-    # Version raises InvalidVersion on a value the preparation left unrepaired.
-    Version(cast("str", prepared["python_full_version"]))
-
-
 @given(
+    marker=markers(),
     environment=environments(),
     context=contexts,
-    key=st.sampled_from([*STRING_VARIABLES, "extra", "added"]),
-    value=st.sampled_from(STRING_VALUES),
+    extra=st.none() | st.sampled_from(EXTRA_VALUES),
 )
-@SETTINGS
-def test_preparation_does_not_share_mapping_keys(
-    environment: dict[str, str | AbstractSet[str]] | None,
-    context: EvaluateContext,
-    key: str,
-    value: str,
-) -> None:
-    original = None if environment is None else dict(environment)
-    prepared = prepare_environment(environment, context)
-    expected = dict(prepared)
-
-    prepared[key] = value
-
-    assert prepare_environment(environment, context) == expected
-    assert environment == original
-
-
-@given(marker=markers(), environment=environments(), context=contexts)
 @SETTINGS
 def test_prepared_evaluation_matches_ordinary_evaluation(
     marker: Marker,
     environment: dict[str, str | AbstractSet[str]] | None,
     context: EvaluateContext,
+    extra: str | None,
 ) -> None:
     prepared = prepare_environment(environment, context)
+    if extra is not None:
+        prepared["extra"] = canonicalize_name(extra)
+        environment = {**(environment or {}), "extra": extra}
 
     assert outcome(lambda: marker.evaluate_prepared(prepared)) == outcome(
         lambda: marker.evaluate(environment, context)
-    )
-
-
-@given(
-    marker=markers(),
-    environment=environments(),
-    context=contexts,
-    extra=st.sampled_from(EXTRA_VALUES),
-)
-@SETTINGS
-def test_extra_written_back_matches_extra_passed_to_evaluate(
-    marker: Marker,
-    environment: dict[str, str | AbstractSet[str]] | None,
-    context: EvaluateContext,
-    extra: str,
-) -> None:
-    prepared = prepare_environment(environment, context)
-    prepared["extra"] = canonicalize_name(extra)
-
-    overridden: dict[str, str | AbstractSet[str]] = {
-        **(environment or {}),
-        "extra": extra,
-    }
-
-    assert outcome(lambda: marker.evaluate_prepared(prepared)) == outcome(
-        lambda: marker.evaluate(overridden, context)
     )

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# asv runs this file against both commits it compares, so prepare_environment
-# is reached through the module rather than imported from it.
+# ASV also runs this benchmark against commits without prepare_environment.
 import packaging.markers
 from packaging.markers import Marker
 

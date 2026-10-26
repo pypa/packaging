@@ -997,11 +997,6 @@ def test_pickle_marker_setstate_rejects_invalid_marker_string() -> None:
 
 Outcome = bool | type[Exception]
 
-# Answers written out for both routes to the same marker: evaluate, and
-# prepare_environment followed by evaluate_prepared. The rows cover what
-# preparation treats specially: absent overrides, each extra value, the
-# keys a context defines, an unrepaired python_full_version, and a key no
-# marker variable can name.
 PREPARED_EVALUATIONS: list[
     tuple[str, dict[str, Any] | None, EvaluateContext, Outcome]
 ] = [
@@ -1092,7 +1087,7 @@ class TestPrepareEnvironment:
         ],
     )
     def test_extra_is_canonicalized(self, given: str | None, expected: str) -> None:
-        # None is not a valid value, but the API used to accept it.
+        # Match Marker.evaluate's compatibility handling of extra=None.
         environment: dict[str, Any] = {"extra": given}
         assert prepare_environment(environment)["extra"] == expected
 
