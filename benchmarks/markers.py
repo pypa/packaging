@@ -16,10 +16,11 @@ class TimeMarkerSuite:
         with (DIR / "dist_sample.txt").open() as f:
             self.marker_strs = [m.split(";")[1].strip() for m in f if ";" in m]
 
+        self.cold_markers = [Marker(m) for m in self.marker_strs]
         self.markers = [Marker(m) for m in self.marker_strs]
         # Measure repeated formatting and hashing after the first conversion.
         for marker in self.markers:
-            str(marker)
+            hash(marker)
         self.env = {
             "python_version": "3.12",
             "sys_platform": "linux",
@@ -47,7 +48,7 @@ class TimeMarkerSuite:
         for m in self.markers:
             hash(m)
 
-    @add_attributes(pretty_name="Marker constructor and first str")
+    @add_attributes(pretty_name="Marker str (cold cache)", number=1)
     def time_first_str(self) -> None:
-        for text in self.marker_strs:
-            str(Marker(text))
+        for marker in self.cold_markers:
+            str(marker)
