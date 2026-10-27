@@ -811,6 +811,26 @@ class TestMetadata:
 
         assert meta.project_urls == urls
 
+    @pytest.mark.parametrize(
+        "project_url",
+        [
+            "just-a-url",
+            "Docs, ",
+            ", https://example.com",
+            "",
+        ],
+    )
+    def test_invalid_project_urls(self, project_url: str) -> None:
+        raw = (
+            f"Metadata-Version: 2.4\nName: x\nVersion: 1\nProject-URL: {project_url}\n"
+        )
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(raw, validate=True)
+
+        invalid_metadata = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        assert {exc.field for exc in invalid_metadata} == {"project-url"}
+
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
     def test_valid_requires_python(self, specifier: str) -> None:
         expected = specifiers.SpecifierSet(specifier)

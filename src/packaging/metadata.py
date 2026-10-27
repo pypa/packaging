@@ -714,6 +714,16 @@ class _Validator(Generic[T]):
                 )
         return dynamic_fields
 
+    def _process_project_urls(self, value: dict[str, str]) -> dict[str, str]:
+        for label, url in value.items():
+            if not label:
+                raise self._invalid_metadata("a 'Project-URL' label cannot be empty")
+            if not url:
+                raise self._invalid_metadata(
+                    f"{label!r} has no URL; 'Project-URL' expects 'label, url'"
+                )
+        return value
+
     def _process_provides_extra(
         self,
         value: list[str],
