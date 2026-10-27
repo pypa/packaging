@@ -42,6 +42,7 @@ from ._ranges import (
     least_version_above,
     matches_bounds_only,
     range_is_empty,
+    ranges_are_disjoint,
     ranges_are_prerelease_only,
     trim_release,
 )
@@ -83,16 +84,16 @@ def __dir__() -> list[str]:
     return __all__
 
 
-# Range algebra: intersection and the empty-interval test live in the engine
-# (``intersect_ranges`` / ``range_is_empty``); union, complement and difference
-# are only needed here, so they live in this module.
+# Range algebra: intersection, disjointness and the empty-interval test live
+# in the engine; union, complement and difference are only needed here, so
+# they live in this module.
 
 
 def _union_ranges(
     left: Sequence[Interval],
     right: Sequence[Interval],
 ) -> list[Interval]:
-    """Union two sorted, non-overlapping interval lists.
+    """Union two sorted, non-overlapping lists of non-empty intervals.
 
     A linear merge over the two pre-sorted inputs followed by a single
     coalescing pass: adjacent or overlapping intervals collapse so the result
@@ -144,7 +145,7 @@ def _union_ranges(
 
 
 def _complement_ranges(ranges: Sequence[Interval]) -> list[Interval]:
-    """Complement a sorted, non-overlapping interval list.
+    """Complement a sorted, disjoint, non-touching list of non-empty intervals.
 
     Yields the gaps between intervals plus a leading gap before the first and
     a trailing gap after the last. Bound inclusivity flips so that
@@ -186,7 +187,10 @@ def _complement_ranges(ranges: Sequence[Interval]) -> list[Interval]:
 def _difference_ranges(
     left: tuple[Interval, ...], right: tuple[Interval, ...]
 ) -> Iterator[Interval]:
-    """Subtract right from left. Both must be sorted, disjoint and non-touching."""
+    """Subtract right from left. Both must be sorted, disjoint and non-touching.
+
+    Right's intervals must be non-empty; empty intervals in left are dropped.
+    """
     if right == FULL_RANGE:
         return
 
@@ -1549,9 +1553,9 @@ class VersionRange:
         """
         self._check_policy_compat(other)
 
-        # Plain ranges: disjointness is an empty bounds intersection.
+        # Plain ranges: stop as soon as the bounds overlap.
         if self._is_plain() and other._is_plain():
-            return not intersect_ranges(self._bounds, other._bounds)
+            return ranges_are_disjoint(self._bounds, other._bounds)
         return self.intersection(other).is_empty
 
     def _same_releases(self, other: VersionRange) -> bool:

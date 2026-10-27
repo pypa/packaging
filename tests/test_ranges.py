@@ -906,6 +906,54 @@ class TestSetRelations:
         assert not whole.is_subset(gapped)
         assert not gapped.is_disjoint(whole)
 
+    def test_disjoint_advances_the_side_that_ends_first(self) -> None:
+        # The overlap is between the second interval of each side, so both
+        # pointers have to step past a non-overlapping pair to reach it.
+        a = vr(">=1.0,<2.0") | vr(">=5.0,<6.0")
+        b = vr(">=3.0,<4.0") | vr(">=5.5,<5.7")
+        assert not a.is_disjoint(b)
+        assert a.is_disjoint(vr(">=3.0,<4.0") | vr(">=7.0,<8.0"))
+
+    def test_disjoint_pin_inside_a_gap(self) -> None:
+        assert vr("!=1.5").is_disjoint(vr("==1.5"))
+        assert not vr("!=1.5").is_disjoint(vr("==1.6"))
+
+        # A local version leaves a gap whose bounds carry that exact version, so
+        # here only the inclusive flags keep the pin out of it.
+        assert vr("!=1.0+local").is_disjoint(vr("==1.0+local"))
+        assert not vr("!=1.0+local").is_disjoint(vr("==1.0+other"))
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "<0.dev0",  # Below the minimum version.
+            ">=2,<1",  # Reversed endpoints.
+            ">1a1,<1a2.dev0",  # Ordered endpoints with no version between them.
+        ],
+    )
+    def test_empty_ranges_are_disjoint(self, spec: str) -> None:
+        empty = vr(spec)
+        whole = VersionRange.full(admit_arbitrary=False)
+        assert empty._bounds == ()
+        assert empty.is_disjoint(whole)
+        assert whole.is_disjoint(empty)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "disjoint"),
+        [
+            (">1a1", "<1a2.dev0", True),
+            (">1a1", ">=1a2.dev0", False),
+            ("<=1", ">=1.post0.dev0", True),
+            ("<=1", "==1+local", False),
+        ],
+    )
+    def test_disjoint_synthetic_boundaries(
+        self, left: str, right: str, disjoint: bool
+    ) -> None:
+        a, b = vr(left), vr(right)
+        assert a.is_disjoint(b) is disjoint
+        assert b.is_disjoint(a) is disjoint
+
     def test_disjoint_nonempty_excludes_subset(self) -> None:
         a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
         assert a.is_disjoint(b)

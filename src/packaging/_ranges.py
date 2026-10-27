@@ -33,6 +33,7 @@ __all__ = [
     "least_version_above",
     "matches_bounds_only",
     "range_is_empty",
+    "ranges_are_disjoint",
     "ranges_are_prerelease_only",
     "resolve_prereleases",
     "standard_ranges",
@@ -607,6 +608,26 @@ def intersect_ranges(
             right_index += 1
 
     return result
+
+
+def ranges_are_disjoint(left: Sequence[Interval], right: Sequence[Interval]) -> bool:
+    """Test whether two sorted, non-overlapping interval lists are disjoint.
+
+    Each interval must contain at least one version; empty input lists are allowed.
+    """
+    left_index = right_index = 0
+    while left_index < len(left) and right_index < len(right):
+        left_lower, left_upper = left[left_index]
+        right_lower, right_upper = right[right_index]
+
+        if range_is_empty(left_lower, right_upper):
+            right_index += 1
+        elif range_is_empty(right_lower, left_upper):
+            left_index += 1
+        else:
+            return False
+
+    return True
 
 
 def filter_by_ranges(
