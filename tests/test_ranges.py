@@ -923,6 +923,37 @@ class TestSetRelations:
         assert vr("!=1.0+local").is_disjoint(vr("==1.0+local"))
         assert not vr("!=1.0+local").is_disjoint(vr("==1.0+other"))
 
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "<0.dev0",  # Below the minimum version.
+            ">=2,<1",  # Reversed endpoints.
+            ">1a1,<1a2.dev0",  # Ordered endpoints with no version between them.
+        ],
+    )
+    def test_empty_ranges_are_disjoint(self, spec: str) -> None:
+        empty = vr(spec)
+        whole = VersionRange.full(admit_arbitrary=False)
+        assert empty._bounds == ()
+        assert empty.is_disjoint(whole)
+        assert whole.is_disjoint(empty)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "disjoint"),
+        [
+            (">1a1", "<1a2.dev0", True),
+            (">1a1", ">=1a2.dev0", False),
+            ("<=1", ">=1.post0.dev0", True),
+            ("<=1", "==1+local", False),
+        ],
+    )
+    def test_disjoint_synthetic_boundaries(
+        self, left: str, right: str, disjoint: bool
+    ) -> None:
+        a, b = vr(left), vr(right)
+        assert a.is_disjoint(b) is disjoint
+        assert b.is_disjoint(a) is disjoint
+
     def test_disjoint_nonempty_excludes_subset(self) -> None:
         a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
         assert a.is_disjoint(b)

@@ -19,6 +19,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from packaging._ranges import range_is_empty
 from packaging.ranges import VersionRange
 
 from .strategies import (
@@ -61,12 +62,17 @@ def test_subset_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> None:
     b=st.lists(rich_specifier_sets(), min_size=2, max_size=4),
 )
 @SETTINGS
-def test_disjoint_matches_algebra_on_stacked_unions(
+def test_disjoint_matches_algebra_after_set_operations(
     a: list[SpecifierSet], b: list[SpecifierSet]
 ) -> None:
-    """A drawn set is usually one interval, so union several to make the walks step."""
+    """Union several ranges to exercise walks over multiple intervals."""
     ra, rb = _union_all(a), _union_all(b)
-    assert ra.is_disjoint(rb) == (ra & rb).is_empty
+    # Every operation must preserve the walk's non-empty-interval invariant.
+    operands = (ra, rb, ~ra, ra | rb, ra & rb, ra - rb)
+    for operand in operands:
+        assert all(not range_is_empty(*interval) for interval in operand._bounds)
+        for other in operands:
+            assert operand.is_disjoint(other) == (operand & other).is_empty
 
 
 @given(
