@@ -127,6 +127,58 @@ def test_pylock_bool_rejected_for_int() -> None:
     )
 
 
+@pytest.mark.parametrize("kind", ["archive", "sdist", "wheels"])
+def test_pylock_negative_file_size(kind: str) -> None:
+    filename = (
+        "example-1.0-py3-none-any.whl" if kind == "wheels" else "example-1.0.tar.gz"
+    )
+    artifact = {
+        "url": f"https://example.com/{filename}",
+        "hashes": {"sha256": "f" * 64},
+        "size": -1,
+    }
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {"name": "example", kind: [artifact] if kind == "wheels" else artifact}
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    context = "wheels[0]" if kind == "wheels" else kind
+    assert str(exc_info.value) == (
+        f"Size must be non-negative in 'packages[0].{context}.size'"
+    )
+
+
+@pytest.mark.parametrize("kind", ["archive", "sdist", "wheels"])
+@pytest.mark.parametrize("size", [None, 0, 1])
+def test_pylock_valid_file_size(kind: str, size: int | None) -> None:
+    filename = (
+        "example-1.0-py3-none-any.whl" if kind == "wheels" else "example-1.0.tar.gz"
+    )
+    artifact: dict[str, Any] = {
+        "url": f"https://example.com/{filename}",
+        "hashes": {"sha256": "f" * 64},
+    }
+    if size is not None:
+        artifact["size"] = size
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {"name": "example", kind: [artifact] if kind == "wheels" else artifact}
+        ],
+    }
+    package = Pylock.from_dict(data).to_dict()["packages"][0]
+    result = package[kind][0] if kind == "wheels" else package[kind]
+    if size is None:
+        assert "size" not in result
+    else:
+        assert result["size"] == size
+
+
 def test_pylock_missing_version() -> None:
     data = {
         "created-by": "pip",
