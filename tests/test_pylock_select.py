@@ -113,6 +113,53 @@ def test_lock_without_environments() -> None:
     )
 
 
+def test_lock_environments_extras_marker() -> None:
+    # The pylock.toml installation algorithm gathers the extras to install and
+    # sets ``extras`` for marker evaluation before checking ``environments``,
+    # so top-level environment markers may use the same set-valued variable
+    # that ``packages.marker`` already supports.
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        extras=[cast("NormalizedName", "docs")],
+        environments=[Marker('"docs" in extras')],
+        packages=[],
+    )
+    pylock.validate()
+    assert not list(pylock.select(extras=["docs"], tags=[]))
+    with pytest.raises(
+        PylockSelectError,
+        match=(
+            "Provided environment does not satisfy any of the "
+            "environments specified in the lock file"
+        ),
+    ):
+        list(pylock.select(extras=[], tags=[]))
+
+
+def test_lock_environments_dependency_groups_marker() -> None:
+    # The same applies to ``dependency_groups``, including the default-groups
+    # fallback that package markers already get.
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        dependency_groups=["test"],
+        default_groups=["test"],
+        environments=[Marker('"test" in dependency_groups')],
+        packages=[],
+    )
+    pylock.validate()
+    assert not list(pylock.select(tags=[]))
+    with pytest.raises(
+        PylockSelectError,
+        match=(
+            "Provided environment does not satisfy any of the "
+            "environments specified in the lock file"
+        ),
+    ):
+        list(pylock.select(dependency_groups=[], tags=[]))
+
+
 def test_lock_require_python_mismatch() -> None:
     pylock = Pylock(
         lock_version=Version("1.0"),
