@@ -179,6 +179,24 @@ while the second does not; they are not substitutable and compare unequal:
     >>> SpecifierSet("<1.0.post0.dev0").to_range() == SpecifierSet("<=1.0").to_range()
     False
 
+Relating two ranges
+-------------------
+
+:meth:`VersionRange.relation` returns a :class:`RangeRelation` with both
+``is_subset`` and ``is_disjoint`` flags for the same pair of ranges:
+
+.. doctest::
+
+    >>> a = SpecifierSet(">=1,<3").to_range()
+    >>> b = SpecifierSet(">=2,<4").to_range()
+    >>> result = a.relation(b)
+    >>> result
+    RangeRelation.OVERLAPPING
+    >>> result.is_subset, result.is_disjoint
+    (False, False)
+    >>> VersionRange.empty().relation(b)
+    RangeRelation.EMPTY
+
 Recovering a specifier set
 --------------------------
 
