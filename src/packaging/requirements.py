@@ -3,6 +3,15 @@
 # for complete details.
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "copy",
+    f"{__spec__.parent}._parser",
+    f"{__spec__.parent}._tokenizer",
+    f"{__spec__.parent}.markers",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.utils",
+]
+
 import builtins
 import copy
 import sys
