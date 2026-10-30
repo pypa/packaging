@@ -1242,16 +1242,21 @@ class VersionRange:
     ) -> VersionRange:
         """Construct an interval using PEP 440 version ordering.
 
-        Bounds are inclusive by default; ``None`` means unbounded. Inverted
-        bounds, or equal bounds with either endpoint excluded, give an empty
-        range. Specifier-specific exclusions do not apply.
+        Bounds are inclusive by default; ``None`` means unbounded and ignores
+        its inclusion flag. With no bounds, the default policy gives
+        ``full(admit_arbitrary=False)``. Inverted bounds, or equal bounds with
+        either endpoint excluded, give an empty range. Specifier-specific
+        exclusions do not apply.
+
+        At the default policy, a pre-release bound does not opt in
+        :meth:`filter`; :meth:`contains` still checks its membership.
 
         :param lower: the lower version, or ``None`` for no lower bound.
         :param upper: the upper version, or ``None`` for no upper bound.
         :param include_lower: whether to include the lower endpoint.
         :param include_upper: whether to include the upper endpoint.
         :param prereleases: the configured pre-release policy. ``None`` leaves
-            it unset; ``False`` excludes pre-releases within the bounds.
+            it unset; ``True`` admits and ``False`` excludes pre-releases.
         :raises packaging.version.InvalidVersion: if a bound is an invalid
             version string.
 
@@ -1812,7 +1817,9 @@ class VersionRange:
         PEP 440 has no syntax for the strict singleton ``{V}`` (an exclusive
         plain-version bound), a disjoint union of two or more intervals, or a
         partial pre-release opt-in region, so ranges built by set algebra often
-        return ``None``. A gap that takes more than ``_MAX_EXCLUSION_RUN``
+        return ``None``. Raw bounds can also return ``None``: ``<=2.0`` admits
+        ``2.0+local``, ``>1.0`` excludes ``1.0.post1``, and ``>=1.0a1`` opts
+        in pre-releases. A gap that takes more than ``_MAX_EXCLUSION_RUN``
         contiguous ``!=`` exclusions to spell returns ``None`` too,
         rather than a pathologically long chain; reaching that cap takes either
         set algebra or a specifier set that already spells the gap out with

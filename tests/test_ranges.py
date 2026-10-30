@@ -2520,6 +2520,14 @@ class TestFromBounds:
         assert VersionRange.from_bounds() == VersionRange.full(admit_arbitrary=False)
         assert "wat" not in VersionRange.from_bounds()
 
+    def test_unbounded_end_ignores_inclusion_flag(self) -> None:
+        assert VersionRange.from_bounds(
+            None, "2.0", include_lower=False
+        ) == VersionRange.from_bounds(upper="2.0")
+        assert VersionRange.from_bounds(
+            "1.0", None, include_upper=False
+        ) == VersionRange.from_bounds("1.0")
+
     def test_inverted_is_empty(self) -> None:
         assert VersionRange.from_bounds("2.0", "1.0").is_empty
 
@@ -2553,6 +2561,16 @@ class TestFromBounds:
         r = VersionRange.from_bounds("1.0", "2.0", prereleases=True)
         assert r._prereleases_configured is True
         assert r.contains("1.5a1")
+
+    @pytest.mark.parametrize("closed", [True, False])
+    def test_prerelease_bound_does_not_opt_in(self, closed: bool) -> None:
+        r = VersionRange.from_bounds(
+            "1.0a1", "2.0", include_lower=closed, include_upper=closed
+        )
+        versions = ["1.0a1", "1.5a1", "1.6"]
+
+        assert r.contains("1.0a1") is closed
+        assert list(r.filter(versions)) == ["1.6"]
 
     def test_bounds_only_admits_post_of_lower(self) -> None:
         r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
