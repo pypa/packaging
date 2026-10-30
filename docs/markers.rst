@@ -71,10 +71,17 @@ Evaluating ``extra`` markers against a set of extras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Installers usually select several extras at once. Passing a set of extra names
-as the ``extra`` environment value evaluates the marker against the whole set: ``extra == "name"`` matches if ``name`` is
-one of the selected extras, and ``extra != "name"`` matches only if it is not.
-Evaluating once per selected extra instead would make negated markers match
-too broadly.
+as the ``extra`` environment value evaluates the marker against the whole set:
+``extra == "name"`` matches if ``name`` is one of the selected extras, and
+``extra != "name"`` matches only if it is not. Evaluating once per selected
+extra instead would make negated markers match too broadly. Any other operator
+on ``extra`` raises :exc:`UndefinedComparison` in this mode.
+
+The :ref:`dependency specifier specification <pypug:dependency-specifiers>`
+says ``extra != "name"`` should not be used in published metadata, and that
+installers may reject it or evaluate it as ``False``. The set-wide evaluation
+gives the literal answer. It is reliable only when the tool resolving the
+project also controls the selected extras, such as for a root project.
 
 .. doctest::
 

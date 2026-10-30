@@ -240,27 +240,18 @@ _operators: dict[str, Operator] = {
 }
 
 
-def _eval_extra_set(
-    extras: AbstractSet[str], op: Op, literal: str, *, extras_on_lhs: bool
-) -> bool:
+def _eval_extra_set(extras: AbstractSet[str], op: Op, literal: str) -> bool:
     """Evaluate an ``extra`` comparison against the whole set of selected extras.
 
-    Equality is membership. The other operators are folded over the members:
-    a negated operator must hold for every member, the rest for at least one.
+    Equality is membership and inequality is non-membership. The dependency
+    specifier spec leaves every other operator on ``extra`` undefined.
     """
     op_str = op.serialize()
     if op_str == "==":
         return literal in extras
     if op_str == "!=":
         return literal not in extras
-    oper = _operators.get(op_str)
-    if oper is None:
-        raise UndefinedComparison(f"Undefined {op!r} on {extras!r} and {literal!r}.")
-    if extras_on_lhs:
-        results = (oper(member, literal) for member in extras)
-    else:
-        results = (oper(literal, member) for member in extras)
-    return all(results) if op_str == "not in" else any(results)
+    raise UndefinedComparison(f"Undefined {op!r} on {extras!r} and {literal!r}.")
 
 
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
@@ -335,9 +326,7 @@ def _evaluate_markers(
 
             if environment_key == "extra" and not isinstance(env_value, str):
                 # Set-wide evaluation is only defined for ``extra``.
-                groups[-1].append(
-                    _eval_extra_set(env_value, op, literal, extras_on_lhs=extras_on_lhs)
-                )
+                groups[-1].append(_eval_extra_set(env_value, op, literal))
                 continue
             if not isinstance(lhs_value, str):
                 raise UndefinedComparison(

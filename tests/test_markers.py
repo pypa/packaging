@@ -1003,13 +1003,6 @@ class TestExtraSetEvaluation:
             ('extra == ""', {"gpu"}, False),
             ('"gpu" == extra', {"gpu"}, True),
             ('"gpu" != extra', {"gpu", "cpu"}, False),
-            ('"gpu" in extra', {"gpu"}, True),
-            ('"gpu" in extra', set(), False),
-            ('"gpu" not in extra', {"cpu"}, True),
-            ('extra in "gpu,docs"', {"docs"}, True),
-            ('extra in "gpu,docs"', {"cpu"}, False),
-            ('extra not in "gpu"', {"cpu"}, True),
-            ('extra not in "gpu"', {"cpu", "gpu"}, False),
             ('extra == "PDF_Support"', {"pdf.support"}, True),
             # Two required extras can only both match set-wide.
             ('extra == "a" and extra == "b"', {"a", "b"}, True),
@@ -1025,6 +1018,19 @@ class TestExtraSetEvaluation:
         environment = cast("Any", {"extra": wrap(extras)})
         assert Marker(expression).evaluate(environment) is expected
 
-    def test_undefined_operator(self) -> None:
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            'extra ~= "gpu"',
+            'extra < "gpu"',
+            'extra >= "gpu"',
+            '"gpu" in extra',
+            '"gpu" not in extra',
+            'extra in "gpu,docs"',
+            'extra not in "gpu"',
+        ],
+    )
+    def test_undefined_operator(self, expression: str) -> None:
+        # Only ``==`` and ``!=`` are defined on ``extra`` for a set of extras.
         with pytest.raises(UndefinedComparison):
-            Marker('extra ~= "gpu"').evaluate({"extra": frozenset({"gpu"})})
+            Marker(expression).evaluate({"extra": frozenset({"gpu"})})
