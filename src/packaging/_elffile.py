@@ -9,7 +9,7 @@ ELF header: https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
 
 from __future__ import annotations
 
-__lazy_modules__ = ["struct", "typing"]
+__lazy_modules__ = {"struct", "typing"}
 
 import enum
 import os

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = ["functools"]
+__lazy_modules__ = {"functools"}
 
 import builtins
 import re

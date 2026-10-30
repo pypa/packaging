@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-__lazy_modules__ = [
+__lazy_modules__ = {
     "email.header",
     "email.parser",
     "keyword",
     "pathlib",
     f"{__spec__.parent}",
     f"{__spec__.parent}.errors",
-]
+}
 
 import email.header
 import email.message

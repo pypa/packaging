@@ -31,7 +31,7 @@
 #######################################################################################
 from __future__ import annotations
 
-__lazy_modules__ = [f"{__spec__.parent}._spdx"]
+__lazy_modules__ = {f"{__spec__.parent}._spdx"}
 
 import re
 from typing import NewType, cast
