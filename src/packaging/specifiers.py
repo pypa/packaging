@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = [f"{__spec__.parent}._ranges", f"{__spec__.parent}.utils"]
+__lazy_modules__ = {f"{__spec__.parent}._ranges", f"{__spec__.parent}.utils"}
 
 import abc
 import builtins

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["re", "warnings", f"{__spec__.parent}._elffile"]
+__lazy_modules__ = {"re", "warnings", f"{__spec__.parent}._elffile"}
 
 import collections
 import contextlib
