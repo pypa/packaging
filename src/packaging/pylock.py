@@ -6,6 +6,17 @@ attributes correspond to fields in the pylock file specification.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "collections.abc",
+    "datetime",
+    "urllib.parse",
+    f"{__spec__.parent}.markers",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.tags",
+    f"{__spec__.parent}.utils",
+    f"{__spec__.parent}.version",
+}
+
 import dataclasses
 import logging
 import re
