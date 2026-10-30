@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["collections.abc", "urllib.parse"]
+__lazy_modules__ = {"collections.abc", "urllib.parse"}
 
 import dataclasses
 import re

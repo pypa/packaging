@@ -6,7 +6,7 @@ the implementation.
 
 from __future__ import annotations
 
-__lazy_modules__ = ["ast", f"{__spec__.parent}._tokenizer"]
+__lazy_modules__ = {"ast", f"{__spec__.parent}._tokenizer"}
 
 import ast
 from collections.abc import Sequence
