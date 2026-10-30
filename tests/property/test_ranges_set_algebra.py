@@ -625,3 +625,33 @@ def test_upper_bounds_order_as_the_version_operators_do(
     pool: list[UpperBound],
 ) -> None:
     _assert_matches_reference(pool, _reference_upper_lt)
+
+
+@given(
+    lower=st.none() | pep440_versions(),
+    upper=st.none() | pep440_versions(),
+    candidate=pep440_versions(),
+    include_lower=st.booleans(),
+    include_upper=st.booleans(),
+    prereleases=st.sampled_from([None, False, True]),
+)
+@SETTINGS
+def test_from_bounds_membership_matches_version_order(
+    lower: Version | None,
+    upper: Version | None,
+    candidate: Version,
+    include_lower: bool,
+    include_upper: bool,
+    prereleases: bool | None,
+) -> None:
+    interval = VersionRange.from_bounds(
+        lower,
+        upper,
+        include_lower=include_lower,
+        include_upper=include_upper,
+        prereleases=prereleases,
+    )
+    above = lower is None or candidate > lower or (include_lower and candidate == lower)
+    below = upper is None or candidate < upper or (include_upper and candidate == upper)
+    admitted = prereleases is not False or not candidate.is_prerelease
+    assert interval.contains(candidate) == (above and below and admitted)

@@ -1018,7 +1018,8 @@ class VersionRange:
     :class:`~packaging.specifiers.SpecifierSet`.
 
     Construct via :meth:`~packaging.specifiers.SpecifierSet.to_range`, or with
-    the :meth:`full`, :meth:`empty`, and :meth:`singleton` class methods.
+    the :meth:`full`, :meth:`empty`, :meth:`singleton`, and :meth:`from_bounds`
+    class methods.
     Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`, and
     :meth:`difference` (or the ``&`` / ``|`` / ``~`` / ``-`` operators). Test
     membership with ``in`` or :meth:`contains`, filter an iterable with
@@ -1112,7 +1113,8 @@ class VersionRange:
         raise TypeError(
             "cannot create 'VersionRange' instances directly; use "
             "SpecifierSet.to_range(), VersionRange.full(), "
-            "VersionRange.empty(), or VersionRange.singleton() instead"
+            "VersionRange.empty(), VersionRange.singleton(), or "
+            "VersionRange.from_bounds() instead"
         )
 
     @classmethod
@@ -1299,6 +1301,56 @@ class VersionRange:
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
         return cls._build(
             _canonical_floor(((lower, upper),)),
+            prereleases_configured=prereleases,
+        )
+
+    @classmethod
+    def from_bounds(
+        cls,
+        lower: Version | str | None = None,
+        upper: Version | str | None = None,
+        *,
+        include_lower: bool = True,
+        include_upper: bool = True,
+        prereleases: bool | None = None,
+    ) -> VersionRange:
+        """Construct an interval using PEP 440 version ordering.
+
+        Bounds are inclusive by default; ``None`` means unbounded and ignores
+        its inclusion flag. With no bounds, the default policy gives
+        ``full(admit_arbitrary=False)``. Inverted bounds, or equal bounds with
+        either endpoint excluded, give an empty range. Specifier-specific
+        exclusions do not apply.
+
+        At the default policy, a pre-release bound does not opt in
+        :meth:`filter`; :meth:`contains` still checks its membership.
+
+        :param lower: the lower version, or ``None`` for no lower bound.
+        :param upper: the upper version, or ``None`` for no upper bound.
+        :param include_lower: whether to include the lower endpoint.
+        :param include_upper: whether to include the upper endpoint.
+        :param prereleases: the configured pre-release policy. ``None`` leaves
+            it unset; ``True`` admits and ``False`` excludes pre-releases.
+        :raises packaging.version.InvalidVersion: if a bound is an invalid
+            version string.
+
+        .. versionadded:: 26.4
+        """
+        if lower is not None and not isinstance(lower, Version):
+            lower = Version(lower)
+        if upper is not None and not isinstance(upper, Version):
+            upper = Version(upper)
+
+        if lower is not None and upper is not None:
+            closed = include_lower and include_upper
+            if lower > upper or (lower == upper and not closed):
+                return cls.empty(prereleases=prereleases)
+
+        lower_bound = NEG_INF if lower is None else LowerBound(lower, include_lower)
+        upper_bound = POS_INF if upper is None else UpperBound(upper, include_upper)
+
+        return cls._build(
+            _canonical_floor(((lower_bound, upper_bound),)),
             prereleases_configured=prereleases,
         )
 
@@ -1868,7 +1920,9 @@ class VersionRange:
         PEP 440 has no syntax for the strict singleton ``{V}`` (an exclusive
         plain-version bound), a disjoint union of two or more intervals, or a
         partial pre-release opt-in region, so ranges built by set algebra often
-        return ``None``. A gap that takes more than ``_MAX_EXCLUSION_RUN``
+        return ``None``. Raw bounds can also return ``None``: ``<=2.0`` admits
+        ``2.0+local``, ``>1.0`` excludes ``1.0.post1``, and ``>=1.0a1`` opts
+        in pre-releases. A gap that takes more than ``_MAX_EXCLUSION_RUN``
         contiguous ``!=`` exclusions to spell returns ``None`` too,
         rather than a pathologically long chain; reaching that cap takes either
         set algebra or a specifier set that already spells the gap out with

@@ -51,6 +51,41 @@ Usage
     >>> str(r.to_specifier_set())
     '<2.0,>=1.0'
 
+Building from raw bounds
+------------------------
+
+:meth:`VersionRange.from_bounds` constructs an interval using version ordering,
+without the additional exclusions of specifier comparisons. Bounds are inclusive
+by default; use ``include_lower=False`` or ``include_upper=False`` to exclude an
+endpoint, or ``None`` for an unbounded end; its inclusion flag is ignored. With
+both ends unbounded, the default policy gives
+``VersionRange.full(admit_arbitrary=False)``.
+
+.. doctest::
+
+    >>> window = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+    >>> "1.0" in window
+    False
+    >>> "1.0.post1" in window
+    True
+    >>> "1.0.post1" in SpecifierSet(">1.0,<=2.0").to_range()
+    False
+
+Raw bounds do not opt in pre-releases. At the default policy, ``contains()``
+checks membership while ``filter()`` drops pre-releases if a final matches:
+
+.. doctest::
+
+    >>> pre = VersionRange.from_bounds("1.0a1", "2.0")
+    >>> pre.contains("1.0a1")
+    True
+    >>> list(pre.filter(["1.0a1", "1.5a1", "1.6"]))
+    ['1.6']
+
+Pass ``prereleases=True`` to ``filter()`` to include them.
+
+.. versionadded:: 26.4
+
 Pre-releases
 ------------
 
@@ -230,6 +265,9 @@ every range, so it returns the simplest set whose own
     >>> # full() itself admits arbitrary strings, which the empty set spells
     >>> str(VersionRange.full().to_specifier_set())
     ''
+
+Raw bounds may have no equivalent specifier: ``<=2.0`` includes
+``2.0+local``, while a raw upper bound of ``2.0`` does not.
 
 The recovery also caps how many ``!=`` exclusions it will write out, returning
 ``None`` past the cap; without it, some ranges would convert to pathologically

@@ -2648,3 +2648,139 @@ class TestCoverageEdges:
         recovered = r.to_specifier_set()
         assert recovered is not None
         assert recovered.to_range() == r
+
+
+class TestFromBounds:
+    def test_closed_default(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("1.0") in r
+        assert Version("2.0") in r
+        assert Version("0.9") not in r
+        assert Version("2.1") not in r
+
+    def test_half_open_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_upper=False)
+        assert Version("1.0") in r
+        assert Version("2.0") not in r
+
+    def test_half_open_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0") not in r
+        assert Version("2.0") in r
+
+    def test_open_both(self) -> None:
+        r = VersionRange.from_bounds(
+            "1.0", "2.0", include_lower=False, include_upper=False
+        )
+        assert Version("1.0") not in r
+        assert Version("1.5") in r
+        assert Version("2.0") not in r
+
+    def test_unbounded_lower(self) -> None:
+        r = VersionRange.from_bounds(upper="2.0")
+        assert Version("0.1") in r
+        assert Version("2.0") in r
+        assert Version("2.1") not in r
+
+    def test_unbounded_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0")
+        assert Version("1.0") in r
+        assert Version("99") in r
+        assert Version("0.9") not in r
+
+    def test_unbounded_both_equals_full_no_arbitrary(self) -> None:
+        assert VersionRange.from_bounds() == VersionRange.full(admit_arbitrary=False)
+        assert "wat" not in VersionRange.from_bounds()
+
+    def test_unbounded_end_ignores_inclusion_flag(self) -> None:
+        assert VersionRange.from_bounds(
+            None, "2.0", include_lower=False
+        ) == VersionRange.from_bounds(upper="2.0")
+        assert VersionRange.from_bounds(
+            "1.0", None, include_upper=False
+        ) == VersionRange.from_bounds("1.0")
+
+    def test_inverted_is_empty(self) -> None:
+        assert VersionRange.from_bounds("2.0", "1.0").is_empty
+
+    def test_equal_bounds_closed_is_singleton(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5") == VersionRange.singleton("1.5")
+
+    def test_equal_bounds_exclusive_upper_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_upper=False).is_empty
+
+    def test_equal_bounds_exclusive_lower_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_lower=False).is_empty
+
+    def test_accepts_version_objects(self) -> None:
+        r = VersionRange.from_bounds(Version("1.0"), Version("2.0"))
+        assert Version("1.5") in r
+
+    def test_invalid_lower(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds("not a version")
+
+    def test_invalid_upper(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds(upper="not a version")
+
+    def test_prereleases_false_excludes(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=False)
+        assert r._prereleases_configured is False
+        assert not r.contains("1.5a1")
+
+    def test_prereleases_true_admits(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=True)
+        assert r._prereleases_configured is True
+        assert r.contains("1.5a1")
+
+    @pytest.mark.parametrize("closed", [True, False])
+    def test_prerelease_bound_does_not_opt_in(self, closed: bool) -> None:
+        r = VersionRange.from_bounds(
+            "1.0a1", "2.0", include_lower=closed, include_upper=closed
+        )
+        versions = ["1.0a1", "1.5a1", "1.6"]
+
+        assert r.contains("1.0a1") is closed
+        assert list(r.filter(versions)) == ["1.6"]
+
+    def test_bounds_only_admits_post_of_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0.post1") in r
+        assert Version("1.0.post1") not in vr(">1.0,<2.0")
+
+    def test_local_endpoints_use_version_order(self) -> None:
+        interval = VersionRange.from_bounds(
+            "1.0+build1", "1.0+build3", include_lower=False, include_upper=False
+        )
+        assert "1.0+build2" in interval
+        assert "1.0+build1" not in interval
+        assert "1.0+build3" not in interval
+
+    def test_bounds_only_admits_local(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0+local") in r
+
+    def test_bounds_only_admits_rc_below_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("2.0rc1") in r
+        assert Version("2.0rc1") not in vr(">=1.0,<2.0")
+
+    def test_floor_empty_canonical(self) -> None:
+        # (-inf, 0.dev0) holds no version; _canonical_floor drops the interval,
+        # which plain bound comparison cannot see with an unbounded lower.
+        assert VersionRange.from_bounds(None, "0.dev0", include_upper=False).is_empty
+
+    def test_floor_empty_epoch_variant(self) -> None:
+        # 0!0.dev0 is the same version as 0.dev0, so it is floor-empty too.
+        assert VersionRange.from_bounds(None, "0!0.dev0", include_upper=False).is_empty
+
+    def test_higher_epoch_floor_not_collapsed(self) -> None:
+        r = VersionRange.from_bounds(None, "1!0.dev0", include_upper=False)
+        assert not r.is_empty
+        assert Version("5.0") in r
+
+    def test_inclusive_lower_at_floor_folds_to_full(self) -> None:
+        assert VersionRange.from_bounds("0.dev0") == VersionRange.full(
+            admit_arbitrary=False
+        )
