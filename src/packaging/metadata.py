@@ -746,6 +746,14 @@ class _Validator(Generic[T]):
         else:
             return reqs
 
+    def _process_project_urls(self, value: dict[str, str]) -> dict[str, str]:
+        for label, url in value.items():
+            if not label.strip() or not url.strip():
+                raise self._invalid_metadata(
+                    "project-url labels and URLs must be non-empty"
+                )
+        return value
+
     def _process_license_expression(self, value: str) -> NormalizedLicenseExpression:
         try:
             return licenses.canonicalize_license_expression(value)

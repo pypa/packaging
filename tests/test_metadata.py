@@ -834,6 +834,23 @@ class TestMetadata:
 
         assert meta.project_urls == urls
 
+    @pytest.mark.parametrize("project_urls", [{"A": ""}, {"": "https://x"}])
+    @pytest.mark.parametrize("validate", [True, False])
+    def test_project_urls_reject_invalid_pairs(
+        self, project_urls: dict[str, str], validate: bool
+    ) -> None:
+        raw: RawMetadata = {**_RAW_EXAMPLE, "project_urls": project_urls}
+
+        if validate:
+            with pytest.raises(ExceptionGroup) as exc_info:
+                metadata.Metadata.from_raw(raw, validate=True)
+
+            invalid_metadata = _invalid_metadata_exceptions(exc_info.value.exceptions)
+            assert {exc.field for exc in invalid_metadata} == {"project-url"}
+        else:
+            meta = metadata.Metadata.from_raw(raw, validate=False)
+            self._invalid_with_cause(meta, "project_urls", field="project-url")
+
     @pytest.mark.parametrize("specifier", [">=3", ">2.6,!=3.0.*,!=3.1.*", "~=2.6"])
     def test_valid_requires_python(self, specifier: str) -> None:
         expected = specifiers.SpecifierSet(specifier)
