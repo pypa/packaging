@@ -67,6 +67,47 @@ when building markers dynamically from separate conditions.
 
 .. versionadded:: 26.1
 
+Evaluating many markers against one environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:func:`prepare_environment` applies the same defaults, context and overrides
+as :meth:`Marker.evaluate`. Use it once when evaluating many markers against
+one environment:
+
+.. doctest::
+
+    >>> from packaging.markers import Marker, prepare_environment
+    >>> environment = prepare_environment({"os_name": "posix"})
+    >>> markers = [Marker("os_name == 'posix'"), Marker("os_name == 'nt'")]
+    >>> [marker.evaluate_prepared(environment) for marker in markers]
+    [True, False]
+
+The returned dict is mutable. If changing ``extra`` between evaluations,
+normalize its value with :func:`packaging.utils.canonicalize_name` first:
+
+.. doctest::
+
+    >>> from packaging.utils import canonicalize_name
+    >>> marker = Marker('extra == "fancy-feature"')
+    >>> environment["extra"] = canonicalize_name("Fancy.Feature")
+    >>> marker.evaluate_prepared(environment)
+    True
+
+:meth:`Marker.evaluate_prepared` also accepts a caller-built mapping. It does
+not fill missing keys from the host, add context defaults, normalize ``extra``
+or repair ``python_full_version``. A referenced key missing from the mapping
+raises :class:`UndefinedEnvironmentName`:
+
+.. doctest::
+
+    >>> Marker("sys_platform == 'linux'").evaluate_prepared({"sys_platform": "linux"})
+    True
+
+Overrides in :func:`prepare_environment` are independent. When targeting another
+interpreter, supply both ``python_version`` and ``python_full_version``.
+
+.. versionadded:: 26.4
+
 
 Reference
 ---------
