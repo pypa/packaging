@@ -18,11 +18,10 @@ class TimeMarkerSuite:
         with (DIR / "dist_sample.txt").open() as f:
             self.marker_strs = [m.split(";")[1].strip() for m in f if ";" in m]
 
-        self.cold_markers = [Marker(m) for m in self.marker_strs]
         self.markers = [Marker(m) for m in self.marker_strs]
-        # Warm both serialization and string hashing.
+        # Measure repeated formatting and hashing after the first conversion.
         for marker in self.markers:
-            hash(marker)
+            str(marker)
         self.env = {
             "python_version": "3.12",
             "sys_platform": "linux",
@@ -55,13 +54,13 @@ class TimeMarkerSuite:
         for m in self.markers:
             hash(m)
 
-    @add_attributes(pretty_name="Marker str (cold cache)", number=1)
+    @add_attributes(pretty_name="Marker constructor and first str")
     def time_first_str(self) -> None:
-        for marker in self.cold_markers:
-            str(marker)
+        for text in self.marker_strs:
+            str(Marker(text))
 
-    @add_attributes(pretty_name="Marker evaluate (prepared environment)")
-    def time_evaluate_prepared(self) -> None:
+    @add_attributes(pretty_name="Marker batch evaluate")
+    def time_evaluate_many(self) -> None:
         if hasattr(packaging.markers, "prepare_environment"):
             for m in self.markers:
                 m.evaluate_prepared(self.prepared_environment)

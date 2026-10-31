@@ -718,7 +718,6 @@ class Pylock:
                 ),
             ),
         )
-        lock_file_env: dict[str, str | AbstractSet[str]] | None = None
         env_python_full_version = _pep440_python_full_version(
             environment["python_full_version"]
             if environment
@@ -760,6 +759,7 @@ class Pylock:
                 )
 
         # #. For each package listed in :ref:`pylock-packages`:
+        lock_file_env: dict[str, str | AbstractSet[str]] | None = None
         selected_packages_by_name: dict[str, tuple[int, Package]] = {}
         for package_index, package in enumerate(self.packages):
             # #. If :ref:`pylock-packages-marker` is specified, check if it is

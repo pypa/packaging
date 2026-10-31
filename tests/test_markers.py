@@ -1189,12 +1189,29 @@ class TestEvaluatePrepared:
         assert above.evaluate_prepared({"python_full_version": "3.11.1+local"}) is True
         assert above.evaluate(environment) is True
 
-    def test_set_valued_extra_raises_undefined_comparison(self) -> None:
-        # extra carries one string; extras and dependency_groups are the
-        # set-valued keys. evaluate canonicalizes the value first, so it never
-        # reaches this check.
-        with pytest.raises(UndefinedComparison, match="must be a string"):
-            Marker('"docs" in extra').evaluate_prepared({"extra": frozenset({"docs"})})
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            'extra == "docs"',
+            '"docs" == extra',
+            'extra in "docs"',
+            '"docs" in extra',
+        ],
+    )
+    @pytest.mark.parametrize("extra", [None, frozenset(), frozenset({"docs"})])
+    def test_non_string_extra_raises_undefined_comparison(
+        self, marker_string: str, extra: frozenset[str] | None
+    ) -> None:
+        marker = Marker(marker_string)
+        env = {"extra": extra}
+
+        with pytest.raises(
+            UndefinedComparison, match="Marker 'extra' must be a string"
+        ):
+            # Exercise invalid extra values.
+            marker.evaluate_prepared(
+                env,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            )
 
     @pytest.mark.parametrize(
         ("marker_string", "environment", "context", "expected"), PREPARED_EVALUATIONS

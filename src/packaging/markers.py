@@ -309,6 +309,10 @@ def _evaluate_markers(
                 rhs_value = _lookup_environment(environment, environment_key)
 
             if not isinstance(lhs_value, str):
+                if environment_key == "extra":
+                    raise UndefinedComparison(
+                        f"Marker 'extra' must be a string, not {lhs_value!r}."
+                    )
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
