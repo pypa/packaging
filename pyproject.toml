@@ -170,6 +170,7 @@ ignore = [
     "TRY003",  # long messages outside exception class
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+flake8-import-conventions.extend-aliases = { datetime = "datetime" }
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
