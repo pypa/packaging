@@ -176,6 +176,7 @@ def test_parse_wheel_filename(
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
         ("foo_bár-1.0-py3-none-any.whl"),  # Invalid name (not normalized)
+        ("\u212a-1.0-py3-none-any.whl"),  # Non-ASCII name that lowercases to ASCII
         ("foo_bár-1.0-1000-py3-none-any.whl"),  # Invalid name with build number
         ("foo\n-1.0-py3-none-any.whl"),  # Invalid name (`\n`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
@@ -236,6 +237,7 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
         ("foo-1.0.xz"),  # Incorrect extension
         ("foo1.0.tar.gz"),  # Missing separator
         ("foo_bár-1.0.tar.gz"),  # Invalid name (not normalized)
+        ("\u212a-1.0.tar.gz"),  # Non-ASCII name that lowercases to ASCII
         ("foo_bár-1.0.zip"),  # Invalid name (not normalized)
         ("foo-1.x.tar.gz"),  # Invalid version
         ("-1.0.tar.gz"),  # Empty project name
