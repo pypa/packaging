@@ -239,7 +239,13 @@ PROJECTS = {
         # argcomplete is an optional dep that several tests import at collection.
         install=("-e.", "--group=test", "argcomplete"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.67.9"},
-        pytest_args=("-m", "not integration"),
+        # packaging rejects the test's newline URL before tox's validation runs.
+        pytest_args=(
+            "-m",
+            "not integration",
+            "--deselect=tests/tox_env/python/pip/test_req_file.py::"
+            "test_provision_requirement_entry_cannot_change_lines[line-break]",
+        ),
         # In CI, tox appends a pip-freeze line to command output, which several
         # output-asserting tests do not expect. Unset every variable its is_ci()
         # (tox/util/ci.py) checks that GitHub Actions sets.
