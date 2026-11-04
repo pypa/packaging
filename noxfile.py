@@ -254,8 +254,8 @@ PROJECTS = {
         extra_env={"CI": None, "GITHUB_ACTIONS": None},
     ),
     "virtualenv": Project(
-        "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"},
+        "https://github.com/pypa/virtualenv/archive/refs/tags/21.15.5.tar.gz",
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.15.5"},
     ),
     "pdm": Project(
         "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.4.tar.gz",
@@ -307,7 +307,8 @@ def downstream(session: nox.Session, project: str) -> None:
     """
     cfg = PROJECTS[project]
     pkg_dir = Path.cwd() / "src/packaging"
-    session.install("-e.")
+    # virtualenv's relocation tests copy the files listed in packaging's RECORD.
+    session.install(".")
 
     tmp_dir = Path(session.create_tmp())
     session.chdir(tmp_dir)
