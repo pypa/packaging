@@ -2648,3 +2648,127 @@ class TestCoverageEdges:
         recovered = r.to_specifier_set()
         assert recovered is not None
         assert recovered.to_range() == r
+
+
+class TestSnapBounds:
+    @pytest.mark.parametrize(
+        "versions",
+        [
+            ["1.2", "1.5", "1.8"],
+            ["1.8", "1.2", "1.5", "1.2"],
+            ["1.2", Version("1.8")],
+        ],
+    )
+    def test_finite_bounds_move_inward(self, versions: list[Version | str]) -> None:
+        result = vr(">=1.0,<2.0").snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.2"), True), UpperBound(Version("1.8"), True)),
+        )
+
+    def test_keeps_unbounded_end(self) -> None:
+        r = vr(">=1.0")
+        assert r.snap_bounds(["1.2", "1.5"]) == vr(">=1.2")
+
+    def test_segment_holding_none_of_them_is_kept(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds(["5.0", "6.0"]) == r
+
+    def test_no_versions_leaves_the_range_alone(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds([]) == r
+
+    def test_empty_range_snaps_to_itself(self) -> None:
+        r = VersionRange.empty()
+        assert r.snap_bounds(["1.0"]) == r
+
+    def test_empty_range_still_parses_the_versions(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.empty().snap_bounds(["not a version"])
+
+    def test_unparsable_version_raises(self) -> None:
+        with pytest.raises(InvalidVersion):
+            vr(">=1.0").snap_bounds(["not a version"])
+
+    def test_multi_segment_independent(self) -> None:
+        r = vr(">=1.0,<2.0") | vr(">=3.0,<4.0")
+        result = r.snap_bounds(["1.5", "3.5"])
+        expected = VersionRange.singleton("1.5") | VersionRange.singleton("3.5")
+        assert result == expected
+
+    def test_admitted_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") | vr("===wat")
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._admit == frozenset({"wat"})
+        assert result.contains("wat")
+
+    def test_rejected_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") - vr("===1.5")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result._reject == frozenset({"1.5"})
+        assert result.contains("1.5") is False
+
+    def test_arbitrary_admission_carriage(self) -> None:
+        r = VersionRange.full()
+        result = r.snap_bounds(["1.0", "2.0"])
+        assert result == r
+        assert "wat" in result
+
+    def test_pre_region_carriage(self) -> None:
+        r = vr(">=1.0a1,<2.0")
+        assert r._pre_region
+        result = r.snap_bounds(["1.0a1", "1.5"])
+        assert result._pre_region
+        assert list(result.filter(["1.0a1"])) == ["1.0a1"]
+
+    def test_configured_policy_carriage(self) -> None:
+        r = vr(">=1.0,<2.0", prereleases=False)
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._prereleases_configured is False
+
+    @pytest.mark.parametrize("prereleases", [None, True, False])
+    @pytest.mark.parametrize(
+        ("versions", "upper"),
+        [(["1.5a1"], "1.5a1"), (["1.5a1", "1.5"], "1.5")],
+    )
+    def test_prerelease_policy_does_not_choose_endpoints(
+        self, prereleases: bool | None, versions: list[str], upper: str
+    ) -> None:
+        r = vr(">=1.0,<2.0", prereleases=prereleases)
+        result = r.snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.5a1"), True), UpperBound(Version(upper), True)),
+        )
+        assert result.contains("1.5a1") == r.contains("1.5a1")
+        assert result.contains("1.5a1", prereleases=True)
+        assert list(result.filter(versions)) == list(r.filter(versions))
+
+    @pytest.mark.parametrize("opt_in", [False, True])
+    def test_preserves_prerelease_opt_in_for_later_union(self, opt_in: bool) -> None:
+        r = vr(">=1.5a1,<1.5b1")
+        if not opt_in:
+            r = ~~r
+
+        result = r.snap_bounds(["1.5a2"])
+        assert list(result.filter(["1.5a2"])) == ["1.5a2"]
+
+        combined = result | VersionRange.singleton("2.0")
+        versions = ["1.5a2", "2.0"]
+        expected = versions if opt_in else ["2.0"]
+        assert list(combined.filter(versions)) == expected
+
+    def test_result_is_subset(self) -> None:
+        r = vr(">=1.0,<2.0")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result.is_subset(r)
+
+    def test_agrees_on_given_versions(self) -> None:
+        r = vr(">=1.0,<2.0")
+        versions = ["0.5", "1.0", "1.5", "1.9", "2.0", "3.0"]
+        result = r.snap_bounds(versions)
+        for v in versions:
+            assert result.contains(v) == r.contains(v)
+
+    def test_gap_round_trips_to_singleton(self) -> None:
+        versions = [Version("1.0"), Version("2.0"), Version("3.0")]
+        gap = vr(">1.0,<3.0")
+        assert gap.snap_bounds(versions) == VersionRange.singleton("2.0")

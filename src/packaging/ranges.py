@@ -19,6 +19,7 @@ exists.
 
 from __future__ import annotations
 
+import bisect
 import enum
 import typing
 from typing import (
@@ -404,6 +405,23 @@ def _struct_admits(
         return admit_arbitrary and bounds == FULL_RANGE
 
     return matches_bounds_only(bounds, parsed)
+
+
+def _interval_slice(
+    versions: Sequence[Version], lower: LowerBound, upper: UpperBound
+) -> tuple[int, int]:
+    """Return slice indices for an interval in an ascending version list."""
+    opens = lower._above
+    closes = upper._below
+
+    start = 0 if opens is None else bisect.bisect_left(versions, True, key=opens)
+
+    if closes is None:
+        stop = len(versions)
+    else:
+        stop = bisect.bisect_left(versions, True, key=lambda v: not closes(v))
+
+    return start, stop
 
 
 # Repr helpers:
@@ -1815,6 +1833,55 @@ class VersionRange:
 
         if not found_final:
             yield from all_nonfinal
+
+    def snap_bounds(self, versions: Iterable[Version | str]) -> VersionRange:
+        """Narrow finite bounds using the supplied versions.
+
+        The result never adds versions. ``contains`` and ``filter`` give the
+        same results for the supplied versions. Pre-release settings and
+        ``===`` rules still apply, but do not affect the choice of bounds.
+        Unbounded ends and intervals containing no supplied version stay
+        unchanged. Calling this again with the same versions leaves the result
+        unchanged.
+
+        Callers can use the result in messages. Keep the original range during
+        solving: versions outside the supplied list can affect range comparisons.
+
+        :param versions: versions or version strings, in any order.
+        :raises packaging.version.InvalidVersion: if a string is not a valid
+            PEP 440 version.
+
+        .. versionadded:: 26.4
+        """
+        # Parsed ahead of the early return, so an unparsable version is
+        # rejected whatever the range holds.
+        ordered = sorted(v if isinstance(v, Version) else Version(v) for v in versions)
+        if not self._bounds:
+            return self
+
+        simplified: list[Interval] = []
+        for lower, upper in self._bounds:
+            start, stop = _interval_slice(ordered, lower, upper)
+            if start >= stop:
+                simplified.append((lower, upper))
+                continue
+
+            new_lower = (
+                lower if lower.version is None else LowerBound(ordered[start], True)
+            )
+            new_upper = (
+                upper if upper.version is None else UpperBound(ordered[stop - 1], True)
+            )
+            simplified.append((new_lower, new_upper))
+
+        return self._build(
+            _canonical_floor(tuple(simplified)),
+            admit=self._admit,
+            reject=self._reject,
+            admit_arbitrary=self._admit_arbitrary,
+            pre_region=self._pre_region,
+            prereleases_configured=self._prereleases_configured,
+        )
 
     @classmethod
     def _from_specifier_set(cls, specifier_set: SpecifierSet) -> VersionRange:

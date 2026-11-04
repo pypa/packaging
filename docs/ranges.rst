@@ -197,6 +197,39 @@ Relating two ranges
     >>> VersionRange.empty().relation(b)
     RangeRelation.EMPTY
 
+Snapping onto known versions
+----------------------------
+
+:meth:`VersionRange.snap_bounds` uses the versions you supply to narrow finite bounds.
+You can use the returned range in your own messages:
+
+.. doctest::
+
+    >>> source = SpecifierSet(">=1.0,<2.0").to_range()
+    >>> source.snap_bounds(["1.2", "1.5", "1.8", "2.1"])
+    <VersionRange '[1.2, 1.8]'>
+
+The result never adds versions. ``contains`` and ``filter`` give the same
+results for the supplied versions. Unbounded ends and intervals containing no
+supplied version stay unchanged.
+
+Pre-release settings do not affect the choice of bounds. They still apply to
+the returned range:
+
+.. doctest::
+
+    >>> no_pre = SpecifierSet(">=1.0,<2.0", prereleases=False).to_range()
+    >>> snapped_pre = no_pre.snap_bounds(["1.5a1"])
+    >>> snapped_pre
+    <VersionRange '[1.5a1, 1.5a1]' pre=False>
+    >>> list(snapped_pre.filter(["1.5a1"]))
+    []
+
+Keep the original range for dependency resolution: versions outside the supplied
+list can still affect range comparisons.
+
+.. versionadded:: 26.4
+
 Recovering a specifier set
 --------------------------
 
