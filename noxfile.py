@@ -255,6 +255,9 @@ PROJECTS = {
     ),
     "virtualenv": Project(
         "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
+        # python-discovery 1.9.2 requires interpreter fields that are missing
+        # from virtualenv's test fixtures.
+        install=("-e.", "--group=test", "python-discovery<1.9.2"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"},
     ),
     "pdm": Project(
