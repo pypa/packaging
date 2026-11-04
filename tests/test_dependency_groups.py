@@ -130,7 +130,7 @@ def test_expand_contract_model_only_does_inner_lookup_once() -> None:
         # each of the `mid` nodes will call resolution with `contract`, but only the
         # first of those evaluations should call for resolution of `leaf` -- after that,
         # `contract` will be in the cache and `leaf` will not need to be resolved
-        spy.assert_any_call("leaf", "root", unittest.mock.ANY, unittest.mock.ANY)
+        spy.assert_any_call("leaf")
         leaf_calls = [c for c in spy.mock_calls if c.args[0] == "leaf"]
         assert len(leaf_calls) == 1
 
@@ -569,3 +569,29 @@ def test_error_in_later_sibling_include_is_collected() -> None:
     assert len(messages) == 2
     assert "!!! bad invalid" in messages[0]
     assert "!!! also invalid" in messages[1]
+
+
+def test_cycle_error_uses_path_of_current_resolve_call() -> None:
+    groups: GroupsTable = {
+        "a": [{"include-group": "b"}],
+        "b": [{"include-group": "a"}],
+    }
+    resolver = DependencyGroupResolver(groups)
+    with pytest.raises(ExceptionGroup):
+        resolver.resolve("a")
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolver.resolve("b")
+    assert _group_contains(
+        excinfo,
+        CyclicDependencyGroup,
+        match="while resolving b: b -> a, a -> b",
+    )
+
+
+def test_cached_group_is_not_validated_again() -> None:
+    groups: GroupsTable = {"test": [{"include-group": "runtime"}], "runtime": ["click"]}
+    resolver = DependencyGroupResolver(groups)
+    first = resolver.resolve("test")
+    with unittest.mock.patch.object(resolver, "_validate") as spy:
+        assert resolver.resolve("test") is first
+    spy.assert_not_called()
