@@ -52,16 +52,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        name: Install Python ${{ matrix.python_version }}
-        with:
-          python-version: ${{ matrix.python_version }}
-          allow-prereleases: true
+      - parallel:
+          - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+            name: Install Python ${{ matrix.python_version }}
+            with:
+              python-version: ${{ matrix.python_version }}
+              allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        name: Setup uv
-        with:
-          cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
+          - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+            name: Setup uv
+            with:
+              cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
 
       - name: Run nox
         run: pipx run nox -s tests
