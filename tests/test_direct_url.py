@@ -102,16 +102,23 @@ def test_to_dict_generate_legacy_hash_multiple_hashes() -> None:
     )
 
 
-def test_validate_archive_info_hashes() -> None:
+@pytest.mark.parametrize(
+    ("hashes", "message"),
+    [
+        ({"md5": 12345}, "Hash values must be strings"),
+        ({1: "abc"}, "Hash keys must be strings"),
+    ],
+)
+def test_validate_archive_info_hashes(hashes: object, message: str) -> None:
     with pytest.raises(
         DirectUrlValidationError,
-        match=r"Hash values must be strings in 'archive_info.hashes'",
+        match=rf"{message} in 'archive_info.hashes'",
     ):
         DirectUrl.from_dict(
             {
                 "url": "https://example.com/archive.zip",
                 "archive_info": {
-                    "hashes": {"md5": 12345},
+                    "hashes": hashes,
                 },
             }
         )
