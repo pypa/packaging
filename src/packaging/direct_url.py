@@ -176,6 +176,11 @@ class ArchiveInfo:
 
     hashes: Mapping[str, str] | None = None
 
+    def __post_init__(self) -> None:
+        # Other values stay as they are, so validate() can reject them.
+        if isinstance(self.hashes, Mapping):
+            object.__setattr__(self, "hashes", dict(self.hashes))
+
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         hashes = _get(d, Mapping, "hashes")  # type: ignore[type-abstract]
@@ -293,15 +298,7 @@ class DirectUrl:
             should not be stripped from the URL even if `strip_user_password` is
             True.
         """
-        source = self
-        if self.archive_info is not None and self.archive_info.hashes is not None:
-            source = dataclasses.replace(
-                self,
-                archive_info=dataclasses.replace(
-                    self.archive_info, hashes=dict(self.archive_info.hashes)
-                ),
-            )
-        res = dataclasses.asdict(source, dict_factory=_json_dict_factory)
+        res = dataclasses.asdict(self, dict_factory=_json_dict_factory)
         if generate_legacy_hash and self.archive_info and self.archive_info.hashes:
             hash_algorithm, hash_value = next(iter(self.archive_info.hashes.items()))
             res["archive_info"]["hash"] = f"{hash_algorithm}={hash_value}"

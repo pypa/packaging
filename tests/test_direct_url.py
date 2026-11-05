@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
 import json
+import pickle
 from collections import UserDict
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -385,5 +388,42 @@ def test_to_dict_with_hash_mappings(
         expected["hash"] = "sha256=abc"
     assert json.loads(json.dumps(serialized))["archive_info"] == expected
     assert direct_url.archive_info is not None
-    assert direct_url.archive_info.hashes is mapping
+    assert direct_url.archive_info.hashes == hashes
     direct_url.validate()
+
+
+@pytest.mark.parametrize("mapping_type", [MappingProxyType, UserDict])
+def test_archive_info_normalizes_hash_mappings(
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+) -> None:
+    hashes = {"sha256": "abc"}
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes=mapping_type(hashes)),
+    )
+    assert direct_url.archive_info is not None
+    assert type(direct_url.archive_info.hashes) is dict
+    assert json.loads(json.dumps(dataclasses.asdict(direct_url)))["archive_info"] == {
+        "hashes": hashes
+    }
+    assert copy.deepcopy(direct_url) == direct_url
+    assert pickle.loads(pickle.dumps(direct_url)) == direct_url
+
+
+def test_archive_info_copies_hashes() -> None:
+    hashes = {"sha256": "abc"}
+    archive_info = ArchiveInfo(hashes=hashes)
+    hashes["md5"] = "def"
+    assert archive_info.hashes == {"sha256": "abc"}
+
+
+@pytest.mark.parametrize("hashes", [[("a", "b")], ["ab"], [], (), "", "abc", set(), 5])
+def test_validate_rejects_non_mapping_hashes(hashes: object) -> None:
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes=hashes),  # type: ignore[arg-type]
+    )
+    with pytest.raises(
+        DirectUrlValidationError, match=r"expected Mapping.*archive_info\.hashes"
+    ):
+        direct_url.validate()
