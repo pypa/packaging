@@ -186,6 +186,10 @@ class ArchiveInfo:
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         hashes = _get(d, Mapping, "hashes")  # type: ignore[type-abstract]
+        if hashes is not None and not all(isinstance(key, str) for key in hashes):
+            raise DirectUrlValidationError(
+                "Hash keys must be strings", context="hashes"
+            )
         if hashes is not None and not all(isinstance(h, str) for h in hashes.values()):
             raise DirectUrlValidationError(
                 "Hash values must be strings", context="hashes"

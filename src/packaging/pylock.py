@@ -285,6 +285,8 @@ def _url_name(url: str | None) -> str | None:
 def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
     if not hashes:
         raise PylockValidationError("At least one hash must be provided")
+    if not all(isinstance(key, str) for key in hashes):
+        raise PylockValidationError("Hash keys must be strings")
     if not all(isinstance(hash_val, str) for hash_val in hashes.values()):
         raise PylockValidationError("Hash values must be strings")
     return hashes
@@ -389,6 +391,10 @@ class PackageArchive:
     hashes: Mapping[str, str]
     subdirectory: str | None = None
 
+    def __post_init__(self) -> None:
+        if isinstance(self.hashes, Mapping):
+            object.__setattr__(self, "hashes", dict(self.hashes))
+
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
         package_archive = cls(
@@ -413,6 +419,10 @@ class PackageSdist:
     path: str | None = None
     size: int | None = None
     hashes: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.hashes, Mapping):
+            object.__setattr__(self, "hashes", dict(self.hashes))
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
@@ -449,6 +459,10 @@ class PackageWheel:
     path: str | None = None
     size: int | None = None
     hashes: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.hashes, Mapping):
+            object.__setattr__(self, "hashes", dict(self.hashes))
 
     @classmethod
     def _from_dict(cls, d: Mapping[str, Any]) -> Self:
