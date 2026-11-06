@@ -210,3 +210,54 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     # None is not supported in the type annotation, but it was tested before.
     with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
         assert ef is None
+
+
+def test_parse_elf_missing_executable() -> None:
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-does-not-exist"
+    )
+    with _parse_elf(path) as ef:
+        assert ef is None
+
+
+@pytest.mark.parametrize("executable", ["valid", "missing"])
+@pytest.mark.parametrize(
+    "exception_type", [OSError, TypeError, ValueError, RuntimeError]
+)
+def test_parse_elf_propagates_caller_error(
+    executable: str, exception_type: type[Exception]
+) -> None:
+    # A failure to open or parse the executable is reported as None, but an
+    # error raised by the caller while inspecting the file has to propagate
+    # unchanged instead of being turned into an unrelated exception.
+    executable_name = {
+        "valid": "hello-world-x86_64-amd64",
+        "missing": "hello-world-does-not-exist",
+    }[executable]
+    path = os.fsdecode(pathlib.Path(__file__).parent / "manylinux" / executable_name)
+    error = exception_type("caller's own error")
+    streams: list[typing.IO[bytes]] = []
+
+    def read_elf() -> None:
+        with _parse_elf(path) as ef:
+            assert (ef is not None) is (executable == "valid")
+            if ef is not None:
+                streams.append(ef._f)
+            raise error
+
+    with pytest.raises(exception_type) as exc_info:
+        read_elf()
+    assert exc_info.value is error
+    assert len(streams) == (executable == "valid")
+    if streams:
+        assert streams[0].closed
+
+
+def test_parse_elf_closes_file() -> None:
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-x86_64-amd64"
+    )
+    with _parse_elf(path) as ef:
+        assert ef is not None
+        stream = ef._f
+    assert stream.closed
