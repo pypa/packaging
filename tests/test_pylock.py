@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
 import datetime
+import pickle
 import sys
+from collections import UserDict
 from pathlib import Path
-from typing import Any
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import tomli_w
@@ -11,6 +16,7 @@ import tomli_w
 from packaging.markers import Marker
 from packaging.pylock import (
     Package,
+    PackageArchive,
     PackageDirectory,
     PackageSdist,
     PackageVcs,
@@ -23,6 +29,9 @@ from packaging.pylock import (
 from packaging.specifiers import SpecifierSet
 from packaging.utils import NormalizedName
 from packaging.version import Version
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -767,6 +776,10 @@ def test_pylock_package_not_a_table() -> None:
             "sha256:...",
             "Unexpected type str (expected Mapping) in 'hashes'",
         ),
+        (
+            {1: "abc"},
+            "Hash keys must be strings in 'hashes'",
+        ),
     ],
 )
 def test_hash_validation(hashes: dict[str, Any], expected_error: str) -> None:
@@ -782,6 +795,72 @@ def test_hash_validation(hashes: dict[str, Any], expected_error: str) -> None:
             )
         )
     assert str(exc_info.value) == expected_error
+
+
+@pytest.mark.parametrize("artifact_type", [PackageArchive, PackageSdist, PackageWheel])
+@pytest.mark.parametrize("mapping_type", [dict, MappingProxyType, UserDict])
+def test_artifact_normalizes_hash_mappings(
+    artifact_type: type[PackageArchive | PackageSdist | PackageWheel],
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+) -> None:
+    hashes = {"sha256": "abc"}
+    artifact = artifact_type(path="example.tar.gz", hashes=mapping_type(hashes))
+    assert type(artifact.hashes) is dict
+    assert dataclasses.asdict(artifact)["hashes"] == hashes
+    assert copy.deepcopy(artifact) == artifact
+    assert pickle.loads(pickle.dumps(artifact)) == artifact
+    hashes["md5"] = "def"
+    assert artifact.hashes == {"sha256": "abc"}
+
+
+@pytest.mark.parametrize("field", ["archive", "sdist", "wheels"])
+@pytest.mark.parametrize("mapping_type", [MappingProxyType, UserDict])
+def test_pylock_hash_mappings(
+    field: str,
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+) -> None:
+    filename = (
+        "example-1.0-py3-none-any.whl" if field == "wheels" else "example-1.0.tar.gz"
+    )
+    artifact = {"path": filename, "hashes": mapping_type({"sha256": "abc"})}
+    pylock = Pylock.from_dict(
+        {
+            "lock-version": "1.0",
+            "created-by": "test",
+            "packages": [
+                {
+                    "name": "example",
+                    "version": "1.0",
+                    field: [artifact] if field == "wheels" else artifact,
+                }
+            ],
+        }
+    )
+    assert tomllib.loads(tomli_w.dumps(pylock.to_dict())) == pylock.to_dict()
+    pylock.validate()
+
+
+@pytest.mark.parametrize("field", ["archive", "sdist", "wheels"])
+@pytest.mark.parametrize("hashes", [[("a", "b")], ["ab"], [], (), "", "abc", set(), 5])
+def test_validate_rejects_non_mapping_hashes(field: str, hashes: object) -> None:
+    artifact_types: dict[str, type[PackageArchive | PackageSdist | PackageWheel]] = {
+        "archive": PackageArchive,
+        "sdist": PackageSdist,
+        "wheels": PackageWheel,
+    }
+    artifact = artifact_types[field](
+        path="example.tar.gz",
+        hashes=hashes,  # type: ignore[arg-type]
+    )
+    package = Package(
+        name=NormalizedName("example"),
+        archive=artifact if isinstance(artifact, PackageArchive) else None,
+        sdist=artifact if isinstance(artifact, PackageSdist) else None,
+        wheels=[artifact] if isinstance(artifact, PackageWheel) else None,
+    )
+    pylock = Pylock(lock_version=Version("1.0"), created_by="test", packages=[package])
+    with pytest.raises(PylockValidationError, match=r"expected Mapping.*hashes"):
+        pylock.validate()
 
 
 def test_package_name_validation() -> None:

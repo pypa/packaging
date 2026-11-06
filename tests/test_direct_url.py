@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
+import json
+import pickle
+from collections import UserDict
+from types import MappingProxyType
+from typing import TYPE_CHECKING
+
 import pytest
 
 from packaging.direct_url import (
@@ -10,6 +18,9 @@ from packaging.direct_url import (
     VcsInfo,
     _strip_url,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 @pytest.mark.parametrize(
@@ -91,16 +102,23 @@ def test_to_dict_generate_legacy_hash_multiple_hashes() -> None:
     )
 
 
-def test_validate_archive_info_hashes() -> None:
+@pytest.mark.parametrize(
+    ("hashes", "message"),
+    [
+        ({"md5": 12345}, "Hash values must be strings"),
+        ({1: "abc"}, "Hash keys must be strings"),
+    ],
+)
+def test_validate_archive_info_hashes(hashes: object, message: str) -> None:
     with pytest.raises(
         DirectUrlValidationError,
-        match=r"Hash values must be strings in 'archive_info.hashes'",
+        match=rf"{message} in 'archive_info.hashes'",
     ):
         DirectUrl.from_dict(
             {
                 "url": "https://example.com/archive.zip",
                 "archive_info": {
-                    "hashes": {"md5": 12345},
+                    "hashes": hashes,
                 },
             }
         )
@@ -357,3 +375,62 @@ def test_to_dict_strip_url_git_safe_default() -> None:
         vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
     )
     assert direct_url.to_dict()["url"] == "ssh://git@g.c/user/repo.git"
+
+
+@pytest.mark.parametrize("mapping_type", [MappingProxyType, UserDict])
+@pytest.mark.parametrize("hashes", [{}, {"sha256": "abc"}])
+@pytest.mark.parametrize("generate_legacy_hash", [False, True])
+def test_to_dict_with_hash_mappings(
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+    hashes: dict[str, str],
+    generate_legacy_hash: bool,
+) -> None:
+    mapping = mapping_type(hashes)
+    direct_url = DirectUrl.from_dict(
+        {"url": "https://example.com/archive.zip", "archive_info": {"hashes": mapping}}
+    )
+    serialized = direct_url.to_dict(generate_legacy_hash=generate_legacy_hash)
+    expected: dict[str, object] = {"hashes": hashes}
+    if generate_legacy_hash and hashes:
+        expected["hash"] = "sha256=abc"
+    assert json.loads(json.dumps(serialized))["archive_info"] == expected
+    assert direct_url.archive_info is not None
+    assert direct_url.archive_info.hashes == hashes
+    direct_url.validate()
+
+
+@pytest.mark.parametrize("mapping_type", [MappingProxyType, UserDict])
+def test_archive_info_normalizes_hash_mappings(
+    mapping_type: Callable[[dict[str, str]], Mapping[str, str]],
+) -> None:
+    hashes = {"sha256": "abc"}
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes=mapping_type(hashes)),
+    )
+    assert direct_url.archive_info is not None
+    assert type(direct_url.archive_info.hashes) is dict
+    assert json.loads(json.dumps(dataclasses.asdict(direct_url)))["archive_info"] == {
+        "hashes": hashes
+    }
+    assert copy.deepcopy(direct_url) == direct_url
+    assert pickle.loads(pickle.dumps(direct_url)) == direct_url
+
+
+def test_archive_info_copies_hashes() -> None:
+    hashes = {"sha256": "abc"}
+    archive_info = ArchiveInfo(hashes=hashes)
+    hashes["md5"] = "def"
+    assert archive_info.hashes == {"sha256": "abc"}
+
+
+@pytest.mark.parametrize("hashes", [[("a", "b")], ["ab"], [], (), "", "abc", set(), 5])
+def test_validate_rejects_non_mapping_hashes(hashes: object) -> None:
+    direct_url = DirectUrl(
+        url="https://example.com/archive.zip",
+        archive_info=ArchiveInfo(hashes=hashes),  # type: ignore[arg-type]
+    )
+    with pytest.raises(
+        DirectUrlValidationError, match=r"expected Mapping.*archive_info\.hashes"
+    ):
+        direct_url.validate()
