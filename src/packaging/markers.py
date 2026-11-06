@@ -240,6 +240,20 @@ _operators: dict[str, Operator] = {
 }
 
 
+def _eval_extra_set(extras: AbstractSet[str], op: Op, literal: str) -> bool:
+    """Evaluate an ``extra`` comparison against the whole set of selected extras.
+
+    Equality is membership and inequality is non-membership. The dependency
+    specifier spec leaves every other operator on ``extra`` undefined.
+    """
+    op_str = op.serialize()
+    if op_str == "==":
+        return literal in extras
+    if op_str == "!=":
+        return literal not in extras
+    raise UndefinedComparison(f"Undefined {op!r} on {extras!r} and {literal!r}.")
+
+
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
     op_str = op.serialize()
     if key in MARKERS_REQUIRING_VERSION:
@@ -265,8 +279,8 @@ def _normalize(
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
-        assert isinstance(rhs, str), "extra value must be a string"
-        # Both sides are normalized at this point already
+        # Both sides are normalized at this point already: literals at parse
+        # time, selected extras in Marker.evaluate.
         return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
         if isinstance(rhs, str):  # pragma: no cover
@@ -298,15 +312,22 @@ def _evaluate_markers(
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
-            if isinstance(lhs, Variable):
+            extras_on_lhs = isinstance(lhs, Variable)
+            if extras_on_lhs:
                 environment_key = lhs.value
                 lhs_value = _lookup_environment(environment, environment_key)
                 rhs_value = rhs.value
+                env_value, literal = lhs_value, rhs.value
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
+                env_value, literal = rhs_value, lhs.value
 
+            if environment_key == "extra" and not isinstance(env_value, str):
+                # Set-wide evaluation is only defined for ``extra``.
+                groups[-1].append(_eval_extra_set(env_value, op, literal))
+                continue
             if not isinstance(lhs_value, str):
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
@@ -534,6 +555,10 @@ class Marker:
         .. versionchanged:: 25.0
             Added the ``context`` parameter, which influences which marker names
             are considered valid.
+
+        .. versionchanged:: 26.4
+            ``environment`` may map ``"extra"`` to a set of extra names to
+            evaluate ``extra`` markers against the whole selected set.
         """
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()
@@ -549,11 +574,19 @@ class Marker:
         if environment is not None:
             current_environment |= environment
             if "extra" in current_environment:
-                # The API used to allow setting extra to None. We need to handle
-                # this case for backwards compatibility. Also skip running
-                # normalize name if extra is empty.
-                extra = cast("str | None", current_environment["extra"])
-                current_environment["extra"] = canonicalize_name(extra) if extra else ""
+                extra = current_environment["extra"]
+                if not extra:
+                    # The API used to allow setting extra to None, and an empty
+                    # selection of extras also evaluates like the empty string.
+                    current_environment["extra"] = ""
+                elif isinstance(extra, str):
+                    current_environment["extra"] = canonicalize_name(extra)
+                else:
+                    # Any other iterable of selected extras evaluates set-wide.
+                    # Names are normalized here, so _normalize can skip them.
+                    current_environment["extra"] = frozenset(
+                        canonicalize_name(name) for name in extra
+                    )
 
         return _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)
