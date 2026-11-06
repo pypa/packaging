@@ -267,9 +267,15 @@ def parse_wheel_filename(
     parts = filename.split("-", dashes - 2)
     name_part = parts[0]
     # See PEP 427 for the rules on escaping the project name.
-    if "__" in name_part or _wheel_name_regex.match(name_part) is None:
+    if (
+        "__" in name_part
+        or _wheel_name_regex.match(name_part) is None
+        or _validate_regex.fullmatch(name_part) is None
+    ):
         raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
     name = canonicalize_name(name_part)
+    if not is_normalized_name(name):
+        raise InvalidWheelFilename(f"Invalid project name: {filename!r}")
 
     try:
         version = Version(parts[1])
@@ -357,8 +363,16 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
         raise InvalidSdistFilename(
             f"Invalid sdist filename (empty project name): {filename!r}"
         )
+    if _validate_regex.fullmatch(name_part) is None:
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (invalid project name): {filename!r}"
+        )
 
     name = canonicalize_name(name_part)
+    if not is_normalized_name(name):
+        raise InvalidSdistFilename(
+            f"Invalid sdist filename (invalid project name): {filename!r}"
+        )
 
     try:
         version = Version(version_part)
