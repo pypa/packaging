@@ -18,6 +18,7 @@ from packaging.version import (
     InvalidVersion,
     Version,
     _BaseVersion,
+    _parse_local_version,
     _TrimmedRelease,
     parse,
 )
@@ -1447,3 +1448,24 @@ def test_trimmed_release_hash_from_prehashed_version() -> None:
     _ = hash(v)  # Populate the hash cache on the source Version.
     tr = _TrimmedRelease(v)
     assert hash(tr) == hash(v)
+
+
+@pytest.mark.parametrize(
+    ("local", "expected"),
+    [
+        (None, None),
+        ("abc.1.twelve", ("abc", 1, "twelve")),
+        ("123", (123,)),
+        ("\u00b2", ("\u00b2",)),  # SUPERSCRIPT TWO
+        ("\u00b3", ("\u00b3",)),  # SUPERSCRIPT THREE
+        ("\u0661", ("\u0661",)),  # ARABIC-INDIC DIGIT ONE
+        ("\uff11", ("\uff11",)),  # FULLWIDTH DIGIT ONE
+        ("abc-\u00b2.123", ("abc", "\u00b2", 123)),
+    ],
+)
+def test_parse_local_version_unicode_digits(
+    local: str | None, expected: tuple[int | str, ...] | None
+) -> None:
+    # Regression test for GH-1486: Unicode digits must not cause ValueError
+    # when parsed by _parse_local_version, nor be normalized to ASCII integers.
+    assert _parse_local_version(local) == expected
