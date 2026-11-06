@@ -316,19 +316,28 @@ def _parse_full_marker(tokenizer: Tokenizer) -> MarkerList:
     return retval
 
 
-def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
+# Maximum nesting depth of parenthesised marker groups. Real markers are shallow
+# (usually unnested), so this is generous headroom while bounding untrusted input:
+# deeply nested parentheses now raise a clean ParserSyntaxError (surfaced as
+# InvalidMarker / InvalidRequirement) instead of recursing until the interpreter
+# raises RecursionError -- which is not part of the parsers' documented exception
+# contract and, on some interpreters, can exhaust the C stack. (CWE-674)
+MAX_MARKER_NESTING = 100
+
+
+def _parse_marker(tokenizer: Tokenizer, depth: int = 0) -> MarkerList:
     """
     marker = marker_atom (BOOLOP marker_atom)+
     """
-    expression = [_parse_marker_atom(tokenizer)]
+    expression = [_parse_marker_atom(tokenizer, depth)]
     while tokenizer.check("BOOLOP"):
         token = tokenizer.read()
-        expr_right = _parse_marker_atom(tokenizer)
+        expr_right = _parse_marker_atom(tokenizer, depth)
         expression.extend((token.text, expr_right))
     return expression
 
 
-def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
+def _parse_marker_atom(tokenizer: Tokenizer, depth: int = 0) -> MarkerAtom:
     """
     marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
                 | WS? marker_item WS?
@@ -336,13 +345,18 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
 
     tokenizer.consume("WS")
     if tokenizer.check("LEFT_PARENTHESIS", peek=True):
+        if depth >= MAX_MARKER_NESTING:
+            tokenizer.raise_syntax_error(
+                f"Marker expression nested too deeply "
+                f"(maximum {MAX_MARKER_NESTING} levels of parentheses)"
+            )
         with tokenizer.enclosing_tokens(
             "LEFT_PARENTHESIS",
             "RIGHT_PARENTHESIS",
             around="marker expression",
         ):
             tokenizer.consume("WS")
-            marker: MarkerAtom = _parse_marker(tokenizer)
+            marker: MarkerAtom = _parse_marker(tokenizer, depth + 1)
             tokenizer.consume("WS")
     else:
         marker = _parse_marker_item(tokenizer)
