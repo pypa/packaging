@@ -256,8 +256,8 @@ PROJECTS = {
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.15.5"},
     ),
     "pdm": Project(
-        "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.4.tar.gz",
-        install_env={"PDM_BUILD_SCM_VERSION": "2.29.4"},
+        "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.7.tar.gz",
+        install_env={"PDM_BUILD_SCM_VERSION": "2.29.7"},
         pytest_args=("-m", "not network and not integration"),
     ),
     "poetry_core": Project(
