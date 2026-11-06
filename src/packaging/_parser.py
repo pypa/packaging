@@ -335,28 +335,6 @@ def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     return expression
 
 
-def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
-    """
-    marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
-                | WS? marker_item WS?
-    """
-
-    tokenizer.consume("WS")
-    if tokenizer.check("LEFT_PARENTHESIS", peek=True):
-        with tokenizer.enclosing_tokens(
-            "LEFT_PARENTHESIS",
-            "RIGHT_PARENTHESIS",
-            around="marker expression",
-        ):
-            tokenizer.consume("WS")
-            marker: MarkerAtom = _parse_marker(tokenizer)
-            tokenizer.consume("WS")
-    else:
-        marker = _parse_marker_item(tokenizer)
-    tokenizer.consume("WS")
-    return marker
-
-
 def _is_plain_ascii_literal(quoted: str) -> bool:
     return quoted.isascii() and quoted.isprintable() and "\\" not in quoted
 
@@ -373,10 +351,12 @@ _MARKER_ITEM = re.compile(
 )
 
 
-def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
+def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
-    marker_item = WS? marker_var WS? marker_op WS? marker_var WS?
+    marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
+                | WS? marker_item WS?
     """
+
     match = _MARKER_ITEM.match(tokenizer.source, tokenizer.position)
     if match is not None:
         left_value = match["left_value"]
@@ -401,6 +381,26 @@ def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
             tokenizer.position = match.end()
             return left, op, right
 
+    tokenizer.consume("WS")
+    if tokenizer.check("LEFT_PARENTHESIS", peek=True):
+        with tokenizer.enclosing_tokens(
+            "LEFT_PARENTHESIS",
+            "RIGHT_PARENTHESIS",
+            around="marker expression",
+        ):
+            tokenizer.consume("WS")
+            marker: MarkerAtom = _parse_marker(tokenizer)
+            tokenizer.consume("WS")
+    else:
+        marker = _parse_marker_item(tokenizer)
+    tokenizer.consume("WS")
+    return marker
+
+
+def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
+    """
+    marker_item = WS? marker_var WS? marker_op WS? marker_var WS?
+    """
     tokenizer.consume("WS")
     marker_var_left = _parse_marker_var(tokenizer)
     tokenizer.consume("WS")

@@ -265,6 +265,16 @@ class TestMarker:
     def test_marker_item_token_boundaries(self, text: str, expected: str) -> None:
         assert str(Marker(text)) == expected
 
+    @pytest.mark.parametrize("padding", ["", " ", "\t", " \t "])
+    @pytest.mark.parametrize("nested", [False, True])
+    def test_marker_atom_whitespace(self, padding: str, nested: bool) -> None:
+        text = f'{padding}os_name{padding}=={padding}"posix"{padding}'
+        if nested:
+            text = f"{padding}({text}){padding}"
+        marker = Marker(text)
+        assert str(marker) == 'os_name == "posix"'
+        assert marker.evaluate({"os_name": "posix"})
+
     @pytest.mark.parametrize(
         "marker_string",
         [
