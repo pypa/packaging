@@ -1398,6 +1398,43 @@ class TestSpecifierSet:
         original = CustomSpecifierSet(">=1.0")
         assert isinstance(original.__replace__(specifiers="<2.0"), CustomSpecifierSet)
 
+    @pytest.mark.parametrize(
+        "spec_str",
+        [">=1.0", "===foobar", "!=1.0.*", "~=1.4.5"],
+    )
+    def test_iterable_accepts_plain_strings(self, spec_str: str) -> None:
+        """str elements are parsed, yielding the same set as the string form."""
+        from_strings = SpecifierSet([spec_str])
+        from_specs = SpecifierSet([Specifier(spec_str)])
+        expected = SpecifierSet(spec_str)
+
+        assert from_strings == from_specs
+        assert from_strings == expected
+        assert hash(from_strings) == hash(expected)
+        assert str(from_strings) == str(expected)
+
+    def test_iterable_plain_strings_are_usable(self) -> None:
+        specifier_set = SpecifierSet([">=1.0"])
+
+        assert specifier_set.contains("1.5")
+        assert not specifier_set.contains("0.5", prereleases=True)
+        assert list(specifier_set.filter(["1.5", "0.5"])) == ["1.5"]
+        assert specifier_set.prereleases == SpecifierSet(">=1.0").prereleases
+        assert specifier_set.to_range().contains("1.5")
+
+    def test_iterable_string_element_is_single_specifier(self) -> None:
+        # Each str element is one specifier: no comma splitting across elements.
+        with pytest.raises(InvalidSpecifier):
+            SpecifierSet([">=1.0,<2.0"])
+
+    def test_iterable_rejects_non_specifier_elements(self) -> None:
+        with pytest.raises(TypeError):
+            SpecifierSet([42])  # type: ignore[list-item]
+
+    def test_iterable_invalid_string_element(self) -> None:
+        with pytest.raises(InvalidSpecifier):
+            SpecifierSet(["not a spec"])
+
     def test_copy_replace(self) -> None:
         if sys.version_info < (3, 13):
             pytest.skip("copy.replace requires Python 3.13")

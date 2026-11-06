@@ -844,7 +844,7 @@ class SpecifierSet(BaseSpecifier):
 
     def __init__(
         self,
-        specifiers: str | Iterable[Specifier] = "",
+        specifiers: str | Iterable[Specifier | str] = "",
         prereleases: bool | None = None,
     ) -> None:
         """Initialize a SpecifierSet instance.
@@ -853,7 +853,9 @@ class SpecifierSet(BaseSpecifier):
             The string representation of a specifier or a comma-separated list of
             specifiers which will be parsed and normalized before use.
             May also be an iterable of ``Specifier`` instances, which will be used
-            as is.
+            as is. Plain ``str`` elements are parsed as if passed to
+            :class:`Specifier`, so ``SpecifierSet([">=1.0"])`` equals
+            ``SpecifierSet(">=1.0")``.
         :param prereleases:
             This tells the SpecifierSet if it should accept prerelease versions if
             applicable or not. The default of ``None`` will autodetect it from the
@@ -862,6 +864,9 @@ class SpecifierSet(BaseSpecifier):
         :raises InvalidSpecifier:
             If the given ``specifiers`` are not parseable than this exception will be
             raised.
+        :raises TypeError:
+            If an element of the iterable form is neither a :class:`Specifier`
+            nor a ``str``.
         """
 
         if isinstance(specifiers, str):
@@ -873,10 +878,18 @@ class SpecifierSet(BaseSpecifier):
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
         else:
-            self._specs = tuple(specifiers)
-            # Substring check works for both Specifier objects and plain
-            # strings (setuptools passes lists of strings).
-            self._has_arbitrary = any("===" in str(s) for s in self._specs)
+            specs = []
+            for s in specifiers:
+                if isinstance(s, Specifier):
+                    specs.append(s)
+                elif isinstance(s, str):
+                    specs.append(Specifier(s))
+                else:
+                    raise TypeError(
+                        f"Expected Specifier or str instance, got {type(s).__name__}"
+                    )
+            self._specs = tuple(specs)
+            self._has_arbitrary = any(s.operator == "===" for s in self._specs)
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
@@ -889,7 +902,7 @@ class SpecifierSet(BaseSpecifier):
     def __replace__(
         self,
         *,
-        specifiers: str | Iterable[Specifier] = _UNSET,
+        specifiers: str | Iterable[Specifier | str] = _UNSET,
         prereleases: bool | None = _UNSET,
     ) -> Self:
         """__replace__(*, specifiers=..., prereleases=...)
@@ -899,8 +912,8 @@ class SpecifierSet(BaseSpecifier):
 
         :param specifiers:
             Replacement specifiers as a string or an iterable of ``Specifier``
-            instances. Omit to retain the current specifiers.
-        :type specifiers: str | Iterable[Specifier]
+            and ``str`` instances. Omit to retain the current specifiers.
+        :type specifiers: str | Iterable[Specifier | str]
         :param prereleases:
             Replacement prerelease override. Omit to retain the current override;
             ``None`` restores automatic detection.
