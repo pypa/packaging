@@ -886,6 +886,37 @@ class SpecifierSet(BaseSpecifier):
         # we accept prereleases or not.
         self._prereleases = prereleases
 
+    @classmethod
+    def _from_validated(cls, specifiers: str) -> Self:
+        """Build from the requirement parser's already validated tokens."""
+        # Arbitrary equality tokens may contain commas. Splitting these tokens
+        # can expose invalid specifiers, so they still need full validation.
+        if "===" in specifiers:
+            return cls(specifiers)
+
+        specs = []
+        for raw_specifier in specifiers.split(","):
+            part = raw_specifier.strip()
+            if not part:
+                continue
+            size = 2 if part.startswith(("~=", "==", "!=", "<=", ">=")) else 1
+            specifier = Specifier.__new__(Specifier)
+            specifier._spec = (part[:size], part[size:].strip())
+            specifier._prereleases = None
+            specifier._spec_version = None
+            specifier._ranges = None
+            specifier._canonical_spec_cache = None
+            specs.append(specifier)
+
+        result = cls.__new__(cls)
+        result._specs = tuple(specs)
+        result._has_arbitrary = False
+        result._canonicalized = len(specs) <= 1
+        result._is_unsatisfiable = None
+        result._ranges = None
+        result._prereleases = None
+        return result
+
     def __replace__(
         self,
         *,

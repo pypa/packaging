@@ -69,6 +69,50 @@ DIFFERENT_DEPENDENCIES = [
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "==1.0",
+        "!=1.0.*",
+        "~=1.2",
+        ">1.0,<2",
+        ">=1.0,<=2",
+        "==01!1.0+ABC",
+        ">=\n1.0",
+        ">=1.0,>=1.0,",
+        "===opaque,>=1.0",
+    ],
+)
+@pytest.mark.parametrize("prereleases", [None, False, True])
+def test_requirement_specifier_construction(
+    text: str, prereleases: bool | None
+) -> None:
+    actual = Requirement(f"demo{text}").specifier
+    expected = SpecifierSet(text)
+    assert type(actual) is SpecifierSet
+    assert str(actual) == str(expected)
+    assert repr(actual) == repr(expected)
+    assert hash(actual) == hash(expected)
+    assert pickle.loads(pickle.dumps(actual)) == expected
+    actual.prereleases = expected.prereleases = prereleases
+    versions = ["1.0a1", "1.0", "1.1", "2.0", "2.1"]
+    assert list(actual.filter(versions)) == list(expected.filter(versions))
+    assert [actual.contains(v) for v in versions] == [
+        expected.contains(v) for v in versions
+    ]
+
+
+def test_requirement_specifiers_are_independent() -> None:
+    first = Requirement("demo>=1.0").specifier
+    second = Requirement("demo>=1.0").specifier
+    specifier = next(iter(first))
+    specifier.prereleases = True
+    assert first.prereleases is True
+    assert second.prereleases is None
+    assert next(iter(second)) is not specifier
+
+
+@pytest.mark.parametrize(
     "name",
     [
         "package",
