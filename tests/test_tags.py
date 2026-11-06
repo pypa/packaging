@@ -235,6 +235,43 @@ class TestParseTag:
             tags.parse_tag(tag)
 
     @pytest.mark.parametrize(
+        "args",
+        [
+            ("", "none", "any"),
+            ("py3", "", "any"),
+            ("py3", "none", ""),
+        ],
+    )
+    def test_tag_constructor_rejects_empty(self, args: tuple[str, str, str]) -> None:
+        with pytest.raises(tags.InvalidTag, match="non-empty"):
+            tags.Tag(*args)
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "py3-none-any,",  # Trailing junk on platform
+            "py3-none-any ",  # Trailing whitespace on platform
+            "py3-none/-any",  # Slash is not a wheel filename character
+            "py3-none-any+",  # Plus is legal in ABI, not in platform
+        ],
+    )
+    def test_invalid_abi_or_platform_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="invalid (abi|platform)"):
+            tags.parse_tag(tag)
+
+    def test_digit_leading_abi_parses(self) -> None:
+        # Spec ABI hashes are base64 and may start with a digit.
+        assert tags.parse_tag("py3-0abcDEF1-any") == {
+            tags.Tag("py3", "0abcdef1", "any")
+        }
+
+    def test_plus_in_abi_parses(self) -> None:
+        # Unstable ABI hashes may be 8 standard base64 characters, including +.
+        assert tags.parse_tag("py3-0abc+EF1-any") == {
+            tags.Tag("py3", "0abc+ef1", "any")
+        }
+
+    @pytest.mark.parametrize(
         "tag",
         [
             "2-none-any",

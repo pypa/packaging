@@ -144,7 +144,13 @@ class Tag:
         :param str abi: The ABI that a wheel supports, e.g. ``"cp37m"``.
         :param str platform: The OS/platform the wheel supports,
                             e.g. ``"win_amd64"``.
+        :raises InvalidTag: If any component is empty.
         """
+        if not interpreter or not abi or not platform:
+            raise InvalidTag(
+                f"Tag components must be non-empty "
+                f"(got interpreter={interpreter!r}, abi={abi!r}, platform={platform!r})"
+            )
         self._interpreter = interpreter.lower()
         self._abi = abi.lower()
         self._platform = platform.lower()
@@ -231,6 +237,15 @@ class Tag:
         raise TypeError(f"Cannot restore Tag from {state!r}")
 
 
+# ABI is not a Python identifier. The compatibility-tag spec allows an
+# unstable ABI to be 8 standard base64 characters, so a component may start
+# with a digit and may include "+". "/" stays rejected: it is not a wheel
+# filename character. "-" stays rejected: it separates filename fields.
+# Platform tags are ASCII letters, digits, and underscores.
+_ABI_COMPONENT_RE = re.compile(r"[0-9A-Za-z_+]+")
+_PLATFORM_COMPONENT_RE = re.compile(r"[0-9A-Za-z_]+")
+
+
 def parse_tag(
     tag: str, *, validate_order: bool = False, limit: int | None = None
 ) -> frozenset[Tag]:
@@ -254,9 +269,12 @@ def parse_tag(
     :param int | None limit: The maximum number of tags to parse.
     :raises UnsortedTagsError: If **validate_order** is true and any compressed tag
         set component is not in sorted order.
-    :raises InvalidTag: If the interpreter field is not an identifier; if the
-        interpreter, ABI, or platform field (or any member of a compressed tag
-        set) is empty; or if the tag does not have exactly three components.
+    :raises InvalidTag: If the interpreter field is not an identifier; if an
+        ABI field is not letters, digits, underscore, or "+" (including a
+        leading digit); if a platform field is not letters, digits, and
+        underscore; if the interpreter, ABI, or platform field (or any member
+        of a compressed tag set) is empty; or if the tag does not have exactly
+        three components.
     :raises TooManyTagsError: If **limit** is not ``None`` and the compressed tag
         set would generate more than **limit** tags.
     :raises ValueError: If **limit** is negative.
@@ -303,6 +321,12 @@ def parse_tag(
     for interpreter in interpreters:
         if not interpreter.isidentifier():
             raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
+    for abi in abis:
+        if _ABI_COMPONENT_RE.fullmatch(abi) is None:
+            raise InvalidTag(f"Tag {tag!r} has an invalid abi: {abi!r}")
+    for platform_ in platforms:
+        if _PLATFORM_COMPONENT_RE.fullmatch(platform_) is None:
+            raise InvalidTag(f"Tag {tag!r} has an invalid platform: {platform_!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
         for interpreter in interpreters
