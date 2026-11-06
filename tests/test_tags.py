@@ -2202,3 +2202,17 @@ def test_interpreter_abi(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (
         tags.interpreter_abi() == f"cp{sys.version_info.major}{sys.version_info.minor}"
     )
+
+
+def test_host_tag_accessors(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "zz")
+    monkeypatch.setattr(tags, "interpreter_version", lambda: "123")
+    monkeypatch.setattr(tags, "interpreter_abi", lambda: "zzabi")
+    monkeypatch.setattr(
+        tags, "platform_tags", lambda: iter(["first_platform", "second_platform"])
+    )
+
+    assert tags.python_tag() == "zz123"
+    assert tags.abi_tag() == "zzabi"
+    assert tags.platform_tag() == "first_platform"
+    assert {"python_tag", "abi_tag", "platform_tag"} <= set(tags.__all__)

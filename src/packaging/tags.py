@@ -35,6 +35,7 @@ __all__ = [
     "Tag",
     "TooManyTagsError",
     "UnsortedTagsError",
+    "abi_tag",
     "android_platforms",
     "compatible_tags",
     "cpython_tags",
@@ -46,8 +47,10 @@ __all__ = [
     "ios_platforms",
     "mac_platforms",
     "parse_tag",
+    "platform_tag",
     "platform_tags",
     "pure_python_tags",
+    "python_tag",
     "sys_tags",
 ]
 
@@ -971,6 +974,33 @@ def interpreter_abi() -> str:
     if interpreter_name() == "cp":
         return next(iter(_cpython_abis(sys.version_info[:2])))
     return next(iter(_generic_abi()))
+
+
+def platform_tag() -> str:
+    """
+    Returns the first platform tag for the running interpreter.
+
+    .. versionadded:: 26.4
+    """
+    return next(iter(platform_tags()))
+
+
+def abi_tag() -> str:
+    """
+    Returns the ABI tag for the running interpreter.
+
+    .. versionadded:: 26.4
+    """
+    return interpreter_abi()
+
+
+def python_tag() -> str:
+    """
+    Returns the interpreter tag for the running interpreter.
+
+    .. versionadded:: 26.4
+    """
+    return interpreter_name() + interpreter_version()
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
