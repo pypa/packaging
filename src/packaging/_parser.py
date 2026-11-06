@@ -7,6 +7,7 @@ the implementation.
 from __future__ import annotations
 
 import ast
+import re
 from collections.abc import Sequence
 from typing import Literal, NamedTuple, TypeAlias
 
@@ -253,6 +254,12 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
     """
+    if not tokenizer.check("LEFT_PARENTHESIS", peek=True):
+        tokenizer.consume("WS")
+        parsed_specifiers = _parse_version_many(tokenizer)
+        tokenizer.consume("WS")
+        return parsed_specifiers
+
     with tokenizer.enclosing_tokens(
         "LEFT_PARENTHESIS",
         "RIGHT_PARENTHESIS",
@@ -328,11 +335,51 @@ def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     return expression
 
 
+def _is_plain_ascii_literal(quoted: str) -> bool:
+    return quoted.isascii() and quoted.isprintable() and "\\" not in quoted
+
+
+_MARKER_ITEM = re.compile(
+    rf"[ \t]*(?:(?P<left_var>{DEFAULT_RULES['VARIABLE'].pattern})"
+    rf"|(?P<left_value>{DEFAULT_RULES['QUOTED_STRING'].pattern}))[ \t]*"
+    rf"(?P<op>{DEFAULT_RULES['IN'].pattern}"
+    rf"|(?P<not_in>{DEFAULT_RULES['NOT'].pattern}[ \t]+{DEFAULT_RULES['IN'].pattern})"
+    rf"|{DEFAULT_RULES['OP'].pattern})[ \t]*"
+    rf"(?:(?P<right_var>{DEFAULT_RULES['VARIABLE'].pattern})"
+    rf"|(?P<right_value>{DEFAULT_RULES['QUOTED_STRING'].pattern}))[ \t]*",
+    re.VERBOSE,
+)
+
+
 def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
     marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
                 | WS? marker_item WS?
     """
+
+    match = _MARKER_ITEM.match(tokenizer.source, tokenizer.position)
+    if match is not None:
+        left_value = match["left_value"]
+        right_value = match["right_value"]
+        # Only plain ASCII literals take this path. Others, such as escapes and
+        # non-printable characters, keep the full quoted-string handling,
+        # including its warnings and exact error spans.
+        if (left_value is None or _is_plain_ascii_literal(left_value)) and (
+            right_value is None or _is_plain_ascii_literal(right_value)
+        ):
+            left = (
+                process_env_var(match["left_var"].replace(".", "_"))
+                if left_value is None
+                else Value(left_value[1:-1])
+            )
+            op = Op("not in" if match["not_in"] is not None else match["op"])
+            right = (
+                process_env_var(match["right_var"].replace(".", "_"))
+                if right_value is None
+                else Value(right_value[1:-1])
+            )
+            tokenizer.position = match.end()
+            return left, op, right
 
     tokenizer.consume("WS")
     if tokenizer.check("LEFT_PARENTHESIS", peek=True):

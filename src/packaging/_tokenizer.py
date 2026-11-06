@@ -113,8 +113,16 @@ class Tokenizer:
 
     def consume(self, name: str) -> None:
         """Move beyond provided token name, if at current position."""
-        if self.check(name):
-            self.read()
+        assert self.next_token is None, (
+            f"Cannot check for {name!r}, already have {self.next_token!r}"
+        )
+        assert name in self.rules, f"Unknown token name: {name!r}"
+
+        # Consumed tokens are discarded, so advance without allocating a Token
+        # or copying the matched text.
+        match = self.rules[name].match(self.source, self.position)
+        if match is not None:
+            self.position = match.end()
 
     def check(self, name: str, *, peek: bool = False) -> bool:
         """Check whether the next token has the provided name.
