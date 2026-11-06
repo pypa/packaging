@@ -244,6 +244,28 @@ class TestDefaultEnvironment:
 
 class TestMarker:
     @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            (
+                'python_implementation == "CPython"',
+                'platform_python_implementation == "CPython"',
+            ),
+            ('"foo" not\t in extras', '"foo" not in extras'),
+            ("os.name == sys.platform", "os_name == sys_platform"),
+            ("'hello' == 'world'", '"hello" == "world"'),
+            ('os_name == "na\u00efve"', 'os_name == "na\u00efve"'),
+            ('os_name in "na\u00efve"', 'os_name in "na\u00efve"'),
+            ('os_name not in "na\u00efve"', 'os_name not in "na\u00efve"'),
+            (
+                'extra == "a"and python_version >= "3.10"',
+                'extra == "a" and python_version >= "3.10"',
+            ),
+        ],
+    )
+    def test_marker_item_token_boundaries(self, text: str, expected: str) -> None:
+        assert str(Marker(text)) == expected
+
+    @pytest.mark.parametrize(
         "marker_string",
         [
             "{} {} {!r}".format(*i)
