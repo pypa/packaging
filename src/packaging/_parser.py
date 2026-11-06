@@ -253,6 +253,12 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
     """
+    if not tokenizer.check("LEFT_PARENTHESIS", peek=True):
+        tokenizer.consume("WS")
+        parsed_specifiers = _parse_version_many(tokenizer)
+        tokenizer.consume("WS")
+        return parsed_specifiers
+
     with tokenizer.enclosing_tokens(
         "LEFT_PARENTHESIS",
         "RIGHT_PARENTHESIS",
