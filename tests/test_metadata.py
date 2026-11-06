@@ -595,6 +595,27 @@ class TestMetadata:
         assert meta.version == version.Version(_RAW_EXAMPLE["version"])
         assert raw == _RAW_EXAMPLE
 
+    @pytest.mark.parametrize("metadata_version", [None, "0.0", "2.6"])
+    @pytest.mark.parametrize("field", ["dynamc", "from_raw", "from_email"])
+    def test_raw_validate_collects_unrecognized_fields(
+        self, metadata_version: str | None, field: str
+    ) -> None:
+        raw = _RAW_EXAMPLE.copy()
+        if metadata_version is None:
+            del raw["metadata_version"]
+        else:
+            raw["metadata_version"] = metadata_version
+        raw[field] = ["Summary"]  # type: ignore[literal-required]
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw)
+
+        invalid_metadata = _invalid_metadata_exceptions(exc_info.value.exceptions)
+        expected = {field}
+        if metadata_version != "2.6":
+            expected.add("metadata-version")
+        assert {exc.field for exc in invalid_metadata} == expected
+
     def test_caching(self) -> None:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE, validate=True)
 
