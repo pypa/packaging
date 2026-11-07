@@ -254,6 +254,12 @@ class TestRequirementParsing:
         with pytest.raises(InvalidRequirement):
             Requirement(f"name @ https://example.com/name.whl{line_break}evil==1")
 
+    def test_error_when_marker_too_deeply_nested(self) -> None:
+        # Deep nesting must be reported as InvalidRequirement, not RecursionError.
+        marker = "(" * 10_000 + 'python_version >= "3"' + ")" * 10_000
+        with pytest.raises(InvalidRequirement, match="nested more than"):
+            Requirement(f"name; {marker}")
+
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
         assert Requirement("name>=1" + whitespace) == Requirement("name>=1")

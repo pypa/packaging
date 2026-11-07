@@ -14,7 +14,14 @@ from unittest import mock
 
 import pytest
 
-from packaging._parser import Node, Op, Value, Variable, process_python_str
+from packaging._parser import (
+    _MAX_MARKER_NESTING,
+    Node,
+    Op,
+    Value,
+    Variable,
+    process_python_str,
+)
 from packaging.markers import (
     InvalidMarker,
     Marker,
@@ -276,6 +283,17 @@ class TestMarker:
     def test_parses_invalid_trailing_line_break(self, line_break: str) -> None:
         with pytest.raises(InvalidMarker):
             Marker('python_version >= "3"' + line_break)
+
+    def test_parses_nesting_at_limit(self) -> None:
+        depth = _MAX_MARKER_NESTING
+        marker = Marker("(" * depth + 'python_version >= "3"' + ")" * depth)
+        assert marker == Marker('python_version >= "3"')
+
+    @pytest.mark.parametrize("depth", [_MAX_MARKER_NESTING + 1, 10_000])
+    def test_parses_invalid_too_deeply_nested(self, depth: int) -> None:
+        # Deep nesting must be reported as InvalidMarker, not RecursionError.
+        with pytest.raises(InvalidMarker, match="nested more than"):
+            Marker("(" * depth + 'python_version >= "3"' + ")" * depth)
 
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_parses_trailing_horizontal_whitespace(self, whitespace: str) -> None:
