@@ -85,6 +85,10 @@ class Requirement:
 
         Added ``__replace__``, enabling :func:`copy.replace` on Python 3.13+.
 
+        Pickling and copying preserve a
+        :attr:`~packaging.specifiers.Specifier.prereleases` override on each
+        specifier in :attr:`specifier`.
+
     :param str requirement_string: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement_string`` is not
         parseable, then this exception will be raised.
@@ -178,26 +182,27 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
-    def __getstate__(self) -> tuple[str, bool | None]:
+    def __getstate__(self) -> tuple[str, SpecifierSet]:
         # Return the requirement string for compactness and stability, paired
-        # with the specifier's explicit prereleases override, which is not
-        # captured by the string form. Re-parsed on load to reconstruct all
+        # with the SpecifierSet, which holds prereleases overrides that the
+        # string form does not capture. Re-parsed on load to reconstruct all
         # other fields.
-        return (str(self), self.specifier._prereleases)
+        return (str(self), self.specifier)
 
     def __setstate__(self, state: object) -> None:
         if isinstance(state, str):
             # Format (26.2): just the requirement string.
             requirement_string: str = state
-            prereleases: bool | None = None
+            specifier: SpecifierSet | bool | None = None
         elif (
             isinstance(state, tuple)
             and len(state) == 2
             and isinstance(state[0], str)
-            and (state[1] is None or isinstance(state[1], bool))
+            and (state[1] is None or isinstance(state[1], (bool, SpecifierSet)))
         ):
-            # New format (26.3+): (requirement string, specifier prereleases).
-            requirement_string, prereleases = state
+            # Format (26.3+): (requirement string, specifier prereleases).
+            # Format (26.4+): (requirement string, SpecifierSet).
+            requirement_string, specifier = state
         elif isinstance(state, dict) and state.keys() >= set(self.__slots__):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
             for key in self.__slots__:
@@ -210,11 +215,17 @@ class Requirement:
             tmp = Requirement(requirement_string)
         except InvalidRequirement as exc:
             raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
+        if isinstance(specifier, SpecifierSet):
+            if specifier != tmp.specifier:
+                raise TypeError(f"Cannot restore Requirement from {state!r}")
+            # A shallow copy passes the original set, so copy it.
+            tmp.specifier = copy.deepcopy(specifier)
+        else:
+            tmp.specifier._prereleases = specifier
         self.name = tmp.name
         self.url = tmp.url
         self.extras = tmp.extras
         self.specifier = tmp.specifier
-        self.specifier._prereleases = prereleases
         self.marker = tmp.marker
 
     def __str__(self) -> str:
