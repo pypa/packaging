@@ -232,6 +232,22 @@ _LEGACY_MANYLINUX_MAP: dict[_GLibCVersion, str] = {
 }
 
 
+# PEP 600's legacy aliases retain the architecture sets of their original PEPs.
+_LEGACY_MANYLINUX_ARCHS: dict[str, set[str]] = {
+    "manylinux1": {"x86_64", "i686"},
+    "manylinux2010": {"x86_64", "i686"},
+    "manylinux2014": {
+        "x86_64",
+        "i686",
+        "aarch64",
+        "armv7l",
+        "ppc64",
+        "ppc64le",
+        "s390x",
+    },
+}
+
+
 def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     """Generate manylinux tags compatible to the current platform.
 
@@ -274,5 +290,7 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
                     yield "manylinux_{}_{}_{}".format(*glibc_version, arch)
 
                     # Handle the legacy manylinux1, manylinux2010, manylinux2014 tags.
-                    if legacy_tag := _LEGACY_MANYLINUX_MAP.get(glibc_version):
+                    if (
+                        legacy_tag := _LEGACY_MANYLINUX_MAP.get(glibc_version)
+                    ) and arch in _LEGACY_MANYLINUX_ARCHS[legacy_tag]:
                         yield f"{legacy_tag}_{arch}"

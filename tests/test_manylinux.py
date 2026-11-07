@@ -210,3 +210,13 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     # None is not supported in the type annotation, but it was tested before.
     with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
         assert ef is None
+
+
+@pytest.mark.parametrize("arch", ["riscv64", "loongarch64", "armv8l"])
+def test_legacy_tags_only_use_pep600_alias_architectures(
+    monkeypatch: pytest.MonkeyPatch, arch: str
+) -> None:
+    monkeypatch.setattr(_manylinux, "_get_glibc_version", lambda: (2, 17))
+    monkeypatch.setattr(_manylinux, "_have_compatible_abi", lambda *_: True)
+    monkeypatch.setitem(sys.modules, "_manylinux", None)
+    assert list(_manylinux.platform_tags([arch])) == [f"manylinux_2_17_{arch}"]

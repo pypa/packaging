@@ -812,7 +812,9 @@ class TestManylinuxPlatform:
         archs = {"armv8l": ["armv8l", "armv7l"]}.get(cross_arch, [cross_arch])
         expected = [f"linux_{arch}" for arch in archs]
         for arch in archs:
-            expected.extend([f"manylinux_2_17_{arch}", f"manylinux2014_{arch}"])
+            expected.append(f"manylinux_2_17_{arch}")
+            if arch == "armv7l":
+                expected.append(f"manylinux2014_{arch}")
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(
