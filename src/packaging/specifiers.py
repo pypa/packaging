@@ -922,6 +922,17 @@ class SpecifierSet(BaseSpecifier):
             self._canonicalized = True
         return self._specs
 
+    def _deduplicated_specs(self) -> tuple[Specifier, ...]:
+        """Deduplicate and sort specs without modifying ``self._specs``.
+
+        Equal specifiers can differ in their ``prereleases`` override, so
+        replacing ``self._specs`` would change :attr:`prereleases` and
+        :meth:`filter`.
+        """
+        if self._canonicalized:
+            return self._specs
+        return tuple(dict.fromkeys(sorted(self._specs, key=str)))
+
     @property
     def prereleases(self) -> bool | None:
         # If we have been given an explicit prerelease modifier, then we'll
@@ -1107,7 +1118,11 @@ class SpecifierSet(BaseSpecifier):
 
     def __len__(self) -> int:
         """Returns the number of specifiers in this specifier set."""
-        return len(self._specs)
+        return len(self._deduplicated_specs())
+
+    def __bool__(self) -> bool:
+        """Returns whether this specifier set has any specifiers."""
+        return bool(self._specs)
 
     def __iter__(self) -> Iterator[Specifier]:
         """
@@ -1117,7 +1132,7 @@ class SpecifierSet(BaseSpecifier):
         >>> sorted(SpecifierSet(">=1.0.0,!=1.0.1"), key=str)
         [<Specifier('!=1.0.1')>, <Specifier('>=1.0.0')>]
         """
-        return iter(self._specs)
+        return iter(self._deduplicated_specs())
 
     def _get_ranges(self) -> Sequence[Interval]:
         """Intersect all specifiers into a single sequence of version ranges.
