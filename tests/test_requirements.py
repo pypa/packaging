@@ -287,6 +287,25 @@ class TestRequirementParsing:
         req = Requirement(f"foo{specifier}")
         assert req.specifier == specifier
 
+    @pytest.mark.parametrize(
+        "specifier,expected",
+        [
+            ("===arbitrarystring,>= 1", "===arbitrarystring,>=1"),
+            ("===arbitrarystring, >=1", "===arbitrarystring,>=1"),
+            ("===arbitrarystring,!= 1.0", "!=1.0,===arbitrarystring"),
+            ("(===arbitrarystring,>= 1)", "===arbitrarystring,>=1"),
+        ],
+    )
+    def test_arbitrary_version_followed_by_spaced_specifier(
+        self, specifier: str, expected: str
+    ) -> None:
+        # In a requirement string a comma separates one specifier from
+        # the next, even directly after an arbitrary equality version,
+        # and whitespace around the following specifier is
+        # insignificant (PEP 508).
+        req = Requirement(f"foo{specifier}")
+        assert str(req.specifier) == expected
+
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
     # ----------------------------------------------------------------------------------
@@ -298,7 +317,12 @@ class TestRequirementParsing:
         to_parse = "demo===x,y"
 
         # WHEN
-        with pytest.raises(InvalidRequirement, match="Invalid specifier: 'y'"):
+        # "y" is not a specifier, so this is invalid either way; the
+        # parser itself now reports it, since a specifier token no
+        # longer swallows the comma that precedes it.
+        with pytest.raises(
+            InvalidRequirement, match=r"Expected comma \(within version specifier\)"
+        ):
             Requirement(to_parse)
 
     def test_error_when_empty_string(self) -> None:

@@ -78,7 +78,12 @@ DEFAULT_RULES: dict[str, re.Pattern[str]] = {
         re.VERBOSE,
     ),
     "SPECIFIER": re.compile(
-        Specifier._specifier_regex_str,
+        # A `Specifier` on its own allows commas within an arbitrary
+        # equality version, but in a requirement string a comma is the
+        # separator between specifiers (PEP 508), so a specifier token
+        # must not consume one. Without this, "===0,>= 0" tokenizes as
+        # a single "===0,>=" specifier and the parse derails.
+        Specifier._specifier_regex_str.replace(r"[^\s;)]+", r"[^\s;),]+"),
         re.VERBOSE | re.IGNORECASE,
     ),
     "AT": re.compile(r"\@"),
