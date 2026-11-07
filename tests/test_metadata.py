@@ -1108,6 +1108,21 @@ class TestMetadata:
         assert meta.license_files == license_files
 
     @pytest.mark.parametrize(
+        "path",
+        ["LICENSE..txt", "licenses.../LICENSE", "licenses/LICENSE..MIT", "..LICENSE"],
+    )
+    def test_license_file_dots_within_component(self, path: str) -> None:
+        meta = metadata.Metadata.from_raw(
+            {
+                "metadata_version": "2.4",
+                "name": "example",
+                "version": "1.0",
+                "license_files": [path],
+            }
+        )
+        assert meta.license_files == [path]
+
+    @pytest.mark.parametrize(
         "license_files",
         [
             # Can't escape out of the project's directory.

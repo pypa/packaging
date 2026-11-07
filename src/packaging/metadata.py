@@ -756,7 +756,7 @@ class _Validator(Generic[T]):
     def _process_license_files(self, value: list[str]) -> list[str]:
         paths = []
         for path in value:
-            if ".." in path:
+            if ".." in pathlib.PurePosixPath(path).parts:
                 raise self._invalid_metadata(
                     f"{path!r} is invalid for {self.raw_name!r}, "
                     "parent directory indicators are not allowed"
