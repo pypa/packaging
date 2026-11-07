@@ -6,7 +6,6 @@ the implementation.
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Sequence
 from typing import Literal, NamedTuple, TypeAlias
 
@@ -374,7 +373,7 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
         token = tokenizer.read()
         try:
             return process_python_str(token.text)
-        except (SyntaxError, ValueError) as exc:
+        except ValueError as exc:
             raise ParserSyntaxError(
                 "Invalid quoted string",
                 source=tokenizer.source,
@@ -393,13 +392,20 @@ def process_env_var(env_var: str) -> Variable:
         return Variable(env_var)
 
 
-def process_python_str(python_str: str) -> Value:
-    # The tokenizer guarantees matching delimiters with no embedded delimiter.
-    if "\\" not in python_str and python_str.isprintable():
-        return Value(python_str[1:-1])
+# The python_str_c punctuation, plus both quotes (the tokenizer already
+# excludes the delimiter). Letters and digits are str.isalpha/str.isdigit.
+_PYTHON_STR_PUNCTUATION = frozenset(" \t().{}-_*#:;,/?[]!~`@$%^&=+|<>'\"")
 
-    value = ast.literal_eval(python_str)
-    return Value(str(value))
+
+def process_python_str(python_str: str) -> Value:
+    value = python_str[1:-1]
+    # Printable ASCII except backslash is exactly the ASCII part of python_str_c.
+    if value.isascii() and value.isprintable() and "\\" not in value:
+        return Value(value)
+    for char in value:
+        if not (char.isalpha() or char.isdigit() or char in _PYTHON_STR_PUNCTUATION):
+            raise ValueError(f"Invalid character {char!r} in quoted string")
+    return Value(value)
 
 
 def _parse_marker_op(tokenizer: Tokenizer) -> Op:
