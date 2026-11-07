@@ -51,7 +51,13 @@ class InvalidName(ValueError):
     """
 
 
-class InvalidWheelFilename(ValueError):
+class InvalidFilename(ValueError):
+    """
+    .
+    """
+
+
+class InvalidWheelFilename(InvalidFilename):
     """
     An invalid wheel filename was found, users should refer to PEP 427.
 
@@ -59,7 +65,7 @@ class InvalidWheelFilename(ValueError):
     """
 
 
-class InvalidSdistFilename(ValueError):
+class InvalidSdistFilename(InvalidFilename):
     """
     An invalid sdist filename was found, users should refer to the packaging user guide.
 
