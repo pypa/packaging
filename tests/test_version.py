@@ -1300,11 +1300,32 @@ def test_from_parts_rejects_non_str_pre_letter() -> None:
     ],
 )
 def test_pickle_roundtrip(version: str) -> None:
-    # Make sure equality and str() work between a pickle/unpickle round trip.
+    # Make sure equality, str(), and the original input survive a pickle round trip.
     v = Version(version)
     loaded = pickle.loads(pickle.dumps(v))
     assert loaded == v
     assert str(loaded) == str(v)
+    assert loaded.raw_version == v.raw_version
+
+
+def test_raw_version_preserves_constructor_input_without_affecting_comparison() -> None:
+    padded = Version("  v1.02.0  ")
+    normalized = Version("1.2")
+
+    assert str(padded) == "1.2.0"
+    assert padded.raw_version == "  v1.02.0  "
+    assert normalized.raw_version == "1.2"
+    assert padded == normalized
+    assert hash(padded) == hash(normalized)
+
+
+def test_raw_version_is_unavailable_for_derived_versions() -> None:
+    original = Version("1.2.0")
+
+    assert Version.from_parts(release=(1, 2, 0)).raw_version is None
+    assert original.__replace__(release=(1, 3)).raw_version is None
+    assert original.__replace__() is original
+    assert original.__replace__().raw_version == "1.2.0"
 
 
 # Pickle bytes generated with packaging==25.0, Python 3.13.1, pickle protocol 2.
@@ -1339,6 +1360,7 @@ def test_pickle_old_format_loads() -> None:
     assert v == Version("1.2.3")
     assert v < Version("2.0")
     assert v > Version("1.2.2")
+    assert v.raw_version is None
 
     v2 = pickle.loads(_PACKAGING_25_0_PICKLE_V2_0A1)
     assert isinstance(v2, Version)
@@ -1382,6 +1404,7 @@ def test_pickle_26_0_slots_format_loads() -> None:
     assert v == Version("1.2.3")
     assert v < Version("2.0")
     assert v > Version("1.2.2")
+    assert v.raw_version is None
 
 
 # Pickle bytes generated with packaging 26.2+ (6-tuple __getstate__ format),
@@ -1402,6 +1425,7 @@ def test_pickle_26_2_tuple_getstate_loads() -> None:
     assert str(v) == "1!2.3.4a5.post6.dev7+zzz"
     assert v == Version("1!2.3.4a5.post6.dev7+zzz")
     assert v.epoch == 1
+    assert v.raw_version is None
     assert v.release == (2, 3, 4)
     assert v.pre == ("a", 5)
     assert v.post == 6
