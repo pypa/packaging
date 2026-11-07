@@ -1287,6 +1287,23 @@ def test_from_parts_rejects_non_str_pre_letter() -> None:
 
 
 @pytest.mark.parametrize(
+    "args",
+    [
+        {"epoch": True, "release": (1,)},
+        {"release": (True, 2)},
+        {"release": (1,), "pre": ("a", True)},
+        {"release": (1,), "post": True},
+        {"release": (1,), "dev": True},
+    ],
+)
+def test_from_parts_rejects_bool_parts(args: dict[str, typing.Any]) -> None:
+    # bool is a subclass of int, but accepting it manufactures versions
+    # whose str() cannot be parsed back, such as "True!1".
+    with pytest.raises(InvalidVersion):
+        Version.from_parts(**args)
+
+
+@pytest.mark.parametrize(
     "version",
     [
         "1.2.3",

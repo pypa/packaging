@@ -257,9 +257,16 @@ _LOCAL_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", re.IGNORECASE | re.
 _SIMPLE_VERSION_INDICATORS = frozenset(".0123456789")
 
 
+def _is_non_negative_int(value: object) -> bool:
+    # `bool` is a subclass of `int`, but True and False are not valid
+    # version parts: accepting them manufactures versions whose str()
+    # cannot be parsed back, such as "True!1".
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
 def _validate_epoch(value: object, /) -> int:
     epoch = value or 0
-    if isinstance(epoch, int) and epoch >= 0:
+    if _is_non_negative_int(epoch):
         return epoch
     msg = f"epoch must be non-negative integer, got {epoch}"
     raise InvalidVersion(msg)
@@ -270,7 +277,7 @@ def _validate_release(value: object, /) -> tuple[int, ...]:
     if (
         isinstance(release, tuple)
         and len(release) > 0
-        and all(isinstance(i, int) and i >= 0 for i in release)
+        and all(_is_non_negative_int(i) for i in release)
     ):
         return release
     msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
@@ -286,8 +293,7 @@ def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | Non
         if (
             isinstance(letter, str)
             and (normalized := normalize_pre(letter)) in {"a", "b", "rc"}
-            and isinstance(number, int)
-            and number >= 0
+            and _is_non_negative_int(number)
         ):
             # type checkers can't infer the Literal type here on letter
             return (normalized, number)  # type: ignore[return-value]
@@ -298,7 +304,7 @@ def _validate_pre(value: object, /) -> tuple[Literal["a", "b", "rc"], int] | Non
 def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
     if value is None:
         return value
-    if isinstance(value, int) and value >= 0:
+    if _is_non_negative_int(value):
         return ("post", value)
     msg = f"post must be non-negative integer, got {value}"
     raise InvalidVersion(msg)
@@ -307,7 +313,7 @@ def _validate_post(value: object, /) -> tuple[Literal["post"], int] | None:
 def _validate_dev(value: object, /) -> tuple[Literal["dev"], int] | None:
     if value is None:
         return value
-    if isinstance(value, int) and value >= 0:
+    if _is_non_negative_int(value):
         return ("dev", value)
     msg = f"dev must be non-negative integer, got {value}"
     raise InvalidVersion(msg)
