@@ -254,8 +254,11 @@ class DirectUrl:
             raise DirectUrlValidationError(
                 "Exactly one of vcs_info, archive_info, dir_info must be present"
             )
-        if direct_url.dir_info is not None:
+        try:
             parsed_url = urllib.parse.urlsplit(direct_url.url)
+        except ValueError as e:
+            raise DirectUrlValidationError(e, context="url") from e
+        if direct_url.dir_info is not None:
             if parsed_url.scheme != "file":
                 raise DirectUrlValidationError(
                     "URL scheme must be file:// when dir_info is present",
@@ -306,4 +309,4 @@ class DirectUrl:
 
         Raises :class:`DirectUrlValidationError` if invalid.
         """
-        self.from_dict(self.to_dict())
+        self.from_dict(self.to_dict(strip_user_password=False))
