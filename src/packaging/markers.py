@@ -4,6 +4,14 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "platform",
+    f"{__spec__.parent}._parser",
+    f"{__spec__.parent}._tokenizer",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.utils",
+}
+
 import functools
 import operator
 import os

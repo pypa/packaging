@@ -19,6 +19,8 @@ exists.
 
 from __future__ import annotations
 
+__lazy_modules__ = {"bisect", f"{__spec__.parent}._ranges"}
+
 import bisect
 import enum
 import typing
