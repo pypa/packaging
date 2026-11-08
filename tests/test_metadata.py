@@ -1150,6 +1150,15 @@ class TestMetadata:
         with pytest.raises(metadata.InvalidMetadata):
             meta.license_files  # noqa: B018
 
+    @pytest.mark.parametrize("path", [r"licenses\..\LICENSE", r"..\x"])
+    def test_license_file_backslash_traversal(self, path: str) -> None:
+        meta = metadata.Metadata.from_raw({"license_files": [path]}, validate=False)
+
+        with pytest.raises(
+            metadata.InvalidMetadata, match="paths must use '/' delimiter"
+        ):
+            meta.license_files  # noqa: B018
+
     @pytest.mark.parametrize("key", ["import_namespaces", "import_names"])
     def test_valid_import_names(self, key: str) -> None:
         import_names = [
