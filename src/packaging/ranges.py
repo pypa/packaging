@@ -20,6 +20,7 @@ exists.
 from __future__ import annotations
 
 import bisect
+import copyreg
 import enum
 import operator
 import typing
@@ -1137,11 +1138,18 @@ class VersionRange:
             "VersionRange.from_bounds() instead"
         )
 
-    def __reduce_ex__(self, protocol: SupportsIndex) -> tuple[object, ...]:
-        # Keep default slot and subclass state handling, but bypass the disabled
-        # public constructor during reconstruction, including for old protocols.
+    def __reduce_ex__(self, protocol: SupportsIndex) -> str | tuple[Any, ...]:
         reduction = super().__reduce_ex__(max(operator.index(protocol), 2))
-        return (_new_version_range, reduction[1], *reduction[2:])
+        # Only bypass our disabled constructor for the default allocation path.
+        # Subclasses can supply their own reduction or constructor arguments.
+        if (
+            isinstance(reduction, tuple)
+            and reduction[0] is copyreg.__newobj__  # type: ignore[attr-defined]
+            and reduction[1] == (type(self),)
+            and type(self).__new__ is VersionRange.__new__
+        ):
+            return (_new_version_range, reduction[1], *reduction[2:])
+        return reduction
 
     @classmethod
     def _build(

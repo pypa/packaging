@@ -2971,3 +2971,106 @@ def test_copy_and_pickle_subclass_state() -> None:
         assert clone.extra == original.extra
         assert clone.extra is not original.extra
         assert clone.owner is clone
+
+
+class CustomReductionRange(VersionRange):
+    def __reduce__(self) -> tuple[object, tuple[()]]:
+        return (type(self).full, ())
+
+
+class ReductionArgsRange(VersionRange):
+    @classmethod
+    def reconstruct(cls, marker: str) -> VersionRange:
+        assert marker == "required argument"
+        return cls.full()
+
+    def __reduce__(self) -> tuple[object, tuple[str]]:
+        return (type(self).reconstruct, ("required argument",))
+
+
+class PositionalNewRange(VersionRange):
+    allocation: str
+
+    def __new__(cls, allocation: str) -> PositionalNewRange:  # noqa: PYI034
+        instance = object.__new__(cls)
+        instance.allocation = allocation
+        return instance
+
+    def __getnewargs__(self) -> tuple[str]:
+        return (self.allocation,)
+
+
+class NoArgsNewRange(VersionRange):
+    constructed: bool
+
+    def __new__(cls) -> NoArgsNewRange:  # noqa: PYI034
+        instance = object.__new__(cls)
+        instance.constructed = True
+        return instance
+
+
+class KeywordNewRange(VersionRange):
+    allocation: str
+
+    def __new__(cls, allocation: str, *, marker: str) -> KeywordNewRange:  # noqa: PYI034
+        assert marker == "keyword argument"
+        instance = object.__new__(cls)
+        instance.allocation = allocation
+        return instance
+
+    def __getnewargs_ex__(self) -> tuple[tuple[str], dict[str, str]]:
+        return (self.allocation,), {"marker": "keyword argument"}
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        CustomReductionRange,
+        ReductionArgsRange,
+        PositionalNewRange,
+        NoArgsNewRange,
+        KeywordNewRange,
+    ],
+)
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(2, pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+def test_copy_and_pickle_preserve_subclass_reconstruction(
+    cls: type[VersionRange], roundtrip: Callable[[VersionRange], VersionRange]
+) -> None:
+    original = cls.full()
+    if isinstance(original, (PositionalNewRange, KeywordNewRange)):
+        original.allocation = "required argument"
+    clone = roundtrip(original)
+    assert type(clone) is cls
+    assert clone == original
+    if isinstance(clone, NoArgsNewRange):
+        assert clone.constructed
+    if isinstance(clone, (PositionalNewRange, KeywordNewRange)):
+        assert clone.allocation == "required argument"
+
+
+class StringReductionRange(VersionRange):
+    def __reduce__(self) -> str:
+        return "string_reduction_range"
+
+
+string_reduction_range = StringReductionRange.full()
+
+
+def test_copy_and_pickle_preserve_string_reduction() -> None:
+    assert copy(string_reduction_range) is string_reduction_range
+    assert deepcopy(string_reduction_range) is string_reduction_range
+    for protocol in range(2, pickle.HIGHEST_PROTOCOL + 1):
+        assert (
+            pickle.loads(pickle.dumps(string_reduction_range, protocol))
+            is string_reduction_range
+        )
