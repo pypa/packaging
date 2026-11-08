@@ -143,37 +143,37 @@ class _BaseVersion:
     # Please keep the duplicated `isinstance` check
     # in the six comparisons hereunder
     # unless you find a way to avoid adding overhead function calls.
-    def __lt__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __lt__(self, other: _BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key < other._key
 
-    def __le__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __le__(self, other: _BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key <= other._key
 
-    def __eq__(self, other: object) -> typing.TypeGuard[int]:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key == other._key
 
-    def __ge__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __ge__(self, other: _BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key >= other._key
 
-    def __gt__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __gt__(self, other: _BaseVersion) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
         return self._key > other._key
 
-    def __ne__(self, other: object) -> typing.TypeGuard[int]:
+    def __ne__(self, other: object) -> bool:
         if not isinstance(other, _BaseVersion):
             return NotImplemented
 
@@ -613,7 +613,7 @@ class Version(_BaseVersion):
 
     # Override comparison methods to use direct _key_cache access
     # This is faster than property access, especially before Python 3.12
-    def __lt__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __lt__(self, other: _BaseVersion) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -640,7 +640,7 @@ class Version(_BaseVersion):
 
         return super().__lt__(other)
 
-    def __le__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __le__(self, other: _BaseVersion) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -667,7 +667,7 @@ class Version(_BaseVersion):
 
         return super().__le__(other)
 
-    def __eq__(self, other: object) -> typing.TypeGuard[int]:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -694,7 +694,7 @@ class Version(_BaseVersion):
 
         return super().__eq__(other)
 
-    def __ge__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __ge__(self, other: _BaseVersion) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -721,7 +721,7 @@ class Version(_BaseVersion):
 
         return super().__ge__(other)
 
-    def __gt__(self, other: _BaseVersion) -> typing.TypeGuard[int]:
+    def __gt__(self, other: _BaseVersion) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -748,7 +748,7 @@ class Version(_BaseVersion):
 
         return super().__gt__(other)
 
-    def __ne__(self, other: object) -> typing.TypeGuard[int]:
+    def __ne__(self, other: object) -> bool:
         if isinstance(other, Version):
             if self._key_cache is None:
                 self._key_cache = _cmpkey(
@@ -1021,7 +1021,7 @@ class Version(_BaseVersion):
         return f"{self.epoch}!{release_segment}" if self.epoch else release_segment
 
     @property
-    def is_prerelease(self) -> typing.TypeGuard[int]:
+    def is_prerelease(self) -> bool:
         """Whether this version is a pre-release.
 
         >>> Version("1.2.3").is_prerelease
@@ -1038,7 +1038,7 @@ class Version(_BaseVersion):
         return self.dev is not None or self.pre is not None
 
     @property
-    def is_postrelease(self) -> typing.TypeGuard[int]:
+    def is_postrelease(self) -> bool:
         """Whether this version is a post-release.
 
         >>> Version("1.2.3").is_postrelease
@@ -1049,7 +1049,7 @@ class Version(_BaseVersion):
         return self.post is not None
 
     @property
-    def is_devrelease(self) -> typing.TypeGuard[int]:
+    def is_devrelease(self) -> bool:
         """Whether this version is a development release.
 
         >>> Version("1.2.3").is_devrelease
