@@ -18,6 +18,7 @@ __all__ = [
     "NormalizedName",
     "canonicalize_name",
     "canonicalize_version",
+    "escape_name",
     "is_normalized_name",
     "parse_sdist_filename",
     "parse_wheel_filename",
@@ -122,6 +123,30 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     while "--" in value:
         value = value.replace("--", "-")
     return cast("NormalizedName", value)
+
+
+def escape_name(name: str) -> NormalizedName:
+    """
+    This function takes a valid Python package name, and returns the name as it
+    is escaped in wheel and source distribution filenames.
+
+    The name is normalized with :func:`canonicalize_name`, then every ``-`` is
+    replaced by ``_``, as required by the :ref:`wheel specification
+    <pypug:binary-distribution-format>`.
+
+    >>> from packaging.utils import escape_name
+    >>> escape_name("Django")
+    'django'
+    >>> escape_name("oslo.concurrency")
+    'oslo_concurrency'
+    >>> escape_name("zope.interface")
+    'zope_interface'
+
+    :param str name: The name to escape.
+
+    .. versionadded:: 26.4
+    """
+    return cast("NormalizedName", canonicalize_name(name).replace("-", "_"))
 
 
 def is_normalized_name(name: str) -> bool:

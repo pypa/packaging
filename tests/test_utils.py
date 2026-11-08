@@ -13,6 +13,7 @@ from packaging.utils import (
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
+    escape_name,
     is_normalized_name,
     parse_sdist_filename,
     parse_wheel_filename,
@@ -78,6 +79,36 @@ def test_is_normalized_name(name: str, expected: str) -> None:
     assert is_normalized_name(expected)
     if name != expected:
         assert not is_normalized_name(name)
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("fOo", "foo"),
+        ("foo.bar", "foo_bar"),
+        ("Foo.Bar", "foo_bar"),
+        ("Foo.....Bar", "foo_bar"),
+        ("foo_bar", "foo_bar"),
+        ("foo___bar", "foo_bar"),
+        ("foo-bar", "foo_bar"),
+        ("foo----bar", "foo_bar"),
+        ("zope.interface", "zope_interface"),
+    ],
+)
+def test_escape_name(name: str, expected: str) -> None:
+    assert escape_name(name) == expected
+
+
+@pytest.mark.parametrize(
+    "name", ["foo", "Foo.Bar", "oslo.concurrency", "zope.interface"]
+)
+def test_escape_name_roundtrips_through_wheel_filename(name: str) -> None:
+    wheel_name, _, _, _ = parse_wheel_filename(
+        f"{escape_name(name)}-1.0-py3-none-any.whl"
+    )
+    assert wheel_name == canonicalize_name(name)
 
 
 @pytest.mark.parametrize(
