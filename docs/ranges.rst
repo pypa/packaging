@@ -397,6 +397,14 @@ not remember it:
     >>> d == f & ~SpecifierSet(">=1.0").to_range()
     True
 
+Copying and pickling
+--------------------
+
+Version ranges support :func:`copy.copy`, :func:`copy.deepcopy`,
+and :mod:`pickle` protocols 2 and later.
+Copies preserve the bounds, literal admissions and rejections,
+and pre-release policy, including its opt-in region.
+
 Reference
 ---------
 

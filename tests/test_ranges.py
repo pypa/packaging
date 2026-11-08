@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import operator
+import pickle
+from copy import copy, deepcopy
 from typing import TYPE_CHECKING
 
 import pytest
@@ -2908,3 +2910,64 @@ class TestFromBounds:
         assert VersionRange.from_bounds("0.dev0") == VersionRange.full(
             admit_arbitrary=False
         )
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(2, pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+@pytest.mark.parametrize("prereleases", [None, False, True])
+@pytest.mark.parametrize(
+    "spec", ["", ">=2,<1", ">=1,<2", "===wat", "===1.0a1", ">=2.0b1,<3"]
+)
+@pytest.mark.parametrize("complement", [False, True])
+def test_copy_and_pickle_preserve_state(
+    roundtrip: Callable[[VersionRange], VersionRange],
+    prereleases: bool | None,
+    spec: str,
+    complement: bool,
+) -> None:
+    original = vr(spec, prereleases)
+    if complement:
+        original = ~original
+    clone = roundtrip(original)
+    assert clone is not original
+    assert clone == original
+    assert hash(clone) == hash(original)
+    candidates = ["wat", "1.0a1", "1.0", "1.5b1", "1.5", "2.0b1", "2.5", "3.0"]
+    assert [clone.contains(v) for v in candidates] == [
+        original.contains(v) for v in candidates
+    ]
+    assert list(clone.filter(candidates)) == list(original.filter(candidates))
+    assert (clone | original) == (original | original)
+    assert (clone & original) == (original & original)
+    assert ~clone == ~original
+
+
+class DerivedRange(VersionRange):
+    extra: list[int]
+    owner: VersionRange
+
+
+def test_copy_and_pickle_subclass_state() -> None:
+    original = DerivedRange.from_bounds("1", "2")
+    assert isinstance(original, DerivedRange)
+    original.extra = [1]
+    original.owner = original
+    shallow = copy(original)
+    assert type(shallow) is DerivedRange
+    assert shallow.extra is original.extra
+    assert shallow.owner is original
+    for clone in [deepcopy(original), pickle.loads(pickle.dumps(original))]:
+        assert isinstance(clone, DerivedRange)
+        assert clone == original
+        assert clone.extra == original.extra
+        assert clone.extra is not original.extra
+        assert clone.owner is clone

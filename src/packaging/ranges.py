@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import bisect
 import enum
+import operator
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -51,6 +52,7 @@ from .version import Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
+    from typing import SupportsIndex
 
     from ._ranges import Interval
     from .specifiers import SpecifierSet
@@ -1134,6 +1136,12 @@ class VersionRange:
             "VersionRange.empty(), VersionRange.singleton(), or "
             "VersionRange.from_bounds() instead"
         )
+
+    def __reduce_ex__(self, protocol: SupportsIndex) -> tuple[object, ...]:
+        # Keep default slot and subclass state handling, but bypass the disabled
+        # public constructor during reconstruction, including for old protocols.
+        reduction = super().__reduce_ex__(max(operator.index(protocol), 2))
+        return (_new_version_range, reduction[1], *reduction[2:])
 
     @classmethod
     def _build(
@@ -2323,3 +2331,7 @@ class VersionRange:
             tail += f" pre-region={_format_intervals(self._pre_region)!r}"
 
         return f"<{self.__class__.__name__} {body!r}{tail}>"
+
+
+def _new_version_range(cls: type[VersionRange]) -> VersionRange:
+    return object.__new__(cls)
