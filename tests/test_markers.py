@@ -621,6 +621,17 @@ class TestMarker:
         assert Marker(expression.format(variable)).evaluate(environment) == result
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    @pytest.mark.parametrize("op", ["in", "not in"])
+    @pytest.mark.parametrize("value", ["", "doc", "docs"])
+    def test_set_valued_marker_rejects_string(
+        self, variable: str, op: str, value: str
+    ) -> None:
+        marker = Marker(f'"doc" {op} {variable}')
+
+        with pytest.raises(UndefinedComparison, match="must be a set"):
+            marker.evaluate({variable: value}, context="lock_file")
+
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     def test_extras_and_dependency_groups_disallowed(self, variable: str) -> None:
         marker = Marker(f'"foo" in {variable}')
         assert not marker.evaluate(context="lock_file")

@@ -269,8 +269,8 @@ def _normalize(
         # Both sides are normalized at this point already
         return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
-        if isinstance(rhs, str):  # pragma: no cover
-            return (canonicalize_name(lhs), canonicalize_name(rhs))
+        if isinstance(rhs, str):
+            raise UndefinedComparison(f"Marker {key!r} must be a set, not {rhs!r}.")
         else:
             return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
 
