@@ -50,6 +50,7 @@ __all__ = [
     "SourceDistributionFilename",
     "UnsortedWheelTags",
     "WheelFilename",
+    "ZipSdistFilename",
 ]
 
 
@@ -93,6 +94,14 @@ class NonNormalizedBuildTag(InvalidWheelFilename):
 class NonNormalizedTags(InvalidWheelFilename):
     """
     The tags in a wheel filename are valid, but not normalized.
+
+    .. versionadded:: 26.4
+    """
+
+
+class ZipSdistFilename(InvalidSdistFilename):
+    """
+    The sdist filename uses the legacy ``.zip`` extension, not ``.tar.gz``.
 
     .. versionadded:: 26.4
     """
@@ -707,7 +716,7 @@ class SourceDistributionFilename:
         collector = _ErrorCollector()
         if ext != ".tar.gz":
             msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
-            collector.error(InvalidSdistFilename(msg))
+            collector.error(ZipSdistFilename(msg))
         if _normalized_wheel_name_regex.fullmatch(name_part) is None:
             # A valid name that fails the fast check is not normalized.
             if _validate_regex.fullmatch(name_part) is None:

@@ -25,6 +25,7 @@ from packaging.filenames import (
     SourceDistributionFilename,
     UnsortedWheelTags,
     WheelFilename,
+    ZipSdistFilename,
 )
 from packaging.tags import Tag
 from packaging.utils import canonicalize_name
@@ -82,7 +83,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         (
             "foo-1.0.zip",  # Legacy extension
             "Invalid sdist filename (extension must be '.tar.gz')",
-            InvalidSdistFilename,
+            ZipSdistFilename,
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
@@ -156,7 +157,7 @@ def test_validate_sdist_filename_zip_is_grouped() -> None:
         SourceDistributionFilename.from_filename("Foo-01.0.zip").validate()
 
     assert [type(error) for error in e.value.exceptions] == [
-        InvalidSdistFilename,
+        ZipSdistFilename,
         NonNormalizedName,
         NonNormalizedVersion,
     ]
@@ -165,6 +166,7 @@ def test_validate_sdist_filename_zip_is_grouped() -> None:
 def test_sdist_from_filename_invalid_extension() -> None:
     with pytest.raises(InvalidSdistFilename) as e:
         SourceDistributionFilename.from_filename("foo-1.0.tgz")
+    assert type(e.value) is InvalidSdistFilename
     assert str(e.value) == (
         "Invalid sdist filename (extension must be '.tar.gz' or '.zip'): 'foo-1.0.tgz'"
     )

@@ -29,8 +29,9 @@ classes are:
   normalized.
 * :class:`~packaging.filenames.NonNormalizedVersion`: the version is valid,
   but not normalized.
-* :class:`~packaging.filenames.InvalidSdistFilename` (sdist only): the
-  extension is ``.zip``, not ``.tar.gz``.
+* :class:`~packaging.filenames.ZipSdistFilename` (sdist only): the
+  extension is ``.zip``, not ``.tar.gz``. Ignore it to accept legacy ``.zip``
+  sdists, like :func:`~packaging.utils.parse_sdist_filename` does.
 * :class:`~packaging.filenames.NonNormalizedBuildTag` (wheel only): the build
   tag is valid, but not normalized.
 * :class:`~packaging.filenames.UnsortedWheelTags` (wheel only): the parts of
