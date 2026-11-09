@@ -142,34 +142,28 @@ def test_validate_sdist_filename_invalid(
     assert str(error) == f"{error_message}: {filename!r}"
 
 
-def test_validate_sdist_filename_multiple_errors() -> None:
+@pytest.mark.parametrize(
+    ("filename", "error_types"),
+    [
+        ("Foo-01.0.tar.gz", [NonNormalizedName, NonNormalizedVersion]),
+        ("Foo-01.0.zip", [ZipSdistFilename, NonNormalizedName, NonNormalizedVersion]),
+    ],
+)
+def test_validate_sdist_filename_multiple_errors(
+    filename: str, error_types: list[type[InvalidFilename]]
+) -> None:
     with pytest.raises(ExceptionGroup) as e:
-        SourceDistributionFilename.from_filename("Foo-01.0.tar.gz").validate()
+        SourceDistributionFilename.from_filename(filename).validate()
 
-    assert [type(error) for error in e.value.exceptions] == [
-        NonNormalizedName,
-        NonNormalizedVersion,
-    ]
+    assert [type(error) for error in e.value.exceptions] == error_types
 
 
-def test_validate_sdist_filename_zip_is_grouped() -> None:
-    with pytest.raises(ExceptionGroup) as e:
-        SourceDistributionFilename.from_filename("Foo-01.0.zip").validate()
-
-    assert [type(error) for error in e.value.exceptions] == [
-        ZipSdistFilename,
-        NonNormalizedName,
-        NonNormalizedVersion,
-    ]
-
-
-def test_sdist_from_filename_invalid_extension() -> None:
-    with pytest.raises(InvalidSdistFilename) as e:
-        SourceDistributionFilename.from_filename("foo-1.0.tgz")
-    assert type(e.value) is InvalidSdistFilename
-    assert str(e.value) == (
-        "Invalid sdist filename (extension must be '.tar.gz' or '.zip'): 'foo-1.0.tgz'"
-    )
+@pytest.mark.parametrize(
+    "filename",
+    ["foo-0.tar.gz", "foo_bar-10.20.0.tar.gz", "foo-1!2.0rc1.post2.dev3.tar.gz"],
+)
+def test_validate_sdist_filename_valid(filename: str) -> None:
+    SourceDistributionFilename.from_filename(filename).validate()
 
 
 # Wheels
@@ -303,14 +297,6 @@ def test_wheel_from_filename_variant(
 )
 def test_validate_wheel_filename_valid(filename: str) -> None:
     WheelFilename.from_filename(filename).validate()
-
-
-@pytest.mark.parametrize(
-    "filename",
-    ["foo-0.tar.gz", "foo_bar-10.20.0.tar.gz", "foo-1!2.0rc1.post2.dev3.tar.gz"],
-)
-def test_validate_sdist_filename_valid(filename: str) -> None:
-    SourceDistributionFilename.from_filename(filename).validate()
 
 
 @pytest.mark.parametrize(

@@ -356,39 +356,6 @@ def _parse_wheel_filename(
     return normalized_name, version, build_tag, tags, variant, issues
 
 
-def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
-    """Parse a sdist filename, accepting legacy names and versions."""
-    # PEP 625: Source distributions must end with .tar.gz. Parsing also
-    # accepts .zip for backward compatibility.
-    if filename.endswith(".tar.gz"):
-        file_stem = filename[: -len(".tar.gz")]
-    elif filename.endswith(".zip"):
-        file_stem = filename[: -len(".zip")]
-    else:
-        inner = "extension must be '.tar.gz' or '.zip'"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg)
-
-    # PEP 625: Source distributions may only have one hyphen, separating
-    # the name and version. Validation rejects extra hyphens via the
-    # normalized name check.
-    name_part, sep, version_part = file_stem.rpartition("-")
-    if not sep:
-        inner = "hyphen must separate name and version parts"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg)
-    if not name_part:
-        msg = f"Invalid sdist filename (empty project name): {filename!r}"
-        raise InvalidSdistFilename(msg)
-    try:
-        version = Version(version_part)
-    except InvalidVersion as e:
-        inner = f"invalid version {version_part!r}"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg) from e
-    return canonicalize_name(name_part), version
-
-
 def parse_wheel_filename(
     filename: str,
     *,
@@ -486,4 +453,32 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    return _parse_sdist_filename(filename)
+    # PEP 625: Source distributions must end with .tar.gz. Parsing also
+    # accepts .zip for backward compatibility.
+    if filename.endswith(".tar.gz"):
+        file_stem = filename[: -len(".tar.gz")]
+    elif filename.endswith(".zip"):
+        file_stem = filename[: -len(".zip")]
+    else:
+        inner = "extension must be '.tar.gz' or '.zip'"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
+
+    # PEP 625: Source distributions may only have one hyphen, separating
+    # the name and version. Validation rejects extra hyphens via the
+    # normalized name check.
+    name_part, sep, version_part = file_stem.rpartition("-")
+    if not sep:
+        inner = "hyphen must separate name and version parts"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
+    if not name_part:
+        msg = f"Invalid sdist filename (empty project name): {filename!r}"
+        raise InvalidSdistFilename(msg)
+    try:
+        version = Version(version_part)
+    except InvalidVersion as e:
+        inner = f"invalid version {version_part!r}"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg) from e
+    return canonicalize_name(name_part), version
