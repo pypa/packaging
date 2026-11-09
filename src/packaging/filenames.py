@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
 
 from .errors import _ErrorCollector
+from .tags import InvalidTag, parse_tag
 from .utils import (
     _ISSUE_BUILD,
     _ISSUE_NAME,
@@ -113,8 +114,8 @@ class _SdistReplace(TypedDict, total=False):
 
 
 class _WheelReplace(_SdistReplace, total=False):
-    build_tag: BuildTag
-    tags: Iterable[Tag]
+    build_tag: BuildTag | str
+    tags: Iterable[Tag] | str
     variant: str | None
 
 
@@ -169,20 +170,22 @@ class WheelFilename:
         self,
         name: str,
         version: Version | str,
-        tags: Iterable[Tag],
+        tags: Iterable[Tag] | str,
         *,
-        build_tag: BuildTag = (),
+        build_tag: BuildTag | str = (),
         variant: str | None = None,
     ) -> None:
         """Create a wheel filename from its component parts.
 
         :param name: The project name. It is stored in normalized form.
         :param version: The version.
-        :param tags: The wheel tag set. It must not be empty, and it must
+        :param tags: The wheel tag set, or a compressed tag string like
+            ``"py2.py3-none-any"``. It must not be empty, and it must
             contain every combination of its interpreters, ABIs, and platforms.
             Each tag must be valid in a filename (see
             :func:`~packaging.tags.parse_tag`).
-        :param build_tag: Optional wheel build tag.
+        :param build_tag: Optional wheel build tag, as a tuple or as a string
+            like ``"1abc"``.
         :param variant: The variant label (see :pep:`825`), or ``None``.
         :raises InvalidWheelFilename: If the name, version, tag set, build tag,
             or variant label is not valid.
@@ -212,8 +215,14 @@ class WheelFilename:
                 raise InvalidWheelFilename(msg) from e
         if "build_tag" in kwargs:
             build_tag = kwargs["build_tag"]
+            if isinstance(build_tag, str):
+                parsed = _parse_build_tag(build_tag)
+                if build_tag and not parsed:
+                    msg = f"Invalid wheel filename (invalid build tag {build_tag!r})"
+                    raise InvalidWheelFilename(msg)
+                build_tag = parsed
             # The build tag must round-trip through the filename string.
-            if build_tag and (
+            elif build_tag and (
                 type(build_tag[0]) is not int
                 or _parse_build_tag("".join(map(str, build_tag))) != build_tag
             ):
@@ -221,7 +230,14 @@ class WheelFilename:
                 raise InvalidWheelFilename(msg)
             self._build_tag = build_tag
         if "tags" in kwargs:
-            tags = frozenset(kwargs["tags"])
+            new_tags = kwargs["tags"]
+            if isinstance(new_tags, str):
+                try:
+                    new_tags = parse_tag(new_tags)
+                except InvalidTag:
+                    msg = f"Invalid wheel filename (invalid tag {new_tags!r})"
+                    raise InvalidWheelFilename(msg) from None
+            tags = frozenset(new_tags)
             # Each tag must parse back to itself, so the filename round-trips.
             # These are the rules of parse_tag for one tag.
             for tag in tags:
@@ -339,6 +355,33 @@ class WheelFilename:
         'Foo-1.0-py3-none-any.whl'
         """
         return self._filename
+
+    @property
+    def original_name(self) -> str | None:
+        """The name as written in :attr:`original_filename`, or ``None``.
+
+        Use this with :attr:`original_version` to find the ``.dist-info``
+        directory, or to keep the original spelling when you rename a wheel.
+
+        >>> from packaging.filenames import WheelFilename
+        >>> WheelFilename.from_filename("Foo.Bar-1.0-py3-none-any.whl").original_name
+        'Foo.Bar'
+        """
+        if self._filename is None:
+            return None
+        return _split_wheel_filename(self._filename)[0]
+
+    @property
+    def original_version(self) -> str | None:
+        """The version as written in :attr:`original_filename`, or ``None``.
+
+        >>> from packaging.filenames import WheelFilename
+        >>> WheelFilename.from_filename("foo-01.0-py3-none-any.whl").original_version
+        '01.0'
+        """
+        if self._filename is None:
+            return None
+        return _split_wheel_filename(self._filename)[1]
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, WheelFilename):
@@ -610,6 +653,37 @@ class SourceDistributionFilename:
         """
         return self._filename
 
+    def _original_parts(self) -> tuple[str, str] | None:
+        filename = self._filename
+        if filename is None:
+            return None
+        ext = ".tar.gz" if filename.endswith(".tar.gz") else ".zip"
+        name_part, _, version_part = filename[: -len(ext)].rpartition("-")
+        return name_part, version_part
+
+    @property
+    def original_name(self) -> str | None:
+        """The name as written in :attr:`original_filename`, or ``None``.
+
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> SourceDistributionFilename.from_filename("Foo-1.0.tar.gz").original_name
+        'Foo'
+        """
+        parts = self._original_parts()
+        return None if parts is None else parts[0]
+
+    @property
+    def original_version(self) -> str | None:
+        """The version as written in :attr:`original_filename`, or ``None``.
+
+        >>> from packaging.filenames import SourceDistributionFilename
+        >>> fn = SourceDistributionFilename.from_filename("foo-01.0.tar.gz")
+        >>> fn.original_version
+        '01.0'
+        """
+        parts = self._original_parts()
+        return None if parts is None else parts[1]
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SourceDistributionFilename):
             return NotImplemented
@@ -709,14 +783,13 @@ class SourceDistributionFilename:
         >>> SourceDistributionFilename.from_filename("foo-1.0.tar.gz").validate()
         """
         filename = self._filename
-        if filename is None:
+        parts = self._original_parts()
+        if filename is None or parts is None:
             return
-        ext = ".tar.gz" if filename.endswith(".tar.gz") else ".zip"
-        stem = filename[: -len(ext)]
-        name_part, _, version_part = stem.rpartition("-")
+        name_part, version_part = parts
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
-        if ext != ".tar.gz":
+        if not filename.endswith(".tar.gz"):
             msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
             collector.error(ZipSdistFilename(msg))
         if _normalized_wheel_name_regex.fullmatch(name_part) is None:

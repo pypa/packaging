@@ -799,3 +799,46 @@ def test_sdist_setstate_invalid_filename() -> None:
 def test_import_order(module: str) -> None:
     code = f"import packaging.{module}; import packaging.filenames, packaging.utils"
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_original_name_and_version() -> None:
+    wf = WheelFilename.from_filename("Foo.Bar-01.0-1-py3-none-any.whl")
+    assert wf.original_name == "Foo.Bar"
+    assert wf.original_version == "01.0"
+    assert pickle.loads(pickle.dumps(wf)).original_name == "Foo.Bar"
+    assert wf.__replace__().original_name is None
+    assert wf.__replace__().original_version is None
+
+    fn = SourceDistributionFilename.from_filename("Foo-Bar-01.0.zip")
+    assert fn.original_name == "Foo-Bar"
+    assert fn.original_version == "01.0"
+    assert fn.__replace__().original_name is None
+    assert fn.__replace__().original_version is None
+
+
+@pytest.mark.parametrize(
+    ("build", "expected"),
+    [("", ()), ("1", (1, "")), ("01", (1, "")), ("2b", (2, "b")), ("3.4", (3, ".4"))],
+)
+def test_wheel_build_tag_str(build: str, expected: BuildTag) -> None:
+    tags = {Tag("py3", "none", "any")}
+    assert WheelFilename("foo", "1.0", tags, build_tag=build).build_tag == expected
+    wf = WheelFilename("foo", "1.0", tags)
+    assert wf.__replace__(build_tag=build).build_tag == expected
+
+
+@pytest.mark.parametrize("build", ["x", "1-2", "1 "])
+def test_wheel_build_tag_str_invalid(build: str) -> None:
+    with pytest.raises(InvalidWheelFilename, match="invalid build tag"):
+        WheelFilename("foo", "1.0", {Tag("py3", "none", "any")}, build_tag=build)
+
+
+def test_wheel_tags_str() -> None:
+    wf = WheelFilename("foo", "1.0", "py3.py2-none-any")
+    assert wf.tags == {Tag("py2", "none", "any"), Tag("py3", "none", "any")}
+    assert wf.to_filename() == "foo-1.0-py2.py3-none-any.whl"
+    assert wf.__replace__(tags="cp313-cp313-linux_x86_64").tags == {
+        Tag("cp313", "cp313", "linux_x86_64")
+    }
+    with pytest.raises(InvalidWheelFilename, match="invalid tag 'py3-none'"):
+        WheelFilename("foo", "1.0", "py3-none")

@@ -58,6 +58,32 @@ problems:
 On Python 3.10, catch the :class:`~packaging.errors.ExceptionGroup` backport
 and process it directly (see :doc:`errors`).
 
+The classes shared by sdists and wheels
+(:class:`~packaging.filenames.InvalidProjectName`,
+:class:`~packaging.filenames.NonNormalizedName`, and
+:class:`~packaging.filenames.NonNormalizedVersion`) are subclasses of
+:class:`~packaging.filenames.InvalidFilename` only. They are not subclasses of
+:class:`~packaging.filenames.InvalidSdistFilename` or
+:class:`~packaging.filenames.InvalidWheelFilename`. To match every problem, use
+``except* InvalidFilename``.
+
+``.from_filename`` raises one exception, and ``.validate()`` raises a group.
+Python does not allow ``except`` and ``except*`` on the same ``try``, so a
+strict parser needs two ``try`` statements:
+
+.. code-block:: python
+
+    from packaging.filenames import InvalidFilename, WheelFilename
+
+    try:
+        wheel = WheelFilename.from_filename(filename)
+    except InvalidFilename as error:
+        raise MyError(f"Cannot parse {filename}") from error
+    try:
+        wheel.validate()
+    except* InvalidFilename as group:
+        raise MyError(f"Not normalized: {filename}") from group
+
 Using filenames
 ---------------
 
@@ -71,6 +97,27 @@ Filenames have the following properties:
 * ``variant`` (wheel only): The variant label, or ``None``.
 * ``original_filename``: The filename given to ``.from_filename``, or ``None``
   if the filename was constructed directly or with ``__replace__``.
+* ``original_name`` and ``original_version``: The name and version as written
+  in ``original_filename``, or ``None``.
+
+The constructor and ``__replace__`` also accept strings for ``tags`` (a
+compressed tag string like ``"py2.py3-none-any"``) and ``build_tag`` (like
+``"1abc"``).
+
+The string form always has the normalized name and version. The
+``.dist-info`` directory in a wheel has the same name and version as the wheel
+filename. A tool that renames a wheel must not change the name or version
+unless it also renames that directory. To change only the tags, build the new
+filename from the original parts:
+
+.. doctest::
+
+    >>> from packaging.filenames import WheelFilename
+    >>> old = WheelFilename.from_filename("Foo.Bar-1.0-1-py3-none-any.whl")
+    >>> new = old.__replace__(tags="py2.py3-none-any")
+    >>> parts = [old.original_name, old.original_version, new.build_str]
+    >>> "-".join([*filter(None, parts), new.compressed_tags]) + ".whl"
+    'Foo.Bar-1.0-1-py2.py3-none-any.whl'
 
 There are also a few helper properties for wheels:
 
@@ -96,7 +143,15 @@ Converting from older utils
 ---------------------------
 
 The older :func:`packaging.utils.parse_wheel_filename` does not support
-variant labels (:pep:`825`). To support them, replace the old form:
+variant labels (:pep:`825`).
+
+.. warning::
+
+    :func:`~packaging.utils.parse_wheel_filename` rejects variant wheels, and
+    ``WheelFilename.from_filename`` accepts them. If your code cannot process
+    variant wheels, check that ``.variant`` is ``None`` after you parse.
+
+To support variant labels, replace the old form:
 
 .. doctest::
 
