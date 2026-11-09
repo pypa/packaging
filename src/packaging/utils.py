@@ -125,7 +125,7 @@ def canonicalize_name(name: str, *, validate: bool = False) -> NormalizedName:
     return cast("NormalizedName", value)
 
 
-def escape_name(name: str) -> NormalizedName:
+def escape_name(name: str) -> str:
     """
     This function takes a valid Python package name, and returns the name as it
     is escaped in wheel and source distribution filenames.
@@ -146,7 +146,7 @@ def escape_name(name: str) -> NormalizedName:
 
     .. versionadded:: 26.4
     """
-    return cast("NormalizedName", canonicalize_name(name).replace("-", "_"))
+    return canonicalize_name(name).replace("-", "_")
 
 
 def is_normalized_name(name: str) -> bool:
