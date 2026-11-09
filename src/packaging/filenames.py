@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from .errors import _ErrorCollector
 from .utils import (
@@ -142,101 +142,7 @@ def _compress_tags(tags: frozenset[Tag]) -> str:
     return "-".join((".".join(interpreters), ".".join(abis), ".".join(platforms)))
 
 
-class _Filename:
-    """The parts that wheel and sdist filenames share."""
-
-    __slots__ = ("_filename", "_name", "_version")
-    # Every slot of the class, for copies.
-    _slots: ClassVar[tuple[str, ...]] = __slots__
-    _kind: ClassVar[str]
-    _error: ClassVar[type[InvalidFilename]]
-
-    _filename: str | None
-    _name: NormalizedName
-    _version: Version
-
-    if TYPE_CHECKING:
-
-        def to_filename(self) -> str: ...
-
-        @classmethod
-        def from_filename(cls, filename: str, /) -> Self: ...
-
-    def _set_name_version(self, kwargs: _SdistReplace) -> None:
-        if "name" in kwargs:
-            name = kwargs["name"]
-            try:
-                self._name = canonicalize_name(name, validate=True)
-            except InvalidName:
-                msg = f"Invalid {self._kind} filename (invalid project name {name!r})"
-                raise self._error(msg) from None
-        if "version" in kwargs:
-            version = kwargs["version"]
-            try:
-                self._version = (
-                    version if isinstance(version, Version) else Version(version)
-                )
-            except InvalidVersion as e:
-                msg = f"Invalid {self._kind} filename (invalid version {version!r})"
-                raise self._error(msg) from e
-
-    def _unparsed_copy(self) -> Self:
-        new = type(self).__new__(type(self))
-        for attr in self._slots:
-            setattr(new, attr, getattr(self, attr))
-        new._filename = None
-        return new
-
-    def _check_name(self, collector: _ErrorCollector, name: str, filename: str) -> None:
-        # The caller has found that the name is not in the normalized form.
-        if _validate_regex.fullmatch(name) is None:
-            inner = f"invalid project name {name!r}"
-            msg = f"Invalid {self._kind} filename ({inner}): {filename!r}"
-            collector.error(InvalidProjectName(msg))
-        else:
-            inner = f"non-normalized project name {name!r}"
-            msg = f"Invalid {self._kind} filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedName(msg))
-
-    def _check_version(
-        self, collector: _ErrorCollector, version_part: str, filename: str
-    ) -> None:
-        if not _is_normalized_version(version_part, self._version):
-            inner = f"non-normalized version {version_part!r}"
-            msg = f"Invalid {self._kind} filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedVersion(msg))
-
-    @property
-    def name(self) -> NormalizedName:
-        """The normalized project name."""
-        return self._name
-
-    @property
-    def version(self) -> Version:
-        """The parsed project version."""
-        return self._version
-
-    def __getstate__(self) -> str:
-        return self._filename or self.to_filename()
-
-    def __setstate__(self, state: object) -> None:
-        if not isinstance(state, str):
-            raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
-        other = type(self).from_filename(state)
-        for attr in self._slots:
-            setattr(self, attr, getattr(other, attr))
-
-    def __copy__(self) -> Self:
-        return self
-
-    def __deepcopy__(self, memo: dict[int, object]) -> Self:
-        return self
-
-    def __str__(self) -> str:
-        return self.to_filename()
-
-
-class WheelFilename(_Filename):
+class WheelFilename:
     """Represents a wheel filename and its parsed components.
 
     Instances are immutable and hashable. Two instances are equal if their
@@ -248,10 +154,15 @@ class WheelFilename(_Filename):
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_build_tag", "_issues", "_tags", "_variant")
-    _slots = (*_Filename.__slots__, *__slots__)
-    _kind = "wheel"
-    _error = InvalidWheelFilename
+    __slots__ = (
+        "_build_tag",
+        "_filename",
+        "_issues",
+        "_name",
+        "_tags",
+        "_variant",
+        "_version",
+    )
     __match_args__ = ("name", "version", "tags")
 
     def __init__(
@@ -276,14 +187,29 @@ class WheelFilename(_Filename):
         :raises InvalidWheelFilename: If the name, version, tag set, build tag,
             or variant label is not valid.
         """
-        self._filename = None
+        self._filename: str | None = None
         self._issues = 0
         self._set(
             name=name, version=version, tags=tags, build_tag=build_tag, variant=variant
         )
 
     def _set(self, **kwargs: Unpack[_WheelReplace]) -> None:
-        self._set_name_version(kwargs)
+        if "name" in kwargs:
+            name = kwargs["name"]
+            try:
+                self._name = canonicalize_name(name, validate=True)
+            except InvalidName:
+                msg = f"Invalid wheel filename (invalid project name {name!r})"
+                raise InvalidWheelFilename(msg) from None
+        if "version" in kwargs:
+            version = kwargs["version"]
+            try:
+                self._version = (
+                    version if isinstance(version, Version) else Version(version)
+                )
+            except InvalidVersion as e:
+                msg = f"Invalid wheel filename (invalid version {version!r})"
+                raise InvalidWheelFilename(msg) from e
         if "build_tag" in kwargs:
             build_tag = kwargs["build_tag"]
             # The build tag must round-trip through the filename string.
@@ -336,10 +262,23 @@ class WheelFilename(_Filename):
         if extra := kwargs.keys() - _WheelReplace.__optional_keys__:
             msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
             raise TypeError(msg)
-        new = self._unparsed_copy()
+        new = type(self).__new__(type(self))
+        for attr in WheelFilename.__slots__:
+            setattr(new, attr, getattr(self, attr))
+        new._filename = None
         new._issues = 0
         new._set(**kwargs)
         return new
+
+    @property
+    def name(self) -> NormalizedName:
+        """The normalized project name."""
+        return self._name
+
+    @property
+    def version(self) -> Version:
+        """The parsed project version."""
+        return self._version
 
     @property
     def build_tag(self) -> BuildTag:
@@ -418,6 +357,25 @@ class WheelFilename(_Filename):
         return hash(
             (self._name, self._version, self._build_tag, self._tags, self._variant)
         )
+
+    def __getstate__(self) -> str:
+        return self._filename or self.to_filename()
+
+    def __setstate__(self, state: object) -> None:
+        if not isinstance(state, str):
+            raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        other = type(self).from_filename(state)
+        for attr in WheelFilename.__slots__:
+            setattr(self, attr, getattr(other, attr))
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        return self.to_filename()
 
     def __repr__(self) -> str:
         return (
@@ -526,8 +484,18 @@ class WheelFilename(_Filename):
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
         if issues & _ISSUE_NAME:
-            self._check_name(collector, name, filename)
-        self._check_version(collector, version_part, filename)
+            if _validate_regex.fullmatch(name) is None:
+                inner = f"invalid project name {name!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(InvalidProjectName(msg))
+            else:
+                inner = f"non-normalized project name {name!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedName(msg))
+        if not _is_normalized_version(version_part, self._version):
+            inner = f"non-normalized version {version_part!r}"
+            msg = f"Invalid wheel filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedVersion(msg))
         if issues & _ISSUE_BUILD and build != self.build_str:
             inner = f"non-normalized build tag {build!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
@@ -552,7 +520,7 @@ class WheelFilename(_Filename):
             collector.finalize(f"Non-normalized wheel filename: {filename!r}")
 
 
-class SourceDistributionFilename(_Filename):
+class SourceDistributionFilename:
     """Represents a source distribution filename and its parsed components.
 
     Instances are immutable and hashable. Two instances are equal if their
@@ -564,9 +532,7 @@ class SourceDistributionFilename(_Filename):
     .. versionadded:: 26.4
     """
 
-    __slots__ = ()
-    _kind = "sdist"
-    _error = InvalidSdistFilename
+    __slots__ = ("_filename", "_name", "_version")
     __match_args__ = ("name", "version")
 
     def __init__(self, name: str, version: Version | str) -> None:
@@ -576,8 +542,26 @@ class SourceDistributionFilename(_Filename):
         :param version: The version.
         :raises InvalidSdistFilename: If the name or version is not valid.
         """
-        self._filename = None
-        self._set_name_version({"name": name, "version": version})
+        self._filename: str | None = None
+        self._set(name=name, version=version)
+
+    def _set(self, **kwargs: Unpack[_SdistReplace]) -> None:
+        if "name" in kwargs:
+            name = kwargs["name"]
+            try:
+                self._name = canonicalize_name(name, validate=True)
+            except InvalidName:
+                msg = f"Invalid sdist filename (invalid project name {name!r})"
+                raise InvalidSdistFilename(msg) from None
+        if "version" in kwargs:
+            version = kwargs["version"]
+            try:
+                self._version = (
+                    version if isinstance(version, Version) else Version(version)
+                )
+            except InvalidVersion as e:
+                msg = f"Invalid sdist filename (invalid version {version!r})"
+                raise InvalidSdistFilename(msg) from e
 
     def __replace__(self, **kwargs: Unpack[_SdistReplace]) -> Self:
         """
@@ -596,9 +580,22 @@ class SourceDistributionFilename(_Filename):
         if extra := kwargs.keys() - _SdistReplace.__optional_keys__:
             msg = f"__replace__() got unexpected keyword arguments: {sorted(extra)}"
             raise TypeError(msg)
-        new = self._unparsed_copy()
-        new._set_name_version(kwargs)
+        new = type(self).__new__(type(self))
+        for attr in SourceDistributionFilename.__slots__:
+            setattr(new, attr, getattr(self, attr))
+        new._filename = None
+        new._set(**kwargs)
         return new
+
+    @property
+    def name(self) -> NormalizedName:
+        """The normalized project name."""
+        return self._name
+
+    @property
+    def version(self) -> Version:
+        """The parsed project version."""
+        return self._version
 
     @property
     def original_filename(self) -> str | None:
@@ -622,6 +619,25 @@ class SourceDistributionFilename(_Filename):
     def __hash__(self) -> int:
         # The version hash is cached, and str(version) is slow.
         return hash((self._name, self._version))
+
+    def __getstate__(self) -> str:
+        return self._filename or self.to_filename()
+
+    def __setstate__(self, state: object) -> None:
+        if not isinstance(state, str):
+            raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
+        other = type(self).from_filename(state)
+        for attr in SourceDistributionFilename.__slots__:
+            setattr(self, attr, getattr(other, attr))
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        return self.to_filename()
 
     def __repr__(self) -> str:
         return (
@@ -704,7 +720,18 @@ class SourceDistributionFilename(_Filename):
             msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
             collector.error(ZipSdistFilename(msg))
         if _normalized_wheel_name_regex.fullmatch(name_part) is None:
-            self._check_name(collector, name_part, filename)
-        self._check_version(collector, version_part, filename)
+            # A valid name that fails the fast check is not normalized.
+            if _validate_regex.fullmatch(name_part) is None:
+                inner = f"invalid project name {name_part!r}"
+                msg = f"Invalid sdist filename ({inner}): {filename!r}"
+                collector.error(InvalidProjectName(msg))
+            else:
+                inner = f"non-normalized project name {name_part!r}"
+                msg = f"Invalid sdist filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedName(msg))
+        if not _is_normalized_version(version_part, self._version):
+            inner = f"non-normalized version {version_part!r}"
+            msg = f"Invalid sdist filename ({inner}): {filename!r}"
+            collector.error(NonNormalizedVersion(msg))
         if collector.errors:
             collector.finalize(f"Non-normalized sdist filename: {filename!r}")
