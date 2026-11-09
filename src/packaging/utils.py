@@ -208,6 +208,18 @@ _variant_label_regex = re.compile(r"[0-9a-z._]{1,16}", re.ASCII)
 # PEP 427: Valid characters for an escaped project name in a wheel filename.
 # Requires at least one character so an empty project name is rejected.
 _wheel_name_regex = re.compile(r"[\w.]+")
+# A name in the normalized filename form, where "-" is written as "_".
+_normalized_wheel_name_regex = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*", re.ASCII)
+# A release-only version with no leading zeros, which is always normalized.
+_normalized_release_regex = re.compile(r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*")
+
+# Bits for parts of a parsed wheel filename that might not be normalized.
+# Parsing sets a bit when a fast check fails, and validation does the full
+# check. The version is not checked here, since that would slow down parsing
+# for callers that do not validate.
+_ISSUE_NAME = 1
+_ISSUE_BUILD = 2
+_ISSUE_TAGS = 4
 
 
 class UnsortedWheelTags(InvalidWheelFilename):
@@ -281,8 +293,11 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
 
 def _parse_wheel_filename(
     filename: str, *, variants: bool = True, validate_order: bool = False
-) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag], str | None]:
-    """Parse a wheel filename, accepting legacy names and versions."""
+) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag], str | None, int]:
+    """Parse a wheel filename, accepting legacy names and versions.
+
+    The last item has ``_ISSUE_*`` bits for parts that might not be normalized.
+    """
     name, version_part, build, tag_str, variant = _split_wheel_filename(
         filename, variants=variants
     )
@@ -299,11 +314,18 @@ def _parse_wheel_filename(
         msg = f"Invalid wheel filename ({inner}): {filename!r}"
         raise InvalidWheelFilename(msg) from None
 
+    # The normalized form is common, and is faster to check than the rules.
+    issues = 0
+    if _normalized_wheel_name_regex.fullmatch(name) is not None:
+        normalized_name = cast("NormalizedName", name.replace("_", "-"))
     # See PEP 427 for the rules on escaping the project name.
-    if "__" in name or _wheel_name_regex.fullmatch(name) is None:
+    elif "__" in name or _wheel_name_regex.fullmatch(name) is None:
         inner = f"invalid project name {name!r}"
         msg = f"Invalid wheel filename ({inner}): {filename!r}"
         raise InvalidWheelFilename(msg)
+    else:
+        normalized_name = canonicalize_name(name)
+        issues = _ISSUE_NAME
 
     try:
         version = Version(version_part)
@@ -324,8 +346,14 @@ def _parse_wheel_filename(
             inner = f"invalid build tag {build!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             raise InvalidWheelFilename(msg)
+        if not build.isdigit() or build[0] == "0":
+            issues |= _ISSUE_BUILD
 
-    return canonicalize_name(name), version, build_tag, tags, variant
+    # A single lowercase tag is always normalized.
+    if "." in tag_str or not tag_str.islower():
+        issues |= _ISSUE_TAGS
+
+    return normalized_name, version, build_tag, tags, variant, issues
 
 
 def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
@@ -417,7 +445,7 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    name, version, build_tag, tags, _ = _parse_wheel_filename(
+    name, version, build_tag, tags, _, _ = _parse_wheel_filename(
         filename, variants=False, validate_order=validate_order
     )
     return (name, version, build_tag, tags)

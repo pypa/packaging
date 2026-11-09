@@ -4,18 +4,22 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, TypedDict
 
 from .errors import _ErrorCollector
 from .tags import InvalidTag, Tag, parse_tag
 from .utils import (
+    _ISSUE_BUILD,
+    _ISSUE_NAME,
+    _ISSUE_TAGS,
     BuildTag,
     InvalidFilename,
     InvalidName,
     InvalidSdistFilename,
     InvalidWheelFilename,
     UnsortedWheelTags,
+    _normalized_release_regex,
+    _normalized_wheel_name_regex,
     _parse_build_tag,
     _parse_sdist_filename,
     _parse_wheel_filename,
@@ -107,12 +111,6 @@ class _WheelReplace(TypedDict, total=False):
     variant: str | None
 
 
-# A name in the normalized filename form, where "-" is written as "_".
-_normalized_wheel_name_regex = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*", re.ASCII)
-# A release-only version with no leading zeros, which is always normalized.
-_normalized_release_regex = re.compile(r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*")
-
-
 def _is_normalized_version(version_part: str, version: Version) -> bool:
     # str(version) is slow, so check the common case first.
     return _normalized_release_regex.fullmatch(
@@ -149,7 +147,15 @@ class WheelFilename:
     .. versionadded:: 26.4
     """
 
-    __slots__ = ("_build_tag", "_filename", "_name", "_tags", "_variant", "_version")
+    __slots__ = (
+        "_build_tag",
+        "_filename",
+        "_issues",
+        "_name",
+        "_tags",
+        "_variant",
+        "_version",
+    )
     __match_args__ = ("name", "version", "tags")
 
     def __init__(
@@ -175,6 +181,7 @@ class WheelFilename:
             or variant label is not valid.
         """
         self._filename: str | None = None
+        self._issues = 0
         self._set(
             name=name, version=version, tags=tags, build_tag=build_tag, variant=variant
         )
@@ -248,6 +255,7 @@ class WheelFilename:
         for attr in WheelFilename.__slots__:
             setattr(new, attr, getattr(self, attr))
         new._filename = None
+        new._issues = 0
         new._set(**kwargs)
         return new
 
@@ -429,6 +437,7 @@ class WheelFilename:
             self._build_tag,
             self._tags,
             self._variant,
+            self._issues,
         ) = _parse_wheel_filename(filename)
         return self
 
@@ -456,10 +465,13 @@ class WheelFilename:
         if filename is None:
             return
         name, version_part, build, tag_str, _ = _split_wheel_filename(filename)
+        issues = self._issues
+        # The release-only check is fast, and str(version) is slow.
+        if not issues and _normalized_release_regex.fullmatch(version_part):
+            return
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
-        if _normalized_wheel_name_regex.fullmatch(name) is None:
-            # A valid name that fails the fast check is not normalized.
+        if issues & _ISSUE_NAME:
             if _validate_regex.fullmatch(name) is None:
                 inner = f"invalid project name {name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
@@ -472,25 +484,26 @@ class WheelFilename:
             inner = f"non-normalized version {version_part!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedVersion(msg))
-        if build is not None and build != self.build_str:
+        if issues & _ISSUE_BUILD and build != self.build_str:
             inner = f"non-normalized build tag {build!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedBuildTag(msg))
-        # The tags were parsed already. The string is the compressed form if
-        # each component is lowercase, sorted, and has no duplicates.
-        components = [part.split(".") for part in tag_str.split("-")]
-        if any(part != sorted(part) for part in components):
-            msg = (
-                "Invalid wheel filename (compressed tag set components must be "
-                f"in sorted order per PEP 425): {filename!r}"
-            )
-            collector.error(UnsortedWheelTags(msg))
-        elif tag_str != tag_str.lower() or any(
-            len(part) != len(set(part)) for part in components
-        ):
-            inner = f"non-normalized tags {tag_str!r}"
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedTags(msg))
+        if issues & _ISSUE_TAGS:
+            # The tags were parsed already. The string is the compressed form
+            # if each component is lowercase, sorted, and has no duplicates.
+            components = [part.split(".") for part in tag_str.split("-")]
+            if any(part != sorted(part) for part in components):
+                msg = (
+                    "Invalid wheel filename (compressed tag set components must "
+                    f"be in sorted order per PEP 425): {filename!r}"
+                )
+                collector.error(UnsortedWheelTags(msg))
+            elif tag_str != tag_str.lower() or any(
+                len(part) != len(set(part)) for part in components
+            ):
+                inner = f"non-normalized tags {tag_str!r}"
+                msg = f"Invalid wheel filename ({inner}): {filename!r}"
+                collector.error(NonNormalizedTags(msg))
         if collector.errors:
             collector.finalize(f"Non-normalized wheel filename: {filename!r}")
 

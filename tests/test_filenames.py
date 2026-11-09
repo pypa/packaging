@@ -293,6 +293,10 @@ def test_wheel_from_filename_variant(
         "foo_bar-10.20.0-1-py2.py3-none-any.whl",
         "foo-1!2.0rc1.post2.dev3+local.1-cp312-cp312-win_amd64.whl",
         "foo-1.0-py3-none-any-abc.whl",
+        # These fail the fast checks during parsing, but are normalized.
+        "foo-1.0-0-py3-none-any.whl",
+        "foo-1.0-1abc-py3-none-any.whl",
+        "foo-1.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
     ],
 )
 def test_validate_wheel_filename_valid(filename: str) -> None:
