@@ -29,9 +29,8 @@ classes are:
   normalized.
 * :class:`~packaging.filenames.NonNormalizedVersion`: the version is valid,
   but not normalized.
-* :class:`~packaging.filenames.ZipSdistFilename` (sdist only): the
-  extension is ``.zip``, not ``.tar.gz``. Ignore it to accept legacy ``.zip``
-  sdists, like :func:`~packaging.utils.parse_sdist_filename` does.
+* :class:`~packaging.filenames.ZipSdistFilename` (sdist only): the legacy
+  ``.zip`` was used instead of ``.tar.gz``.
 * :class:`~packaging.filenames.NonNormalizedBuildTag` (wheel only): the build
   tag is valid, but not normalized.
 * :class:`~packaging.filenames.UnsortedWheelTags` (wheel only): the parts of
@@ -86,11 +85,10 @@ The immutable classes support most operations that you would expect:
   significant, so ``1.0`` and ``1.0.0`` are different. The original filename
   is not compared, so a parsed filename can be equal to one that fails
   ``.validate()``.
-* Pickling and unpickling are supported, and the pickle format is stable.
-  A pickle keeps the original filename, so ``.validate()`` gives the same
-  result after unpickling. A filename that is constructed or changed with
-  ``__replace__`` has no original filename, and ``.validate()`` always
-  passes.
+* Pickling and unpickling are supported in a stable format.  A pickle keeps the
+  original filename, so ``.validate()`` gives the same result after unpickling.
+  A filename that is constructed or changed with ``__replace__`` has no
+  original filename, and ``.validate()`` always passes.
 * Converting to a string (or ``.to_filename()``) produces a fully normalized
   filename with the standard extension (``.whl`` or ``.tar.gz``).
 
