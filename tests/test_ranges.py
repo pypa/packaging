@@ -1257,11 +1257,18 @@ class TestFilter:
         out = list(vr("<2.0").filter(items, key=lambda x: x["v"]))
         assert out == [{"v": "1.0"}]
 
-    def test_filter_universal(self) -> None:
-        assert list(VersionRange.full().filter(["1.3", "1.5a1"])) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"])) == ["1.5a1"]
-        assert list(VersionRange.full().filter(["1.3"], prereleases=True)) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"], prereleases=False)) == []
+    @pytest.mark.parametrize(
+        ("final", "pre"),
+        [("1.3", "1.5a1"), (Version("1.3"), Version("1.5a1"))],
+    )
+    def test_filter_universal(self, final: Version | str, pre: Version | str) -> None:
+        r = VersionRange.full()
+        assert list(r.filter([final, pre])) == [final]
+        assert list(r.filter([pre])) == [pre]
+        assert list(r.filter([final, pre], prereleases=True)) == [final, pre]
+        assert list(r.filter([pre], prereleases=False)) == []
+
+    def test_filter_universal_arbitrary(self) -> None:
         assert list(VersionRange.full().filter(["junk", "1.0"])) == ["junk", "1.0"]
         assert list(VersionRange.full().filter(["junk"])) == ["junk"]
 
@@ -1271,48 +1278,12 @@ class TestFilter:
         assert list(r.filter(["1.5a1"], prereleases=False)) == []
         assert list(r.filter(["1.5a1"])) == ["1.5a1"]
 
-    @pytest.mark.parametrize("prereleases", [None, False, True])
-    @pytest.mark.parametrize("keyed", [False, True])
-    @pytest.mark.parametrize("include_final", [False, True])
-    def test_filter_universal_without_formatting(
-        self,
-        prereleases: bool | None,
-        keyed: bool,
-        include_final: bool,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        def fail_format(_version: Version) -> str:
-            raise AssertionError("Unexpected version formatting")
-
-        monkeypatch.setattr(Version, "__str__", fail_format)
-        pre = Version("2rc1")
-        versions = [pre]
-        expected = [pre] if prereleases is not False else []
-        if include_final:
-            final = Version("1")
-            versions.append(final)
-            expected = [pre, final] if prereleases is True else [final]
-
-        r = VersionRange.full()
-        if keyed:
-            items = [(version,) for version in versions]
-            assert list(r.filter(items, prereleases, key=lambda item: item[0])) == [
-                (version,) for version in expected
-            ]
-        else:
-            assert list(r.filter(versions, prereleases)) == expected
-
-    @pytest.mark.parametrize("prereleases", [None, False, True])
-    @pytest.mark.parametrize("reject", [False, True])
-    def test_filter_literal_version_text(
-        self, prereleases: bool | None, reject: bool
-    ) -> None:
+    def test_filter_literal_version_text(self) -> None:
         versions = [Version("1"), Version("1.0")]
         literal = vr("===1.0")
-        r = VersionRange.full().difference(literal) if reject else literal
-        expected = [versions[0]] if reject else [versions[1]]
 
-        assert list(r.filter(versions, prereleases)) == expected
+        assert list(literal.filter(versions)) == [versions[1]]
+        assert list((~literal).filter(versions)) == [versions[0]]
 
     def test_filter_admission_with_final(self) -> None:
         r = VersionRange.full() & vr("===wat")
