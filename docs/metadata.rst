@@ -52,11 +52,16 @@ optional methods:
 * ``full_validate(metadata)`` for checks involving multiple fields. This method
   receives the :class:`Metadata` instance after all field checks succeed.
 
+Methods are looked up without calling ``__getattr__``, so objects that create
+attributes on demand, such as :class:`unittest.mock.Mock`, do not define
+methods by accident.
+
 Methods must return ``None`` on success. To reject metadata, raise
 :class:`InvalidMetadata`, using the email field name, such as
 ``"requires-python"``, or raise :class:`~packaging.errors.ExceptionGroup`
 containing only ``InvalidMetadata`` exceptions. Nested validation groups are
-supported. Returning an error or any other non-``None`` value raises
+supported. On Python 3.10, groups from the ``exceptiongroup`` backport are also
+accepted. Returning an error or any other non-``None`` value raises
 :class:`TypeError`. Other exceptions, including groups containing programming
 errors, propagate without being treated as invalid metadata.
 

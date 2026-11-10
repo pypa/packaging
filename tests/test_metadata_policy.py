@@ -1,9 +1,15 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
+
 from __future__ import annotations
 
 import pickle
+import sys
 from collections import Counter
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 
@@ -328,6 +334,64 @@ def test_email_parse_core_and_policy_errors_are_aggregated() -> None:
     assert policy_error in exc_info.value.exceptions
 
 
+def test_email_unparsed_field_keeps_policy_error() -> None:
+    policy_error = InvalidMetadata("summary", "policy")
+    with pytest.raises(ExceptionGroup) as exc_info:
+        Metadata.from_email(
+            "Metadata-Version: 2.4\nName: example\nVersion: 1.0\n"
+            "Summary: a\nSummary: b\n",
+            validation_policy=SimpleNamespace(validate_summary=reject(policy_error)),
+        )
+    assert fields(exc_info.value) == Counter({"summary": 2})
+    assert policy_error in exc_info.value.exceptions
+
+
+def test_foreign_exception_group_is_aggregated(
+    source: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class ForeignGroup(Exception):
+        def __init__(self, message: str, exceptions: list[Exception]) -> None:
+            super().__init__(message, exceptions)
+            self.exceptions = tuple(exceptions)
+
+    module = ModuleType("exceptiongroup")
+    module.ExceptionGroup = ForeignGroup  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "exceptiongroup", module)
+    policy_error = InvalidMetadata("version", "policy")
+    policy = SimpleNamespace(
+        validate_version=reject(ForeignGroup("x", [policy_error])),
+        validate_name=reject(InvalidMetadata("name", "policy")),
+    )
+    with pytest.raises(ExceptionGroup) as exc_info:
+        make_metadata(source, policy)
+    assert fields(exc_info.value) == Counter({"version": 1, "name": 1})
+    assert policy_error in exc_info.value.exceptions
+
+
+def test_exception_group_without_backport(
+    source: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delitem(sys.modules, "exceptiongroup", raising=False)
+    policy_error = InvalidMetadata("version", "policy")
+    policy = SimpleNamespace(
+        validate_version=reject(ExceptionGroup("x", [policy_error]))
+    )
+    with pytest.raises(ExceptionGroup) as exc_info:
+        make_metadata(source, policy)
+    assert list(exc_info.value.exceptions) == [policy_error]
+
+
+class DynamicPolicy:
+    def __getattr__(self, name: str) -> Callable[[object], object]:
+        return lambda _value: AssertionError(name)
+
+
+@pytest.mark.parametrize("policy", [Mock(), DynamicPolicy()])
+def test_dynamic_attributes_are_not_policy_methods(source: str, policy: object) -> None:
+    assert make_metadata(source, policy).version == Version("1.0")
+    assert make_metadata(source, policy, validate=False).version == Version("1.0")
+
+
 def test_policies_are_isolated_per_instance(source: str) -> None:
     rejected = make_metadata(
         source,
@@ -359,7 +423,7 @@ def test_pickle_retains_lazy_policy(source: str) -> None:
         restored.version  # noqa: B018
 
 
-def test_serialization_preserves_policy_and_values(source: str) -> None:
+def test_serialization_drops_policy_keeps_values(source: str) -> None:
     result = make_metadata(source, PublicVersionPolicy(), validate=False)
     restored = Metadata.from_email(result.as_rfc822().as_bytes())
     assert restored.version == Version("1.0")

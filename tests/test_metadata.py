@@ -478,13 +478,11 @@ class TestMetadata:
     ) -> None:
         # Synthetic scenario: from_raw only ever groups InvalidMetadata today,
         # so this covers the defensive isinstance check in from_email.
-        def from_raw(
-            raw: metadata.RawMetadata, *, validate: bool = True
-        ) -> metadata.Metadata:
-            del raw, validate
+        def from_raw(raw: metadata.RawMetadata, **kwargs: object) -> metadata.Metadata:
+            del raw, kwargs
             raise ExceptionGroup("invalid metadata", [RuntimeError("boom")])
 
-        monkeypatch.setattr(metadata.Metadata, "from_raw", from_raw)
+        monkeypatch.setattr(metadata.Metadata, "_from_raw", from_raw)
 
         with pytest.raises(ExceptionGroup) as exc_info:
             metadata.Metadata.from_email(
@@ -562,6 +560,24 @@ class TestMetadata:
         meta = metadata.Metadata.from_raw(_RAW_EXAMPLE)
 
         assert meta.metadata_version == _RAW_EXAMPLE["metadata_version"]
+
+    def test_subclass_validates_fields(self) -> None:
+        class SubMetadata(metadata.Metadata):
+            pass
+
+        meta = SubMetadata.from_raw(_RAW_EXAMPLE)
+
+        assert meta.name == _RAW_EXAMPLE["name"]
+
+    def test_raw_validate_non_field_attribute(self) -> None:
+        raw: RawMetadata = {**_RAW_EXAMPLE, "as_rfc822": "x"}  # type: ignore[typeddict-unknown-key]
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw)
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert "unrecognized field" in str(exc)
 
     @pytest.mark.parametrize("field", list(_RAW_EXAMPLE.keys()))
     def test_required_fields_missing(self, field: str) -> None:

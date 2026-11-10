@@ -7,6 +7,7 @@ import email.policy
 import keyword
 import pathlib
 import re
+import sys
 import typing
 from typing import (
     Any,
@@ -62,22 +63,43 @@ class InvalidMetadata(ValueError):
         return (self.__class__, (self.field, self.args[0]))
 
 
+def _policy_method(
+    policy: object | None, method: str
+) -> Callable[[object], object] | None:
+    # Bypass __getattr__, so objects like Mock do not define every method.
+    try:
+        return cast(
+            "Callable[[object], object]", object.__getattribute__(policy, method)
+        )
+    except AttributeError:
+        return None
+
+
 def _validate_policy(policy: object | None, method: str, value: object) -> None:
-    validator = getattr(policy, method, None)
+    validator = _policy_method(policy, method)
     if validator is not None and validator(value) is not None:
         raise TypeError(f"Validation policy method {method!r} must return None")
 
 
-def _policy_errors(group: ExceptionGroup) -> list[InvalidMetadata]:
+def _exception_group_types() -> tuple[type[Exception], ...]:
+    # Policies on Python < 3.11 can raise the exceptiongroup backport's group.
+    backport = sys.modules.get("exceptiongroup")
+    if backport is None:
+        return (ExceptionGroup,)
+    return (ExceptionGroup, backport.ExceptionGroup)
+
+
+def _policy_errors(group: Exception) -> list[Exception]:
     """Flatten validation groups without hiding a policy's programming errors."""
-    errors = []
-    pending = list(reversed(group.exceptions))
+    errors: list[Exception] = []
+    group_types = _exception_group_types()
+    pending = list(reversed(cast("ExceptionGroup", group).exceptions))
     while pending:
         error = pending.pop()
         if isinstance(error, InvalidMetadata):
             errors.append(error)
-        elif isinstance(error, ExceptionGroup):
-            pending.extend(reversed(error.exceptions))
+        elif isinstance(error, group_types):
+            pending.extend(reversed(cast("ExceptionGroup", error).exceptions))
         else:
             raise group
     return errors
@@ -867,6 +889,19 @@ class Metadata:
         methods and a ``full_validate(metadata)`` method. See
         :ref:`metadata-validation-policies` for their contracts.
         """
+        return cls._from_raw(
+            data, validate=validate, validation_policy=validation_policy
+        )
+
+    @classmethod
+    def _from_raw(
+        cls,
+        data: RawMetadata,
+        *,
+        validate: bool,
+        validation_policy: object | None,
+        full_validate: bool = True,
+    ) -> Metadata:
         ins = cls()
         ins._raw = data.copy()  # Mutations occur due to caching enriched values.
 
@@ -874,7 +909,7 @@ class Metadata:
             ins._validate_fields(validation_policy)
 
         ins._validation_policy = validation_policy
-        if validate and validation_policy is not None:
+        if validate and full_validate and validation_policy is not None:
             ins._validate_full()
 
         return ins
@@ -891,7 +926,7 @@ class Metadata:
                 )
         except InvalidMetadata as version_error:
             collector.error(version_error)
-        except ExceptionGroup as exc_group:
+        except _exception_group_types() as exc_group:
             collector.errors.extend(_policy_errors(exc_group))
 
         # Check present and required fields, plus absent fields with policy checks.
@@ -901,7 +936,7 @@ class Metadata:
             policy_fields = {
                 key
                 for key in _RAW_TO_EMAIL_MAPPING
-                if getattr(validation_policy, f"validate_{key}", None) is not None
+                if _policy_method(validation_policy, f"validate_{key}") is not None
             }
             fields_to_check |= policy_fields
         fields_to_check -= {"metadata_version"}
@@ -914,12 +949,19 @@ class Metadata:
                     or key in _REQUIRED_ATTRS
                 ):
                     # Can't use getattr(), which would invoke the descriptor.
-                    try:
-                        field_metadata_version = self.__class__.__dict__[key].added
-                    except KeyError:
+                    descriptor = next(
+                        (
+                            c.__dict__[key]
+                            for c in type(self).__mro__
+                            if key in c.__dict__
+                        ),
+                        None,
+                    )
+                    if not isinstance(descriptor, _Validator):
                         error = InvalidMetadata(key, f"unrecognized field: {key!r}")
                         collector.error(error)
                         continue
+                    field_metadata_version = descriptor.added
                     field_age = _VALID_METADATA_VERSIONS.index(field_metadata_version)
                     if field_age > metadata_age:
                         field = _RAW_TO_EMAIL_MAPPING[key]
@@ -935,7 +977,7 @@ class Metadata:
                     _validate_policy(validation_policy, f"validate_{key}", value)
             except InvalidMetadata as exc:
                 collector.error(exc)
-            except ExceptionGroup as exc_group:
+            except _exception_group_types() as exc_group:
                 collector.errors.extend(_policy_errors(exc_group))
 
         collector.finalize("invalid metadata")
@@ -946,9 +988,9 @@ class Metadata:
             _validate_policy(self._validation_policy, "full_validate", self)
         except InvalidMetadata as exc:
             raise ExceptionGroup("invalid metadata", [exc]) from None
-        except ExceptionGroup as exc_group:
+        except _exception_group_types() as exc_group:
             raise ExceptionGroup(
-                "invalid metadata", list(_policy_errors(exc_group))
+                "invalid metadata", _policy_errors(exc_group)
             ) from None
 
     @classmethod
@@ -978,16 +1020,15 @@ class Metadata:
                         message = f"unrecognized field: {unparsed_key!r}"
                     collector.error(InvalidMetadata(unparsed_key, message))
                 try:
-                    if validation_policy is None:
-                        validated = cls.from_raw(raw, validate=validate)
-                    else:
-                        validated = cls.from_raw(raw, validate=False)
-                        validated._validate_fields(validation_policy)
-                        validated._validation_policy = validation_policy
-                        if not unparsed:
-                            validated._validate_full()
+                    validated = cls._from_raw(
+                        raw,
+                        validate=True,
+                        validation_policy=validation_policy,
+                        full_validate=not unparsed,
+                    )
                 except ExceptionGroup as exc_group:
                     if validation_policy is not None:
+                        # Re-raise a policy group that holds programming errors.
                         _policy_errors(exc_group)
                     # The no-branch pragmas cover arcs only seen by Python 3.9.
                     for exc in exc_group.exceptions:  # pragma: no branch
@@ -997,15 +1038,14 @@ class Metadata:
                         if not (
                             isinstance(exc, InvalidMetadata)
                             and exc.field in unparsed
-                            and _EMAIL_TO_RAW_MAPPING.get(exc.field) not in raw
+                            and _EMAIL_TO_RAW_MAPPING.get(exc.field) in _REQUIRED_ATTRS
+                            and _EMAIL_TO_RAW_MAPPING[exc.field] not in raw
                         ):
                             collector.error(exc)
                 else:
                     if not collector.errors:  # pragma: no branch
                         return validated
 
-        if validation_policy is None:
-            return cls.from_raw(raw, validate=validate)
         return cls.from_raw(raw, validate=validate, validation_policy=validation_policy)
 
     metadata_version: _Validator[_MetadataVersion] = _Validator()
