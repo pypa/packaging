@@ -133,7 +133,8 @@ The immutable classes support most operations that you would expect:
   is not compared, so a parsed filename can be equal to one that fails
   ``.validate()``.
 * Pickling and unpickling are supported in a stable format.  A pickle keeps the
-  original filename, so ``.validate()`` gives the same result after unpickling.
+  original filename (or that there is none), so ``.validate()`` gives the same
+  result after unpickling.
   A filename that is constructed or changed with ``__replace__`` has no
   original filename, and ``.validate()`` always passes.
 * Converting to a string (or ``.to_filename()``) produces a fully normalized

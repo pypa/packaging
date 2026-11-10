@@ -695,14 +695,22 @@ def test_wheel_pickle(wf: WheelFilename, protocol: int) -> None:
 def test_wheel_pickle_state() -> None:
     tags = {Tag("py3", "none", "any"), Tag("py2", "none", "any")}
     wf = WheelFilename("Foo", "01.0", tags, build_tag=(1, "a"), variant="x86_64_v3")
-    state = "foo-1.0-1a-py2.py3-none-any-x86_64_v3.whl"
+    state = ("foo-1.0-1a-py2.py3-none-any-x86_64_v3.whl", False)
     assert wf.__getstate__() == state
     loaded = WheelFilename.__new__(WheelFilename)
     loaded.__setstate__(state)
     assert loaded == wf
 
 
-@pytest.mark.parametrize("state", [None, ("foo", "1.0", ("py3-none-any",), (), None)])
+@pytest.mark.parametrize(
+    "state",
+    [
+        None,
+        "foo-1.0-py3-none-any.whl",
+        ("foo-1.0-py3-none-any.whl", None),
+        ("foo", "1.0", ("py3-none-any",), (), None),
+    ],
+)
 def test_wheel_setstate_invalid(state: object) -> None:
     wf = WheelFilename.__new__(WheelFilename)
     with pytest.raises(TypeError, match="Cannot restore WheelFilename"):
@@ -712,7 +720,7 @@ def test_wheel_setstate_invalid(state: object) -> None:
 def test_wheel_setstate_invalid_filename() -> None:
     wf = WheelFilename.__new__(WheelFilename)
     with pytest.raises(InvalidWheelFilename):
-        wf.__setstate__("foo-1.0.whl")
+        wf.__setstate__(("foo-1.0.whl", True))
 
 
 @pytest.mark.parametrize(
@@ -732,13 +740,13 @@ def test_sdist_pickle(fn: SourceDistributionFilename, protocol: int) -> None:
 
 def test_sdist_pickle_state() -> None:
     fn = SourceDistributionFilename("Foo", "01.0")
-    assert fn.__getstate__() == "foo-1.0.tar.gz"
+    assert fn.__getstate__() == ("foo-1.0.tar.gz", False)
     loaded = SourceDistributionFilename.__new__(SourceDistributionFilename)
-    loaded.__setstate__("foo-1.0.tar.gz")
+    loaded.__setstate__(("foo-1.0.tar.gz", False))
     assert loaded == fn
 
 
-@pytest.mark.parametrize("state", [None, ("foo", "1.0")])
+@pytest.mark.parametrize("state", [None, "foo-1.0.tar.gz", ("foo", "1.0")])
 def test_sdist_setstate_invalid(state: object) -> None:
     fn = SourceDistributionFilename.__new__(SourceDistributionFilename)
     with pytest.raises(TypeError, match="Cannot restore SourceDistributionFilename"):
@@ -780,19 +788,38 @@ def test_original_filename() -> None:
 
 def test_validate_after_pickle() -> None:
     wf = WheelFilename.from_filename("Foo-01.0-py3-none-any.whl")
-    assert wf.__getstate__() == "Foo-01.0-py3-none-any.whl"
+    assert wf.__getstate__() == ("Foo-01.0-py3-none-any.whl", True)
     with pytest.raises(ExceptionGroup):
         pickle.loads(pickle.dumps(wf)).validate()
     fn = SourceDistributionFilename.from_filename("Foo-01.0.tar.gz")
-    assert fn.__getstate__() == "Foo-01.0.tar.gz"
+    assert fn.__getstate__() == ("Foo-01.0.tar.gz", True)
     with pytest.raises(ExceptionGroup):
         pickle.loads(pickle.dumps(fn)).validate()
+
+
+def test_pickle_after_replace() -> None:
+    wf = WheelFilename.from_filename("_foo-1.0-py3-none-any.whl").__replace__(
+        version="2.0"
+    )
+    wf.validate()
+    loaded_wf = pickle.loads(pickle.dumps(wf))
+    assert loaded_wf.original_filename is None
+    loaded_wf.validate()
+    assert loaded_wf == wf
+    fn = SourceDistributionFilename.from_filename("_foo-1.0.tar.gz").__replace__(
+        version="2.0"
+    )
+    fn.validate()
+    loaded_fn = pickle.loads(pickle.dumps(fn))
+    assert loaded_fn.original_filename is None
+    loaded_fn.validate()
+    assert loaded_fn == fn
 
 
 def test_sdist_setstate_invalid_filename() -> None:
     fn = SourceDistributionFilename.__new__(SourceDistributionFilename)
     with pytest.raises(InvalidSdistFilename):
-        fn.__setstate__("foo-x.tar.gz")
+        fn.__setstate__(("foo-x.tar.gz", True))
 
 
 @pytest.mark.parametrize("module", ["filenames", "utils"])

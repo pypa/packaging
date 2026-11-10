@@ -401,15 +401,27 @@ class WheelFilename:
             (self._name, self._version, self._build_tag, self._tags, self._variant)
         )
 
-    def __getstate__(self) -> str:
-        return self._filename or self.to_filename()
+    def __getstate__(self) -> tuple[str, bool]:
+        # The flag records if the filename is the original one.
+        if self._filename is None:
+            return self.to_filename(), False
+        return self._filename, True
 
     def __setstate__(self, state: object) -> None:
-        if not isinstance(state, str):
+        if not (
+            isinstance(state, tuple)
+            and len(state) == 2
+            and isinstance(state[0], str)
+            and isinstance(state[1], bool)
+        ):
             raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
-        other = type(self).from_filename(state)
+        filename, original = state
+        other = type(self).from_filename(filename)
         for attr in WheelFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
+        if not original:
+            self._filename = None
+            self._issues = 0
 
     def __copy__(self) -> Self:
         return self
@@ -694,15 +706,26 @@ class SourceDistributionFilename:
         # The version hash is cached, and str(version) is slow.
         return hash((self._name, self._version))
 
-    def __getstate__(self) -> str:
-        return self._filename or self.to_filename()
+    def __getstate__(self) -> tuple[str, bool]:
+        # The flag records if the filename is the original one.
+        if self._filename is None:
+            return self.to_filename(), False
+        return self._filename, True
 
     def __setstate__(self, state: object) -> None:
-        if not isinstance(state, str):
+        if not (
+            isinstance(state, tuple)
+            and len(state) == 2
+            and isinstance(state[0], str)
+            and isinstance(state[1], bool)
+        ):
             raise TypeError(f"Cannot restore {type(self).__name__} from {state!r}")
-        other = type(self).from_filename(state)
+        filename, original = state
+        other = type(self).from_filename(filename)
         for attr in SourceDistributionFilename.__slots__:
             setattr(self, attr, getattr(other, attr))
+        if not original:
+            self._filename = None
 
     def __copy__(self) -> Self:
         return self
