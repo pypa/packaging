@@ -1,3 +1,6 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
 from __future__ import annotations
 
 import re
@@ -267,13 +270,12 @@ class DependencyGroupResolver:
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
-        # If errors were detected while parsing this group, present the
-        # group as empty and do not cache the result.
-        if len(errors.errors) > error_count_before_parse:
-            return ()
-
-        self._parsed_groups[group] = tuple(elements)
-        return self._parsed_groups[group]
+        # Return valid includes for validation even if other items failed.
+        # Cache only complete, successful parses.
+        parsed = tuple(elements)
+        if len(errors.errors) == error_count_before_parse:
+            self._parsed_groups[group] = parsed
+        return parsed
 
 
 # --------------------
