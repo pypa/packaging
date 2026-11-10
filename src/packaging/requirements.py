@@ -182,27 +182,40 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
-    def __getstate__(self) -> tuple[str, SpecifierSet]:
-        # Return the requirement string for compactness and stability, paired
-        # with the SpecifierSet, which holds prereleases overrides that the
-        # string form does not capture. Re-parsed on load to reconstruct all
-        # other fields.
-        return (str(self), self.specifier)
+    def __getstate__(self) -> tuple[str, bool | None, tuple[bool | None, ...]]:
+        # Only primitives, for stability: the requirement string, then the
+        # prereleases overrides that the string cannot hold, for the
+        # SpecifierSet and for each specifier in canonical order. Re-parsed
+        # on load to reconstruct all other fields.
+        specifier = self.specifier
+        if isinstance(specifier, SpecifierSet):
+            specs = specifier._canonical_specs()
+            return (
+                str(self),
+                specifier._prereleases,
+                tuple(s._prereleases for s in specs),
+            )
+        # A Specifier assigned in place of the SpecifierSet.
+        return (str(self), None, (specifier._prereleases,))
 
     def __setstate__(self, state: object) -> None:
+        inner: object = None
+        prereleases: bool | None = None
         if isinstance(state, str):
             # Format (26.2): just the requirement string.
             requirement_string: str = state
-            specifier: SpecifierSet | bool | None = None
         elif (
             isinstance(state, tuple)
-            and len(state) == 2
+            and len(state) in {2, 3}
             and isinstance(state[0], str)
-            and (state[1] is None or isinstance(state[1], (bool, SpecifierSet)))
+            and (state[1] is None or isinstance(state[1], bool))
         ):
-            # Format (26.3+): (requirement string, specifier prereleases).
-            # Format (26.4+): (requirement string, SpecifierSet).
-            requirement_string, specifier = state
+            # Format (26.3): (requirement string, specifier prereleases).
+            # Format (26.4+): the same, then a tuple with the prereleases of
+            # each specifier in canonical order.
+            requirement_string, prereleases = state[:2]
+            if len(state) == 3:
+                inner = state[2]
         elif isinstance(state, dict) and state.keys() >= set(self.__slots__):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
             for key in self.__slots__:
@@ -215,13 +228,17 @@ class Requirement:
             tmp = Requirement(requirement_string)
         except InvalidRequirement as exc:
             raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
-        if isinstance(specifier, SpecifierSet):
-            if specifier != tmp.specifier:
+        if inner is not None:
+            specs = tmp.specifier._canonical_specs()
+            if (
+                not isinstance(inner, tuple)
+                or len(inner) != len(specs)
+                or not all(p is None or isinstance(p, bool) for p in inner)
+            ):
                 raise TypeError(f"Cannot restore Requirement from {state!r}")
-            # A shallow copy passes the original set, so copy it.
-            tmp.specifier = copy.deepcopy(specifier)
-        else:
-            tmp.specifier._prereleases = specifier
+            for spec, spec_prereleases in zip(specs, inner, strict=True):
+                spec._prereleases = spec_prereleases
+        tmp.specifier._prereleases = prereleases
         self.name = tmp.name
         self.url = tmp.url
         self.extras = tmp.extras

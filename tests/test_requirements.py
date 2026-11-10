@@ -955,18 +955,47 @@ def test_requirement_copy_preserves_inner_prereleases(
     assert all(a is not b for a, b in zip(loaded.specifier, r.specifier, strict=True))
 
 
+@pytest.mark.parametrize(
+    "roundtrip",
+    [lambda r: pickle.loads(pickle.dumps(r)), copy.copy, copy.deepcopy],
+    ids=["pickle", "copy", "deepcopy"],
+)
+def test_requirement_copy_with_bare_specifier(
+    roundtrip: Callable[[Requirement], Requirement],
+) -> None:
+    # A Specifier in place of the SpecifierSet is restored as a SpecifierSet.
+    r = Requirement("foo")
+    r.specifier = Specifier(">=1", prereleases=True)  # type: ignore[assignment]
+    loaded = roundtrip(r)
+    assert loaded == Requirement("foo>=1")
+    assert isinstance(loaded.specifier, SpecifierSet)
+    assert list(loaded.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+
+
 def test_pickle_requirement_state() -> None:
-    r = Requirement("foo>=1.0")
-    r.specifier.prereleases = True
-    state = r.__getstate__()
-    assert state == ("foo>=1.0", r.specifier)
-    assert state[1] is r.specifier
+    # The state holds only primitives, in canonical specifier order.
+    r = Requirement("foo")
+    r.specifier = SpecifierSet(
+        [Specifier(">=1.0", prereleases=True), Specifier("<3")], prereleases=False
+    )
+    assert r.__getstate__() == ("foo<3,>=1.0", False, (None, True))
 
 
-def test_pickle_requirement_setstate_rejects_mismatched_specifier() -> None:
+@pytest.mark.parametrize(
+    "state",
+    [
+        ("foo>=1.0", None, ()),
+        ("foo>=1.0", None, (True, False)),
+        ("foo>=1.0", None, ("yes",)),
+        ("foo>=1.0", None, [True]),
+        ("foo>=1.0", "yes", (None,)),
+        ("foo>=1.0", SpecifierSet(">=1.0")),
+    ],
+)
+def test_pickle_requirement_setstate_rejects_bad_prereleases(state: object) -> None:
     r = Requirement.__new__(Requirement)
     with pytest.raises(TypeError, match="Cannot restore Requirement"):
-        r.__setstate__(("foo>=1.0", SpecifierSet(">=2.0")))
+        r.__setstate__(state)
 
 
 def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
@@ -1089,12 +1118,10 @@ _PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
 # Pickle bytes generated with packaging==26.4, Python 3.14.7, pickle protocol 2,
 # for ``Requirement("demo")`` after setting
 # ``r.specifier = SpecifierSet([Specifier(">=1", prereleases=True)])``.
-# Format: (requirement string, SpecifierSet).
+# Format: (requirement string, prereleases, prereleases of each specifier).
 _PACKAGING_26_4_PICKLE_DEMO_GE_1_INNER_PRERELEASES = (
     b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\x07\x00\x00"
-    b"\x00demo>=1q\x02cpackaging.specifiers\nSpecifierSet\nq\x03)\x81q\x04"
-    b"cpackaging.specifiers\nSpecifier\nq\x05)\x81q\x06X\x02\x00\x00\x00>=q\x07"
-    b"X\x01\x00\x00\x001q\x08\x86q\t\x88\x86q\nb\x85q\x0bN\x86q\x0cb\x86q\rb."
+    b"\x00demo>=1q\x02N\x88\x85q\x03\x87q\x04b."
 )
 
 
