@@ -85,9 +85,11 @@ def pep440_versions(
     *,
     include_local: bool = True,
     min_segments: int = 1,
+    epoch: int | None = None,
 ) -> Version:
     """Generate a random PEP 440 version."""
-    epoch = draw(st.sampled_from([None, 0, 1, 2, 3]))
+    if epoch is None:
+        epoch = draw(st.sampled_from([None, 0, 1, 2, 3]))
     num_segments = draw(st.integers(min_value=min_segments, max_value=4))
     release = tuple(draw(small_ints) for _ in range(num_segments))
 
@@ -151,6 +153,15 @@ def multi_segment_versions(draw: st.DrawFn) -> Version:
     """Generate a version with at least 2 release segments (for ~=)."""
     v: Version = draw(pep440_versions(include_local=False, min_segments=2))
     return v
+
+
+@st.composite
+def compatible_release_version_pairs(draw: st.DrawFn) -> tuple[Version, Version]:
+    """Generate compatible-release examples whose versions share an epoch."""
+    epoch = draw(st.integers(min_value=0, max_value=3))
+    spec_ver = draw(pep440_versions(include_local=False, min_segments=2, epoch=epoch))
+    candidate = draw(pep440_versions(epoch=epoch))
+    return spec_ver, candidate
 
 
 @st.composite

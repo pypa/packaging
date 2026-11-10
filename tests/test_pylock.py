@@ -37,6 +37,7 @@ else:
         ("pylock.spam.toml", True),
         ("pylock.json", False),
         ("pylock..toml", False),
+        ("pylock.spam.toml\n", False),
     ],
 )
 def test_pylock_file_name(file_name: str, valid: bool) -> None:

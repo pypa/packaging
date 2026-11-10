@@ -23,6 +23,9 @@ extensions = [
     "sphinx.ext.intersphinx",
 ]
 
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ["_templates"]
+
 # General information about the project.
 project = "Packaging"
 version = ABOUT["__version__"]

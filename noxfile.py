@@ -235,18 +235,16 @@ PROJECTS = {
         ),
     ),
     "tox": Project(
-        "https://github.com/tox-dev/tox/archive/refs/tags/4.55.1.tar.gz",
+        "https://github.com/tox-dev/tox/archive/refs/tags/4.67.9.tar.gz",
         # argcomplete is an optional dep that several tests import at collection.
         install=("-e.", "--group=test", "argcomplete"),
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.55.1"},
-        # test_schema_tombi_lint lints tox's own pyproject.toml against the
-        # schemastore schema, which references partial schemas tombi cannot
-        # resolve offline; tombi 1.2.1 made --error-on-warnings fail on that.
-        # Unrelated to packaging.
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.67.9"},
+        # packaging rejects the test's newline URL before tox's validation runs.
         pytest_args=(
             "-m",
             "not integration",
-            "--deselect=tests/session/cmd/test_schema.py::test_schema_tombi_lint",
+            "--deselect=tests/tox_env/python/pip/test_req_file.py::"
+            "test_provision_requirement_entry_cannot_change_lines[line-break]",
         ),
         # In CI, tox appends a pip-freeze line to command output, which several
         # output-asserting tests do not expect. Unset every variable its is_ci()
@@ -254,12 +252,12 @@ PROJECTS = {
         extra_env={"CI": None, "GITHUB_ACTIONS": None},
     ),
     "virtualenv": Project(
-        "https://github.com/pypa/virtualenv/archive/refs/tags/21.5.0.tar.gz",
-        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.5.0"},
+        "https://github.com/pypa/virtualenv/archive/refs/tags/21.15.5.tar.gz",
+        install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.15.5"},
     ),
     "pdm": Project(
-        "https://github.com/pdm-project/pdm/archive/refs/tags/2.27.0.tar.gz",
-        install_env={"PDM_BUILD_SCM_VERSION": "2.27.0"},
+        "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.7.tar.gz",
+        install_env={"PDM_BUILD_SCM_VERSION": "2.29.7"},
         pytest_args=("-m", "not network and not integration"),
     ),
     "poetry_core": Project(
@@ -307,7 +305,8 @@ def downstream(session: nox.Session, project: str) -> None:
     """
     cfg = PROJECTS[project]
     pkg_dir = Path.cwd() / "src/packaging"
-    session.install("-e.")
+    # virtualenv's relocation tests copy the files listed in packaging's RECORD.
+    session.install(".")
 
     tmp_dir = Path(session.create_tmp())
     session.chdir(tmp_dir)

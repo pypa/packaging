@@ -4,8 +4,12 @@
 
 from __future__ import annotations
 
+import operator
+from typing import TYPE_CHECKING
+
 import pytest
 
+from packaging import ranges
 from packaging._ranges import (
     NEG_INF,
     POS_INF,
@@ -14,9 +18,14 @@ from packaging._ranges import (
     LowerBound,
     UpperBound,
 )
-from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
+from packaging.ranges import _MAX_EXCLUSION_RUN, RangeRelation, VersionRange
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from packaging._ranges import Interval
 
 
 def vr(spec: str, prereleases: bool | None = None) -> VersionRange:
@@ -276,9 +285,7 @@ class TestSetAlgebra:
         assert not (full - plain).complement().contains("wat")
 
     def test_difference_by_empty_keeps_arbitrary_admission(self) -> None:
-        # ``~full()`` admits nothing (empty bounds, no literal, no region), so the
-        # difference short-circuit returns self untouched, keeping full's
-        # arbitrary admission (``full() - ~full() == full()``).
+        # Subtracting an empty range preserves arbitrary-string admission.
         full = VersionRange.full()
         assert (full - ~full) == full
         assert (full - ~full).contains("wat")
@@ -408,6 +415,80 @@ class TestSetAlgebra:
         assert Version("1.0") not in d
         assert Version("2.0") not in d
 
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            ("<0", "!=2"),
+            (">=3", "<2"),
+            ("<2", ">=3"),
+            (">=1,<=5", ">=2,<4"),
+            (">=1,<=5", ">=2,<=5"),
+            (">=1,<=5", ">=2"),
+            (">=1,<=5", "<0"),
+            ("!=1,!=3", "==2"),
+            ("!=1,!=3", "!=2,!=4"),
+            ("", ""),
+            (">=1", ">1"),
+            ("<=1", "<1"),
+            (">1a1", "<1a2.dev0"),
+            ("<=1.post0.dev0", "<=1"),
+            ("==1.*", "==1.1.*"),
+            ("==1+local", "==1"),
+            ("!=0.dev0", "<1.dev0"),
+            (">=2!1", "<2!1.post1"),
+        ],
+    )
+    def test_difference_matches_complement_intersection(
+        self, left: str, right: str, prereleases: bool | None
+    ) -> None:
+        first = SpecifierSet(left, prereleases=prereleases).to_range()
+        second = SpecifierSet(right, prereleases=prereleases).to_range()
+
+        assert first - second == first & ~second
+
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_difference_reuses_a_spanning_exclusion(
+        self, prereleases: bool | None
+    ) -> None:
+        first = (
+            vr("==1", prereleases)
+            | vr("==3", prereleases)
+            | vr("==5", prereleases)
+            | vr("==7", prereleases)
+            | vr("==9", prereleases)
+        )
+        second = vr(">=2,<8", prereleases)
+        expected = vr("==1", prereleases) | vr("==9", prereleases)
+
+        assert first - second == expected
+
+    def test_difference_preserves_arbitrary_equality(self) -> None:
+        literal = SpecifierSet("===legacy").to_range()
+        numeric = SpecifierSet(">=1").to_range()
+
+        assert literal - numeric == literal
+        assert (literal - literal).is_empty
+        assert "legacy" in (literal | numeric) - numeric
+
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_subtraction_does_not_construct_a_complement(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        prereleases: bool | None,
+    ) -> None:
+        first = SpecifierSet(">=1,<5", prereleases=prereleases).to_range()
+        second = SpecifierSet("!=2,!=4", prereleases=prereleases).to_range()
+        expected = first & ~second
+
+        def refuse_complement(_bounds: Sequence[Interval]) -> list[Interval]:
+            raise AssertionError("subtraction constructed a complement")
+
+        monkeypatch.setattr(ranges, "_complement_ranges", refuse_complement)
+        assert first - second == expected
+        assert first.is_subset(second) is expected.is_empty
+        assert second.is_superset(first) is expected.is_empty
+
 
 class TestPrereleaseRegion:
     """The autodetected pre-release opt-in is stored as a range (``_pre_region``),
@@ -514,7 +595,7 @@ class TestPrereleaseRegion:
         self,
     ) -> None:
         # ``a - b == a & ~b`` even when ``b`` is complement-derived: a complement
-        # carries no opt-in region, so both spellings admit none of ~b's in-bounds
+        # carries no opt-in region, so both expressions admit none of ~b's in-bounds
         # pre-releases. (Two region-bearing operands are covered above.)
         a = vr("<5.0")
         b = vr(">=2.0b1").complement()
@@ -825,6 +906,54 @@ class TestSetRelations:
         assert not whole.is_subset(gapped)
         assert not gapped.is_disjoint(whole)
 
+    def test_disjoint_advances_the_side_that_ends_first(self) -> None:
+        # The overlap is between the second interval of each side, so both
+        # pointers have to step past a non-overlapping pair to reach it.
+        a = vr(">=1.0,<2.0") | vr(">=5.0,<6.0")
+        b = vr(">=3.0,<4.0") | vr(">=5.5,<5.7")
+        assert not a.is_disjoint(b)
+        assert a.is_disjoint(vr(">=3.0,<4.0") | vr(">=7.0,<8.0"))
+
+    def test_disjoint_pin_inside_a_gap(self) -> None:
+        assert vr("!=1.5").is_disjoint(vr("==1.5"))
+        assert not vr("!=1.5").is_disjoint(vr("==1.6"))
+
+        # A local version leaves a gap whose bounds carry that exact version, so
+        # here only the inclusive flags keep the pin out of it.
+        assert vr("!=1.0+local").is_disjoint(vr("==1.0+local"))
+        assert not vr("!=1.0+local").is_disjoint(vr("==1.0+other"))
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "<0.dev0",  # Below the minimum version.
+            ">=2,<1",  # Reversed endpoints.
+            ">1a1,<1a2.dev0",  # Ordered endpoints with no version between them.
+        ],
+    )
+    def test_empty_ranges_are_disjoint(self, spec: str) -> None:
+        empty = vr(spec)
+        whole = VersionRange.full(admit_arbitrary=False)
+        assert empty._bounds == ()
+        assert empty.is_disjoint(whole)
+        assert whole.is_disjoint(empty)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "disjoint"),
+        [
+            (">1a1", "<1a2.dev0", True),
+            (">1a1", ">=1a2.dev0", False),
+            ("<=1", ">=1.post0.dev0", True),
+            ("<=1", "==1+local", False),
+        ],
+    )
+    def test_disjoint_synthetic_boundaries(
+        self, left: str, right: str, disjoint: bool
+    ) -> None:
+        a, b = vr(left), vr(right)
+        assert a.is_disjoint(b) is disjoint
+        assert b.is_disjoint(a) is disjoint
+
     def test_disjoint_nonempty_excludes_subset(self) -> None:
         a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
         assert a.is_disjoint(b)
@@ -860,7 +989,7 @@ class TestSetRelations:
 
     def test_prerelease_excluding_policy_matches_algebra(self) -> None:
         # ``prereleases=False`` ranges are not plain, so both relations take
-        # the algebra fallback; pin concrete non-trivial answers there.
+        # the algebra fallback.
         inner = vr(">=1.2,<1.8", prereleases=False)
         outer = vr(">=1.0,<2.0", prereleases=False)
         far = vr(">=5.0,<6.0", prereleases=False)
@@ -887,6 +1016,178 @@ class TestSetRelations:
             vr(">=1.0").is_disjoint("x")  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected VersionRange"):
             vr(">=1.0").is_superset("x")  # type: ignore[arg-type]
+
+
+class TestRangeRelation:
+    def test_members_partition_the_flag_space(self) -> None:
+        flags = {(rel.is_subset, rel.is_disjoint) for rel in RangeRelation}
+        assert flags == {(True, True), (True, False), (False, True), (False, False)}
+
+    @pytest.mark.parametrize(
+        ("relation", "is_subset", "is_disjoint"),
+        [
+            (RangeRelation.EMPTY, True, True),
+            (RangeRelation.SUBSET, True, False),
+            (RangeRelation.DISJOINT, False, True),
+            (RangeRelation.OVERLAPPING, False, False),
+        ],
+    )
+    def test_flags(
+        self, relation: RangeRelation, is_subset: bool, is_disjoint: bool
+    ) -> None:
+        assert relation.is_subset is is_subset
+        assert relation.is_disjoint is is_disjoint
+
+    def test_flags_are_read_only(self) -> None:
+        # Members are process-wide singletons, so a writable flag would let
+        # one caller rewrite every later answer.
+        with pytest.raises(AttributeError):
+            # Deliberately assign to a read-only property to check refusal.
+            RangeRelation.SUBSET.is_subset = False  # type: ignore[misc]
+
+    def test_repr_is_the_qualified_member_name(self) -> None:
+        assert repr(RangeRelation.SUBSET) == "RangeRelation.SUBSET"
+
+
+class TestRelation:
+    @pytest.mark.parametrize("spec", ["<0", "", ">=1", "===legacy"])
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_identity_and_equal_bounds(
+        self, spec: str, prereleases: bool | None
+    ) -> None:
+        source = vr(spec, prereleases)
+        equivalent = vr(spec, prereleases)
+        expected = RangeRelation.EMPTY if source.is_empty else RangeRelation.SUBSET
+
+        assert source.relation(source) is expected
+        assert source.relation(equivalent) is expected
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            # A single interval inside a single interval, and the reverse.
+            (">=1.5,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<1.8", RangeRelation.OVERLAPPING),
+            # Partial overlap on either side.
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.5,<2.5", ">=1.0,<2.0", RangeRelation.OVERLAPPING),
+            # Separated, with self below and above other.
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            (">=3.0,<4.0", ">=1.0,<2.0", RangeRelation.DISJOINT),
+            # Touching but sharing no version, then sharing the endpoint.
+            (">=1.0,<2.0", ">=2.0,<3.0", RangeRelation.DISJOINT),
+            (">=1.0,<=2.0", ">=2.0,<3.0", RangeRelation.OVERLAPPING),
+            # Identical bounds, which is containment both ways.
+            (">=1.0,<2.0", ">=1.0,<2.0", RangeRelation.SUBSET),
+            # An exclusion splits self into two intervals, both covered; the
+            # other way round self spans the hole the exclusion leaves, which
+            # no single interval covers.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.0,<2.0,!=1.5", RangeRelation.OVERLAPPING),
+            # Two intervals a side, matched pairwise, so the walk advances
+            # both pointers before it runs out.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0,!=1.5", RangeRelation.SUBSET),
+            # An empty self is EMPTY whatever other is; an empty other shares
+            # nothing.
+            (">=2.0,<1.0", ">=1.0", RangeRelation.EMPTY),
+            (">=2.0,<1.0", ">=2.0,<1.0", RangeRelation.EMPTY),
+            (">=1.0", ">=2.0,<1.0", RangeRelation.DISJOINT),
+        ],
+    )
+    def test_plain_ranges(self, left: str, right: str, expected: RangeRelation) -> None:
+        assert vr(left).relation(vr(right)) is expected
+
+    def test_covered_interval_beside_a_separated_one(self) -> None:
+        # The first interval is covered and the second is not, so the walk
+        # finishes with an overlap recorded and a left interval unmatched.
+        split = vr(">=1.0,<1.2") | vr(">=5.0,<6.0")
+        assert split.relation(vr(">=1.0,<2.0")) is RangeRelation.OVERLAPPING
+
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            (">=1.5,<1.8", ">=1.0,<2.0"),
+            (">=1.0,<2.0", ">=1.5,<1.8"),
+            (">=1.0,<2.0", ">=1.5,<2.5"),
+            (">=1.0,<2.0", ">=3.0,<4.0"),
+            (">=1.0,<2.0", ">=1.0,<2.0"),
+            (">=2.0,<1.0", ">=1.0"),
+            (">=1.0", ">=2.0,<1.0"),
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0"),
+        ],
+    )
+    def test_agrees_with_the_predicates(self, left: str, right: str) -> None:
+        a, b = vr(left), vr(right)
+        relation = a.relation(b)
+
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+        # There is no superset member; reversing the operands answers it.
+        assert b.relation(a).is_subset == a.is_superset(b)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">=1.2,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            # Only pre-releases are in range, which the policy excludes.
+            ("==1.0a1", ">=1.0", RangeRelation.EMPTY),
+        ],
+    )
+    def test_prerelease_excluding_policy(
+        self, left: str, right: str, expected: RangeRelation
+    ) -> None:
+        # An excluding pre-release policy requires the algebra fallback.
+        a, b = vr(left, prereleases=False), vr(right, prereleases=False)
+        relation = a.relation(b)
+
+        assert relation is expected
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+    def test_literal_ranges(self) -> None:
+        a = vr("===a")
+        ab = vr("===a") | vr("===b")
+        assert a.relation(ab) is RangeRelation.SUBSET
+        assert ab.relation(a) is RangeRelation.OVERLAPPING
+        assert a.relation(vr("===b")) is RangeRelation.DISJOINT
+
+    def test_literal_on_one_side_only(self) -> None:
+        # A literal on either operand alone still defers to the predicates:
+        # the walk would miss ``===1.0``, whose member no bounds cover.
+        plain, literal = vr(">=1.0"), vr("===1.0")
+        assert plain.relation(literal) is RangeRelation.OVERLAPPING
+        assert literal.relation(plain) is RangeRelation.SUBSET
+
+    def test_arbitrary_admission_is_one_way(self) -> None:
+        # ``full()`` admits non-version strings that the versions-only full
+        # range does not, matching what is_subset already documents.
+        full = VersionRange.full()
+        versions_only = VersionRange.full(admit_arbitrary=False)
+        assert full.relation(versions_only) is RangeRelation.OVERLAPPING
+        assert versions_only.relation(full) is RangeRelation.SUBSET
+        assert full.relation(full) is RangeRelation.SUBSET
+
+    def test_empty_describes_self_not_other(self) -> None:
+        empty = VersionRange.empty()
+        assert empty.relation(VersionRange.full()) is RangeRelation.EMPTY
+        assert VersionRange.full().relation(empty) is RangeRelation.DISJOINT
+
+    # relation checks the policy before it picks a path, so a plain other
+    # (``None``) and a non-plain one (``False``) raise from the same place.
+    @pytest.mark.parametrize("other_policy", [None, False])
+    def test_policy_mismatch_raises(self, other_policy: bool | None) -> None:
+        left = vr(">=1.0", prereleases=True)
+        right = vr("<2.0", prereleases=other_policy)
+        with pytest.raises(ValueError, match="different"):
+            left.relation(right)
+
+    def test_wrong_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            # Deliberately pass an invalid type to check the public error.
+            vr(">=1.0").relation("x")  # type: ignore[arg-type]
 
 
 class TestFilter:
@@ -956,11 +1257,18 @@ class TestFilter:
         out = list(vr("<2.0").filter(items, key=lambda x: x["v"]))
         assert out == [{"v": "1.0"}]
 
-    def test_filter_universal(self) -> None:
-        assert list(VersionRange.full().filter(["1.3", "1.5a1"])) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"])) == ["1.5a1"]
-        assert list(VersionRange.full().filter(["1.3"], prereleases=True)) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"], prereleases=False)) == []
+    @pytest.mark.parametrize(
+        ("final", "pre"),
+        [("1.3", "1.5a1"), (Version("1.3"), Version("1.5a1"))],
+    )
+    def test_filter_universal(self, final: Version | str, pre: Version | str) -> None:
+        r = VersionRange.full()
+        assert list(r.filter([final, pre])) == [final]
+        assert list(r.filter([pre])) == [pre]
+        assert list(r.filter([final, pre], prereleases=True)) == [final, pre]
+        assert list(r.filter([pre], prereleases=False)) == []
+
+    def test_filter_universal_arbitrary(self) -> None:
         assert list(VersionRange.full().filter(["junk", "1.0"])) == ["junk", "1.0"]
         assert list(VersionRange.full().filter(["junk"])) == ["junk"]
 
@@ -969,6 +1277,13 @@ class TestFilter:
         assert list(r.filter(["1.5a1"], prereleases=True)) == ["1.5a1"]
         assert list(r.filter(["1.5a1"], prereleases=False)) == []
         assert list(r.filter(["1.5a1"])) == ["1.5a1"]
+
+    def test_filter_literal_version_text(self) -> None:
+        versions = [Version("1"), Version("1.0")]
+        literal = vr("===1.0")
+
+        assert list(literal.filter(versions)) == [versions[1]]
+        assert list((~literal).filter(versions)) == [versions[0]]
 
     def test_filter_admission_with_final(self) -> None:
         r = VersionRange.full() & vr("===wat")
@@ -1126,7 +1441,7 @@ class TestToSpecifierSet:
         assert str(SpecifierSet("").to_range().to_specifier_set()) == ""
 
     def test_full_no_arbitrary_none(self) -> None:
-        # The only full-bounds spelling ``>=0.dev0`` opts pre-releases in
+        # The full-range specifier ``>=0.dev0`` opts pre-releases in
         # (whole-bounds region), but this range has an empty opt-in region, so
         # no candidate round-trips.
         assert VersionRange.full(admit_arbitrary=False).to_specifier_set() is None
@@ -1156,8 +1471,7 @@ class TestToSpecifierSet:
 
     def test_arbitrary_literal_with_comma_none(self) -> None:
         # A ``===`` literal may hold a comma (its arbitrary version excludes only
-        # whitespace, ``;`` and ``)``), which the set string splits on, so it has
-        # no single specifier-set spelling. It must return ``None``, not raise.
+        # whitespace, ``;`` and ``)``), but a specifier set treats commas as separators.
         r = SpecifierSet([Specifier("===a,b")]).to_range()
         assert r.to_specifier_set() is None
 
@@ -1273,15 +1587,11 @@ class TestToSpecifierSet:
 
     def test_cross_epoch_dev_gap_none(self) -> None:
         # A dev-run gap whose family sits in another epoch is not a
-        # wildcard-plus-run shape; the gap has no exclusion spelling and the
-        # disjoint union has no single-set form.
+        # wildcard-plus-run shape, so its disjoint union has no single-set form.
         assert (vr("<1") | vr(">=1!0.dev1,!=1!0.dev1")).to_specifier_set() is None
 
     def test_recovery_caps_long_dev_runs(self) -> None:
-        # A ``.dev`` run longer than ``_MAX_EXCLUSION_RUN`` also has no practical
-        # single-set form. The bound encoders keep the terse ``>=V,!=V`` spelling
-        # or return None rather than spell out a huge ``!=`` chain from a short
-        # input. The four run sites, driven by an attacker-controlled dev number:
+        # Long dev runs use a compact specifier or fail recovery.
         dev = _MAX_EXCLUSION_RUN
         anchor = vr(f">=1.dev{dev},!=1.dev{dev}").to_specifier_set()
         assert str(anchor) == f"!=1.dev{dev},>=1.dev{dev}"
@@ -1361,7 +1671,6 @@ class TestToSpecifierSet:
             ("!=0.*", "!=0.*"),
             ("!=0.0.*", "!=0.0.*"),
             ("!=0.dev0", "!=0.dev0"),
-            # Post-release boundary and dev0 upper keep their clean spellings.
             (">3.8.post1", ">3.8.post1"),
             ("<3.8.post1", "<3.8.post1"),
             # AFTER_LOCALS(dev0) lower, then a wildcard-chain + dev0-point gap.
@@ -1369,7 +1678,7 @@ class TestToSpecifierSet:
             ("!=3.9.dev0,!=3.8.*", "!=3.8.*,!=3.9.dev0"),
         ],
     )
-    def test_prerelease_free_recovery_spelling(self, spec: str, expected: str) -> None:
+    def test_prerelease_free_recovery_form(self, spec: str, expected: str) -> None:
         # With an empty opt-in region the encoder must avoid a synthetic
         # ``.dev0`` so the recovered set opts no pre-release in either.
         recovered = vr(spec).to_specifier_set()
@@ -1427,8 +1736,7 @@ class TestToSpecifierSet:
     @pytest.mark.parametrize(
         ("spec", "expected"),
         [
-            # The epoch-zero family floor: 1!0.dev0 has no >=P,!=P.* spelling, so
-            # within its family it recovers as ==1!0.* trimmed by the upper.
+            # The family floor uses ==1!0.* trimmed by the upper bound.
             ("==1!0.*,<=1!0", "<=1!0,==1!0.*"),
             ("==1!0.*,<1!0.5", "<1!0.5,==1!0.*"),
             ("==2!0.*,<=2!0", "<=2!0,==2!0.*"),
@@ -1515,7 +1823,7 @@ class TestToSpecifierSet:
 
     def test_epoch_prerelease_singleton_no_opt_in_none(self) -> None:
         # ``~(!=1!0a0.dev0)`` holds just ``1!0a0.dev0`` and its locals, which
-        # ``==1!0a0.dev0`` also spells, but that spelling opts the pre-release in
+        # ``==1!0a0.dev0`` also selects, but that specifier opts the pre-release in
         # (whole-bounds region) while this range carries no opt-in, so None.
         r = ~vr("!=1!0a0.dev0")
         assert not r.is_empty
@@ -1562,7 +1870,7 @@ class TestToSpecifierSet:
 
     def test_prerelease_dev_singleton_no_opt_in_none(self) -> None:
         # ``~(!=1.0a1.dev1)`` is the singleton ``{1.0a1.dev1}`` with no opt-in
-        # region; every spelling of a pre-release singleton opts it in, so None.
+        # region; a specifier for this pre-release singleton would opt it in.
         r = ~vr("!=1.0a1.dev1")
         assert not r.is_empty
         assert r._pre_region == ()
@@ -1571,7 +1879,7 @@ class TestToSpecifierSet:
     def test_epoch_prerelease_floor_lower_declines_family_form(self) -> None:
         # An epoch>0 floor lower that names a pre-release (``1!0a0.dev0``) has no
         # ``==1!0.*`` family form, so the encoder falls back to the generic
-        # ``>=,<`` spelling.
+        # ``>=,<`` form.
         r = vr(">=1!0a0.dev0,<1!5")
         recovered = r.to_specifier_set()
         assert recovered is not None
@@ -1781,6 +2089,34 @@ class TestSyntheticEmptyGaps:
         r = vr(">1.0a1,<1.0a2.dev0")
         assert (~~r).is_empty
 
+    @pytest.mark.parametrize("right_is_empty", [False, True])
+    def test_empty_interval_contributes_no_difference(
+        self, right_is_empty: bool
+    ) -> None:
+        left = ((LowerBound(Version("1"), False), UpperBound(Version("1"), True)),)
+        right = (
+            ()
+            if right_is_empty
+            else ((LowerBound(Version("2"), True), UpperBound(Version("3"), True)),)
+        )
+
+        assert tuple(ranges._difference_ranges(left, right)) == ()
+
+    def test_subtraction_drops_a_gap_below_a_boundary_successor(self) -> None:
+        boundary = BoundaryVersion(Version("1a1"), BoundaryKind.AFTER_POSTS)
+        left = ((LowerBound(boundary, False), UpperBound(Version("2"), True)),)
+        right = (
+            (
+                LowerBound(Version("1a2.dev0"), True),
+                UpperBound(Version("1a3.dev0"), False),
+            ),
+        )
+
+        # The apparent gap ends at the first version after the synthetic boundary.
+        assert tuple(ranges._difference_ranges(left, right)) == (
+            (LowerBound(Version("1a3.dev0"), True), UpperBound(Version("2"), True)),
+        )
+
 
 class TestBoundaryCanonicalization:
     """Different specifiers for the same set canonicalize to one form.
@@ -1832,9 +2168,9 @@ class TestBoundaryCanonicalization:
 
 
 class TestUnboundedEnds:
-    """An unbounded end has one spelling: ``inclusive`` is not part of it."""
+    """Inclusivity is ignored at unbounded endpoints."""
 
-    def test_lower_spellings_are_one_bound(self) -> None:
+    def test_lower_inclusivity_is_ignored_when_unbounded(self) -> None:
         bound = LowerBound(None, True)
         assert bound.inclusive is False
 
@@ -1842,7 +2178,7 @@ class TestUnboundedEnds:
         assert hash(bound) == hash(NEG_INF)
         assert len({bound, NEG_INF}) == 1
 
-    def test_upper_spellings_are_one_bound(self) -> None:
+    def test_upper_inclusivity_is_ignored_when_unbounded(self) -> None:
         bound = UpperBound(None, True)
         assert bound.inclusive is False
 
@@ -1859,6 +2195,144 @@ class TestUnboundedEnds:
         a, b = UpperBound(None, True), UpperBound(None, False)
         assert (a < b, a > b, a <= b, a >= b) == (False, False, True, True)
         assert (b < a, b > a, b <= a, b >= a) == (False, False, True, True)
+
+
+BoundInput = tuple[str, bool]
+
+
+def bound_value(text: str) -> Version | BoundaryVersion | None:
+    """Parse a version or boundary without building a comparison key."""
+    # An empty string is unbounded; /L and /P mean after locals and after posts.
+    if not text:
+        return None
+
+    version, _, suffix = text.partition("/")
+    if not suffix:
+        return Version(version)
+
+    kind = BoundaryKind.AFTER_LOCALS if suffix == "L" else BoundaryKind.AFTER_POSTS
+    return BoundaryVersion(Version(version), kind)
+
+
+def warm_key(bound: LowerBound | UpperBound) -> None:
+    """Build a plain version's comparison key, leaving other endpoints alone."""
+    if isinstance(bound.version, Version):
+        hash(bound.version)
+
+
+# Expected order is negative, zero or positive, as in a three-way comparison.
+LOWER_BOUND_ORDER: list[tuple[BoundInput, BoundInput, int]] = [
+    (("", False), ("", False), 0),
+    (("", False), ("1.0", True), -1),
+    (("1.0", True), ("", False), 1),
+    (("1.0", True), ("2.0", True), -1),
+    (("2.0", True), ("1.0", True), 1),
+    (("1.0", True), ("1.0", False), -1),
+    (("1.0", False), ("1.0", True), 1),
+    (("1.0", True), ("1.0", True), 0),
+    (("1.0", False), ("1.0", False), 0),
+    (("1.0+local", True), ("1.0+local", False), -1),
+    (("1.0", True), ("1.0/L", False), -1),
+    (("1.0/L", False), ("1.0", True), 1),
+    (("1.0/L", False), ("1.0/P", False), -1),
+    (("1.0/P", False), ("1.0/L", False), 1),
+    (("1.0/L", True), ("1.0/L", False), -1),
+    (("1.0/L", False), ("1.0/L", False), 0),
+    (("1.0/L", False), ("2.0", True), -1),
+    (("2.0", True), ("1.0/L", False), 1),
+]
+
+# Upper bounds reverse the ordering of infinity and inclusivity.
+UPPER_BOUND_ORDER: list[tuple[BoundInput, BoundInput, int]] = [
+    (("", False), ("", False), 0),
+    (("", False), ("1.0", True), 1),
+    (("1.0", True), ("", False), -1),
+    (("1.0", True), ("2.0", True), -1),
+    (("2.0", True), ("1.0", True), 1),
+    (("1.0", False), ("1.0", True), -1),
+    (("1.0", True), ("1.0", False), 1),
+    (("1.0", True), ("1.0", True), 0),
+    (("1.0", False), ("1.0", False), 0),
+    (("1.0+local", False), ("1.0+local", True), -1),
+    (("1.0", True), ("1.0/L", True), -1),
+    (("1.0/L", True), ("1.0", True), 1),
+    (("1.0/L", True), ("1.0/P", True), -1),
+    (("1.0/P", True), ("1.0/L", True), 1),
+    (("1.0/L", False), ("1.0/L", True), -1),
+    (("1.0/L", True), ("1.0/L", True), 0),
+    (("1.0/L", True), ("2.0", False), -1),
+    (("2.0", False), ("1.0/L", True), 1),
+]
+
+
+class TestBoundOrdering:
+    @pytest.mark.parametrize(
+        "compare", [operator.lt, operator.gt, operator.le, operator.ge, operator.eq]
+    )
+    @pytest.mark.parametrize("warm", [(), ("left",), ("right",), ("left", "right")])
+    @pytest.mark.parametrize(("left", "right", "expected"), LOWER_BOUND_ORDER)
+    def test_lower_bounds(
+        self,
+        left: BoundInput,
+        right: BoundInput,
+        expected: int,
+        warm: tuple[str, ...],
+        compare: Callable[[LowerBound | int, LowerBound | int], bool],
+    ) -> None:
+        a = LowerBound(bound_value(left[0]), left[1])
+        b = LowerBound(bound_value(right[0]), right[1])
+        if "left" in warm:
+            warm_key(a)
+        if "right" in warm:
+            warm_key(b)
+
+        # Each operator gets fresh bounds so earlier comparisons cannot warm them.
+        assert compare(a, b) is compare(expected, 0)
+
+    @pytest.mark.parametrize(
+        "compare", [operator.lt, operator.gt, operator.le, operator.ge, operator.eq]
+    )
+    @pytest.mark.parametrize("warm", [(), ("left",), ("right",), ("left", "right")])
+    @pytest.mark.parametrize(("left", "right", "expected"), UPPER_BOUND_ORDER)
+    def test_upper_bounds(
+        self,
+        left: BoundInput,
+        right: BoundInput,
+        expected: int,
+        warm: tuple[str, ...],
+        compare: Callable[[UpperBound | int, UpperBound | int], bool],
+    ) -> None:
+        a = UpperBound(bound_value(left[0]), left[1])
+        b = UpperBound(bound_value(right[0]), right[1])
+        if "left" in warm:
+            warm_key(a)
+        if "right" in warm:
+            warm_key(b)
+
+        assert compare(a, b) is compare(expected, 0)
+
+    def test_cached_keys_avoid_version_comparisons(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_comparison(_self: Version, _other: object) -> bool:
+            raise AssertionError("cached bound dispatched a version comparison")
+
+        lower_a = LowerBound(Version("1.0"), True)
+        lower_b = LowerBound(Version("2.0"), True)
+        upper_a = UpperBound(Version("1.0"), True)
+        upper_b = UpperBound(Version("2.0"), True)
+        for bound in (lower_a, lower_b, upper_a, upper_b):
+            warm_key(bound)
+
+        for name in ("__eq__", "__ne__", "__lt__"):
+            monkeypatch.setattr(Version, name, refuse_comparison)
+
+        assert lower_a < lower_b
+        assert not lower_a > lower_b
+        assert lower_a <= lower_b
+
+        assert upper_a < upper_b
+        assert not upper_a > upper_b
 
 
 class TestEmptyMatchesUnsatisfiable:
@@ -1974,9 +2448,7 @@ class TestCoverageEdges:
         assert recovered.to_range() == r
 
     def test_after_posts_boundary_total_order_consistent(self) -> None:
-        # ``AFTER_POSTS(1.0)`` and ``AFTER_POSTS(1.0.post1)`` mark the same point
-        # on the version line, so equality must agree with the ordering:
-        # exactly one of ``<``, ``==``, ``>`` holds for any two boundaries.
+        # AFTER_POSTS places a version and its post-releases at the same boundary.
         a = BoundaryVersion(Version("1.0"), BoundaryKind.AFTER_POSTS)
         b = BoundaryVersion(Version("1.0.post1"), BoundaryKind.AFTER_POSTS)
         assert a == b
@@ -2060,7 +2532,7 @@ class TestCoverageEdges:
 
     def test_exact_equals_successor_interval_bounds(self) -> None:
         # ``==1.0`` and ``>=1.0,<1.0.post0.dev0`` share bounds; the dev
-        # spelling carries an opt-in region, so they stay unequal.
+        # expression carries an opt-in region, so they stay unequal.
         a, b = vr("==1.0"), vr(">=1.0,<1.0.post0.dev0")
         assert a._bounds == b._bounds
         assert a != b
@@ -2083,8 +2555,7 @@ class TestCoverageEdges:
         assert comp.to_specifier_set() is None
 
     def test_two_singletons_complement_no_form(self) -> None:
-        # The strict-point gaps have no ``!=`` spelling (``!=1.0`` would also
-        # drop 1.0's locals), so the three intervals cannot fuse.
+        # ``!=1.0`` also drops local versions, so it cannot express these gaps.
         r = ~(VersionRange.singleton("1.0") | VersionRange.singleton("2.0"))
         assert Version("1.5") in r
         assert Version("1.0") not in r
@@ -2191,3 +2662,263 @@ class TestCoverageEdges:
         recovered = r.to_specifier_set()
         assert recovered is not None
         assert recovered.to_range() == r
+
+
+class TestSnapBounds:
+    @pytest.mark.parametrize(
+        "versions",
+        [
+            ["1.2", "1.5", "1.8"],
+            ["1.8", "1.2", "1.5", "1.2"],
+            ["1.2", Version("1.8")],
+        ],
+    )
+    def test_finite_bounds_move_inward(self, versions: list[Version | str]) -> None:
+        result = vr(">=1.0,<2.0").snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.2"), True), UpperBound(Version("1.8"), True)),
+        )
+
+    def test_keeps_unbounded_end(self) -> None:
+        r = vr(">=1.0")
+        assert r.snap_bounds(["1.2", "1.5"]) == vr(">=1.2")
+
+    def test_segment_holding_none_of_them_is_kept(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds(["5.0", "6.0"]) == r
+
+    def test_no_versions_leaves_the_range_alone(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds([]) == r
+
+    def test_empty_range_snaps_to_itself(self) -> None:
+        r = VersionRange.empty()
+        assert r.snap_bounds(["1.0"]) == r
+
+    def test_empty_range_still_parses_the_versions(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.empty().snap_bounds(["not a version"])
+
+    def test_unparsable_version_raises(self) -> None:
+        with pytest.raises(InvalidVersion):
+            vr(">=1.0").snap_bounds(["not a version"])
+
+    def test_multi_segment_independent(self) -> None:
+        r = vr(">=1.0,<2.0") | vr(">=3.0,<4.0")
+        result = r.snap_bounds(["1.5", "3.5"])
+        expected = VersionRange.singleton("1.5") | VersionRange.singleton("3.5")
+        assert result == expected
+
+    def test_admitted_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") | vr("===wat")
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._admit == frozenset({"wat"})
+        assert result.contains("wat")
+
+    def test_rejected_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") - vr("===1.5")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result._reject == frozenset({"1.5"})
+        assert result.contains("1.5") is False
+
+    def test_arbitrary_admission_carriage(self) -> None:
+        r = VersionRange.full()
+        result = r.snap_bounds(["1.0", "2.0"])
+        assert result == r
+        assert "wat" in result
+
+    def test_pre_region_carriage(self) -> None:
+        r = vr(">=1.0a1,<2.0")
+        assert r._pre_region
+        result = r.snap_bounds(["1.0a1", "1.5"])
+        assert result._pre_region
+        assert list(result.filter(["1.0a1"])) == ["1.0a1"]
+
+    def test_configured_policy_carriage(self) -> None:
+        r = vr(">=1.0,<2.0", prereleases=False)
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._prereleases_configured is False
+
+    @pytest.mark.parametrize("prereleases", [None, True, False])
+    @pytest.mark.parametrize(
+        ("versions", "upper"),
+        [(["1.5a1"], "1.5a1"), (["1.5a1", "1.5"], "1.5")],
+    )
+    def test_prerelease_policy_does_not_choose_endpoints(
+        self, prereleases: bool | None, versions: list[str], upper: str
+    ) -> None:
+        r = vr(">=1.0,<2.0", prereleases=prereleases)
+        result = r.snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.5a1"), True), UpperBound(Version(upper), True)),
+        )
+        assert result.contains("1.5a1") == r.contains("1.5a1")
+        assert result.contains("1.5a1", prereleases=True)
+        assert list(result.filter(versions)) == list(r.filter(versions))
+
+    @pytest.mark.parametrize("opt_in", [False, True])
+    def test_preserves_prerelease_opt_in_for_later_union(self, opt_in: bool) -> None:
+        r = vr(">=1.5a1,<1.5b1")
+        if not opt_in:
+            r = ~~r
+
+        result = r.snap_bounds(["1.5a2"])
+        assert list(result.filter(["1.5a2"])) == ["1.5a2"]
+
+        combined = result | VersionRange.singleton("2.0")
+        versions = ["1.5a2", "2.0"]
+        expected = versions if opt_in else ["2.0"]
+        assert list(combined.filter(versions)) == expected
+
+    def test_result_is_subset(self) -> None:
+        r = vr(">=1.0,<2.0")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result.is_subset(r)
+
+    def test_agrees_on_given_versions(self) -> None:
+        r = vr(">=1.0,<2.0")
+        versions = ["0.5", "1.0", "1.5", "1.9", "2.0", "3.0"]
+        result = r.snap_bounds(versions)
+        for v in versions:
+            assert result.contains(v) == r.contains(v)
+
+    def test_gap_round_trips_to_singleton(self) -> None:
+        versions = [Version("1.0"), Version("2.0"), Version("3.0")]
+        gap = vr(">1.0,<3.0")
+        assert gap.snap_bounds(versions) == VersionRange.singleton("2.0")
+
+
+class TestFromBounds:
+    def test_closed_default(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("1.0") in r
+        assert Version("2.0") in r
+        assert Version("0.9") not in r
+        assert Version("2.1") not in r
+
+    def test_half_open_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_upper=False)
+        assert Version("1.0") in r
+        assert Version("2.0") not in r
+
+    def test_half_open_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0") not in r
+        assert Version("2.0") in r
+
+    def test_open_both(self) -> None:
+        r = VersionRange.from_bounds(
+            "1.0", "2.0", include_lower=False, include_upper=False
+        )
+        assert Version("1.0") not in r
+        assert Version("1.5") in r
+        assert Version("2.0") not in r
+
+    def test_unbounded_lower(self) -> None:
+        r = VersionRange.from_bounds(upper="2.0")
+        assert Version("0.1") in r
+        assert Version("2.0") in r
+        assert Version("2.1") not in r
+
+    def test_unbounded_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0")
+        assert Version("1.0") in r
+        assert Version("99") in r
+        assert Version("0.9") not in r
+
+    def test_unbounded_both_equals_full_no_arbitrary(self) -> None:
+        assert VersionRange.from_bounds() == VersionRange.full(admit_arbitrary=False)
+        assert "wat" not in VersionRange.from_bounds()
+
+    def test_unbounded_end_ignores_inclusion_flag(self) -> None:
+        assert VersionRange.from_bounds(
+            None, "2.0", include_lower=False
+        ) == VersionRange.from_bounds(upper="2.0")
+        assert VersionRange.from_bounds(
+            "1.0", None, include_upper=False
+        ) == VersionRange.from_bounds("1.0")
+
+    def test_inverted_is_empty(self) -> None:
+        assert VersionRange.from_bounds("2.0", "1.0").is_empty
+
+    def test_equal_bounds_closed_is_singleton(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5") == VersionRange.singleton("1.5")
+
+    def test_equal_bounds_exclusive_upper_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_upper=False).is_empty
+
+    def test_equal_bounds_exclusive_lower_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_lower=False).is_empty
+
+    def test_accepts_version_objects(self) -> None:
+        r = VersionRange.from_bounds(Version("1.0"), Version("2.0"))
+        assert Version("1.5") in r
+
+    def test_invalid_lower(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds("not a version")
+
+    def test_invalid_upper(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds(upper="not a version")
+
+    def test_prereleases_false_excludes(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=False)
+        assert r._prereleases_configured is False
+        assert not r.contains("1.5a1")
+
+    def test_prereleases_true_admits(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=True)
+        assert r._prereleases_configured is True
+        assert r.contains("1.5a1")
+
+    @pytest.mark.parametrize("closed", [True, False])
+    def test_prerelease_bound_does_not_opt_in(self, closed: bool) -> None:
+        r = VersionRange.from_bounds(
+            "1.0a1", "2.0", include_lower=closed, include_upper=closed
+        )
+        versions = ["1.0a1", "1.5a1", "1.6"]
+
+        assert r.contains("1.0a1") is closed
+        assert list(r.filter(versions)) == ["1.6"]
+
+    def test_bounds_only_admits_post_of_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0.post1") in r
+        assert Version("1.0.post1") not in vr(">1.0,<2.0")
+
+    def test_local_endpoints_use_version_order(self) -> None:
+        interval = VersionRange.from_bounds(
+            "1.0+build1", "1.0+build3", include_lower=False, include_upper=False
+        )
+        assert "1.0+build2" in interval
+        assert "1.0+build1" not in interval
+        assert "1.0+build3" not in interval
+
+    def test_bounds_only_admits_local(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0+local") in r
+
+    def test_bounds_only_admits_rc_below_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("2.0rc1") in r
+        assert Version("2.0rc1") not in vr(">=1.0,<2.0")
+
+    def test_floor_empty_canonical(self) -> None:
+        # (-inf, 0.dev0) holds no version; _canonical_floor drops the interval,
+        # which plain bound comparison cannot see with an unbounded lower.
+        assert VersionRange.from_bounds(None, "0.dev0", include_upper=False).is_empty
+
+    def test_floor_empty_epoch_variant(self) -> None:
+        # 0!0.dev0 is the same version as 0.dev0, so it is floor-empty too.
+        assert VersionRange.from_bounds(None, "0!0.dev0", include_upper=False).is_empty
+
+    def test_higher_epoch_floor_not_collapsed(self) -> None:
+        r = VersionRange.from_bounds(None, "1!0.dev0", include_upper=False)
+        assert not r.is_empty
+        assert Version("5.0") in r
+
+    def test_inclusive_lower_at_floor_folds_to_full(self) -> None:
+        assert VersionRange.from_bounds("0.dev0") == VersionRange.full(
+            admit_arbitrary=False
+        )

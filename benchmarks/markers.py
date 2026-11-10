@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# ASV also runs this benchmark against commits without prepare_environment.
+import packaging.markers
 from packaging.markers import Marker
 
 from . import add_attributes
@@ -16,13 +18,22 @@ class TimeMarkerSuite:
         with (DIR / "dist_sample.txt").open() as f:
             self.marker_strs = [m.split(";")[1].strip() for m in f if ";" in m]
 
+        self.cold_markers = [Marker(m) for m in self.marker_strs]
         self.markers = [Marker(m) for m in self.marker_strs]
+        # Measure repeated formatting and hashing after the first conversion.
+        for marker in self.markers:
+            hash(marker)
         self.env = {
             "python_version": "3.12",
             "sys_platform": "linux",
             "platform_machine": "x86_64",
             "extra": "",
         }
+        self.prepared_environment = (
+            packaging.markers.prepare_environment(self.env)
+            if hasattr(packaging.markers, "prepare_environment")
+            else self.env
+        )
 
     @add_attributes(pretty_name="Marker constructor")
     def time_constructor(self) -> None:
@@ -38,3 +49,22 @@ class TimeMarkerSuite:
     def time_str(self) -> None:
         for m in self.markers:
             str(m)
+
+    @add_attributes(pretty_name="Marker hash")
+    def time_hash(self) -> None:
+        for m in self.markers:
+            hash(m)
+
+    @add_attributes(pretty_name="Marker str (cold cache)", number=1)
+    def time_first_str(self) -> None:
+        for marker in self.cold_markers:
+            str(marker)
+
+    @add_attributes(pretty_name="Marker batch evaluate")
+    def time_evaluate_many(self) -> None:
+        if hasattr(packaging.markers, "prepare_environment"):
+            for m in self.markers:
+                m.evaluate_prepared(self.prepared_environment)
+        else:
+            for m in self.markers:
+                m.evaluate(self.env)

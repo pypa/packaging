@@ -21,7 +21,7 @@ permissions: {}
 jobs:
   test:
     name: ${{ matrix.os }} / ${{ matrix.python_version }}
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ${{ matrix.runner || format('{0}-latest', matrix.os) }}
     strategy:
       fail-fast: false
       matrix:
@@ -29,14 +29,19 @@ jobs:
         python_version:
           ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.13t", "3.14t", "3.15t", "pypy3.10", "pypy3.11"]
         include:
+          # These older Python builds are unavailable on Ubuntu 26.04.
           - os: Ubuntu
             python_version: "3.11.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.12.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.13.0"
+            runner: ubuntu-24.04
           - os: Ubuntu
             python_version: "3.14.0"
+            runner: ubuntu-24.04
         exclude:
           # Slow, sometimes fails to build in CI (not packaging's fault)
           - os: Windows
@@ -47,16 +52,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        name: Install Python ${{ matrix.python_version }}
-        with:
-          python-version: ${{ matrix.python_version }}
-          allow-prereleases: true
+      - parallel:
+          - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+            name: Install Python ${{ matrix.python_version }}
+            with:
+              python-version: ${{ matrix.python_version }}
+              allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        name: Setup uv
-        with:
-          cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
+          - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+            name: Setup uv
+            with:
+              cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
 
       - name: Run nox
         run: pipx run nox -s tests
@@ -78,7 +84,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
           cache-suffix: ${{ github.job }}
@@ -97,12 +103,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         name: Install Python 3.14
         with:
           python-version: "3.14"
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
           cache-suffix: ${{ github.job }}
@@ -138,12 +144,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         name: Install Python 3.14
         with:
           python-version: "3.14"
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
           cache-suffix: ${{ github.job }}-${{ matrix.project }}
@@ -161,12 +167,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         name: Install Python 3.14
         with:
           python-version: "3.14"
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
           cache-suffix: ${{ github.job }}

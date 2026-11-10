@@ -13,12 +13,13 @@ both code paths. Pointwise-membership and symmetry are also checked.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
 from hypothesis import given
+from hypothesis import strategies as st
 
-from packaging.ranges import VersionRange
+from packaging._ranges import range_is_empty
+from packaging.ranges import RangeRelation, VersionRange
+from packaging.specifiers import SpecifierSet
 
 from .strategies import (
     SETTINGS,
@@ -27,10 +28,15 @@ from .strategies import (
     specifier_sets,
 )
 
-if TYPE_CHECKING:
-    from packaging.specifiers import SpecifierSet
-
 pytestmark = pytest.mark.property
+
+
+def _union_all(spec_sets: list[SpecifierSet]) -> VersionRange:
+    """The range accepting any version any of *spec_sets* accepts."""
+    result = spec_sets[0].to_range()
+    for spec_set in spec_sets[1:]:
+        result = result | spec_set.to_range()
+    return result
 
 
 @given(a=specifier_sets(), b=specifier_sets())
@@ -45,6 +51,27 @@ def test_disjoint_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> Non
 def test_subset_matches_algebra_plain(a: SpecifierSet, b: SpecifierSet) -> None:
     ra, rb = a.to_range(), b.to_range()
     assert ra.is_subset(rb) == (ra & ~rb).is_empty
+
+
+@given(
+    a=st.lists(rich_specifier_sets(), min_size=2, max_size=4),
+    b=st.lists(rich_specifier_sets(), min_size=2, max_size=4),
+)
+@SETTINGS
+def test_relations_match_algebra_after_set_operations(
+    a: list[SpecifierSet], b: list[SpecifierSet]
+) -> None:
+    """Union several ranges to exercise walks over multiple intervals."""
+    ra, rb = _union_all(a), _union_all(b)
+    # Every operation must preserve the walk's non-empty-interval invariant.
+    operands = (ra, rb, ~ra, ra | rb, ra & rb, ra - rb)
+    for operand in operands:
+        assert all(not range_is_empty(*interval) for interval in operand._bounds)
+        for other in operands:
+            assert operand.is_disjoint(other) == (operand & other).is_empty
+            relation = operand.relation(other)
+            assert relation.is_disjoint == (operand & other).is_empty
+            assert relation.is_subset == (operand & ~other).is_empty
 
 
 @given(
@@ -121,3 +148,30 @@ def test_empty_is_subset_and_disjoint(spec_set: SpecifierSet) -> None:
     r = spec_set.to_range()
     assert VersionRange.empty().is_subset(r)
     assert VersionRange.empty().is_disjoint(r)
+
+
+@given(
+    a=rich_specifier_sets(include_arbitrary=True),
+    b=rich_specifier_sets(include_arbitrary=True),
+    prereleases=st.sampled_from([None, True, False]),
+)
+@SETTINGS
+def test_relation_matches_algebra(
+    a: SpecifierSet, b: SpecifierSet, prereleases: bool | None
+) -> None:
+    ra = SpecifierSet(str(a), prereleases=prereleases).to_range()
+    rb = SpecifierSet(str(b), prereleases=prereleases).to_range()
+    relation = ra.relation(rb)
+    assert relation.is_subset == (ra & ~rb).is_empty
+    assert relation.is_disjoint == (ra & rb).is_empty
+    assert (relation is RangeRelation.EMPTY) == ra.is_empty
+
+
+@given(a=specifier_sets(), b=specifier_sets())
+@SETTINGS
+def test_relation_contains_intersection(a: SpecifierSet, b: SpecifierSet) -> None:
+    ra, rb = a.to_range(), b.to_range()
+    intersection = ra & rb
+    contained = {RangeRelation.EMPTY, RangeRelation.SUBSET}
+    assert intersection.relation(ra) in contained
+    assert intersection.relation(rb) in contained
