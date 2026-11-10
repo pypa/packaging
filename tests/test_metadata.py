@@ -318,6 +318,29 @@ _RAW_EXAMPLE: RawMetadata = {
 
 
 class TestMetadata:
+    @pytest.mark.parametrize("validate", [False, True])
+    @pytest.mark.parametrize("from_email", [False, True])
+    def test_subclass_round_trip(self, validate: bool, from_email: bool) -> None:
+        class CustomMetadata(metadata.Metadata):
+            pass
+
+        raw: metadata.RawMetadata = {
+            "metadata_version": "2.6",
+            "name": "example",
+            "version": "1.0",
+            "summary": "An example package",
+            "requires_dist": ["dependency>=2"],
+            "description": "Package description\n",
+        }
+        expected = metadata.Metadata.from_raw(raw).as_rfc822().as_bytes()
+        if from_email:
+            parsed = CustomMetadata.from_email(expected, validate=validate)
+        else:
+            parsed = CustomMetadata.from_raw(raw, validate=validate)
+
+        assert isinstance(parsed, CustomMetadata)
+        assert parsed.as_rfc822().as_bytes() == expected
+
     def _invalid_with_cause(
         self,
         meta: metadata.Metadata,
