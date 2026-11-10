@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"collections.abc", "urllib.parse"}
+
 import dataclasses
 import re
 import urllib.parse

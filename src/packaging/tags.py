@@ -4,6 +4,17 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "importlib.machinery",
+    "operator",
+    "platform",
+    "re",
+    "struct",
+    "subprocess",
+    "sysconfig",
+    f"{__spec__.parent}",
+}
+
 import logging
 import operator
 import platform
