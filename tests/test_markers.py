@@ -822,6 +822,10 @@ def test_chain_keeps_mixed_groups() -> None:
         'and os_name == "c"'
     )
     assert str(b | (b & b)) == 'os_name == "c" or (os_name == "c" and os_name == "c")'
+    # A parenthesized group of the same operator is spliced in too.
+    assert str(Marker('(os_name == "a" or os_name == "b")') | b) == (
+        'os_name == "a" or os_name == "b" or os_name == "c"'
+    )
 
 
 def test_str_preserves_nested_group_precedence() -> None:
