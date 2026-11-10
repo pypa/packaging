@@ -377,6 +377,7 @@ class Version(_BaseVersion):
         "_local",
         "_post",
         "_pre",
+        "_raw_version",
         "_release",
     )
     __match_args__ = ("_str",)
@@ -396,6 +397,7 @@ class Version(_BaseVersion):
     _pre: tuple[Literal["a", "b", "rc"], int] | None
     _post: tuple[Literal["post"], int] | None
     _local: LocalType | None
+    _raw_version: str | None
 
     _hash_cache: int | None
     _key_cache: CmpKey | None
@@ -435,6 +437,7 @@ class Version(_BaseVersion):
             self._local = None
             self._key_cache = None
             self._hash_cache = None
+            self._raw_version = version
             return
 
         # Validate the version and parse it into pieces
@@ -458,6 +461,7 @@ class Version(_BaseVersion):
         # Key which will be used for sorting
         self._key_cache = None
         self._hash_cache = None
+        self._raw_version = version
 
     @classmethod
     def from_parts(
@@ -495,6 +499,7 @@ class Version(_BaseVersion):
         _local = _validate_local(local) if local is not None else None
 
         new_version = cls.__new__(cls)
+        new_version._raw_version = None
         new_version._key_cache = None
         new_version._hash_cache = None
         new_version._epoch = _epoch
@@ -563,6 +568,7 @@ class Version(_BaseVersion):
             return self
 
         new_version = self.__class__.__new__(self.__class__)
+        new_version._raw_version = None
         new_version._key_cache = None
         new_version._hash_cache = None
         new_version._epoch = _epoch
@@ -792,6 +798,7 @@ class Version(_BaseVersion):
         )
 
     def __setstate__(self, state: object) -> None:
+        self._raw_version = None
         # Always discard cached values — they may contain stale references
         # (e.g. packaging._structures.InfinityType from pre-26.1 pickles)
         # and will be recomputed on demand from the core fields above.
@@ -846,6 +853,7 @@ class Version(_BaseVersion):
     @_version.setter
     @_deprecated("Version._version is private and will be removed soon")
     def _version(self, value: _Version) -> None:
+        self._raw_version = None
         self._epoch = value.epoch
         self._release = value.release
         self._dev = value.dev
@@ -893,6 +901,11 @@ class Version(_BaseVersion):
             version += f"+{self.local}"
 
         return version
+
+    @property
+    def raw_version(self) -> str | None:
+        """The exact constructor input, or ``None`` if unavailable."""
+        return self._raw_version
 
     @property
     def _str(self) -> str:
@@ -1096,6 +1109,7 @@ class _TrimmedRelease(Version):
 
     def __init__(self, version: str | Version) -> None:
         if isinstance(version, Version):
+            self._raw_version = None
             self._epoch = version._epoch
             self._release = version._release
             self._dev = version._dev
