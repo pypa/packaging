@@ -271,8 +271,7 @@ def _normalize(
     if key in MARKERS_ALLOWING_SET:
         if isinstance(rhs, str):
             raise UndefinedComparison(f"Marker {key!r} must be a set, not {rhs!r}.")
-        else:
-            return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
+        return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
 
     # other environment markers don't have such standards
     return lhs, rhs
@@ -526,7 +525,8 @@ class Marker:
             ``"lock_file"``, and ``"requirement"`` (i.e. all other situations).
         :raises UndefinedComparison: If the marker uses a comparison on values
             that are not valid versions per the :ref:`specification of version
-            specifiers <pypug:version-specifiers>`.
+            specifiers <pypug:version-specifiers>`, or a set-valued marker is
+            given a string.
         :raises UndefinedEnvironmentName: If the marker references a value that
             is missing from the evaluation environment.
         :returns: ``True`` if the marker matches, otherwise ``False``.
