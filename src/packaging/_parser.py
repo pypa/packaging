@@ -7,6 +7,7 @@ the implementation.
 from __future__ import annotations
 
 import ast
+import functools
 import re
 from collections.abc import Sequence
 from typing import Literal, NamedTuple, TypeAlias
@@ -207,7 +208,7 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     """
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
-    if not tokenizer.check("LEFT_BRACKET", peek=True):
+    if not tokenizer.check("LEFT_BRACKET"):
         return []
 
     with tokenizer.enclosing_tokens(
@@ -254,21 +255,24 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
     """
-    if not tokenizer.check("LEFT_PARENTHESIS", peek=True):
-        tokenizer.consume("WS")
-        parsed_specifiers = _parse_version_many(tokenizer)
-        tokenizer.consume("WS")
-        return parsed_specifiers
+    if not tokenizer.check("LEFT_PARENTHESIS"):
+        return _parse_padded_version_many(tokenizer)
 
     with tokenizer.enclosing_tokens(
         "LEFT_PARENTHESIS",
         "RIGHT_PARENTHESIS",
         around="version specifier",
     ):
-        tokenizer.consume("WS")
-        parsed_specifiers = _parse_version_many(tokenizer)
-        tokenizer.consume("WS")
+        return _parse_padded_version_many(tokenizer)
 
+
+def _parse_padded_version_many(tokenizer: Tokenizer) -> str:
+    """
+    padded_version_many = WS? version_many WS?
+    """
+    tokenizer.consume("WS")
+    parsed_specifiers = _parse_version_many(tokenizer)
+    tokenizer.consume("WS")
     return parsed_specifiers
 
 
@@ -335,20 +339,39 @@ def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     return expression
 
 
-def _is_plain_ascii_literal(quoted: str) -> bool:
-    return quoted.isascii() and quoted.isprintable() and "\\" not in quoted
-
-
-_MARKER_ITEM = re.compile(
-    rf"[ \t]*(?:(?P<left_var>{DEFAULT_RULES['VARIABLE'].pattern})"
-    rf"|(?P<left_value>{DEFAULT_RULES['QUOTED_STRING'].pattern}))[ \t]*"
-    rf"(?P<op>{DEFAULT_RULES['IN'].pattern}"
-    rf"|(?P<not_in>{DEFAULT_RULES['NOT'].pattern}[ \t]+{DEFAULT_RULES['IN'].pattern})"
-    rf"|{DEFAULT_RULES['OP'].pattern})[ \t]*"
-    rf"(?:(?P<right_var>{DEFAULT_RULES['VARIABLE'].pattern})"
-    rf"|(?P<right_value>{DEFAULT_RULES['QUOTED_STRING'].pattern}))[ \t]*",
-    re.VERBOSE,
+_INLINE_FLAGS = (
+    (re.ASCII, "a"),
+    (re.IGNORECASE, "i"),
+    (re.MULTILINE, "m"),
+    (re.DOTALL, "s"),
+    (re.VERBOSE, "x"),
 )
+
+
+def _rule(name: str) -> str:
+    """Return a default rule as a group that keeps the flags of the rule."""
+    rule = DEFAULT_RULES[name]
+    flags = "".join(letter for flag, letter in _INLINE_FLAGS if rule.flags & flag)
+    return f"(?{flags}:{rule.pattern})"
+
+
+@functools.cache
+def _marker_item_pattern() -> re.Pattern[str]:
+    """
+    Return one pattern for ``WS? marker_item WS?``, built from the default rules.
+
+    It must accept the same text as :func:`_parse_marker_item`.
+    """
+    # The empty alternative is faster than a "?" on the group.
+    ws = f"(?:{_rule('WS')}|)"
+    variable = _rule("VARIABLE")
+    quoted = _rule("QUOTED_STRING")
+    not_in = f"{_rule('NOT')}{_rule('WS')}{_rule('IN')}"
+    return re.compile(
+        f"{ws}(?:(?P<left_var>{variable})|(?P<left_value>{quoted})){ws}"
+        f"(?P<op>{_rule('IN')}|(?P<not_in>{not_in})|{_rule('OP')}){ws}"
+        f"(?:(?P<right_var>{variable})|(?P<right_value>{quoted})){ws}"
+    )
 
 
 def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
@@ -357,32 +380,30 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
                 | WS? marker_item WS?
     """
 
-    match = _MARKER_ITEM.match(tokenizer.source, tokenizer.position)
-    if match is not None:
-        left_value = match["left_value"]
-        right_value = match["right_value"]
-        # Only plain ASCII literals take this path. Others, such as escapes and
-        # non-printable characters, keep the full quoted-string handling,
-        # including its warnings and exact error spans.
-        if (left_value is None or _is_plain_ascii_literal(left_value)) and (
-            right_value is None or _is_plain_ascii_literal(right_value)
-        ):
-            left = (
-                process_env_var(match["left_var"].replace(".", "_"))
+    # The usual marker item is recognized in one match. The pattern is built
+    # from the default rules, so other rules always use the token path.
+    if tokenizer.rules is DEFAULT_RULES:
+        match = tokenizer.match_pattern(_marker_item_pattern())
+        if match is not None:
+            left_var, left_value, op, not_in, right_var, right_value = match.group(
+                "left_var", "left_value", "op", "not_in", "right_var", "right_value"
+            )
+            return (
+                _process_marker_var(left_var)
                 if left_value is None
-                else Value(left_value[1:-1])
-            )
-            op = Op("not in" if match["not_in"] is not None else match["op"])
-            right = (
-                process_env_var(match["right_var"].replace(".", "_"))
+                else _process_marker_value(
+                    tokenizer, left_value, match.start("left_value")
+                ),
+                Op(op if not_in is None else "not in"),
+                _process_marker_var(right_var)
                 if right_value is None
-                else Value(right_value[1:-1])
+                else _process_marker_value(
+                    tokenizer, right_value, match.start("right_value")
+                ),
             )
-            tokenizer.position = match.end()
-            return left, op, right
 
     tokenizer.consume("WS")
-    if tokenizer.check("LEFT_PARENTHESIS", peek=True):
+    if tokenizer.check("LEFT_PARENTHESIS"):
         with tokenizer.enclosing_tokens(
             "LEFT_PARENTHESIS",
             "RIGHT_PARENTHESIS",
@@ -416,21 +437,29 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     marker_var = VARIABLE | QUOTED_STRING
     """
     if tokenizer.check("VARIABLE"):
-        return process_env_var(tokenizer.read().text.replace(".", "_"))
+        return _process_marker_var(tokenizer.read().text)
     elif tokenizer.check("QUOTED_STRING"):
         token = tokenizer.read()
-        try:
-            return process_python_str(token.text)
-        except (SyntaxError, ValueError) as exc:
-            raise ParserSyntaxError(
-                "Invalid quoted string",
-                source=tokenizer.source,
-                span=(token.position, token.position + len(token.text)),
-            ) from exc
+        return _process_marker_value(tokenizer, token.text, token.position)
     else:
         tokenizer.raise_syntax_error(
             message="Expected a marker variable or quoted string"
         )
+
+
+def _process_marker_var(text: str) -> Variable:
+    return process_env_var(text.replace(".", "_"))
+
+
+def _process_marker_value(tokenizer: Tokenizer, text: str, position: int) -> Value:
+    try:
+        return process_python_str(text)
+    except (SyntaxError, ValueError) as exc:
+        raise ParserSyntaxError(
+            "Invalid quoted string",
+            source=tokenizer.source,
+            span=(position, position + len(text)),
+        ) from exc
 
 
 def process_env_var(env_var: str) -> Variable:

@@ -7,7 +7,8 @@ import re
 
 import pytest
 
-from packaging._tokenizer import Tokenizer
+from packaging._parser import _parse_marker
+from packaging._tokenizer import DEFAULT_RULES, Tokenizer
 
 
 @pytest.mark.parametrize("whitespace", ["", " ", "\t", " \t  "])
@@ -35,24 +36,29 @@ def test_consume_empty_match() -> None:
     assert tokenizer.next_token is None
 
 
-def test_consume_unknown_token() -> None:
-    tokenizer = Tokenizer("", rules={})
-    with pytest.raises(AssertionError, match="Unknown token name: 'WS'"):
-        tokenizer.consume("WS")
-
-
-def test_enclosing_tokens_without_open_token() -> None:
-    tokenizer = Tokenizer(
-        "name", rules={"LP": re.compile(r"\("), "RP": re.compile(r"\)")}
-    )
-    with tokenizer.enclosing_tokens("LP", "RP", around="name"):
-        pass
+def test_match_pattern() -> None:
+    tokenizer = Tokenizer("ab", rules={"B": re.compile("b")})
+    assert tokenizer.match_pattern(re.compile("b")) is None
     assert tokenizer.position == 0
+    match = tokenizer.match_pattern(re.compile("a"))
+    assert match is not None
+    assert tokenizer.position == 1
+    assert tokenizer.expect("B", expected="b").position == 1
 
 
-def test_consume_pending_token() -> None:
-    tokenizer = Tokenizer(" ", rules={"WS": re.compile(" ")})
-    assert tokenizer.check("WS")
-    with pytest.raises(AssertionError, match="Cannot check for 'WS', already have"):
-        tokenizer.consume("WS")
-    assert tokenizer.read().text == " "
+def test_enclosing_tokens() -> None:
+    rules = {"LP": re.compile(r"\("), "RP": re.compile(r"\)")}
+    tokenizer = Tokenizer("()", rules=rules)
+    assert tokenizer.check("LP")
+    with tokenizer.enclosing_tokens("LP", "RP", around="nothing"):
+        assert tokenizer.position == 1
+    assert tokenizer.position == 2
+
+
+@pytest.mark.parametrize("op", ["==", "in", "not in"])
+def test_marker_item_with_other_rules(op: str) -> None:
+    # Rules other than the default mapping must use the token path.
+    tokenizer = Tokenizer(f'os_name {op} "a"', rules=dict(DEFAULT_RULES))
+    assert str(_parse_marker(tokenizer)) == (
+        f"[(<Variable('os_name')>, <Op({op!r})>, <Value('a')>)]"
+    )
