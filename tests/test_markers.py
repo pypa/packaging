@@ -9,6 +9,7 @@ import os
 import pickle
 import platform
 import sys
+import warnings
 from typing import Any, NamedTuple, cast
 from unittest import mock
 
@@ -584,6 +585,44 @@ class TestMarker:
         with pytest.warns(UserWarning, match="not a valid PEP 440"):
             result = marker.evaluate({"python_version": "3.10"})
         assert result is False
+
+    @pytest.mark.parametrize(
+        ("marker_string", "written"),
+        [
+            ('python_version >= "3.9."', "python_version >= '3.9.'"),
+            ('"3.9." <= python_version', "'3.9.' <= python_version"),
+        ],
+    )
+    def test_invalid_python_version_literal_names_marker_text(
+        self, marker_string: str, written: str
+    ) -> None:
+        with pytest.warns(UserWarning, match="not a valid PEP 440") as record:
+            Marker(marker_string).evaluate({"python_version": "3.10"})
+        assert len(record) == 1
+        assert str(record[0].message).startswith(f"marker {written} uses '3.9.'")
+
+    def test_invalid_environment_version_does_not_blame_marker(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Marker('"3.9" <= python_version').evaluate({"python_version": "3.10.x"})
+            Marker('python_version >= "3.9"').evaluate({"python_version": "3.10.x"})
+
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            'python_version >= "3.9."',
+            '(python_version >= "3.9." and os_name == "posix")',
+            '((python_version >= "3.9."))',
+        ],
+    )
+    def test_invalid_python_version_warning_points_at_caller(
+        self, marker_string: str
+    ) -> None:
+        with pytest.warns(UserWarning, match="not a valid PEP 440") as record:
+            Marker(marker_string).evaluate(
+                {"python_version": "3.10", "os_name": "posix"}
+            )
+        assert record[0].filename == __file__
 
     def test_python_full_version_untagged(self) -> None:
         with mock.patch("platform.python_version", return_value="3.11.1+"):

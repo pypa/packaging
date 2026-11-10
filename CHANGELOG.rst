@@ -11,8 +11,9 @@ Removals:
 Fixes for requirements and markers:
 
 * Warn when ``python_version`` / ``python_full_version`` marker comparisons
-  fall back to string comparison because the right-hand side is not a valid
-  PEP 440 version (for example ``"3.9."``). (:issue:`633`)
+  fall back to string comparison because the version written in the marker is
+  not a valid PEP 440 version (for example ``"3.9."``), on either side of the
+  operator. (:issue:`633`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
