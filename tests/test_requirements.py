@@ -955,23 +955,6 @@ def test_requirement_copy_preserves_inner_prereleases(
     assert all(a is not b for a, b in zip(loaded.specifier, r.specifier, strict=True))
 
 
-@pytest.mark.parametrize(
-    "roundtrip",
-    [lambda r: pickle.loads(pickle.dumps(r)), copy.copy, copy.deepcopy],
-    ids=["pickle", "copy", "deepcopy"],
-)
-def test_requirement_copy_with_bare_specifier(
-    roundtrip: Callable[[Requirement], Requirement],
-) -> None:
-    # A Specifier in place of the SpecifierSet is restored as a SpecifierSet.
-    r = Requirement("foo")
-    r.specifier = Specifier(">=1", prereleases=True)  # type: ignore[assignment]
-    loaded = roundtrip(r)
-    assert loaded == Requirement("foo>=1")
-    assert isinstance(loaded.specifier, SpecifierSet)
-    assert list(loaded.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
-
-
 def test_pickle_requirement_state() -> None:
     # The state holds only primitives, in canonical specifier order.
     r = Requirement("foo")

@@ -187,16 +187,12 @@ class Requirement:
         # prereleases overrides that the string cannot hold, for the
         # SpecifierSet and for each specifier in canonical order. Re-parsed
         # on load to reconstruct all other fields.
-        specifier = self.specifier
-        if isinstance(specifier, SpecifierSet):
-            specs = specifier._canonical_specs()
-            return (
-                str(self),
-                specifier._prereleases,
-                tuple(s._prereleases for s in specs),
-            )
-        # A Specifier assigned in place of the SpecifierSet.
-        return (str(self), None, (specifier._prereleases,))
+        specs = self.specifier._canonical_specs()
+        return (
+            str(self),
+            self.specifier._prereleases,
+            tuple(s._prereleases for s in specs),
+        )
 
     def __setstate__(self, state: object) -> None:
         inner: object = None
