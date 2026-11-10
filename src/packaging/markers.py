@@ -395,7 +395,9 @@ def prepare_environment(
     ``python_full_version`` does not derive a new ``python_version``.
 
     :param environment: Mapping containing keys and values to override the
-       detected environment.
+        detected environment. Values must be strings, except for ``extras``
+        and ``dependency_groups``, which take sets of strings. ``extra=None``
+        is treated as an empty string for compatibility with :meth:`Marker.evaluate`.
     :param EvaluateContext context: The context in which the marker is
         evaluated, which influences what marker names are considered valid.
         Accepted values are ``"metadata"`` (for core metadata; default),
@@ -426,10 +428,9 @@ def prepare_environment(
     if environment is not None:
         current_environment |= environment
         if "extra" in current_environment:
-            # Match Marker.evaluate's handling of extra=None.
-            # Empty extra values need no normalization.
+            # Match Marker.evaluate's compatibility handling of extra=None.
             extra = cast("str | None", current_environment["extra"])
-            if extra is not None and bool(extra):
+            if extra is not None and extra:
                 current_environment["extra"] = canonicalize_name(extra)
             else:
                 current_environment["extra"] = ""
@@ -641,7 +642,8 @@ class Marker:
         :raises UndefinedComparison: If the marker uses a comparison on values
             that are not valid versions per the :ref:`specification of version
             specifiers <pypug:version-specifiers>`, or ``extra`` holds
-            something other than a string.
+            something other than a string, or a set-valued marker is given a
+            string or used on the left-hand side of a comparison.
         :raises UndefinedEnvironmentName: If the marker references a value that
             is missing from ``environment``.
         :returns: ``True`` if the marker matches, otherwise ``False``.

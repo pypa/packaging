@@ -95,8 +95,10 @@ normalize its value with :func:`packaging.utils.canonicalize_name` first:
 
 :meth:`Marker.evaluate_prepared` also accepts a caller-built mapping. It does
 not fill missing keys from the host, add context defaults, normalize ``extra``
-or repair ``python_full_version``. A referenced key missing from the mapping
-raises :class:`UndefinedEnvironmentName`:
+or repair ``python_full_version``. :func:`default_environment` alone does not
+perform these preparation steps; use :func:`prepare_environment` to prepare
+the detected environment. A referenced key missing from the mapping raises
+:class:`UndefinedEnvironmentName`:
 
 .. doctest::
 
