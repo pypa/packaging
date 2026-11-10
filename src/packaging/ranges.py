@@ -20,9 +20,7 @@ exists.
 from __future__ import annotations
 
 import bisect
-import copyreg
 import enum
-import operator
 import typing
 from typing import (
     TYPE_CHECKING,
@@ -53,7 +51,6 @@ from .version import Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
-    from typing import SupportsIndex
 
     from ._ranges import Interval
     from .specifiers import SpecifierSet
@@ -435,6 +432,42 @@ def _bound_version_str(value: BoundaryVersion | Version) -> str:
     if isinstance(value, BoundaryVersion):
         return f"{value.version}[{value.kind.name}]"
     return str(value)
+
+
+_PointState = str | tuple[str, str] | None
+_IntervalState = tuple[tuple[_PointState, bool], tuple[_PointState, bool]]
+
+
+def _point_state(value: BoundaryVersion | Version | None) -> _PointState:
+    if isinstance(value, BoundaryVersion):
+        return (str(value.version), value.kind.name)
+    return None if value is None else str(value)
+
+
+def _point_from_state(state: _PointState) -> BoundaryVersion | Version | None:
+    if isinstance(state, tuple):
+        return BoundaryVersion(Version(state[0]), BoundaryKind[state[1]])
+    return None if state is None else Version(state)
+
+
+def _intervals_state(intervals: Sequence[Interval]) -> tuple[_IntervalState, ...]:
+    return tuple(
+        (
+            (_point_state(lower.version), lower.inclusive),
+            (_point_state(upper.version), upper.inclusive),
+        )
+        for lower, upper in intervals
+    )
+
+
+def _intervals_from_state(state: Sequence[_IntervalState]) -> tuple[Interval, ...]:
+    return tuple(
+        (
+            LowerBound(_point_from_state(lower[0]), lower[1]),
+            UpperBound(_point_from_state(upper[0]), upper[1]),
+        )
+        for lower, upper in state
+    )
 
 
 def _format_lower(bound: LowerBound) -> str:
@@ -1138,18 +1171,19 @@ class VersionRange:
             "VersionRange.from_bounds() instead"
         )
 
-    def __reduce_ex__(self, protocol: SupportsIndex) -> str | tuple[Any, ...]:
-        reduction = super().__reduce_ex__(max(operator.index(protocol), 2))
-        # Only bypass our disabled constructor for the default allocation path.
-        # Subclasses can supply their own reduction or constructor arguments.
-        if (
-            isinstance(reduction, tuple)
-            and reduction[0] is copyreg.__newobj__  # type: ignore[attr-defined]
-            and reduction[1] == (type(self),)
-            and type(self).__new__ is VersionRange.__new__
-        ):
-            return (_new_version_range, reduction[1], *reduction[2:])
-        return reduction
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Store only public value types, so pickles do not depend on internals.
+        state = (
+            _intervals_state(self._bounds),
+            _intervals_state(self._pre_region),
+            sorted(self._admit),
+            sorted(self._reject),
+            self._admit_arbitrary,
+            self._prereleases_configured,
+        )
+        # Subclasses without __slots__ can carry extra attributes.
+        extra = getattr(self, "__dict__", None) or None
+        return (_restore_version_range, (type(self), state), extra)
 
     @classmethod
     def _build(
@@ -2341,5 +2375,23 @@ class VersionRange:
         return f"<{self.__class__.__name__} {body!r}{tail}>"
 
 
-def _new_version_range(cls: type[VersionRange]) -> VersionRange:
-    return object.__new__(cls)
+def _restore_version_range(
+    cls: type[VersionRange],
+    state: tuple[
+        Sequence[_IntervalState],
+        Sequence[_IntervalState],
+        Iterable[str],
+        Iterable[str],
+        bool,
+        bool | None,
+    ],
+) -> VersionRange:
+    bounds, pre_region, admit, reject, admit_arbitrary, prereleases = state
+    return cls._build(
+        _intervals_from_state(bounds),
+        frozenset(admit),
+        frozenset(reject),
+        admit_arbitrary,
+        pre_region=_intervals_from_state(pre_region),
+        prereleases_configured=prereleases,
+    )
