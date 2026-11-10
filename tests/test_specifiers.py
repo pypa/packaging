@@ -1398,6 +1398,34 @@ class TestSpecifierSet:
         original = CustomSpecifierSet(">=1.0")
         assert isinstance(original.__replace__(specifiers="<2.0"), CustomSpecifierSet)
 
+    @pytest.mark.parametrize(
+        "spec_str",
+        [">=1.0", "===foobar", "!=1.0.*", "~=1.4.5"],
+    )
+    def test_iterable_accepts_plain_strings(self, spec_str: str) -> None:
+        """str elements are parsed, yielding the same set as the string form."""
+        from_strings = SpecifierSet([spec_str])
+        from_specs = SpecifierSet([Specifier(spec_str)])
+        expected = SpecifierSet(spec_str)
+
+        assert from_strings == from_specs
+        assert from_strings == expected
+        assert hash(from_strings) == hash(expected)
+        assert str(from_strings) == str(expected)
+
+    def test_iterable_plain_strings_are_usable(self) -> None:
+        assert SpecifierSet([">=1.0"]).contains("1.5")
+
+    # Each str element is one specifier: no comma splitting across elements.
+    @pytest.mark.parametrize("spec_str", [">=1.0,<2.0", "not a spec"])
+    def test_iterable_invalid_string_element(self, spec_str: str) -> None:
+        with pytest.raises(InvalidSpecifier):
+            SpecifierSet([spec_str])
+
+    def test_iterable_rejects_non_specifier_elements(self) -> None:
+        with pytest.raises(TypeError):
+            SpecifierSet([42])  # type: ignore[list-item]
+
     def test_copy_replace(self) -> None:
         if sys.version_info < (3, 13):
             pytest.skip("copy.replace requires Python 3.13")
