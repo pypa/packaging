@@ -14,7 +14,7 @@ import itertools
 from typing import TYPE_CHECKING, TypeVar
 
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from packaging._ranges import (
@@ -26,6 +26,7 @@ from packaging._ranges import (
 )
 from packaging.ranges import VersionRange
 from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 from .strategies import (
     SETTINGS,
@@ -38,8 +39,6 @@ from .strategies import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from packaging.version import Version
 
 pytestmark = pytest.mark.property
 
@@ -625,3 +624,115 @@ def test_upper_bounds_order_as_the_version_operators_do(
     pool: list[UpperBound],
 ) -> None:
     _assert_matches_reference(pool, _reference_upper_lt)
+
+
+@st.composite
+def algebra_ranges(draw: st.DrawFn) -> VersionRange:
+    """Combine public factories to reach local endpoints and interval gaps."""
+    atoms = st.one_of(
+        rich_specifier_sets(include_arbitrary=True).map(lambda value: value.to_range()),
+        pep440_versions().map(VersionRange.singleton),
+    )
+    result = draw(atoms)
+    for _ in range(draw(st.integers(min_value=0, max_value=2))):
+        other = draw(atoms)
+        operation = draw(st.sampled_from(["intersection", "union", "difference"]))
+        if operation == "intersection":
+            result = result & other
+        elif operation == "union":
+            result = result | other
+        else:
+            result = result - other
+    return result
+
+
+snappable_ranges = st.one_of(
+    rich_specifier_sets(include_arbitrary=True, vary_prereleases=True).map(
+        lambda value: value.to_range()
+    ),
+    algebra_ranges(),
+)
+
+
+@given(
+    source=snappable_ranges,
+    versions=st.lists(pep440_versions(), max_size=10),
+)
+@SETTINGS
+def test_snap_bounds_preserves_listed_membership(
+    source: VersionRange, versions: list[Version]
+) -> None:
+    result = source.snap_bounds(versions)
+    assert result.is_subset(source)
+    assert [version for version in versions if version in result] == [
+        version for version in versions if version in source
+    ]
+
+
+@given(
+    source=snappable_ranges,
+    versions=st.lists(pep440_versions(), max_size=10),
+)
+@SETTINGS
+def test_snap_bounds_is_idempotent(
+    source: VersionRange, versions: list[Version]
+) -> None:
+    result = source.snap_bounds(versions)
+    assert result.snap_bounds(versions) == result
+
+
+@given(
+    source=snappable_ranges,
+    versions=st.lists(pep440_versions(), max_size=10),
+)
+@example(
+    source=SpecifierSet(">=1.0,<2.0", prereleases=False).to_range(),
+    versions=[Version("1.5a1")],
+)
+@example(
+    source=SpecifierSet(">=1.0,<2.0", prereleases=False).to_range(),
+    versions=[Version("1.5a1"), Version("1.5")],
+)
+@example(
+    source=SpecifierSet(">=1.0a1,<2.0").to_range(),
+    versions=[Version("1.0a1"), Version("1.5")],
+)
+@SETTINGS
+def test_snap_bounds_preserves_filtering(
+    source: VersionRange, versions: list[Version]
+) -> None:
+    result = source.snap_bounds(versions)
+    for prereleases in (None, True, False):
+        assert list(result.filter(versions, prereleases=prereleases)) == list(
+            source.filter(versions, prereleases=prereleases)
+        )
+
+
+@given(
+    lower=st.none() | pep440_versions(),
+    upper=st.none() | pep440_versions(),
+    candidate=pep440_versions(),
+    include_lower=st.booleans(),
+    include_upper=st.booleans(),
+    prereleases=st.sampled_from([None, False, True]),
+)
+@SETTINGS
+def test_from_bounds_membership_matches_version_order(
+    lower: Version | None,
+    upper: Version | None,
+    candidate: Version,
+    include_lower: bool,
+    include_upper: bool,
+    prereleases: bool | None,
+) -> None:
+    interval = VersionRange.from_bounds(
+        lower,
+        upper,
+        include_lower=include_lower,
+        include_upper=include_upper,
+        prereleases=prereleases,
+    )
+    above = lower is None or candidate > lower or (include_lower and candidate == lower)
+    below = upper is None or candidate < upper or (include_upper and candidate == upper)
+    admitted = prereleases is not False or not candidate.is_prerelease
+    assert interval.contains(candidate) == (above and below and admitted)

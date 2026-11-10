@@ -12,13 +12,14 @@ exists.
 
 .. testsetup::
 
-    from packaging.ranges import VersionRange
+    from packaging.ranges import RangeRelation, VersionRange
     from packaging.specifiers import SpecifierSet
     from packaging.version import Version
 """
 
 from __future__ import annotations
 
+import bisect
 import enum
 import typing
 from typing import (
@@ -55,11 +56,45 @@ if TYPE_CHECKING:
     from .specifiers import SpecifierSet
 
 
-__all__ = ["VersionRange"]
+__all__ = ["RangeRelation", "VersionRange"]
 
 T = TypeVar("T")
 UnparsedVersion = Version | str
 UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
+
+
+class RangeRelation(enum.Enum):
+    """Result of :meth:`VersionRange.relation` with subset and disjointness flags.
+
+    .. versionadded:: 26.4
+    """
+
+    #: ``self`` has no members.
+    EMPTY = enum.auto()
+
+    #: ``self`` has members and every one of them is in ``other``.
+    SUBSET = enum.auto()
+
+    #: ``self`` has members and none of them is in ``other``.
+    DISJOINT = enum.auto()
+
+    #: The two share a member, and ``self`` has one ``other`` lacks.
+    OVERLAPPING = enum.auto()
+
+    @property
+    def is_subset(self) -> bool:
+        """Whether every member of ``self`` is also a member of ``other``."""
+        return self is RangeRelation.EMPTY or self is RangeRelation.SUBSET
+
+    @property
+    def is_disjoint(self) -> bool:
+        """Whether ``self`` and ``other`` share no member."""
+        return self is RangeRelation.EMPTY or self is RangeRelation.DISJOINT
+
+    def __repr__(self) -> str:
+        """Return the qualified member name."""
+        return f"{type(self).__name__}.{self.name}"
+
 
 #: The most ``!=`` exclusion fragments (``!=V`` points or ``!=P.*`` prefixes)
 #: that :meth:`VersionRange.to_specifier_set` will materialize to spell a
@@ -222,6 +257,47 @@ def _difference_ranges(
             yield lower, upper
 
 
+def _relate_bounds(
+    left: tuple[Interval, ...], right: tuple[Interval, ...]
+) -> RangeRelation:
+    """Relate two sorted, disjoint, non-touching interval tuples.
+
+    Each interval must contain at least one version; empty tuples are allowed.
+    """
+    if not left:
+        return RangeRelation.EMPTY
+
+    covered = 0
+    left_index = right_index = 0
+    left_len, right_len = len(left), len(right)
+    while left_index < left_len and right_index < right_len:
+        left_lower, left_upper = left[left_index]
+        right_lower, right_upper = right[right_index]
+
+        contained = not left_lower < right_lower
+        lower = left_lower if contained else right_lower
+
+        if right_upper < left_upper:
+            upper = right_upper
+            right_index += 1
+            contained = False
+        else:
+            upper = left_upper
+            left_index += 1
+
+        if not range_is_empty(lower, upper):
+            if not contained:
+                return RangeRelation.OVERLAPPING
+            covered += 1
+
+    if covered == left_len:
+        return RangeRelation.SUBSET
+
+    # An overlap that was not a covered interval returned above, so nothing
+    # covered means nothing shared.
+    return RangeRelation.OVERLAPPING if covered else RangeRelation.DISJOINT
+
+
 def _canonical_floor(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
     """Collapse the PEP 440 floor in a sorted interval list.
 
@@ -329,6 +405,23 @@ def _struct_admits(
         return admit_arbitrary and bounds == FULL_RANGE
 
     return matches_bounds_only(bounds, parsed)
+
+
+def _interval_slice(
+    versions: Sequence[Version], lower: LowerBound, upper: UpperBound
+) -> tuple[int, int]:
+    """Return slice indices for an interval in an ascending version list."""
+    opens = lower._above
+    closes = upper._below
+
+    start = 0 if opens is None else bisect.bisect_left(versions, True, key=opens)
+
+    if closes is None:
+        stop = len(versions)
+    else:
+        stop = bisect.bisect_left(versions, True, key=lambda v: not closes(v))
+
+    return start, stop
 
 
 # Repr helpers:
@@ -943,12 +1036,14 @@ class VersionRange:
     :class:`~packaging.specifiers.SpecifierSet`.
 
     Construct via :meth:`~packaging.specifiers.SpecifierSet.to_range`, or with
-    the :meth:`full`, :meth:`empty`, and :meth:`singleton` class methods.
+    the :meth:`full`, :meth:`empty`, :meth:`singleton`, and :meth:`from_bounds`
+    class methods.
     Compose with :meth:`intersection`, :meth:`union`, :meth:`complement`, and
     :meth:`difference` (or the ``&`` / ``|`` / ``~`` / ``-`` operators). Test
     membership with ``in`` or :meth:`contains`, filter an iterable with
     :meth:`filter`, and convert back to a
     :class:`~packaging.specifiers.SpecifierSet` with :meth:`to_specifier_set`.
+    Use :meth:`relation` to obtain subset and disjointness results together.
 
     The configured pre-release policy of the originating specifier set carries
     onto the range and controls whether pre-releases are admitted under ``in``,
@@ -958,9 +1053,9 @@ class VersionRange:
     that opt-in scoped to those versions, so unrelated pre-releases are not
     admitted wholesale.
 
-    :meth:`intersection`, :meth:`union`, :meth:`difference`, and the
-    :meth:`is_subset` / :meth:`is_superset` / :meth:`is_disjoint` predicates
-    require both operands to share the same configured policy.
+    :meth:`intersection`, :meth:`union`, :meth:`difference`, :meth:`relation`,
+    and the :meth:`is_subset` / :meth:`is_superset` / :meth:`is_disjoint`
+    predicates require both operands to share the same configured policy.
 
     >>> r = SpecifierSet(">=1.0,<2.0").to_range()
     >>> "1.5" in r
@@ -1036,7 +1131,8 @@ class VersionRange:
         raise TypeError(
             "cannot create 'VersionRange' instances directly; use "
             "SpecifierSet.to_range(), VersionRange.full(), "
-            "VersionRange.empty(), or VersionRange.singleton() instead"
+            "VersionRange.empty(), VersionRange.singleton(), or "
+            "VersionRange.from_bounds() instead"
         )
 
     @classmethod
@@ -1110,9 +1206,7 @@ class VersionRange:
         return self._admit_arbitrary and self._bounds == FULL_RANGE
 
     def _is_plain(self) -> bool:
-        """True when membership is decided by ``_bounds`` alone, enabling the
-        bounds-only fast paths in :meth:`is_subset` and :meth:`is_disjoint`.
-        """
+        """True when ``_bounds`` alone decides membership."""
         return (
             not self._has_literals()
             and not self._admit_arbitrary
@@ -1225,6 +1319,56 @@ class VersionRange:
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
         return cls._build(
             _canonical_floor(((lower, upper),)),
+            prereleases_configured=prereleases,
+        )
+
+    @classmethod
+    def from_bounds(
+        cls,
+        lower: Version | str | None = None,
+        upper: Version | str | None = None,
+        *,
+        include_lower: bool = True,
+        include_upper: bool = True,
+        prereleases: bool | None = None,
+    ) -> VersionRange:
+        """Construct an interval using PEP 440 version ordering.
+
+        Bounds are inclusive by default; ``None`` means unbounded and ignores
+        its inclusion flag. With no bounds, the default policy gives
+        ``full(admit_arbitrary=False)``. Inverted bounds, or equal bounds with
+        either endpoint excluded, give an empty range. Specifier-specific
+        exclusions do not apply.
+
+        At the default policy, a pre-release bound does not opt in
+        :meth:`filter`; :meth:`contains` still checks its membership.
+
+        :param lower: the lower version, or ``None`` for no lower bound.
+        :param upper: the upper version, or ``None`` for no upper bound.
+        :param include_lower: whether to include the lower endpoint.
+        :param include_upper: whether to include the upper endpoint.
+        :param prereleases: the configured pre-release policy. ``None`` leaves
+            it unset; ``True`` admits and ``False`` excludes pre-releases.
+        :raises packaging.version.InvalidVersion: if a bound is an invalid
+            version string.
+
+        .. versionadded:: 26.4
+        """
+        if lower is not None and not isinstance(lower, Version):
+            lower = Version(lower)
+        if upper is not None and not isinstance(upper, Version):
+            upper = Version(upper)
+
+        if lower is not None and upper is not None:
+            closed = include_lower and include_upper
+            if lower > upper or (lower == upper and not closed):
+                return cls.empty(prereleases=prereleases)
+
+        lower_bound = NEG_INF if lower is None else LowerBound(lower, include_lower)
+        upper_bound = POS_INF if upper is None else UpperBound(upper, include_upper)
+
+        return cls._build(
+            _canonical_floor(((lower_bound, upper_bound),)),
             prereleases_configured=prereleases,
         )
 
@@ -1558,6 +1702,35 @@ class VersionRange:
             return ranges_are_disjoint(self._bounds, other._bounds)
         return self.intersection(other).is_empty
 
+    def relation(self, other: VersionRange) -> RangeRelation:
+        """Return combined subset and disjointness results.
+
+        The result's flags agree with :meth:`is_subset` and :meth:`is_disjoint`.
+        Both operands must share the same configured pre-release policy;
+        otherwise :exc:`ValueError` is raised.
+
+        .. versionadded:: 26.4
+        """
+        if self is other:
+            return RangeRelation.EMPTY if self.is_empty else RangeRelation.SUBSET
+
+        self._check_policy_compat(other)
+
+        # Plain ranges: one walk over the bounds settles both answers.
+        if self._is_plain() and other._is_plain():
+            if self._bounds == other._bounds:
+                return RangeRelation.SUBSET if self._bounds else RangeRelation.EMPTY
+            return _relate_bounds(self._bounds, other._bounds)
+
+        subset = (
+            not (self._arbitrary_active() and not other._arbitrary_active())
+            and self.difference(other).is_empty
+        )
+        disjoint = self.intersection(other).is_empty
+        if subset:
+            return RangeRelation.EMPTY if disjoint else RangeRelation.SUBSET
+        return RangeRelation.DISJOINT if disjoint else RangeRelation.OVERLAPPING
+
     def _same_releases(self, other: VersionRange) -> bool:
         """Whether self and other admit the same non-pre-release versions.
 
@@ -1641,13 +1814,13 @@ class VersionRange:
 
         def admit(item: Any) -> tuple[bool, Version | None, bool]:  # noqa: ANN401
             raw: Version | str = item if key is None else key(item)
-            raw_lower = str(raw).lower()
-
-            if reject_set and raw_lower in reject_set:
-                return False, None, False
-            if admit_set and raw_lower in admit_set:
-                # An explicit ``===`` literal names this version outright.
-                return True, coerce_version(raw), True
+            if reject_set or admit_set:
+                raw_lower = str(raw).lower()
+                if reject_set and raw_lower in reject_set:
+                    return False, None, False
+                if admit_set and raw_lower in admit_set:
+                    # An explicit ``===`` literal names this version outright.
+                    return True, coerce_version(raw), True
 
             parsed = coerce_version(raw)
             if parsed is None:
@@ -1713,6 +1886,55 @@ class VersionRange:
         if not found_final:
             yield from all_nonfinal
 
+    def snap_bounds(self, versions: Iterable[Version | str]) -> VersionRange:
+        """Narrow finite bounds using the supplied versions.
+
+        The result never adds versions. ``contains`` and ``filter`` give the
+        same results for the supplied versions. Pre-release settings and
+        ``===`` rules still apply, but do not affect the choice of bounds.
+        Unbounded ends and intervals containing no supplied version stay
+        unchanged. Calling this again with the same versions leaves the result
+        unchanged.
+
+        Callers can use the result in messages. Keep the original range during
+        solving: versions outside the supplied list can affect range comparisons.
+
+        :param versions: versions or version strings, in any order.
+        :raises packaging.version.InvalidVersion: if a string is not a valid
+            PEP 440 version.
+
+        .. versionadded:: 26.4
+        """
+        # Parsed ahead of the early return, so an unparsable version is
+        # rejected whatever the range holds.
+        ordered = sorted(v if isinstance(v, Version) else Version(v) for v in versions)
+        if not self._bounds:
+            return self
+
+        simplified: list[Interval] = []
+        for lower, upper in self._bounds:
+            start, stop = _interval_slice(ordered, lower, upper)
+            if start >= stop:
+                simplified.append((lower, upper))
+                continue
+
+            new_lower = (
+                lower if lower.version is None else LowerBound(ordered[start], True)
+            )
+            new_upper = (
+                upper if upper.version is None else UpperBound(ordered[stop - 1], True)
+            )
+            simplified.append((new_lower, new_upper))
+
+        return self._build(
+            _canonical_floor(tuple(simplified)),
+            admit=self._admit,
+            reject=self._reject,
+            admit_arbitrary=self._admit_arbitrary,
+            pre_region=self._pre_region,
+            prereleases_configured=self._prereleases_configured,
+        )
+
     @classmethod
     def _from_specifier_set(cls, specifier_set: SpecifierSet) -> VersionRange:
         """Build the range accepted by ``specifier_set``.
@@ -1765,7 +1987,9 @@ class VersionRange:
         PEP 440 has no syntax for the strict singleton ``{V}`` (an exclusive
         plain-version bound), a disjoint union of two or more intervals, or a
         partial pre-release opt-in region, so ranges built by set algebra often
-        return ``None``. A gap that takes more than ``_MAX_EXCLUSION_RUN``
+        return ``None``. Raw bounds can also return ``None``: ``<=2.0`` admits
+        ``2.0+local``, ``>1.0`` excludes ``1.0.post1``, and ``>=1.0a1`` opts
+        in pre-releases. A gap that takes more than ``_MAX_EXCLUSION_RUN``
         contiguous ``!=`` exclusions to spell returns ``None`` too,
         rather than a pathologically long chain; reaching that cap takes either
         set algebra or a specifier set that already spells the gap out with

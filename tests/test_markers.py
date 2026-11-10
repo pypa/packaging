@@ -608,6 +608,9 @@ class TestMarker:
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     @pytest.mark.parametrize(
+        "values", [{"foo", "bar", "docs"}, frozenset({"foo", "bar", "docs"})]
+    )
+    @pytest.mark.parametrize(
         ("expression", "result"),
         [
             pytest.param('"foo" in {0}', True, id="value-in-foo"),
@@ -620,14 +623,33 @@ class TestMarker:
                 '"baz" in {0} and "foo" in {0}', False, id="short-circuit-and"
             ),
             pytest.param('"foo" in {0} or "baz" in {0}', True, id="short-circuit-or"),
-            pytest.param('"Foo" in {0}', True, id="case-sensitive"),
+            pytest.param('"Foo" in {0}', True, id="case-normalization"),
+            pytest.param('"doc" in {0}', False, id="substring-not-in"),
+            pytest.param('"doc" not in {0}', True, id="substring-not-in-negated"),
         ],
     )
     def test_extras_and_dependency_groups(
-        self, variable: str, expression: str, result: bool
+        self,
+        variable: str,
+        values: set[str] | frozenset[str],
+        expression: str,
+        result: bool,
     ) -> None:
-        environment = {variable: {"foo", "bar"}}
-        assert Marker(expression.format(variable)).evaluate(environment) == result
+        environment = {variable: values}
+        assert Marker(expression.format(variable)).evaluate(environment) is result
+
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    @pytest.mark.parametrize("op", ["in", "not in"])
+    @pytest.mark.parametrize("value", ["", "doc", "docs"])
+    def test_set_valued_marker_rejects_string(
+        self, variable: str, op: str, value: str
+    ) -> None:
+        marker = Marker(f'"doc" {op} {variable}')
+
+        with pytest.raises(
+            UndefinedComparison, match=f"Marker '{variable}' must be a set"
+        ):
+            marker.evaluate({variable: value}, context="lock_file")
 
     @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
     def test_extras_and_dependency_groups_disallowed(self, variable: str) -> None:

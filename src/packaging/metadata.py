@@ -186,10 +186,6 @@ _LIST_FIELDS = {
     "import_namespaces",
 }
 
-_DICT_FIELDS = {
-    "project_urls",
-}
-
 
 def _parse_keywords(data: str) -> list[str]:
     """Split a string of comma-separated keywords into a list of keywords."""
@@ -537,9 +533,6 @@ def parse_email(data: bytes | str) -> tuple[RawMetadata, dict[str, list[str]]]:
     # way this function is implemented, our `TypedDict` can only have valid key
     # names.
     return cast("RawMetadata", raw), unparsed
-
-
-_NOT_FOUND = object()
 
 
 # Keep the two values in sync.

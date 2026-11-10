@@ -51,6 +51,41 @@ Usage
     >>> str(r.to_specifier_set())
     '<2.0,>=1.0'
 
+Building from raw bounds
+------------------------
+
+:meth:`VersionRange.from_bounds` constructs an interval using version ordering,
+without the additional exclusions of specifier comparisons. Bounds are inclusive
+by default; use ``include_lower=False`` or ``include_upper=False`` to exclude an
+endpoint, or ``None`` for an unbounded end; its inclusion flag is ignored. With
+both ends unbounded, the default policy gives
+``VersionRange.full(admit_arbitrary=False)``.
+
+.. doctest::
+
+    >>> window = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+    >>> "1.0" in window
+    False
+    >>> "1.0.post1" in window
+    True
+    >>> "1.0.post1" in SpecifierSet(">1.0,<=2.0").to_range()
+    False
+
+Raw bounds do not opt in pre-releases. At the default policy, ``contains()``
+checks membership while ``filter()`` drops pre-releases if a final matches:
+
+.. doctest::
+
+    >>> pre = VersionRange.from_bounds("1.0a1", "2.0")
+    >>> pre.contains("1.0a1")
+    True
+    >>> list(pre.filter(["1.0a1", "1.5a1", "1.6"]))
+    ['1.6']
+
+Pass ``prereleases=True`` to ``filter()`` to include them.
+
+.. versionadded:: 26.4
+
 Pre-releases
 ------------
 
@@ -179,6 +214,57 @@ while the second does not; they are not substitutable and compare unequal:
     >>> SpecifierSet("<1.0.post0.dev0").to_range() == SpecifierSet("<=1.0").to_range()
     False
 
+Relating two ranges
+-------------------
+
+:meth:`VersionRange.relation` returns a :class:`RangeRelation` with both
+``is_subset`` and ``is_disjoint`` flags for the same pair of ranges:
+
+.. doctest::
+
+    >>> a = SpecifierSet(">=1,<3").to_range()
+    >>> b = SpecifierSet(">=2,<4").to_range()
+    >>> result = a.relation(b)
+    >>> result
+    RangeRelation.OVERLAPPING
+    >>> result.is_subset, result.is_disjoint
+    (False, False)
+    >>> VersionRange.empty().relation(b)
+    RangeRelation.EMPTY
+
+Snapping onto known versions
+----------------------------
+
+:meth:`VersionRange.snap_bounds` uses the versions you supply to narrow finite bounds.
+You can use the returned range in your own messages:
+
+.. doctest::
+
+    >>> source = SpecifierSet(">=1.0,<2.0").to_range()
+    >>> source.snap_bounds(["1.2", "1.5", "1.8", "2.1"])
+    <VersionRange '[1.2, 1.8]'>
+
+The result never adds versions. ``contains`` and ``filter`` give the same
+results for the supplied versions. Unbounded ends and intervals containing no
+supplied version stay unchanged.
+
+Pre-release settings do not affect the choice of bounds. They still apply to
+the returned range:
+
+.. doctest::
+
+    >>> no_pre = SpecifierSet(">=1.0,<2.0", prereleases=False).to_range()
+    >>> snapped_pre = no_pre.snap_bounds(["1.5a1"])
+    >>> snapped_pre
+    <VersionRange '[1.5a1, 1.5a1]' pre=False>
+    >>> list(snapped_pre.filter(["1.5a1"]))
+    []
+
+Keep the original range for dependency resolution: versions outside the supplied
+list can still affect range comparisons.
+
+.. versionadded:: 26.4
+
 Recovering a specifier set
 --------------------------
 
@@ -212,6 +298,9 @@ every range, so it returns the simplest set whose own
     >>> # full() itself admits arbitrary strings, which the empty set spells
     >>> str(VersionRange.full().to_specifier_set())
     ''
+
+Raw bounds may have no equivalent specifier: ``<=2.0`` includes
+``2.0+local``, while a raw upper bound of ``2.0`` does not.
 
 The recovery also caps how many ``!=`` exclusions it will write out, returning
 ``None`` past the cap; without it, some ranges would convert to pathologically

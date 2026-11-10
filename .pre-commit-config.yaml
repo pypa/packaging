@@ -9,7 +9,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 2eeb5678de71a00c0902cbda7105d328432f72cb  # frozen: v0.16.8
+    rev: f368fb366ff7f2f808dd324b83a6d32267799e19  # frozen: v0.17.2
     hooks:
       - id: ruff-check
         args: [ --fix ]
@@ -23,14 +23,14 @@ repos:
     - id: rst-inline-touching-normal
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 7ff8d35ae36a7d2b968f2f90b4c723e292e594ee  # frozen: v2.3.1
+    rev: 2834ec6639549dd6796205c8f011dedcd587288b  # frozen: v2.4.0
     hooks:
       - id: mypy
         exclude: '^(docs)'
         args: []
         additional_dependencies: &type_deps
           - hypothesis
-          - 'nox>=2026.8.17'
+          - 'nox>=2026.10.20'
           - pytest
           - tomli
           - tomli_w
@@ -38,22 +38,23 @@ repos:
           - httpx
 
   - repo: https://github.com/crate-ci/typos
-    rev: 512fc24f32f44ab01972217aaaf3dc86ec234d53  # frozen: v1.50.2
+    rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b  # frozen: v1.51.1
     hooks:
       - id: typos
         args: []
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: fa412071e4f5d44d44f9e365f4676f9df92456a2  # frozen: v1.30.1
+    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f  # frozen: v1.31.1
     hooks:
       - id: zizmor
         files: "^\\.github"
         args: [--persona=auditor]
 
-  - repo: https://github.com/rhysd/actionlint
-    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0494aa7fa1314e98913a41227d8f0a515b2c1049  # frozen: 0.38.2
     hooks:
-      - id: actionlint
+      - id: check-dependabot
+      - id: check-github-workflows
 
   - repo: local
     hooks:
