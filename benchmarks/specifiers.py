@@ -18,7 +18,7 @@ class TimeSpecSuite:
     COMPATIBLE_SPEC = "~=3.10"
 
     def setup(self, prereleases: bool | None = None) -> None:
-        """Build shared inputs; benchmarks may apply extra parameters."""
+        """Build shared benchmark inputs."""
         with (DIR / "specs_sample.txt").open() as f:
             self.spec_strs = [s.strip() for s in f.readlines()]
 
