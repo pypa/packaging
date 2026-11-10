@@ -878,17 +878,9 @@ class SpecifierSet(BaseSpecifier):
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
         else:
-            specs = []
-            for s in specifiers:
-                if isinstance(s, Specifier):
-                    specs.append(s)
-                elif isinstance(s, str):
-                    specs.append(Specifier(s))
-                else:
-                    raise TypeError(
-                        f"Expected Specifier or str instance, got {type(s).__name__}"
-                    )
-            self._specs = tuple(specs)
+            self._specs = tuple(
+                s if isinstance(s, Specifier) else Specifier(s) for s in specifiers
+            )
             self._has_arbitrary = any(s.operator == "===" for s in self._specs)
 
         self._canonicalized = len(self._specs) <= 1

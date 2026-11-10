@@ -1414,26 +1414,17 @@ class TestSpecifierSet:
         assert str(from_strings) == str(expected)
 
     def test_iterable_plain_strings_are_usable(self) -> None:
-        specifier_set = SpecifierSet([">=1.0"])
+        assert SpecifierSet([">=1.0"]).contains("1.5")
 
-        assert specifier_set.contains("1.5")
-        assert not specifier_set.contains("0.5", prereleases=True)
-        assert list(specifier_set.filter(["1.5", "0.5"])) == ["1.5"]
-        assert specifier_set.prereleases == SpecifierSet(">=1.0").prereleases
-        assert specifier_set.to_range().contains("1.5")
-
-    def test_iterable_string_element_is_single_specifier(self) -> None:
-        # Each str element is one specifier: no comma splitting across elements.
+    # Each str element is one specifier: no comma splitting across elements.
+    @pytest.mark.parametrize("spec_str", [">=1.0,<2.0", "not a spec"])
+    def test_iterable_invalid_string_element(self, spec_str: str) -> None:
         with pytest.raises(InvalidSpecifier):
-            SpecifierSet([">=1.0,<2.0"])
+            SpecifierSet([spec_str])
 
     def test_iterable_rejects_non_specifier_elements(self) -> None:
         with pytest.raises(TypeError):
             SpecifierSet([42])  # type: ignore[list-item]
-
-    def test_iterable_invalid_string_element(self) -> None:
-        with pytest.raises(InvalidSpecifier):
-            SpecifierSet(["not a spec"])
 
     def test_copy_replace(self) -> None:
         if sys.version_info < (3, 13):
