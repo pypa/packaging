@@ -1814,13 +1814,13 @@ class VersionRange:
 
         def admit(item: Any) -> tuple[bool, Version | None, bool]:  # noqa: ANN401
             raw: Version | str = item if key is None else key(item)
-            raw_lower = str(raw).lower()
-
-            if reject_set and raw_lower in reject_set:
-                return False, None, False
-            if admit_set and raw_lower in admit_set:
-                # An explicit ``===`` literal names this version outright.
-                return True, coerce_version(raw), True
+            if reject_set or admit_set:
+                raw_lower = str(raw).lower()
+                if reject_set and raw_lower in reject_set:
+                    return False, None, False
+                if admit_set and raw_lower in admit_set:
+                    # An explicit ``===`` literal names this version outright.
+                    return True, coerce_version(raw), True
 
             parsed = coerce_version(raw)
             if parsed is None:

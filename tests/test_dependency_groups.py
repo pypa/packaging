@@ -1,3 +1,6 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
 from __future__ import annotations
 
 import pickle
@@ -569,6 +572,35 @@ def test_error_in_later_sibling_include_is_collected() -> None:
     assert len(messages) == 2
     assert "!!! bad invalid" in messages[0]
     assert "!!! also invalid" in messages[1]
+
+
+def test_malformed_group_does_not_hide_included_group_errors() -> None:
+    groups: GroupsTable = {
+        "root": [
+            "invalid parent requirement",
+            {"include-group": "child"},
+            {"include-group": "child"},
+            {"include-group": "missing"},
+        ],
+        "child": ["invalid child requirement"],
+    }
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    assert len(excinfo.value.exceptions) == 3
+    assert _group_contains(excinfo, InvalidRequirement, match="invalid parent")
+    assert _group_contains(excinfo, InvalidRequirement, match="invalid child")
+    assert _group_contains(excinfo, LookupError, match="'missing' not found")
+
+
+def test_malformed_group_does_not_hide_include_cycle() -> None:
+    groups: GroupsTable = {"root": [{}, {"include-group": "root"}]}
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    assert len(excinfo.value.exceptions) == 2
+    assert _group_contains(excinfo, InvalidDependencyGroupObject)
+    assert _group_contains(excinfo, CyclicDependencyGroup, match="root includes itself")
 
 
 def test_cycle_error_uses_path_of_current_resolve_call() -> None:

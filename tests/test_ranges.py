@@ -1257,11 +1257,18 @@ class TestFilter:
         out = list(vr("<2.0").filter(items, key=lambda x: x["v"]))
         assert out == [{"v": "1.0"}]
 
-    def test_filter_universal(self) -> None:
-        assert list(VersionRange.full().filter(["1.3", "1.5a1"])) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"])) == ["1.5a1"]
-        assert list(VersionRange.full().filter(["1.3"], prereleases=True)) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"], prereleases=False)) == []
+    @pytest.mark.parametrize(
+        ("final", "pre"),
+        [("1.3", "1.5a1"), (Version("1.3"), Version("1.5a1"))],
+    )
+    def test_filter_universal(self, final: Version | str, pre: Version | str) -> None:
+        r = VersionRange.full()
+        assert list(r.filter([final, pre])) == [final]
+        assert list(r.filter([pre])) == [pre]
+        assert list(r.filter([final, pre], prereleases=True)) == [final, pre]
+        assert list(r.filter([pre], prereleases=False)) == []
+
+    def test_filter_universal_arbitrary(self) -> None:
         assert list(VersionRange.full().filter(["junk", "1.0"])) == ["junk", "1.0"]
         assert list(VersionRange.full().filter(["junk"])) == ["junk"]
 
@@ -1270,6 +1277,13 @@ class TestFilter:
         assert list(r.filter(["1.5a1"], prereleases=True)) == ["1.5a1"]
         assert list(r.filter(["1.5a1"], prereleases=False)) == []
         assert list(r.filter(["1.5a1"])) == ["1.5a1"]
+
+    def test_filter_literal_version_text(self) -> None:
+        versions = [Version("1"), Version("1.0")]
+        literal = vr("===1.0")
+
+        assert list(literal.filter(versions)) == [versions[1]]
+        assert list((~literal).filter(versions)) == [versions[0]]
 
     def test_filter_admission_with_final(self) -> None:
         r = VersionRange.full() & vr("===wat")
