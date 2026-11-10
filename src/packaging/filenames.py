@@ -538,21 +538,27 @@ class WheelFilename:
             return
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
+        fixable = True
         if issues & _ISSUE_NAME:
             if _validate_regex.fullmatch(name) is None:
                 inner = f"invalid project name {name!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(InvalidProjectName(msg))
+                fixable = False
             else:
-                inner = f"non-normalized project name {name!r}"
+                expected = self._name.replace("-", "_")
+                inner = f"non-normalized project name {name!r}, should be {expected!r}"
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedName(msg))
         if not _is_normalized_version(version_part, self._version):
-            inner = f"non-normalized version {version_part!r}"
+            inner = (
+                f"non-normalized version {version_part!r}, "
+                f"should be {str(self._version)!r}"
+            )
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedVersion(msg))
         if issues & _ISSUE_BUILD and build != self.build_str:
-            inner = f"non-normalized build tag {build!r}"
+            inner = f"non-normalized build tag {build!r}, should be {self.build_str!r}"
             msg = f"Invalid wheel filename ({inner}): {filename!r}"
             collector.error(NonNormalizedBuildTag(msg))
         if issues & _ISSUE_TAGS:
@@ -562,17 +568,25 @@ class WheelFilename:
             if any(part != sorted(part) for part in components):
                 msg = (
                     "Invalid wheel filename (compressed tag set components must "
-                    f"be in sorted order per PEP 425): {filename!r}"
+                    "be in sorted order per PEP 425, should be "
+                    f"{self.compressed_tags!r}): {filename!r}"
                 )
                 collector.error(UnsortedWheelTags(msg))
             elif tag_str != tag_str.lower() or any(
                 len(part) != len(set(part)) for part in components
             ):
-                inner = f"non-normalized tags {tag_str!r}"
+                inner = (
+                    f"non-normalized tags {tag_str!r}, "
+                    f"should be {self.compressed_tags!r}"
+                )
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedTags(msg))
         if collector.errors:
-            collector.finalize(f"Non-normalized wheel filename: {filename!r}")
+            msg = f"Non-normalized wheel filename: {filename!r}"
+            # An invalid project name has no normalized form.
+            if fixable:
+                msg += f", should be {self.to_filename()!r}"
+            collector.finalize(msg)
 
 
 class SourceDistributionFilename:
@@ -812,6 +826,7 @@ class SourceDistributionFilename:
         name_part, version_part = parts
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
+        fixable = True
         if not filename.endswith(".tar.gz"):
             msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
             collector.error(ZipSdistFilename(msg))
@@ -821,13 +836,24 @@ class SourceDistributionFilename:
                 inner = f"invalid project name {name_part!r}"
                 msg = f"Invalid sdist filename ({inner}): {filename!r}"
                 collector.error(InvalidProjectName(msg))
+                fixable = False
             else:
-                inner = f"non-normalized project name {name_part!r}"
+                expected = self._name.replace("-", "_")
+                inner = (
+                    f"non-normalized project name {name_part!r}, should be {expected!r}"
+                )
                 msg = f"Invalid sdist filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedName(msg))
         if not _is_normalized_version(version_part, self._version):
-            inner = f"non-normalized version {version_part!r}"
+            inner = (
+                f"non-normalized version {version_part!r}, "
+                f"should be {str(self._version)!r}"
+            )
             msg = f"Invalid sdist filename ({inner}): {filename!r}"
             collector.error(NonNormalizedVersion(msg))
         if collector.errors:
-            collector.finalize(f"Non-normalized sdist filename: {filename!r}")
+            msg = f"Non-normalized sdist filename: {filename!r}"
+            # An invalid project name has no normalized form.
+            if fixable:
+                msg += f", should be {self.to_filename()!r}"
+            collector.finalize(msg)

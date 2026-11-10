@@ -87,7 +87,8 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         ),
         (
             "extra-hyphens-1.0-9.tar.gz",  # Extra hyphens
-            "Invalid sdist filename (non-normalized project name 'extra-hyphens-1.0')",
+            "Invalid sdist filename (non-normalized project name 'extra-hyphens-1.0', "
+            "should be 'extra_hyphens_1_0')",
             NonNormalizedName,
         ),
         (
@@ -102,17 +103,20 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         ),
         (
             "invalid.name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            "Invalid sdist filename (non-normalized project name 'invalid.name')",
+            "Invalid sdist filename (non-normalized project name 'invalid.name', "
+            "should be 'invalid_name')",
             NonNormalizedName,
         ),
         (
             "invalid__name-1.0.tar.gz",  # Name is not canonical (punctuation)
-            "Invalid sdist filename (non-normalized project name 'invalid__name')",
+            "Invalid sdist filename (non-normalized project name 'invalid__name', "
+            "should be 'invalid_name')",
             NonNormalizedName,
         ),
         (
             "INVALID_NAME-1.0.tar.gz",  # Name is not canonical (casing)
-            "Invalid sdist filename (non-normalized project name 'INVALID_NAME')",
+            "Invalid sdist filename (non-normalized project name 'INVALID_NAME', "
+            "should be 'invalid_name')",
             NonNormalizedName,
         ),
         (
@@ -122,7 +126,7 @@ def test_sdist_init(name: str, version: str, expected_filename: str) -> None:
         ),
         (
             "valid_name-01.0.tar.gz",  # Version is not canonical
-            "Invalid sdist filename (non-normalized version '01.0')",
+            "Invalid sdist filename (non-normalized version '01.0', should be '1.0')",
             NonNormalizedVersion,
         ),
     ],
@@ -134,7 +138,11 @@ def test_validate_sdist_filename_invalid(
         SourceDistributionFilename.from_filename(filename).validate()
 
     if isinstance(e.value, ExceptionGroup):
-        assert e.value.message == f"Non-normalized sdist filename: {filename!r}"
+        message = f"Non-normalized sdist filename: {filename!r}"
+        if error_type is not InvalidProjectName:
+            expected = SourceDistributionFilename.from_filename(filename).to_filename()
+            message += f", should be {expected!r}"
+        assert e.value.message == message
         (error,) = e.value.exceptions
     else:
         error = e.value
@@ -355,7 +363,8 @@ def test_validate_wheel_filename_valid(filename: str) -> None:
         ),
         (
             "fOo-1.0-py3-none-any.whl",  # Non-normalized project name
-            "Invalid wheel filename (non-normalized project name 'fOo')",
+            "Invalid wheel filename (non-normalized project name 'fOo', "
+            "should be 'foo')",
             NonNormalizedName,
         ),
         (
@@ -385,40 +394,44 @@ def test_validate_wheel_filename_valid(filename: str) -> None:
         ),
         (
             "foo-01.0-py3-none-any.whl",  # Non-normalized version
-            "Invalid wheel filename (non-normalized version '01.0')",
+            "Invalid wheel filename (non-normalized version '01.0', should be '1.0')",
             NonNormalizedVersion,
         ),
         (
             "foo-1.0-01-py3-none-any.whl",  # Non-normalized build tag
-            "Invalid wheel filename (non-normalized build tag '01')",
+            "Invalid wheel filename (non-normalized build tag '01', should be '1')",
             NonNormalizedBuildTag,
         ),
         (  # Unsorted interpreter tags (py3 before py2)
             "foo-1.0-py3.py2-none-any.whl",
             "Invalid wheel filename (compressed tag set components must be in "
-            "sorted order per PEP 425)",
+            "sorted order per PEP 425, should be 'py2.py3-none-any')",
             UnsortedWheelTags,
         ),
         (
             # Unsorted platform tags (manylinux_ before manylinux2014)
             "numpy-1.23.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
             "Invalid wheel filename (compressed tag set components must be in "
-            "sorted order per PEP 425)",
+            "sorted order per PEP 425, should be "
+            "'cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64')",
             UnsortedWheelTags,
         ),
         (  # Duplicate interpreter tags
             "foo-1.0-py3.py3-none-any.whl",
-            "Invalid wheel filename (non-normalized tags 'py3.py3-none-any')",
+            "Invalid wheel filename (non-normalized tags 'py3.py3-none-any', "
+            "should be 'py3-none-any')",
             NonNormalizedTags,
         ),
         (  # Uppercase tags
             "foo-1.0-PY3-none-any.whl",
-            "Invalid wheel filename (non-normalized tags 'PY3-none-any')",
+            "Invalid wheel filename (non-normalized tags 'PY3-none-any', "
+            "should be 'py3-none-any')",
             NonNormalizedTags,
         ),
         (  # Non-normalized post-release
             "foo-1.0post1-py3-none-any.whl",
-            "Invalid wheel filename (non-normalized version '1.0post1')",
+            "Invalid wheel filename (non-normalized version '1.0post1', "
+            "should be '1.0.post1')",
             NonNormalizedVersion,
         ),
     ],
@@ -430,7 +443,11 @@ def test_validate_wheel_filename_invalid(
         WheelFilename.from_filename(filename).validate()
 
     if isinstance(e.value, ExceptionGroup):
-        assert e.value.message == f"Non-normalized wheel filename: {filename!r}"
+        message = f"Non-normalized wheel filename: {filename!r}"
+        if error_type is not InvalidProjectName:
+            expected = WheelFilename.from_filename(filename).to_filename()
+            message += f", should be {expected!r}"
+        assert e.value.message == message
         (error,) = e.value.exceptions
     else:
         error = e.value
@@ -869,3 +886,19 @@ def test_wheel_tags_str() -> None:
     }
     with pytest.raises(InvalidWheelFilename, match="invalid tag 'py3-none'"):
         WheelFilename("foo", "1.0", "py3-none")
+
+
+def test_validate_message_gives_normalized_filename() -> None:
+    with pytest.raises(ExceptionGroup) as e:
+        WheelFilename.from_filename("Foo.Bar-01.0-01-py3.py2-none-any.whl").validate()
+    assert e.value.message == (
+        "Non-normalized wheel filename: 'Foo.Bar-01.0-01-py3.py2-none-any.whl', "
+        "should be 'foo_bar-1.0-1-py2.py3-none-any.whl'"
+    )
+
+    with pytest.raises(ExceptionGroup) as e:
+        SourceDistributionFilename.from_filename("Foo-Bar-01.0.zip").validate()
+    assert e.value.message == (
+        "Non-normalized sdist filename: 'Foo-Bar-01.0.zip', "
+        "should be 'foo_bar-1.0.tar.gz'"
+    )

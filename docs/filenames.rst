@@ -38,6 +38,9 @@ classes are:
 * :class:`~packaging.filenames.NonNormalizedTags` (wheel only): the tags are
   sorted, but not normalized.
 
+Each normalization message gives the expected value. The group message gives
+the full normalized filename, unless the project name is not valid.
+
 For example, to accept a non-normalized name and version, but reject all other
 problems:
 
