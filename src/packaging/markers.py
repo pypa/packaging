@@ -9,6 +9,7 @@ import operator
 import os
 import platform
 import sys
+import warnings
 from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from typing import TYPE_CHECKING, Final, Literal, TypedDict, cast
@@ -286,14 +287,51 @@ def _lookup_environment(
         raise UndefinedEnvironmentName(key) from None
 
 
+_ORDERED_VERSION_OPS = frozenset({"<", "<=", "==", "!=", ">=", ">"})
+
+
+def _invalid_version_literal(
+    key: str, op: Op, literal: str, *, literal_on_left: bool
+) -> str | None:
+    """Describe a python_version literal that isn't a valid PEP 440 version.
+
+    Returns ``None`` when there is nothing to report. Only the literal written
+    in the marker is checked, never the environment value.
+    """
+    op_str = op.serialize()
+    if (
+        key not in {"python_version", "python_full_version"}
+        or op_str not in _ORDERED_VERSION_OPS
+        or not any(ch.isdigit() for ch in literal)
+    ):
+        return None
+    try:
+        Specifier(f"{op_str}{literal}")
+    except InvalidSpecifier:
+        pass
+    else:
+        return None
+    written = (
+        f"{literal!r} {op_str} {key}"
+        if literal_on_left
+        else f"{key} {op_str} {literal!r}"
+    )
+    return (
+        f"marker {written} uses {literal!r}, which is not a valid PEP 440 "
+        "version; falling back to string comparison"
+    )
+
+
 def _evaluate_markers(
-    markers: MarkerList, environment: dict[str, str | AbstractSet[str]]
+    markers: MarkerList,
+    environment: dict[str, str | AbstractSet[str]],
+    problems: list[str] | None = None,
 ) -> bool:
     groups: list[list[bool]] = [[]]
 
     for marker in markers:
         if isinstance(marker, list):
-            groups[-1].append(_evaluate_markers(marker, environment))
+            groups[-1].append(_evaluate_markers(marker, environment, problems))
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
@@ -301,10 +339,19 @@ def _evaluate_markers(
                 environment_key = lhs.value
                 lhs_value = _lookup_environment(environment, environment_key)
                 rhs_value = rhs.value
+                literal, literal_on_left = rhs.value, False
             else:
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
+                literal, literal_on_left = lhs.value, True
+
+            if problems is not None and isinstance(literal, str):
+                problem = _invalid_version_literal(
+                    environment_key, op, literal, literal_on_left=literal_on_left
+                )
+                if problem is not None:
+                    problems.append(problem)
 
             if not isinstance(lhs_value, str):
                 raise UndefinedComparison(
@@ -555,9 +602,15 @@ class Marker:
                 extra = cast("str | None", current_environment["extra"])
                 current_environment["extra"] = canonicalize_name(extra) if extra else ""
 
-        return _evaluate_markers(
-            self._markers, _repair_python_full_version(current_environment)
+        problems: list[str] = []
+        result = _evaluate_markers(
+            self._markers, _repair_python_full_version(current_environment), problems
         )
+        for problem in problems:
+            # Warn here rather than during evaluation so the warning points at
+            # the caller of evaluate() no matter how deeply the marker nests.
+            warnings.warn(problem, stacklevel=2)
+        return result
 
 
 def _pep440_python_full_version(python_full_version: str) -> str:
