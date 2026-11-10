@@ -1244,12 +1244,12 @@ class TestEvaluatePrepared:
             '"docs" in extra',
         ],
     )
-    @pytest.mark.parametrize("extra", [None, frozenset(), frozenset({"docs"})])
     def test_non_string_extra_raises_undefined_comparison(
-        self, marker_string: str, extra: frozenset[str] | None
+        self, marker_string: str
     ) -> None:
+        # A set of extras evaluates set-wide; see TestExtraSetEvaluation.
         marker = Marker(marker_string)
-        env = {"extra": extra}
+        env = {"extra": None}
 
         with pytest.raises(
             UndefinedComparison, match="Marker 'extra' must be a string"
@@ -1274,3 +1274,61 @@ class TestEvaluatePrepared:
 
         assert outcome(lambda: marker.evaluate_prepared(prepared)) == expected
         assert outcome(lambda: marker.evaluate(environment, context)) == expected
+
+
+class TestExtraSetEvaluation:
+    @pytest.mark.parametrize(
+        ("expression", "extras", "expected"),
+        [
+            ('extra == "gpu"', {"gpu"}, True),
+            ('extra == "gpu"', {"cpu"}, False),
+            ('extra == "gpu"', set(), False),
+            ('extra != "gpu"', {"cpu"}, True),
+            ('extra != "gpu"', {"gpu"}, False),
+            # The pypa/pip#14139 case: a negated marker must not match when
+            # the named extra is selected alongside others.
+            ('extra != "gpu"', {"gpu", "cpu"}, False),
+            ('extra != "gpu"', set(), True),
+            ('extra == ""', set(), True),
+            ('extra == ""', {"gpu"}, False),
+            ('"gpu" == extra', {"gpu"}, True),
+            ('"gpu" != extra', {"gpu", "cpu"}, False),
+            ('extra == "PDF_Support"', {"pdf.support"}, True),
+            # Two required extras can only both match set-wide.
+            ('extra == "a" and extra == "b"', {"a", "b"}, True),
+            ('extra == "a" and extra == "b"', {"a"}, False),
+            ('extra == "a" or extra == "b"', {"b"}, True),
+        ],
+    )
+    @pytest.mark.parametrize("wrap", [set, frozenset, list, tuple])
+    def test_marker_evaluation(
+        self, expression: str, extras: set[str], expected: bool, wrap: type[Any]
+    ) -> None:
+        # Any non-string iterable passed as ``extra`` is accepted.
+        environment = cast("Any", {"extra": wrap(extras)})
+        assert Marker(expression).evaluate(environment) is expected
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            'extra ~= "gpu"',
+            'extra < "gpu"',
+            'extra >= "gpu"',
+            '"gpu" in extra',
+            '"gpu" not in extra',
+            'extra in "gpu,docs"',
+            'extra not in "gpu"',
+        ],
+    )
+    def test_undefined_operator(self, expression: str) -> None:
+        # Only ``==`` and ``!=`` are defined on ``extra`` for a set of extras.
+        with pytest.raises(UndefinedComparison):
+            Marker(expression).evaluate({"extra": frozenset({"gpu"})})
+
+    def test_prepared(self) -> None:
+        prepared = prepare_environment({"extra": {"GPU", "docs"}})
+        assert prepared["extra"] == frozenset({"gpu", "docs"})
+        assert Marker('extra == "gpu"').evaluate_prepared(prepared)
+        assert not Marker('extra != "docs"').evaluate_prepared(prepared)
+        assert Marker('extra == "gpu"').evaluate_prepared({"extra": {"gpu"}})
+        assert prepare_environment({"extra": set()})["extra"] == ""
