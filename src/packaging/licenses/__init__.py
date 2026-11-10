@@ -70,6 +70,11 @@ class InvalidLicenseExpression(ValueError):
     """
 
 
+# The expression is checked with compile(), so cap parenthesis depth to report
+# deeply nested input as invalid instead of overflowing Python's parser.
+_MAX_LICENSE_NESTING = 100
+
+
 def canonicalize_license_expression(
     raw_license_expression: str,
 ) -> NormalizedLicenseExpression:
@@ -133,6 +138,7 @@ def canonicalize_license_expression(
     # grammar itself is replaced with the placeholder `False` and the resultant
     # expression should become a valid Python expression.
     python_tokens = []
+    depth = 0
     for token in tokens:
         if token not in {"or", "and", "with", "(", ")"}:
             python_tokens.append("False")
@@ -147,6 +153,13 @@ def canonicalize_license_expression(
             raise InvalidLicenseExpression(message)
         else:
             python_tokens.append(token)
+            if token == "(":
+                depth += 1
+                if depth > _MAX_LICENSE_NESTING:
+                    message = f"Invalid license expression: {raw_license_expression!r}"
+                    raise InvalidLicenseExpression(message)
+            elif token == ")":
+                depth -= 1
 
     python_expression = " ".join(python_tokens)
     try:

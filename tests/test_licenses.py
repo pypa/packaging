@@ -1,6 +1,7 @@
 import pytest
 
 from packaging.licenses import (
+    _MAX_LICENSE_NESTING,
     InvalidLicenseExpression,
     canonicalize_license_expression,
 )
@@ -90,3 +91,16 @@ def test_ascii_licenseref_preserves_spelling(
     license_expression: str, expected: str
 ) -> None:
     assert canonicalize_license_expression(license_expression) == expected
+
+
+def test_nesting_at_limit() -> None:
+    depth = _MAX_LICENSE_NESTING
+    expression = "(MIT OR " * depth + "MIT" + ")" * depth
+    assert canonicalize_license_expression(expression) == expression
+
+
+@pytest.mark.parametrize("depth", [_MAX_LICENSE_NESTING + 1, 10_000])
+def test_invalid_too_deeply_nested(depth: int) -> None:
+    # Deep nesting must be reported as InvalidLicenseExpression, not MemoryError.
+    with pytest.raises(InvalidLicenseExpression):
+        canonicalize_license_expression("(MIT OR " * depth + "MIT" + ")" * depth)
