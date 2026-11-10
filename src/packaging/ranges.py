@@ -20,6 +20,7 @@ exists.
 from __future__ import annotations
 
 import bisect
+import copyreg
 import enum
 import typing
 from typing import (
@@ -1181,8 +1182,21 @@ class VersionRange:
             self._admit_arbitrary,
             self._prereleases_configured,
         )
-        # Subclasses without __slots__ can carry extra attributes.
-        extra = getattr(self, "__dict__", None) or None
+        # Preserve custom state hooks, or collect only the subclass state.
+        getstate = getattr(type(self), "__getstate__", None)
+        if getstate is not None and getstate is not getattr(
+            object, "__getstate__", None
+        ):
+            extra = getstate(self)
+        else:
+            extra = getattr(self, "__dict__", None) or None
+            slots = {
+                name: getattr(self, name)
+                for name in copyreg._slotnames(type(self))  # type: ignore[attr-defined]
+                if name not in VersionRange.__slots__ and hasattr(self, name)
+            }
+            if slots:
+                extra = (extra, slots)
         return (_restore_version_range, (type(self), state), extra)
 
     @classmethod
