@@ -1124,6 +1124,22 @@ class TestPrepareEnvironment:
         with mock.patch("platform.python_version", return_value="3.11.1+"):
             assert prepare_environment()["python_full_version"] == "3.11.1+local"
 
+    @pytest.mark.parametrize(
+        ("key", "value", "other_key"),
+        [
+            ("python_version", "2.7", "python_full_version"),
+            ("python_full_version", "2.7.18", "python_version"),
+        ],
+    )
+    def test_version_overrides_are_independent(
+        self, key: str, value: str, other_key: str
+    ) -> None:
+        default = prepare_environment()
+        prepared = prepare_environment({key: value})
+
+        assert prepared[key] == value
+        assert prepared[other_key] == default[other_key]
+
     def test_unknown_keys_are_kept(self) -> None:
         # The marker grammar has no variable for them, so they are carried
         # through and never read.
@@ -1136,12 +1152,20 @@ class TestPrepareEnvironment:
         assert prepare_environment()["os_name"] == os.name
         assert _cached_default_environment()["os_name"] == os.name
 
-    def test_set_valued_overrides_are_shared(self) -> None:
-        # The copy is shallow, so mutating a value through the result reaches
-        # the caller's object.
-        extras = {"fancy-feature"}
+    @pytest.mark.parametrize("key", ["extras", "dependency_groups"])
+    def test_set_valued_overrides_remain_live(self, key: str) -> None:
+        values = {"docs"}
+        prepared = prepare_environment({key: values}, "lock_file")
+        marker = Marker(f"'fancy-feature' in {key}")
 
-        assert prepare_environment({"extras": extras}, "lock_file")["extras"] is extras
+        assert prepared[key] is values
+        assert not marker.evaluate_prepared(prepared)
+
+        values.add("Fancy.Feature")
+        assert marker.evaluate_prepared(prepared)
+
+        values.remove("Fancy.Feature")
+        assert not marker.evaluate_prepared(prepared)
 
 
 class TestEvaluatePrepared:
