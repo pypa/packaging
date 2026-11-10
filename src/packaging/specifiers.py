@@ -878,8 +878,9 @@ class SpecifierSet(BaseSpecifier):
             # Fast substring check; avoids iterating parsed specs.
             self._has_arbitrary = "===" in specifiers
         else:
+            # List comprehension is faster than generator below
             self._specs = tuple(
-                s if isinstance(s, Specifier) else Specifier(s) for s in specifiers
+                [s if isinstance(s, Specifier) else Specifier(s) for s in specifiers]
             )
             self._has_arbitrary = any(s.operator == "===" for s in self._specs)
 
