@@ -1433,6 +1433,33 @@ def test_pickle_26_2_tuple_getstate_loads() -> None:
     assert v.local == "zzz"
 
 
+# Pickle bytes generated with packaging 26.4+ (7-tuple __getstate__ format),
+# Python 3.14.7, pickle protocol 2.
+_PACKAGING_26_4_TUPLE_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ = (
+    b"\x80\x02cpackaging.version\nVersion\nq\x00)\x81q\x01(K\x01K\x02K\x03"
+    b"K\x04\x87q\x02X\x01\x00\x00\x00aq\x03K\x05\x86q\x04X\x04\x00\x00"
+    b"\x00postq\x05K\x06\x86q\x06X\x03\x00\x00\x00devq\x07K\x07\x86q\x08"
+    b"X\x03\x00\x00\x00zzzq\t\x85q\nX\x19\x00\x00\x00v1!2.3.4a5.post6.dev7+zzz"
+    b"q\x0btq\x0cb."
+)
+
+
+def test_pickle_26_4_tuple_getstate_loads() -> None:
+    # Verify that pickles created with packaging 26.4+ (7-tuple __getstate__)
+    # can be loaded and keep the original input string.
+    v = pickle.loads(_PACKAGING_26_4_TUPLE_PICKLE_V1E2_3_4A5_POST6_DEV7_ZZZ)
+    assert isinstance(v, Version)
+    assert str(v) == "1!2.3.4a5.post6.dev7+zzz"
+    assert v == Version("1!2.3.4a5.post6.dev7+zzz")
+    assert v.raw_version == "v1!2.3.4a5.post6.dev7+zzz"
+    assert v.epoch == 1
+    assert v.release == (2, 3, 4)
+    assert v.pre == ("a", 5)
+    assert v.post == 6
+    assert v.dev == 7
+    assert v.local == "zzz"
+
+
 def test_pickle_setstate_rejects_invalid_state() -> None:
     # Cover the TypeError branches in __setstate__ for invalid input.
     v = Version.__new__(Version)
@@ -1442,7 +1469,7 @@ def test_pickle_setstate_rejects_invalid_state() -> None:
     # tuple with non-dict second element
     with pytest.raises(TypeError, match="Cannot restore Version"):
         v.__setstate__((None, "not_a_dict"))
-    # tuple with unexpected length (not 2 or 6)
+    # tuple with unexpected length (not 2, 6, or 7)
     with pytest.raises(TypeError, match="Cannot restore Version"):
         v.__setstate__((1, 2, 3))
     # completely wrong type
