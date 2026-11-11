@@ -114,7 +114,7 @@ def canonicalize_license_expression(
     for ref in license_expression.split():
         if ref.lower().startswith(licenseref_prefix.lower()):
             if not ref.isascii():
-                message = f"Invalid licenseref: {ref!r}"
+                message = f"Invalid licenseref (non-ASCII): {ref!r}"
                 raise InvalidLicenseExpression(message)
             license_refs.setdefault(
                 ref.lower(), licenseref_prefix + ref[len(licenseref_prefix) :]
