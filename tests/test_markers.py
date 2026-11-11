@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import functools
 import itertools
+import operator
 import os
 import pickle
 import platform
@@ -792,8 +794,7 @@ def test_right_hand_ops_and_typeerror() -> None:
 
 def test_chaining_associativity_and_str() -> None:
     a = Marker(
-        '(python_version >= "3.6" and os_name == "posix") '
-        'and platform_system == "Linux"'
+        'python_version >= "3.6" and os_name == "posix" and platform_system == "Linux"'
     )
     b = (
         Marker('python_version >= "3.6"')
@@ -802,6 +803,29 @@ def test_chaining_associativity_and_str() -> None:
     )
     assert a == b
     assert str(a) == str(b)
+
+
+@pytest.mark.parametrize("op", [operator.and_, operator.or_])
+def test_long_chain_round_trips(op: Callable[[Marker, Marker], Marker]) -> None:
+    # Chaining must not add one nesting level per operation.
+    m = functools.reduce(op, [Marker(f'os_name == "{i}"') for i in range(2000)])
+    assert "(" not in str(m)
+    assert Marker(str(m)) == m
+    assert pickle.loads(pickle.dumps(m)) == m
+
+
+def test_chain_keeps_mixed_groups() -> None:
+    a = Marker('os_name == "a" or os_name == "b"')
+    b = Marker('os_name == "c"')
+    assert (
+        str(a & b & b) == '(os_name == "a" or os_name == "b") and os_name == "c" '
+        'and os_name == "c"'
+    )
+    assert str(b | (b & b)) == 'os_name == "c" or (os_name == "c" and os_name == "c")'
+    # A parenthesized group of the same operator is spliced in too.
+    assert str(Marker('(os_name == "a" or os_name == "b")') | b) == (
+        'os_name == "a" or os_name == "b" or os_name == "c"'
+    )
 
 
 def test_str_preserves_nested_group_precedence() -> None:

@@ -237,6 +237,20 @@ def _format_marker(
     return "(" + " ".join(inner) + ")"
 
 
+def _splice_operand(markers: MarkerList, op: str) -> MarkerList:
+    while len(markers) == 1 and isinstance(markers[0], list):
+        markers = markers[0]
+    if all(markers[i] == op for i in range(1, len(markers), 2)):
+        return markers
+    return [markers]
+
+
+def _join_markers(lhs: MarkerList, op: str, rhs: MarkerList) -> MarkerList:
+    # Splice in sides that only use ``op`` so chains like ``a & b & c`` stay
+    # flat instead of nesting one level per operation.
+    return [*_splice_operand(lhs, op), op, *_splice_operand(rhs, op)]
+
+
 _operators: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
@@ -566,7 +580,7 @@ class Marker:
         """
         if not isinstance(other, Marker):
             return NotImplemented
-        return self._from_markers([self._markers, "and", other._markers])
+        return self._from_markers(_join_markers(self._markers, "and", other._markers))
 
     def __or__(self, other: Marker) -> Marker:
         """Combine this marker with another using ``or``.
@@ -575,7 +589,7 @@ class Marker:
         """
         if not isinstance(other, Marker):
             return NotImplemented
-        return self._from_markers([self._markers, "or", other._markers])
+        return self._from_markers(_join_markers(self._markers, "or", other._markers))
 
     def evaluate(
         self,
