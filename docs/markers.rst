@@ -114,17 +114,12 @@ Evaluating ``extra`` markers against a set of extras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Installers usually select several extras at once. Passing a set of extra names
-as the ``extra`` environment value evaluates the marker against the whole set:
-``extra == "name"`` matches if ``name`` is one of the selected extras, and
-``extra != "name"`` matches only if it is not. Evaluating once per selected
-extra instead would make negated markers match too broadly. Any other operator
-on ``extra`` raises :exc:`UndefinedComparison` in this mode.
-
-The :ref:`dependency specifier specification <pypug:dependency-specifiers>`
-says ``extra != "name"`` should not be used in published metadata, and that
-installers may reject it or evaluate it as ``False``. The set-wide evaluation
-gives the literal answer. It is reliable only when the tool resolving the
-project also controls the selected extras, such as for a root project.
+as the ``extra`` environment value evaluates the marker against the whole set.
+Logical operators work as you'd expect. The :ref:`dependency specifier
+specification <pypug:dependency-specifiers>` says ``extra != "name"`` should
+not be used in published metadata but allows arbitrary handling; this is
+handled logically if encountered.  Any operator other than ``==`` and ``!=`` on
+``extra`` raises :exc:`UndefinedComparison` in this mode.
 
 .. doctest::
 
@@ -132,11 +127,12 @@ project also controls the selected extras, such as for a root project.
     >>> marker = Marker('extra == "gpu"')
     >>> marker.evaluate(environment={"extra": {"gpu", "docs"}})
     True
-    >>> negated = Marker('extra != "gpu"')
-    >>> negated.evaluate(environment={"extra": {"gpu", "docs"}})
-    False
-    >>> negated.evaluate(environment={"extra": {"docs"}})
+    >>> # Both extras must be selected
+    >>> both = Marker('extra == "gpu" and extra == "docs"')
+    >>> both.evaluate(environment={"extra": {"gpu", "docs"}})
     True
+    >>> both.evaluate(environment={"extra": {"gpu"}})
+    False
     >>> # An empty set behaves like no selected extra
     >>> marker.evaluate(environment={"extra": set()})
     False
