@@ -13,7 +13,7 @@ from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from typing import TYPE_CHECKING, Final, Literal, TypedDict, cast
 
-from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
+from ._parser import MarkerAtom, MarkerList, MarkerLogical, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
@@ -167,8 +167,8 @@ class Environment(TypedDict):
 
 
 def _normalize_extras(
-    result: MarkerList | MarkerAtom | str,
-) -> MarkerList | MarkerAtom | str:
+    result: MarkerAtom | MarkerLogical,
+) -> MarkerAtom | MarkerLogical:
     if isinstance(result, list):
         return [_normalize_extras(r) for r in result]
     if not isinstance(result, tuple):
@@ -298,6 +298,7 @@ def _evaluate_markers(
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
+            rhs_value: str | AbstractSet[str]
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
                 lhs_value = _lookup_environment(environment, environment_key)
