@@ -291,16 +291,15 @@ def _split_wheel_filename(filename: str, *, variants: bool = True) -> _WheelPart
     return name, version_part, None, f"{third}-{tag_rest}", variant
 
 
-def _parse_wheel_filename(
-    filename: str, *, variants: bool = True, validate_order: bool = False
+def _parse_wheel_parts(
+    filename: str, parts: _WheelParts, *, validate_order: bool = False
 ) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag], str | None, int]:
-    """Parse a wheel filename, accepting legacy names and versions.
+    """Parse the raw parts of a wheel filename, accepting legacy names and versions.
 
-    The last item has ``_ISSUE_*`` bits for parts that might not be normalized.
+    The filename is only used in error messages. The last item has ``_ISSUE_*``
+    bits for parts that might not be normalized.
     """
-    name, version_part, build, tag_str, variant = _split_wheel_filename(
-        filename, variants=variants
-    )
+    name, version_part, build, tag_str, variant = parts
     try:
         tags = parse_tag(tag_str, validate_order=validate_order)
     except UnsortedTagsError:
@@ -412,10 +411,38 @@ def parse_wheel_filename(
        not an identifier, a tag set component is empty, or the project name is
        empty.
     """
-    name, version, build_tag, tags, _, _ = _parse_wheel_filename(
-        filename, variants=False, validate_order=validate_order
+    parts = _split_wheel_filename(filename, variants=False)
+    name, version, build_tag, tags, _, _ = _parse_wheel_parts(
+        filename, parts, validate_order=validate_order
     )
     return (name, version, build_tag, tags)
+
+
+def _split_sdist_filename(filename: str) -> tuple[str, str, str]:
+    """Split a sdist filename into its raw name, version, and extension."""
+    # PEP 625: Source distributions must end with .tar.gz. Parsing also
+    # accepts .zip for backward compatibility.
+    if filename.endswith(".tar.gz"):
+        ext = ".tar.gz"
+    elif filename.endswith(".zip"):
+        ext = ".zip"
+    else:
+        inner = "extension must be '.tar.gz' or '.zip'"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
+
+    # PEP 625: Source distributions may only have one hyphen, separating
+    # the name and version. Validation rejects extra hyphens via the
+    # normalized name check.
+    name_part, sep, version_part = filename[: -len(ext)].rpartition("-")
+    if not sep:
+        inner = "hyphen must separate name and version parts"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg)
+    if not name_part:
+        msg = f"Invalid sdist filename (empty project name): {filename!r}"
+        raise InvalidSdistFilename(msg)
+    return name_part, version_part, ext
 
 
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
@@ -453,28 +480,7 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    # PEP 625: Source distributions must end with .tar.gz. Parsing also
-    # accepts .zip for backward compatibility.
-    if filename.endswith(".tar.gz"):
-        file_stem = filename[: -len(".tar.gz")]
-    elif filename.endswith(".zip"):
-        file_stem = filename[: -len(".zip")]
-    else:
-        inner = "extension must be '.tar.gz' or '.zip'"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg)
-
-    # PEP 625: Source distributions may only have one hyphen, separating
-    # the name and version. Validation rejects extra hyphens via the
-    # normalized name check.
-    name_part, sep, version_part = file_stem.rpartition("-")
-    if not sep:
-        inner = "hyphen must separate name and version parts"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg)
-    if not name_part:
-        msg = f"Invalid sdist filename (empty project name): {filename!r}"
-        raise InvalidSdistFilename(msg)
+    name_part, version_part, _ = _split_sdist_filename(filename)
     try:
         version = Version(version_part)
     except InvalidVersion as e:
