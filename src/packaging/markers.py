@@ -208,7 +208,7 @@ _GROUP_TYPES: Final = (list, tuple)
 
 
 def _format_marker(
-    marker: list[str] | MarkerAtom | str, first: bool | None = True
+    marker: MarkerAtom | MarkerLogical, first: bool | None = True
 ) -> str:
     if isinstance(marker, tuple):
         lhs, op, rhs = marker
@@ -411,8 +411,7 @@ class Marker:
 
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
-            # The attribute `_markers` can be described in terms of a recursive type:
-            # MarkerList = list[tuple[Node, ...] | str | MarkerList]
+            # The attribute `_markers` is a `_parser.MarkerList` tree.
             #
             # For example, the following expression:
             # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
@@ -420,10 +419,10 @@ class Marker:
             # is parsed into:
             # [
             #     (<Variable('python_version')>, <Op('>')>, <Value('3.6')>),
-            #     'and',
+            #     'or',
             #     [
             #         (<Variable('python_version')>, <Op('==')>, <Value('3.6')>),
-            #         'or',
+            #         'and',
             #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
             #     ]
             # ]
