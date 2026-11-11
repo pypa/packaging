@@ -394,15 +394,14 @@ def _canonicalize(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
 
 
 def _struct_admits(
-    bounds: tuple[Interval, ...], admit_arbitrary: bool, literal: str
+    bounds: tuple[Interval, ...], admit_arbitrary: bool, parsed: Version | None
 ) -> bool:
-    """True when the bounds (plus arbitrary admission) admit ``literal``.
+    """True when the bounds (plus arbitrary admission) admit the parsed version.
 
     Skips the explicit admit/reject sets, which the caller layers on top. A
     non-version string matches via ``admit_arbitrary`` only on full bounds;
     on narrower bounds the flag is metadata only.
     """
-    parsed = coerce_version(literal)
     if parsed is None:
         return admit_arbitrary and bounds == FULL_RANGE
 
@@ -1167,18 +1166,18 @@ class VersionRange:
             admit = frozenset(
                 literal
                 for literal in admit
-                if not _struct_admits(bounds, admit_arbitrary, literal)
-                or (
-                    prereleases_configured is None
-                    and (parsed := coerce_version(literal)) is not None
+                if (
+                    (parsed := coerce_version(literal)) is not None
+                    and prereleases_configured is None
                     and parsed.is_prerelease
                 )
+                or not _struct_admits(bounds, admit_arbitrary, parsed)
             )
         if reject:
             reject = frozenset(
                 literal
                 for literal in reject
-                if _struct_admits(bounds, admit_arbitrary, literal)
+                if _struct_admits(bounds, admit_arbitrary, coerce_version(literal))
             )
 
         instance = object.__new__(cls)
@@ -1596,7 +1595,9 @@ class VersionRange:
                 if (
                     literal in self._admit
                     or (op is not _SetOp.DIFFERENCE and literal in other._admit)
-                    or not _struct_admits(new_bounds, admit_arbitrary, literal)
+                    or not _struct_admits(
+                        new_bounds, admit_arbitrary, coerce_version(literal)
+                    )
                 ):
                     admits.add(literal)
             else:
