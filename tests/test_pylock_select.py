@@ -672,3 +672,123 @@ def test_unknown_groups_default_groups() -> None:
         PylockSelectError, match=r"Undeclared dependency groups: g3, g4"
     ):
         list(pylock.select(dependency_groups=["G1", "DG1", "g3", "g4"]))
+
+
+@pytest.mark.parametrize(
+    ("builds", "expected"),
+    [
+        (["", "2"], "2"),
+        (["2", ""], "2"),
+        (["2", "10"], "10"),
+        (["10", "2"], "10"),
+        (["2", "2a", "2b"], "2b"),
+        (["2b", "2a", "2"], "2b"),
+        (["2z", "10a"], "10a"),
+        (["0", ""], "0"),
+        (["", "0"], "0"),
+    ],
+)
+def test_wheel_build_tag_breaks_compatibility_ties(
+    builds: list[str], expected: str
+) -> None:
+    def filename(build: str) -> str:
+        return f"foo-1.0-{build + '-' if build else ''}py3-none-any.whl"
+
+    wheels = [
+        PackageWheel(path=filename(build), hashes={"sha256": "abc123"})
+        for build in builds
+    ]
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[Package(name=canonicalize_name("foo"), wheels=wheels)],
+    )
+    pylock.validate()
+
+    selected = list(pylock.select(tags=[Tag("py3", "none", "any")]))
+    assert len(selected) == 1
+    assert selected[0][1] is wheels[builds.index(expected)]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_wheel_tag_preference_precedes_build_tag(reverse: bool) -> None:
+    preferred = PackageWheel(
+        path="foo-1.0-cp312-cp312-manylinux_2_17_x86_64.whl",
+        hashes={"sha256": "abc123"},
+    )
+    rebuilt = PackageWheel(
+        path="foo-1.0-10-py3-none-any.whl", hashes={"sha256": "abc123"}
+    )
+    incompatible = PackageWheel(
+        path="foo-1.0-100-py5-none-any.whl", hashes={"sha256": "abc123"}
+    )
+    wheels = [rebuilt, incompatible, preferred]
+    if reverse:
+        wheels.reverse()
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[Package(name=canonicalize_name("foo"), wheels=wheels)],
+    )
+    pylock.validate()
+
+    selected = list(pylock.select(tags=_py312_linux.tags))
+    assert len(selected) == 1
+    assert selected[0][1] is preferred
+
+
+@pytest.mark.parametrize(
+    ("filenames", "expected_index"),
+    [
+        (
+            ["foo-1.0-py2.py3-none-any.whl", "foo-1.0-2-py2.py3-none-any.whl"],
+            1,
+        ),
+        (
+            ["foo-1.0-2-py2.py3-none-any.whl", "foo-1.0-py2.py3-none-any.whl"],
+            0,
+        ),
+        (
+            ["foo-1.0-py3-none-any.whl", "foo-1.0-2-py2.py3-none-any.whl"],
+            0,
+        ),
+        (
+            ["foo-1.0-2-py2.py3-none-any.whl", "foo-1.0-py3-none-any.whl"],
+            0,
+        ),
+        (["foo-1.0-02-py3-none-any.whl", "foo-1.0-2-py3-none-any.whl"], 0),
+        (["foo-1.0-2-py3-none-any.whl", "foo-1.0-02-py3-none-any.whl"], 0),
+        (["foo-1.0-py3-none-any.whl", "foo-1.0.0-2-py3-none-any.whl"], 0),
+        (["foo-1.0.0-2-py3-none-any.whl", "foo-1.0-py3-none-any.whl"], 0),
+        (
+            [
+                "foo-1.0-py3-none-any.whl",
+                "foo-1.0-3-py2.py3-none-any.whl",
+                "foo-1.0-2-py3-none-any.whl",
+            ],
+            2,
+        ),
+        (
+            ["foo-1.0-2-py3-none-any.whl", "foo-1.0-2-py3-none-any.whl"],
+            0,
+        ),
+    ],
+)
+def test_wheel_build_tie_scope_and_stability(
+    filenames: list[str], expected_index: int
+) -> None:
+    wheels = [
+        PackageWheel(path=filename, hashes={"sha256": "abc123"})
+        for filename in filenames
+    ]
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[Package(name=canonicalize_name("foo"), wheels=wheels)],
+    )
+    pylock.validate()
+
+    selected = list(pylock.select(tags=[Tag("py3", "none", "any")]))
+    assert len(selected) == 1
+    assert selected[0][1] is wheels[expected_index]
+    assert pylock.packages[0].wheels == wheels

@@ -58,6 +58,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from typing_extensions import Self
 
     from .tags import Tag
+    from .utils import BuildTag
 
 _logger = logging.getLogger(__name__)
 
@@ -839,10 +840,22 @@ class Pylock:
                 #    :ref:`pylock-packages-wheels-name`; if one is not found then move
                 #    on to :ref:`pylock-packages-sdist` or an error MUST be raised about
                 #    a lack of source for the project.
+                # Only the build component may break a tie; preserve
+                # input order between filenames with different tags.
+                wheel_candidates: dict[
+                    tuple[str, ...], tuple[PackageWheel, BuildTag, frozenset[Tag]]
+                ] = {}
+                for wheel in package.wheels:
+                    _, _, build, wheel_tags = parse_wheel_filename(wheel.filename)
+                    parts = wheel.filename.split("-")
+                    key = (*parts[:2], *parts[-3:])
+                    previous = wheel_candidates.get(key)
+                    if previous is None or build > previous[1]:
+                        wheel_candidates[key] = (wheel, build, wheel_tags)
                 best_wheel = next(
                     compatible_tags_selector(
-                        (wheel, parse_wheel_filename(wheel.filename)[-1])
-                        for wheel in package.wheels
+                        (wheel, wheel_tags)
+                        for wheel, _, wheel_tags in wheel_candidates.values()
                     ),
                     None,
                 )
