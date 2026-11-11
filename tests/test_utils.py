@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from packaging.tags import Tag
@@ -109,6 +111,50 @@ def test_escape_name_roundtrips_through_wheel_filename(name: str) -> None:
         f"{escape_name(name)}-1.0-py3-none-any.whl"
     )
     assert wheel_name == canonicalize_name(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "foo",
+        "Foo",
+        "fOo",
+        "FOO",
+        "foo.bar",
+        "Foo.Bar",
+        "Foo.....Bar",
+        "foo_bar",
+        "foo___bar",
+        "foo-bar",
+        "foo----bar",
+        "1--1",
+        "a-_.b",
+        "A..B",
+        "__x__",
+        "a-_.b--c__d..e",
+        "UPPER.Case-Name_1",
+        "caf\u00e9.au-lait",
+        "foo_",
+        "_foo",
+        "-foo",
+        "foo-",
+        "foo.",
+        ".foo",
+        "zope.interface",
+        "oslo.concurrency",
+    ],
+)
+def test_escape_name_matches_canonicalize_name(name: str) -> None:
+    assert escape_name(name) == canonicalize_name(name).replace("-", "_")
+
+
+def test_escape_name_matches_canonicalize_name_random() -> None:
+    rng = random.Random(1505)  # noqa: S311 - deterministic sweep, not crypto
+    alphabet = "aAzZ019-_ .\u00e9\u2603\n"
+    for _ in range(2000):
+        name = "".join(rng.choice(alphabet) for _ in range(rng.randrange(24)))
+        assert escape_name(name) == canonicalize_name(name).replace("-", "_")
 
 
 @pytest.mark.parametrize(

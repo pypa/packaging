@@ -146,7 +146,14 @@ def escape_name(name: str) -> str:
 
     .. versionadded:: 26.4
     """
-    return canonicalize_name(name).replace("-", "_")
+    # Ensure all ``.`` and ``-`` are ``_``
+    # Emulates ``re.sub(r"[-_.]+", "_", name).lower()`` from PEP 427
+    # Much faster than re, and even faster than str.translate
+    value = name.lower().replace("-", "_").replace(".", "_")
+    # Condense repeats (faster than regex)
+    while "__" in value:
+        value = value.replace("__", "_")
+    return value
 
 
 def is_normalized_name(name: str) -> bool:
