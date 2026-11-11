@@ -79,7 +79,7 @@ INTERPRETER_SHORT_NAMES: dict[str, str] = {
     "pypy": "pp",
     "ironpython": "ip",
     "jython": "jy",
-    }
+}
 """
 A dictionary mapping interpreter names to their `abbreviation codes`_
 (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
