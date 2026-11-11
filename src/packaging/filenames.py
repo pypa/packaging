@@ -19,6 +19,7 @@ from .utils import (
     UnsortedWheelTags,
     _normalized_release_regex,
     _normalized_wheel_name_regex,
+    _parse_sdist_parts,
     _parse_wheel_parts,
     _split_sdist_filename,
     _split_wheel_filename,
@@ -26,7 +27,6 @@ from .utils import (
     canonicalize_name,
     parse_sdist_filename,
 )
-from .version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
     from .tags import Tag
     from .utils import NormalizedName, _WheelParts
+    from .version import Version
 
 __all__ = [
     "BuildTag",
@@ -146,6 +147,56 @@ def _state(cls: type, state: object) -> str:
     if not isinstance(state, str):
         raise TypeError(f"Cannot restore {cls.__name__} from {state!r}")
     return state
+
+
+def _check_name(
+    collector: _ErrorCollector,
+    kind: str,
+    filename: str,
+    name: str,
+    result: NormalizedWheelFilename | NormalizedSdistFilename,
+) -> bool:
+    """Record the error for a name that failed the fast check.
+
+    Return false if the name is not valid, since it has no normalized form.
+    """
+    if _validate_regex.fullmatch(name) is None:
+        inner = f"invalid project name {name!r}"
+        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
+        collector.error(InvalidProjectName(msg))
+        return False
+    expected = result.name.replace("-", "_")
+    inner = f"non-normalized project name {name!r}, should be {expected!r}"
+    msg = f"Invalid {kind} filename ({inner}): {filename!r}"
+    collector.error(NonNormalizedName(msg))
+    return True
+
+
+def _check_version(
+    collector: _ErrorCollector,
+    kind: str,
+    filename: str,
+    version_part: str,
+    version: Version,
+) -> None:
+    if not _is_normalized_version(version_part, version):
+        inner = f"non-normalized version {version_part!r}, should be {str(version)!r}"
+        msg = f"Invalid {kind} filename ({inner}): {filename!r}"
+        collector.error(NonNormalizedVersion(msg))
+
+
+def _finalize(
+    collector: _ErrorCollector,
+    kind: str,
+    filename: str,
+    result: NormalizedWheelFilename | NormalizedSdistFilename,
+    fixable: bool,
+) -> None:
+    if collector.errors:
+        msg = f"Non-normalized {kind} filename: {filename!r}"
+        if fixable:
+            msg += f", should be {result.to_filename()!r}"
+        collector.finalize(msg)
 
 
 class WheelFilename:
@@ -361,25 +412,10 @@ class WheelFilename:
         name, version_part, build, tag_str, _ = self._parts
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
-        fixable = True
-        if issues & _ISSUE_NAME:
-            if _validate_regex.fullmatch(name) is None:
-                inner = f"invalid project name {name!r}"
-                msg = f"Invalid wheel filename ({inner}): {filename!r}"
-                collector.error(InvalidProjectName(msg))
-                fixable = False
-            else:
-                expected = result.name.replace("-", "_")
-                inner = f"non-normalized project name {name!r}, should be {expected!r}"
-                msg = f"Invalid wheel filename ({inner}): {filename!r}"
-                collector.error(NonNormalizedName(msg))
-        if not _is_normalized_version(version_part, result.version):
-            inner = (
-                f"non-normalized version {version_part!r}, "
-                f"should be {str(result.version)!r}"
-            )
-            msg = f"Invalid wheel filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedVersion(msg))
+        fixable = not issues & _ISSUE_NAME or _check_name(
+            collector, "wheel", filename, name, result
+        )
+        _check_version(collector, "wheel", filename, version_part, result.version)
         if issues & _ISSUE_BUILD and build != result.build_str:
             inner = (
                 f"non-normalized build tag {build!r}, should be {result.build_str!r}"
@@ -406,12 +442,7 @@ class WheelFilename:
                 )
                 msg = f"Invalid wheel filename ({inner}): {filename!r}"
                 collector.error(NonNormalizedTags(msg))
-        if collector.errors:
-            msg = f"Non-normalized wheel filename: {filename!r}"
-            # An invalid project name has no normalized form.
-            if fixable:
-                msg += f", should be {result.to_filename()!r}"
-            collector.finalize(msg)
+        _finalize(collector, "wheel", filename, result, fixable)
 
 
 class NormalizedWheelFilename:
@@ -573,9 +604,14 @@ class NormalizedWheelFilename:
 
     def __setstate__(self, state: object) -> None:
         filename = _state(type(self), state)
-        other = WheelFilename.from_filename(filename).normalize()
-        for attr in NormalizedWheelFilename.__slots__:
-            setattr(self, attr, getattr(other, attr))
+        (
+            self._name,
+            self._version,
+            self._build_tag,
+            self._tags,
+            self._variant,
+            _,
+        ) = _parse_wheel_parts(filename, _split_wheel_filename(filename))
 
     def __str__(self) -> str:
         return self.to_filename()
@@ -769,16 +805,8 @@ class SourceDistributionFilename:
         >>> fn.version
         <Version('1.0')>
         """
-        filename = self._filename
-        name_part, version_part, _ = self._parts
         result = NormalizedSdistFilename.__new__(NormalizedSdistFilename)
-        try:
-            result._version = Version(version_part)
-        except InvalidVersion as e:
-            inner = f"invalid version {version_part!r}"
-            msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            raise InvalidSdistFilename(msg) from e
-        result._name = canonicalize_name(name_part)
+        result._name, result._version = _parse_sdist_parts(self._filename, self._parts)
         if strict:
             self._check_normalized(result)
         return result
@@ -788,37 +816,14 @@ class SourceDistributionFilename:
         name_part, version_part, ext = self._parts
         # This is a hot path, so it avoids the on_exit context manager.
         collector = _ErrorCollector()
-        fixable = True
         if ext != ".tar.gz":
             msg = f"Invalid sdist filename (extension must be '.tar.gz'): {filename!r}"
             collector.error(ZipSdistFilename(msg))
-        if _normalized_wheel_name_regex.fullmatch(name_part) is None:
-            # A valid name that fails the fast check is not normalized.
-            if _validate_regex.fullmatch(name_part) is None:
-                inner = f"invalid project name {name_part!r}"
-                msg = f"Invalid sdist filename ({inner}): {filename!r}"
-                collector.error(InvalidProjectName(msg))
-                fixable = False
-            else:
-                expected = result.name.replace("-", "_")
-                inner = (
-                    f"non-normalized project name {name_part!r}, should be {expected!r}"
-                )
-                msg = f"Invalid sdist filename ({inner}): {filename!r}"
-                collector.error(NonNormalizedName(msg))
-        if not _is_normalized_version(version_part, result.version):
-            inner = (
-                f"non-normalized version {version_part!r}, "
-                f"should be {str(result.version)!r}"
-            )
-            msg = f"Invalid sdist filename ({inner}): {filename!r}"
-            collector.error(NonNormalizedVersion(msg))
-        if collector.errors:
-            msg = f"Non-normalized sdist filename: {filename!r}"
-            # An invalid project name has no normalized form.
-            if fixable:
-                msg += f", should be {result.to_filename()!r}"
-            collector.finalize(msg)
+        fixable = _normalized_wheel_name_regex.fullmatch(
+            name_part
+        ) is not None or _check_name(collector, "sdist", filename, name_part, result)
+        _check_version(collector, "sdist", filename, version_part, result.version)
+        _finalize(collector, "sdist", filename, result, fixable)
 
 
 class NormalizedSdistFilename:

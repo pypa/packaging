@@ -801,34 +801,23 @@ WHEELS = [
 SDISTS = ["foo-1.0.tar.gz", "-foo--01.0.zip"]
 
 
-@pytest.mark.parametrize("filename", WHEELS)
+@pytest.mark.parametrize(
+    "raw",
+    [
+        *map(WheelFilename.from_filename, WHEELS),
+        *map(SourceDistributionFilename.from_filename, SDISTS),
+    ],
+    ids=str,
+)
 @pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
-def test_wheel_pickle(filename: str, protocol: int) -> None:
-    for wf in (
-        WheelFilename.from_filename(filename),
-        WheelFilename.from_filename(filename).normalize(),
-    ):
-        loaded = pickle.loads(pickle.dumps(wf, protocol))
-        assert loaded == wf
-        assert hash(loaded) == hash(wf)
-        assert str(loaded) == str(wf)
-        assert copy.copy(wf) == wf
-        assert copy.deepcopy(wf) == wf
-
-
-@pytest.mark.parametrize("filename", SDISTS)
-@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
-def test_sdist_pickle(filename: str, protocol: int) -> None:
-    for fn in (
-        SourceDistributionFilename.from_filename(filename),
-        SourceDistributionFilename.from_filename(filename).normalize(),
-    ):
-        loaded = pickle.loads(pickle.dumps(fn, protocol))
-        assert loaded == fn
-        assert hash(loaded) == hash(fn)
-        assert str(loaded) == str(fn)
-        assert copy.copy(fn) == fn
-        assert copy.deepcopy(fn) == fn
+def test_pickle(raw: WheelFilename | SourceDistributionFilename, protocol: int) -> None:
+    for obj in (raw, raw.normalize()):
+        loaded = pickle.loads(pickle.dumps(obj, protocol))
+        assert loaded == obj
+        assert hash(loaded) == hash(obj)
+        assert str(loaded) == str(obj)
+        assert copy.copy(obj) == obj
+        assert copy.deepcopy(obj) == obj
 
 
 def test_pickle_state() -> None:

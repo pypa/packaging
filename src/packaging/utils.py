@@ -445,6 +445,23 @@ def _split_sdist_filename(filename: str) -> tuple[str, str, str]:
     return name_part, version_part, ext
 
 
+def _parse_sdist_parts(
+    filename: str, parts: tuple[str, str, str]
+) -> tuple[NormalizedName, Version]:
+    """Parse the raw parts of a sdist filename.
+
+    The filename is only used in error messages.
+    """
+    name_part, version_part, _ = parts
+    try:
+        version = Version(version_part)
+    except InvalidVersion as e:
+        inner = f"invalid version {version_part!r}"
+        msg = f"Invalid sdist filename ({inner}): {filename!r}"
+        raise InvalidSdistFilename(msg) from e
+    return canonicalize_name(name_part), version
+
+
 def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
     """
     This function takes the filename of a sdist file (as specified
@@ -480,11 +497,4 @@ def parse_sdist_filename(filename: str) -> tuple[NormalizedName, Version]:
 
     .. _Source distribution format: https://packaging.python.org/specifications/source-distribution-format/#source-distribution-file-name
     """
-    name_part, version_part, _ = _split_sdist_filename(filename)
-    try:
-        version = Version(version_part)
-    except InvalidVersion as e:
-        inner = f"invalid version {version_part!r}"
-        msg = f"Invalid sdist filename ({inner}): {filename!r}"
-        raise InvalidSdistFilename(msg) from e
-    return canonicalize_name(name_part), version
+    return _parse_sdist_parts(filename, _split_sdist_filename(filename))
