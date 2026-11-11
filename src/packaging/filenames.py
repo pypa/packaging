@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {f"{__spec__.parent}.errors"}
+
 from typing import TYPE_CHECKING, TypedDict
 
 from .errors import _ErrorCollector
