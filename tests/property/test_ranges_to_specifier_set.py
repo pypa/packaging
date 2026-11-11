@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from hypothesis import example, given
+from hypothesis import strategies as st
 
 from packaging.specifiers import SpecifierSet
 
@@ -23,6 +24,7 @@ from .strategies import (
     SETTINGS,
     VERSION_POOL,
     adjacency_exclusion_sets,
+    literal_ranges,
     pep440_specifier_strings,
     rich_specifier_sets,
     specifier_sets,
@@ -45,6 +47,11 @@ _FILTER_PROBES = [
     "2.0",
     "1!1.0",
     "0",
+    "1.5a01",
+    "v1.5a1",
+    "1.5.0a1",
+    "1.5a1+local",
+    "1.6",
 ]
 
 
@@ -255,9 +262,16 @@ def test_rich_algebra_complement_round_trips_when_encodable(
             assert (v in recovered) == (v in r)
 
 
-@given(spec_string=pep440_specifier_strings(include_arbitrary=True))
+@given(
+    source=st.one_of(
+        pep440_specifier_strings(include_arbitrary=True).map(
+            lambda text: SpecifierSet(text).to_range()
+        ),
+        literal_ranges(vary_prereleases=True),
+    )
+)
 @SETTINGS
-def test_round_trip_never_filter_drifts(spec_string: str) -> None:
+def test_round_trip_never_filter_drifts(source: VersionRange) -> None:
     """When ``to_specifier_set`` returns a set, it filters identically.
 
     Guards the no-drift contract end-to-end: any time the encoder is willing
@@ -266,8 +280,7 @@ def test_round_trip_never_filter_drifts(spec_string: str) -> None:
     ``recovered.to_range() == self`` round trip in ``to_specifier_set`` is what
     enforces this; the property is the observable contract.
     """
-    r = SpecifierSet(spec_string).to_range()
-    for variant in (r, ~r):
+    for variant in (source, ~source):
         converted = variant.to_specifier_set()
         if converted is None:
             continue

@@ -32,6 +32,7 @@ from .strategies import (
     SETTINGS,
     VERSION_POOL,
     eq_versions_only,
+    literal_ranges,
     pep440_versions,
     rich_specifier_sets,
     specifier_sets,
@@ -632,6 +633,7 @@ def algebra_ranges(draw: st.DrawFn) -> VersionRange:
     atoms = st.one_of(
         rich_specifier_sets(include_arbitrary=True).map(lambda value: value.to_range()),
         pep440_versions().map(VersionRange.singleton),
+        literal_ranges(),
     )
     result = draw(atoms)
     for _ in range(draw(st.integers(min_value=0, max_value=2))):
@@ -651,6 +653,7 @@ snappable_ranges = st.one_of(
         lambda value: value.to_range()
     ),
     algebra_ranges(),
+    literal_ranges(vary_prereleases=True),
 )
 
 
