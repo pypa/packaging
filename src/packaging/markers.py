@@ -245,8 +245,11 @@ def _eval_extra_set(extras: AbstractSet[str], op: Op, literal: str) -> bool:
     """Evaluate an ``extra`` comparison against the whole set of selected extras.
 
     Equality is membership and inequality is non-membership. The dependency
-    specifier spec leaves every other operator on ``extra`` undefined.
+    specifier spec leaves every other operator on ``extra`` undefined. An empty
+    set evaluates like the empty string, as in :func:`_prepare_extra`.
     """
+    if not extras:
+        extras = {""}
     op_str = op.serialize()
     if op_str == "==":
         return literal in extras

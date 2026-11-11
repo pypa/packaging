@@ -1307,6 +1307,9 @@ class TestExtraSetEvaluation:
         # Any non-string iterable passed as ``extra`` is accepted.
         environment = cast("Any", {"extra": wrap(extras)})
         assert Marker(expression).evaluate(environment) is expected
+        # Prepared environments hold normalized names.
+        if wrap in {set, frozenset} and all(canonicalize_name(e) == e for e in extras):
+            assert Marker(expression).evaluate_prepared(environment) is expected
 
     @pytest.mark.parametrize(
         "expression",
