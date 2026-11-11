@@ -954,6 +954,18 @@ def test_pickle_marker_roundtrip(marker_str: str) -> None:
     assert str(loaded) == str(m)
 
 
+def test_pickle_combined_marker_roundtrip_at_nesting_limit() -> None:
+    # Each `&` after the first nests the existing tree one level deeper, and
+    # pickling re-parses str(), so markers combined up to the nesting limit must
+    # still round-trip.
+    leaf = Marker('python_version >= "3"')
+    m = leaf
+    for _ in range(_MAX_MARKER_NESTING + 1):
+        m &= leaf
+    assert Marker(str(m)) == m
+    assert pickle.loads(pickle.dumps(m)) == m
+
+
 def test_pickle_marker_setstate_rejects_invalid_state() -> None:
     # Cover the TypeError branches in __setstate__ for invalid input.
     m = Marker.__new__(Marker)

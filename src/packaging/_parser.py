@@ -357,8 +357,9 @@ def _parse_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
 # Recursive descent parser for marker expression
 # --------------------------------------------------------------------------------------
 # Parenthesized groups recurse, so cap their depth to report deeply nested input as
-# a syntax error instead of exhausting the interpreter's recursion limit.
-_MAX_MARKER_NESTING = 100
+# a syntax error instead of exhausting the interpreter's recursion limit. The limit
+# matches CPython's own parser, which allows 200 nested parentheses.
+_MAX_MARKER_NESTING = 200
 
 
 def parse_marker(source: str) -> MarkerList:
