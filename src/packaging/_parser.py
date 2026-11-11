@@ -9,8 +9,7 @@ from __future__ import annotations
 __lazy_modules__ = {"ast", f"{__spec__.parent}._tokenizer"}
 
 import ast
-from collections.abc import Sequence
-from typing import Literal, NamedTuple, TypeAlias
+from typing import Literal, NamedTuple, TypeAlias, cast
 
 from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
 
@@ -90,8 +89,8 @@ class Op(Node):
 MarkerLogical = Literal["and", "or"]
 MarkerVar = Variable | Value
 MarkerItem = tuple[MarkerVar, Op, MarkerVar]
-MarkerAtom = MarkerItem | Sequence["MarkerAtom"]
-MarkerList: TypeAlias = 'list["MarkerList" | MarkerAtom | MarkerLogical]'
+MarkerAtom: TypeAlias = "MarkerItem | MarkerList"
+MarkerList: TypeAlias = "list[MarkerAtom | MarkerLogical]"
 
 
 class ParsedRequirement(NamedTuple):
@@ -322,11 +321,11 @@ def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     """
     marker = marker_atom (BOOLOP marker_atom)+
     """
-    expression = [_parse_marker_atom(tokenizer)]
+    expression: MarkerList = [_parse_marker_atom(tokenizer)]
     while tokenizer.check("BOOLOP"):
         token = tokenizer.read()
         expr_right = _parse_marker_atom(tokenizer)
-        expression.extend((token.text, expr_right))
+        expression.extend((cast("MarkerLogical", token.text), expr_right))
     return expression
 
 
