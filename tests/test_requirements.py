@@ -365,6 +365,42 @@ class TestRequirementParsing:
             "                  ^"
         )
 
+    @pytest.mark.parametrize(
+        ("to_parse", "expected"),
+        [
+            (
+                "name_",
+                "packaging.requirements.InvalidRequirement: "
+                "Expected semicolon (after name with no version specifier) or end\n"
+                "    name_\n"
+                "        ^",
+            ),
+            (
+                "name._",
+                "packaging.requirements.InvalidRequirement: "
+                "Expected semicolon (after name with no version specifier) or end\n"
+                "    name._\n"
+                "        ^",
+            ),
+            (
+                "name[extra_]",
+                "packaging.requirements.InvalidRequirement: "
+                "Expected matching RIGHT_BRACKET for LEFT_BRACKET, after extras\n"
+                "    name[extra_]\n"
+                "        ~~~~~~^",
+            ),
+        ],
+    )
+    def test_error_when_name_or_extra_ends_with_underscore(
+        self, to_parse: str, expected: str
+    ) -> None:
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == expected
+
     def test_error_when_parens_not_closed_correctly(self) -> None:
         # GIVEN
         to_parse = "name (>= 1.0"
