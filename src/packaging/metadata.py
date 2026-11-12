@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "email.header",
+    "email.parser",
+    "keyword",
+    "pathlib",
+    f"{__spec__.parent}",
+    f"{__spec__.parent}.errors",
+}
+
 import email.header
 import email.message
 import email.parser
@@ -853,7 +862,7 @@ class Metadata:
                         # Can't use getattr() as that triggers descriptor protocol which
                         # will fail due to no value for the instance argument.
                         try:
-                            field_metadata_version = cls.__dict__[key].added
+                            field_metadata_version = Metadata.__dict__[key].added
                         except KeyError:
                             exc = InvalidMetadata(key, f"unrecognized field: {key!r}")
                             collector.error(exc)
@@ -1026,7 +1035,7 @@ class Metadata:
         """
         Return an RFC822 message with the metadata.
         """
-        for name, validator in self.__class__.__dict__.items():
+        for name, validator in Metadata.__dict__.items():
             if isinstance(validator, _Validator) and name != "description":
                 value = getattr(self, name)
                 email_name = _RAW_TO_EMAIL_MAPPING[name]

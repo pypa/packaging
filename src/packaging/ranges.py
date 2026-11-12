@@ -19,6 +19,8 @@ exists.
 
 from __future__ import annotations
 
+__lazy_modules__ = {"bisect", f"{__spec__.parent}._ranges"}
+
 import bisect
 import enum
 import typing
@@ -392,15 +394,14 @@ def _canonicalize(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
 
 
 def _struct_admits(
-    bounds: tuple[Interval, ...], admit_arbitrary: bool, literal: str
+    bounds: tuple[Interval, ...], admit_arbitrary: bool, parsed: Version | None
 ) -> bool:
-    """True when the bounds (plus arbitrary admission) admit ``literal``.
+    """True when the bounds (plus arbitrary admission) admit the parsed version.
 
     Skips the explicit admit/reject sets, which the caller layers on top. A
     non-version string matches via ``admit_arbitrary`` only on full bounds;
     on narrower bounds the flag is metadata only.
     """
-    parsed = coerce_version(literal)
     if parsed is None:
         return admit_arbitrary and bounds == FULL_RANGE
 
@@ -1099,8 +1100,9 @@ class VersionRange:
     #: reads it.
     _admit_arbitrary: bool
 
-    #: Case-folded strings the range admits in addition to its bounds.
-    #: ``===wat`` produces ``_admit = {"wat"}``.
+    #: Case-folded strings the range admits explicitly. Named pre-releases keep
+    #: their filter opt-in even inside the bounds. ``===wat`` produces
+    #: ``_admit = {"wat"}``.
     _admit: frozenset[str]
 
     #: Case-folded strings the range rejects (overrides ``_admit`` and the
@@ -1149,8 +1151,9 @@ class VersionRange:
         """Internal factory; bypasses :meth:`__new__`.
 
         Canonicalizes the bounds so equal version sets share one representation,
-        then drops admit literals the bounds already admit and reject literals
-        the bounds do not match anyway. Reject wins over admit on overlap. The
+        then drops redundant admit literals and reject literals the bounds do
+        not match anyway. Named pre-releases retain their filter opt-in even
+        inside the bounds. Reject wins over admit on overlap. The
         pre-release policy is set here and never reassigned afterwards;
         ``pre_region`` is canonicalized like the bounds and clipped to them,
         or dropped when a configured policy makes it inert.
@@ -1163,13 +1166,18 @@ class VersionRange:
             admit = frozenset(
                 literal
                 for literal in admit
-                if not _struct_admits(bounds, admit_arbitrary, literal)
+                if (
+                    (parsed := coerce_version(literal)) is not None
+                    and prereleases_configured is None
+                    and parsed.is_prerelease
+                )
+                or not _struct_admits(bounds, admit_arbitrary, parsed)
             )
         if reject:
             reject = frozenset(
                 literal
                 for literal in reject
-                if _struct_admits(bounds, admit_arbitrary, literal)
+                if _struct_admits(bounds, admit_arbitrary, coerce_version(literal))
             )
 
         instance = object.__new__(cls)
@@ -1582,7 +1590,16 @@ class VersionRange:
                 want = self_in and not other_in
 
             if want:
-                admits.add(literal)
+                # Restoring a rejected literal through ordinary bounds does not
+                # name it explicitly, so it must not acquire a filter opt-in.
+                if (
+                    literal in self._admit
+                    or (op is not _SetOp.DIFFERENCE and literal in other._admit)
+                    or not _struct_admits(
+                        new_bounds, admit_arbitrary, coerce_version(literal)
+                    )
+                ):
+                    admits.add(literal)
             else:
                 rejects.add(literal)
 

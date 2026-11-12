@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# ASV also runs this benchmark against commits without prepare_environment.
+import packaging.markers
 from packaging.markers import Marker
 
 from . import add_attributes
@@ -27,6 +29,11 @@ class TimeMarkerSuite:
             "platform_machine": "x86_64",
             "extra": "",
         }
+        self.prepared_environment = (
+            packaging.markers.prepare_environment(self.env)
+            if hasattr(packaging.markers, "prepare_environment")
+            else self.env
+        )
 
     @add_attributes(pretty_name="Marker constructor")
     def time_constructor(self) -> None:
@@ -52,3 +59,12 @@ class TimeMarkerSuite:
     def time_first_str(self) -> None:
         for marker in self.cold_markers:
             str(marker)
+
+    @add_attributes(pretty_name="Marker batch evaluate")
+    def time_evaluate_many(self) -> None:
+        if hasattr(packaging.markers, "prepare_environment"):
+            for m in self.markers:
+                m.evaluate_prepared(self.prepared_environment)
+        else:
+            for m in self.markers:
+                m.evaluate(self.env)

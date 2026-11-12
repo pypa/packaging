@@ -4,6 +4,17 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "importlib.machinery",
+    "operator",
+    "platform",
+    "re",
+    "struct",
+    "subprocess",
+    "sysconfig",
+    f"{__spec__.parent}",
+}
+
 import logging
 import operator
 import platform
@@ -80,6 +91,10 @@ INTERPRETER_SHORT_NAMES: dict[str, str] = {
     "ironpython": "ip",
     "jython": "jy",
 }
+"""
+A dictionary mapping interpreter names to their `abbreviation codes`_
+(e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
+"""
 
 
 # This function can be unit tested without reloading the module

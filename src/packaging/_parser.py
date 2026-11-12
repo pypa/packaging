@@ -6,11 +6,10 @@ the implementation.
 
 from __future__ import annotations
 
+__lazy_modules__ = {"ast", f"{__spec__.parent}._tokenizer"}
+
 import ast
-import functools
-import re
-from collections.abc import Sequence
-from typing import Literal, NamedTuple, TypeAlias
+from typing import Literal, NamedTuple, TypeAlias, cast
 
 from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
 
@@ -90,8 +89,8 @@ class Op(Node):
 MarkerLogical = Literal["and", "or"]
 MarkerVar = Variable | Value
 MarkerItem = tuple[MarkerVar, Op, MarkerVar]
-MarkerAtom = MarkerItem | Sequence["MarkerAtom"]
-MarkerList: TypeAlias = 'list["MarkerList" | MarkerAtom | MarkerLogical]'
+MarkerAtom: TypeAlias = "MarkerItem | MarkerList"
+MarkerList: TypeAlias = "list[MarkerAtom | MarkerLogical]"
 
 
 class ParsedRequirement(NamedTuple):
@@ -331,47 +330,12 @@ def _parse_marker(tokenizer: Tokenizer) -> MarkerList:
     """
     marker = marker_atom (BOOLOP marker_atom)+
     """
-    expression = [_parse_marker_atom(tokenizer)]
+    expression: MarkerList = [_parse_marker_atom(tokenizer)]
     while tokenizer.check("BOOLOP"):
         token = tokenizer.read()
         expr_right = _parse_marker_atom(tokenizer)
-        expression.extend((token.text, expr_right))
+        expression.extend((cast("MarkerLogical", token.text), expr_right))
     return expression
-
-
-_INLINE_FLAGS = (
-    (re.ASCII, "a"),
-    (re.IGNORECASE, "i"),
-    (re.MULTILINE, "m"),
-    (re.DOTALL, "s"),
-    (re.VERBOSE, "x"),
-)
-
-
-def _rule(name: str) -> str:
-    """Return a default rule as a group that keeps the flags of the rule."""
-    rule = DEFAULT_RULES[name]
-    flags = "".join(letter for flag, letter in _INLINE_FLAGS if rule.flags & flag)
-    return f"(?{flags}:{rule.pattern})"
-
-
-@functools.cache
-def _marker_item_pattern() -> re.Pattern[str]:
-    """
-    Return one pattern for ``WS? marker_item WS?``, built from the default rules.
-
-    It must accept the same text as :func:`_parse_marker_item`.
-    """
-    # The empty alternative is faster than a "?" on the group.
-    ws = f"(?:{_rule('WS')}|)"
-    variable = _rule("VARIABLE")
-    quoted = _rule("QUOTED_STRING")
-    not_in = f"{_rule('NOT')}{_rule('WS')}{_rule('IN')}"
-    return re.compile(
-        f"{ws}(?:(?P<left_var>{variable})|(?P<left_value>{quoted})){ws}"
-        f"(?P<op>{_rule('IN')}|(?P<not_in>{not_in})|{_rule('OP')}){ws}"
-        f"(?:(?P<right_var>{variable})|(?P<right_value>{quoted})){ws}"
-    )
 
 
 def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
@@ -379,28 +343,6 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     marker_atom = WS? LEFT_PARENTHESIS WS? marker WS? RIGHT_PARENTHESIS WS?
                 | WS? marker_item WS?
     """
-
-    # The usual marker item is recognized in one match. The pattern is built
-    # from the default rules, so other rules always use the token path.
-    if tokenizer.rules is DEFAULT_RULES:
-        match = tokenizer.match_pattern(_marker_item_pattern())
-        if match is not None:
-            left_var, left_value, op, not_in, right_var, right_value = match.group(
-                "left_var", "left_value", "op", "not_in", "right_var", "right_value"
-            )
-            return (
-                _process_marker_var(left_var)
-                if left_value is None
-                else _process_marker_value(
-                    tokenizer, left_value, match.start("left_value")
-                ),
-                Op(op if not_in is None else "not in"),
-                _process_marker_var(right_var)
-                if right_value is None
-                else _process_marker_value(
-                    tokenizer, right_value, match.start("right_value")
-                ),
-            )
 
     tokenizer.consume("WS")
     if tokenizer.check("LEFT_PARENTHESIS"):
@@ -436,15 +378,14 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     """
     marker_var = VARIABLE | QUOTED_STRING
     """
-    if tokenizer.check("VARIABLE"):
-        return _process_marker_var(tokenizer.read().text)
-    elif tokenizer.check("QUOTED_STRING"):
-        token = tokenizer.read()
-        return _process_marker_value(tokenizer, token.text, token.position)
-    else:
-        tokenizer.raise_syntax_error(
-            message="Expected a marker variable or quoted string"
-        )
+    position = tokenizer.position
+    match = tokenizer.match_pattern(tokenizer.rules["VARIABLE"])
+    if match is not None:
+        return _process_marker_var(match[0])
+    match = tokenizer.match_pattern(tokenizer.rules["QUOTED_STRING"])
+    if match is not None:
+        return _process_marker_value(tokenizer, match[0], position)
+    tokenizer.raise_syntax_error(message="Expected a marker variable or quoted string")
 
 
 def _process_marker_var(text: str) -> Variable:
@@ -482,17 +423,16 @@ def _parse_marker_op(tokenizer: Tokenizer) -> Op:
     """
     marker_op = IN | NOT IN | OP
     """
-    if tokenizer.check("IN"):
-        tokenizer.read()
+    rules = tokenizer.rules
+    if tokenizer.match_pattern(rules["IN"]) is not None:
         return Op("in")
-    elif tokenizer.check("NOT"):
-        tokenizer.read()
+    elif tokenizer.match_pattern(rules["NOT"]) is not None:
         tokenizer.expect("WS", expected="whitespace after 'not'")
         tokenizer.expect("IN", expected="'in' after 'not'")
         return Op("not in")
-    elif tokenizer.check("OP"):
-        return Op(tokenizer.read().text)
-    else:
-        return tokenizer.raise_syntax_error(
-            "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
-        )
+    match = tokenizer.match_pattern(rules["OP"])
+    if match is not None:
+        return Op(match[0])
+    return tokenizer.raise_syntax_error(
+        "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
+    )

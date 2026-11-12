@@ -3,6 +3,12 @@
 # for complete details.
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "collections.abc",
+    f"{__spec__.parent}.errors",
+    f"{__spec__.parent}.requirements",
+}
+
 import re
 from collections.abc import Mapping, Sequence
 
