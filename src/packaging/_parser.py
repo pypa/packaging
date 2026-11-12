@@ -207,7 +207,7 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     """
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
-    if not tokenizer.check("LEFT_BRACKET", peek=True):
+    if not tokenizer.check("LEFT_BRACKET"):
         return []
 
     with tokenizer.enclosing_tokens(
@@ -254,15 +254,24 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
     """
+    if not tokenizer.check("LEFT_PARENTHESIS"):
+        return _parse_padded_version_many(tokenizer)
+
     with tokenizer.enclosing_tokens(
         "LEFT_PARENTHESIS",
         "RIGHT_PARENTHESIS",
         around="version specifier",
     ):
-        tokenizer.consume("WS")
-        parsed_specifiers = _parse_version_many(tokenizer)
-        tokenizer.consume("WS")
+        return _parse_padded_version_many(tokenizer)
 
+
+def _parse_padded_version_many(tokenizer: Tokenizer) -> str:
+    """
+    padded_version_many = WS? version_many WS?
+    """
+    tokenizer.consume("WS")
+    parsed_specifiers = _parse_version_many(tokenizer)
+    tokenizer.consume("WS")
     return parsed_specifiers
 
 
@@ -336,7 +345,7 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
     """
 
     tokenizer.consume("WS")
-    if tokenizer.check("LEFT_PARENTHESIS", peek=True):
+    if tokenizer.check("LEFT_PARENTHESIS"):
         with tokenizer.enclosing_tokens(
             "LEFT_PARENTHESIS",
             "RIGHT_PARENTHESIS",
@@ -369,22 +378,29 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     """
     marker_var = VARIABLE | QUOTED_STRING
     """
-    if tokenizer.check("VARIABLE"):
-        return process_env_var(tokenizer.read().text.replace(".", "_"))
-    elif tokenizer.check("QUOTED_STRING"):
-        token = tokenizer.read()
-        try:
-            return process_python_str(token.text)
-        except (SyntaxError, ValueError) as exc:
-            raise ParserSyntaxError(
-                "Invalid quoted string",
-                source=tokenizer.source,
-                span=(token.position, token.position + len(token.text)),
-            ) from exc
-    else:
-        tokenizer.raise_syntax_error(
-            message="Expected a marker variable or quoted string"
-        )
+    position = tokenizer.position
+    match = tokenizer.match_pattern(tokenizer.rules["VARIABLE"])
+    if match is not None:
+        return _process_marker_var(match[0])
+    match = tokenizer.match_pattern(tokenizer.rules["QUOTED_STRING"])
+    if match is not None:
+        return _process_marker_value(tokenizer, match[0], position)
+    tokenizer.raise_syntax_error(message="Expected a marker variable or quoted string")
+
+
+def _process_marker_var(text: str) -> Variable:
+    return process_env_var(text.replace(".", "_"))
+
+
+def _process_marker_value(tokenizer: Tokenizer, text: str, position: int) -> Value:
+    try:
+        return process_python_str(text)
+    except (SyntaxError, ValueError) as exc:
+        raise ParserSyntaxError(
+            "Invalid quoted string",
+            source=tokenizer.source,
+            span=(position, position + len(text)),
+        ) from exc
 
 
 def process_env_var(env_var: str) -> Variable:
@@ -407,17 +423,16 @@ def _parse_marker_op(tokenizer: Tokenizer) -> Op:
     """
     marker_op = IN | NOT IN | OP
     """
-    if tokenizer.check("IN"):
-        tokenizer.read()
+    rules = tokenizer.rules
+    if tokenizer.match_pattern(rules["IN"]) is not None:
         return Op("in")
-    elif tokenizer.check("NOT"):
-        tokenizer.read()
+    elif tokenizer.match_pattern(rules["NOT"]) is not None:
         tokenizer.expect("WS", expected="whitespace after 'not'")
         tokenizer.expect("IN", expected="'in' after 'not'")
         return Op("not in")
-    elif tokenizer.check("OP"):
-        return Op(tokenizer.read().text)
-    else:
-        return tokenizer.raise_syntax_error(
-            "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
-        )
+    match = tokenizer.match_pattern(rules["OP"])
+    if match is not None:
+        return Op(match[0])
+    return tokenizer.raise_syntax_error(
+        "Expected marker operator, one of <=, <, !=, ==, >=, >, ~=, ===, in, not in"
+    )

@@ -113,8 +113,30 @@ class Tokenizer:
 
     def consume(self, name: str) -> None:
         """Move beyond provided token name, if at current position."""
-        if self.check(name):
-            self.read()
+        assert self.next_token is None, (
+            f"Cannot consume {name!r}, already have {self.next_token!r}"
+        )
+        assert name in self.rules, f"Unknown token name: {name!r}"
+
+        # Consumed tokens are discarded, so advance without allocating a Token
+        # or copying the matched text.
+        match = self.rules[name].match(self.source, self.position)
+        if match is not None:
+            self.position = match.end()
+
+    def match_pattern(self, pattern: re.Pattern[str]) -> re.Match[str] | None:
+        """Match a pattern at the current position, and move beyond the match.
+
+        The pattern must agree with the rules of this tokenizer.
+        """
+        assert self.next_token is None, (
+            f"Cannot match a pattern, already have {self.next_token!r}"
+        )
+
+        match = pattern.match(self.source, self.position)
+        if match is not None:
+            self.position = match.end()
+        return match
 
     def check(self, name: str, *, peek: bool = False) -> bool:
         """Check whether the next token has the provided name.
@@ -178,16 +200,15 @@ class Tokenizer:
     def enclosing_tokens(
         self, open_token: str, close_token: str, *, around: str
     ) -> Generator[None]:
-        if self.check(open_token):
-            open_position = self.position
-            self.read()
-        else:
-            open_position = None
+        """Read the checked ``open_token``, then require ``close_token``.
+
+        The caller must check ``open_token`` (without ``peek``) before entry.
+        """
+        open_position = self.position
+        token = self.read()
+        assert token.name == open_token, f"Expected {open_token!r}, have {token!r}"
 
         yield
-
-        if open_position is None:
-            return
 
         if not self.check(close_token):
             self.raise_syntax_error(
