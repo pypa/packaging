@@ -237,7 +237,7 @@ def _format_marker(
     return "(" + " ".join(inner) + ")"
 
 
-def _splice_operand(markers: MarkerList, op: str) -> MarkerList:
+def _splice_operand(markers: MarkerList, op: MarkerLogical) -> MarkerList:
     while len(markers) == 1 and isinstance(markers[0], list):
         markers = markers[0]
     if all(markers[i] == op for i in range(1, len(markers), 2)):
@@ -245,7 +245,7 @@ def _splice_operand(markers: MarkerList, op: str) -> MarkerList:
     return [markers]
 
 
-def _join_markers(lhs: MarkerList, op: str, rhs: MarkerList) -> MarkerList:
+def _join_markers(lhs: MarkerList, op: MarkerLogical, rhs: MarkerList) -> MarkerList:
     # Splice in sides that only use ``op`` so chains like ``a & b & c`` stay
     # flat instead of nesting one level per operation.
     return [*_splice_operand(lhs, op), op, *_splice_operand(rhs, op)]
