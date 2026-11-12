@@ -84,6 +84,9 @@ DEFAULT_RULES: dict[str, re.Pattern[str]] = {
     "AT": re.compile(r"\@"),
     "URL": re.compile(r"\S+"),
     "IDENTIFIER": re.compile(r"\b[a-zA-Z0-9][a-zA-Z0-9._-]*\b"),
+    # A whole specifier list, for SpecifierSet to parse in one pass. It accepts
+    # only printable ASCII and tabs, and must end at ``;``, ``)``, or the end.
+    "SPECIFIER_LIST": re.compile(r"[\t\x20-\x28\x2a-\x3a\x3c-\x7e]*(?=[;)]|\Z)"),
     "VERSION_PREFIX_TRAIL": re.compile(r"\.\*"),
     "VERSION_LOCAL_LABEL_TRAIL": re.compile(r"\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*"),
     "WS": re.compile(r"[ \t]+"),
@@ -136,6 +139,19 @@ class Tokenizer:
         if not peek:
             self.next_token = Token(name, match[0], self.position)
         return True
+
+    def peek(self, name: str) -> Token | None:
+        """Return a matching token without changing the tokenizer state."""
+        match = self.rules[name].match(self.source, self.position)
+        if match is None:
+            return None
+        return Token(name, match[0], self.position)
+
+    def consume_token(self, token: Token) -> None:
+        """Consume a token that :meth:`peek` returned at the current position."""
+        assert token.position == self.position
+        self.position += len(token.text)
+        self.next_token = None
 
     def expect(self, name: str, *, expected: str) -> Token:
         """Expect a certain token name next, failing with a syntax error otherwise.

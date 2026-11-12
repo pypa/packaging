@@ -116,6 +116,14 @@ def test_requirement_specifiers_are_independent() -> None:
     assert next(iter(second)) is not specifier
 
 
+@pytest.mark.parametrize("text", [",>=1.0", ">=1.0,,<2", ">=1.0, ,<2", ">=1.0,,"])
+def test_requirement_specifier_empty_items(text: str) -> None:
+    # SpecifierSet accepts these, but the grammar only allows a trailing comma.
+    SpecifierSet(text)
+    with pytest.raises(InvalidRequirement, match="Expected"):
+        Requirement(f"demo{text}")
+
+
 @pytest.mark.parametrize(
     "name",
     [

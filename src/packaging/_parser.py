@@ -6,12 +6,17 @@ the implementation.
 
 from __future__ import annotations
 
-__lazy_modules__ = {"ast", f"{__spec__.parent}._tokenizer"}
+__lazy_modules__ = {
+    "ast",
+    f"{__spec__.parent}._tokenizer",
+    f"{__spec__.parent}.specifiers",
+}
 
 import ast
 from typing import Literal, NamedTuple, TypeAlias, cast
 
 from ._tokenizer import DEFAULT_RULES, ParserSyntaxError, Tokenizer
+from .specifiers import InvalidSpecifier, SpecifierSet
 
 
 class Node:
@@ -97,7 +102,7 @@ class ParsedRequirement(NamedTuple):
     name: str
     url: str
     extras: list[str]
-    specifier: str
+    specifier: str | SpecifierSet
     marker: MarkerList | None
 
 
@@ -131,13 +136,13 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
 
 def _parse_requirement_details(
     tokenizer: Tokenizer,
-) -> tuple[str, str, MarkerList | None]:
+) -> tuple[str, str | SpecifierSet, MarkerList | None]:
     """
     requirement_details = AT URL (WS requirement_marker?)?
                         | specifier WS? (requirement_marker)?
     """
 
-    specifier = ""
+    specifier: str | SpecifierSet = ""
     url = ""
     marker = None
 
@@ -249,7 +254,7 @@ def _parse_extras_list(tokenizer: Tokenizer) -> list[str]:
     return extras
 
 
-def _parse_specifier(tokenizer: Tokenizer) -> str:
+def _parse_specifier(tokenizer: Tokenizer) -> str | SpecifierSet:
     """
     specifier = LEFT_PARENTHESIS WS? version_many WS? RIGHT_PARENTHESIS
               | WS? version_many WS?
@@ -266,10 +271,45 @@ def _parse_specifier(tokenizer: Tokenizer) -> str:
     return parsed_specifiers
 
 
-def _parse_version_many(tokenizer: Tokenizer) -> str:
+def _try_parse_specifier_set(tokenizer: Tokenizer) -> SpecifierSet | None:
+    """Parse the specifier list with :class:`SpecifierSet` in one pass.
+
+    Returns ``None`` without consuming input if the text is not a valid
+    ``version_many``; the token loop then parses it or reports the error.
+    """
+    token = tokenizer.peek("SPECIFIER_LIST")
+    # ``===`` versions can contain commas, which SpecifierSet splits on.
+    if token is None or not token.text or "===" in token.text:
+        return None
+
+    try:
+        specifiers = SpecifierSet(token.text)
+    except InvalidSpecifier:
+        return None
+
+    # SpecifierSet skips empty items, but the grammar only allows a trailing comma.
+    commas = token.text.count(",")
+    if len(specifiers) != commas + 1 and not (
+        specifiers
+        and len(specifiers) == commas
+        and token.text.rstrip(" \t").endswith(",")
+    ):
+        return None
+
+    tokenizer.consume_token(token)
+    return specifiers
+
+
+def _parse_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
     """
     version_many = (SPECIFIER (WS? COMMA WS? SPECIFIER)*)?
     """
+    if tokenizer.position == len(tokenizer.source):
+        return ""
+    specifier_set = _try_parse_specifier_set(tokenizer)
+    if specifier_set is not None:
+        return specifier_set
+
     parsed_specifiers = ""
     while tokenizer.check("SPECIFIER"):
         span_start = tokenizer.position
