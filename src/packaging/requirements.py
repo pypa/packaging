@@ -123,7 +123,11 @@ class Requirement:
         self.extras: set[str] = set(parsed.extras)
         """A set of extras that the requirement specifies."""
         try:
-            self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+            self.specifier: SpecifierSet = (
+                SpecifierSet(parsed.specifier)
+                if isinstance(parsed.specifier, str)
+                else parsed.specifier
+            )
             """A :class:`~.SpecifierSet` of the version specified by the requirement."""
         except InvalidSpecifier as e:
             raise InvalidRequirement(str(e)) from e
