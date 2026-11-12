@@ -37,6 +37,7 @@ class EMachine(enum.IntEnum):
     Arm = 40
     X8664 = 62
     AArch64 = 183
+    LoongArch = 258
 
 
 class ELFFile:
