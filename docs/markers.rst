@@ -110,6 +110,38 @@ interpreter, supply both ``python_version`` and ``python_full_version``.
 
 .. versionadded:: 26.4
 
+Evaluating ``extra`` markers against a set of extras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Installers usually select several extras at once. Passing a set of extra names
+as the ``extra`` environment value evaluates the marker against the whole set.
+Logical operators work as you'd expect. The :ref:`dependency specifier
+specification <pypug:dependency-specifiers>` says ``extra != "name"`` should
+not be used in published metadata but allows arbitrary handling; this is
+handled logically if encountered.  Any operator other than ``==`` and ``!=`` on
+``extra`` raises :exc:`UndefinedComparison` in this mode.
+
+.. doctest::
+
+    >>> from packaging.markers import Marker
+    >>> marker = Marker('extra == "gpu"')
+    >>> marker.evaluate(environment={"extra": {"gpu", "docs"}})
+    True
+    >>> # Both extras must be selected
+    >>> both = Marker('extra == "gpu" and extra == "docs"')
+    >>> both.evaluate(environment={"extra": {"gpu", "docs"}})
+    True
+    >>> both.evaluate(environment={"extra": {"gpu"}})
+    False
+    >>> # An empty set behaves like no selected extra
+    >>> marker.evaluate(environment={"extra": set()})
+    False
+
+:func:`prepare_environment` accepts a set of extras too. A set given directly
+to :meth:`Marker.evaluate_prepared` must hold normalized names.
+
+.. versionadded:: 26.4
+
 
 Reference
 ---------
