@@ -294,7 +294,7 @@ class TestRequirementParsing:
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
     # ----------------------------------------------------------------------------------
-    # Start all method names with with `test_error_`
+    # Start all method names with `test_error_`
     # to make it easier to run these tests with `-k error`
 
     def test_error_when_specifier_set_rejects_parsed_specifier(self) -> None:

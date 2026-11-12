@@ -291,7 +291,7 @@ def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 class PylockValidationError(Exception):
-    """Raised when when input data is not spec-compliant."""
+    """Raised when input data is not spec-compliant."""
 
     context: str | None = None
     message: str
