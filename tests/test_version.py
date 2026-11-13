@@ -18,7 +18,6 @@ from packaging.version import (
     InvalidVersion,
     Version,
     _BaseVersion,
-    _trim_release,
     parse,
 )
 
@@ -1436,7 +1435,7 @@ def test_trimmed_release_hash_from_unhashed_version() -> None:
     # Regression test for GH-1239: hashing a trimmed Version built from a fresh
     # Version must not raise AttributeError from the uncopied _hash_cache slot.
     v = Version("1.0")
-    tr = _trim_release(v)
+    tr = v._trim_release()
     assert hash(tr) == hash(v)
 
 
@@ -1445,5 +1444,5 @@ def test_trimmed_release_hash_from_prehashed_version() -> None:
     # been computed and cached must also work correctly.
     v = Version("1.0")
     _ = hash(v)  # Populate the hash cache on the source Version.
-    tr = _trim_release(v)
+    tr = v._trim_release()
     assert hash(tr) == hash(v)

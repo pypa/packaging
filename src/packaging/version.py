@@ -1091,34 +1091,33 @@ class Version(_BaseVersion):
         """
         return self.release[2] if len(self.release) >= 3 else 0
 
+    def _trim_release(self) -> Version:
+        """
+        Return the version with trailing zeros removed from the release segment.
 
-def _trim_release(version: Version) -> Version:
-    """
-    Return the version with trailing zeros removed from the release segment.
+        >>> Version('1.0.0')._trim_release()
+        <Version('1')>
+        >>> Version('0.0')._trim_release()
+        <Version('0')>
+        """
+        # This leaves one 0.
+        release = self._release
+        i = len(release)
+        while i > 1 and release[i - 1] == 0:
+            i -= 1
+        if i == len(release):
+            return self
 
-    >>> _trim_release(Version('1.0.0'))
-    <Version('1')>
-    >>> _trim_release(Version('0.0'))
-    <Version('0')>
-    """
-    # This leaves one 0.
-    release = version._release
-    i = len(release)
-    while i > 1 and release[i - 1] == 0:
-        i -= 1
-    if i == len(release):
-        return version
-
-    new_version = Version.__new__(Version)
-    new_version._epoch = version._epoch
-    new_version._release = release[:i]
-    new_version._dev = version._dev
-    new_version._pre = version._pre
-    new_version._post = version._post
-    new_version._local = version._local
-    new_version._key_cache = version._key_cache
-    new_version._hash_cache = version._hash_cache
-    return new_version
+        new_version = Version.__new__(Version)
+        new_version._epoch = self._epoch
+        new_version._release = release[:i]
+        new_version._dev = self._dev
+        new_version._pre = self._pre
+        new_version._post = self._post
+        new_version._local = self._local
+        new_version._key_cache = self._key_cache
+        new_version._hash_cache = self._hash_cache
+        return new_version
 
 
 def _parse_letter_version(
