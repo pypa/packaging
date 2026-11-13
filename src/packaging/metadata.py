@@ -720,16 +720,21 @@ class _Validator(Generic[T]):
         self,
         value: list[str],
     ) -> list[utils.NormalizedName]:
-        normalized_names = []
-        try:
-            for name in value:
-                normalized_names.append(utils.canonicalize_name(name, validate=True))
-        except utils.InvalidName as exc:
-            raise self._invalid_metadata(
-                f"{name!r} is invalid for {self.raw_name!r}", cause=exc
-            ) from exc
-        else:
-            return normalized_names
+        originals: dict[utils.NormalizedName, str] = {}
+        for name in value:
+            try:
+                normalized = utils.canonicalize_name(name, validate=True)
+            except utils.InvalidName as exc:
+                raise self._invalid_metadata(
+                    f"{name!r} is invalid for {self.raw_name!r}", cause=exc
+                ) from exc
+            if normalized in originals:
+                raise self._invalid_metadata(
+                    f"{originals[normalized]!r} and {name!r} both normalize to "
+                    f"{normalized!r} in {self.raw_name!r}"
+                )
+            originals[normalized] = name
+        return list(originals)
 
     def _process_requires_python(self, value: str) -> specifiers.SpecifierSet:
         try:

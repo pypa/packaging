@@ -880,6 +880,33 @@ class TestMetadata:
             meta, "provides_extra", utils.InvalidName, field="provides-extra"
         )
 
+    @pytest.mark.parametrize(
+        "extras",
+        [
+            ["dev_test", "dev-test"],
+            ["DEV.test", "dev-test"],
+            ["dev-test", "dev-test"],
+        ],
+    )
+    def test_colliding_provides_extra(self, extras: list[str]) -> None:
+        meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
+
+        with pytest.raises(metadata.InvalidMetadata, match="dev-test") as exc_info:
+            meta.provides_extra  # noqa: B018
+        assert exc_info.value.field == "provides-extra"
+
+    def test_colliding_provides_extra_from_email(self) -> None:
+        data = (
+            "Metadata-Version: 2.3\nName: example\nVersion: 1.0\n"
+            "Provides-Extra: dev_test\nProvides-Extra: dev-test\n"
+        )
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(data)
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "provides-extra"
+
     def test_valid_requires_dist(self) -> None:
         requires = [
             "pkginfo",
