@@ -369,6 +369,10 @@ class Version(_BaseVersion):
         be unpickled with future releases.  Backward compatibility with pickles
         from packaging < 26.2 is supported but may be removed in a future
         release.
+
+    .. versionchanged:: 26.4
+
+        Added :attr:`raw_version`, included in newly created pickles.
     """
 
     __slots__ = (
@@ -379,6 +383,7 @@ class Version(_BaseVersion):
         "_local",
         "_post",
         "_pre",
+        "_raw_version",
         "_release",
     )
     __match_args__ = ("_str",)
@@ -398,6 +403,7 @@ class Version(_BaseVersion):
     _pre: tuple[Literal["a", "b", "rc"], int] | None
     _post: tuple[Literal["post"], int] | None
     _local: LocalType | None
+    _raw_version: str | None
 
     _hash_cache: int | None
     _key_cache: CmpKey | None
@@ -416,6 +422,8 @@ class Version(_BaseVersion):
             is_simple = _SIMPLE_VERSION_INDICATORS.issuperset(version)
         except TypeError:
             raise InvalidVersion(f"Invalid version: {version!r}") from None
+
+        self._raw_version = version
 
         if is_simple:
             try:
@@ -505,6 +513,7 @@ class Version(_BaseVersion):
         new_version._post = _post
         new_version._dev = _dev
         new_version._local = _local
+        new_version._raw_version = None
 
         return new_version
 
@@ -573,6 +582,7 @@ class Version(_BaseVersion):
         new_version._post = _post
         new_version._dev = _dev
         new_version._local = _local
+        new_version._raw_version = None
 
         return new_version
 
@@ -780,9 +790,10 @@ class Version(_BaseVersion):
         tuple[str, int] | None,
         tuple[str, int] | None,
         LocalType | None,
+        str | None,
     ]:
-        # Return state as a 6-item tuple for compactness:
-        #   (epoch, release, pre, post, dev, local)
+        # Return state as a compact tuple:
+        #   (epoch, release, pre, post, dev, local, raw_version)
         # Cache members are excluded and will be recomputed on demand
         return (
             self._epoch,
@@ -791,6 +802,7 @@ class Version(_BaseVersion):
             self._post,
             self._dev,
             self._local,
+            self._raw_version,
         )
 
     def __setstate__(self, state: object) -> None:
@@ -799,10 +811,22 @@ class Version(_BaseVersion):
         # and will be recomputed on demand from the core fields above.
         self._key_cache = None
         self._hash_cache = None
+        self._raw_version = None
 
         if isinstance(state, tuple):
+            if len(state) == 7:
+                (
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                    self._raw_version,
+                ) = state
+                return
             if len(state) == 6:
-                # New format (26.2+): (epoch, release, pre, post, dev, local)
+                # Legacy stable format (26.2): (epoch, release, pre, post, dev, local)
                 (
                     self._epoch,
                     self._release,
@@ -854,6 +878,7 @@ class Version(_BaseVersion):
         self._pre = value.pre
         self._post = value.post
         self._local = value.local
+        self._raw_version = None
         self._key_cache = None
         self._hash_cache = None
 
@@ -911,6 +936,16 @@ class Version(_BaseVersion):
         1
         """
         return self._epoch
+
+    @property
+    def raw_version(self) -> str | None:
+        """The original string passed to the constructor, if available.
+
+        Versions created with :meth:`from_parts`, changed with
+        :meth:`__replace__`, or loaded from an older pickle have no original
+        input string and return ``None``.
+        """
+        return self._raw_version
 
     @property
     def release(self) -> tuple[int, ...]:
@@ -1104,6 +1139,7 @@ class _TrimmedRelease(Version):
             self._pre = version._pre
             self._post = version._post
             self._local = version._local
+            self._raw_version = version._raw_version
             self._key_cache = version._key_cache
             self._hash_cache = version._hash_cache
             return
