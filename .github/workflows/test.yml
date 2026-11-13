@@ -70,15 +70,28 @@ jobs:
           NOXFORCEPYTHON: ${{ matrix.python_version }}
 
   musl:
-    name: Alpine / musl
+    name: Alpine / musl (${{ matrix.name }})
     runs-on: ubuntu-latest
-    container: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: system Python
+            image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+            packages: python3
+          # MULTIARCH is only used for musl detection on Python 3.13+.
+          - name: Python 3.14
+            image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+            packages: ""
 
     steps:
       # Alpine ships a genuinely musl-linked Python, so this exercises the
       # musllinux tag detection code paths that glibc runners cannot.
       - name: Install system dependencies
-        run: apk add --no-cache git python3 tar
+        run: apk add --no-cache git tar $PACKAGES
+        env:
+          PACKAGES: ${{ matrix.packages }}
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
