@@ -18,13 +18,12 @@ MARKS = {
 }
 
 ROW = re.compile(
-    r"^\|\s*(?P<mark>\S?)\s*\|\s*(?P<before>[^|]*?)\s*\|\s*(?P<after>[^|]*?)\s*"
-    r"\|\s*(?P<ratio>[^|]*?)\s*\|\s*(?P<name>\S+(?:\([^)]*\))?)\s+\[(?P<env>[^\]]+)\]\s*\|$"
+    r"^\|\s*(?P<mark>\S?)\s*\|[^|]*\|[^|]*\|\s*(?P<ratio>[^|]*?)\s*"
+    r"\|\s*(?P<name>[^|]+?)\s+\[[^\]]*-py(?P<python>\d+\.\d+t?)[^\]]*\]\s*\|$"
 )
 HEADER = re.compile(
     r"Before \[(?P<before>\w+)\](?: <(?P<ref>[^>]+)>)?\s*\|\s*After \[(?P<after>\w+)\]"
 )
-PYTHON = re.compile(r"-py(\d+\.\d+t?)")
 
 
 def clean_name(name: str) -> str:
@@ -55,22 +54,14 @@ def main(path: str) -> None:
     lines = table.strip().splitlines()
 
     results: dict[str, dict[str, str]] = {}
-    pythons: set[str] = set()
-    header = None
     for line in lines:
-        if header is None and (m := HEADER.search(line)):
-            header = m
-            continue
         if not (m := ROW.match(line.strip())):
             continue
-        py = PYTHON.search(m["env"])
-        python = py.group(1) if py else m["env"]
-        pythons.add(python)
         ratio = format_ratio(m["ratio"])
         cell = f"{MARKS[m['mark']]} **{ratio}**" if m["mark"] in MARKS else ratio
-        results.setdefault(clean_name(m["name"]), {})[python] = cell
+        results.setdefault(clean_name(m["name"]), {})[m["python"]] = cell
 
-    if header:
+    if header := HEADER.search(table):
         ref = f" ({header['ref']})" if header["ref"] else ""
         print(f"## Benchmarks: `{header['before']}`{ref} → `{header['after']}`\n")
     else:
@@ -89,7 +80,7 @@ def main(path: str) -> None:
         "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable, "
         "`~` exceeds threshold but not statistically significant.\n"
     )
-    cols = sorted(pythons, key=version_key)
+    cols = sorted({p for row in results.values() for p in row}, key=version_key)
     print("| Benchmark | " + " | ".join(cols) + " |")
     print("|:--|" + "--:|" * len(cols))
     for name, row in sorted(results.items()):
