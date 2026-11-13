@@ -567,9 +567,7 @@ def generic_tags(
     .. versionadded:: 20.0
     """
     if not interpreter:
-        interp_name = interpreter_name()
-        interp_version = interpreter_version(warn=warn)
-        interpreter = f"{interp_name}{interp_version}"
+        interpreter = python_tag(warn=warn)
     abis = list(_generic_abi()) if abis is None else list(abis)
     platforms = list(platform_tags() if platforms is None else platforms)
     if "none" not in abis:
@@ -995,20 +993,20 @@ def python_tag(
     """
     Returns a :pep:`425` python tag for the running interpreter.
 
-    :param bool implementation: Whether the tag should be specific to the
-        running interpreter (e.g. ``cp311`` or ``pp311``) instead of using the
-        generic ``py`` prefix (e.g. ``py311``). Defaults to ``True``.
+    :param bool implementation: Whether the tag should use the short name of the
+        running interpreter (e.g. ``cp311`` or ``pp311``) instead of the generic
+        ``py`` prefix (e.g. ``py311``). Defaults to ``True``.
     :param bool version: Whether the tag should include the full interpreter
         version (e.g. ``cp311``) instead of only the major version
         (e.g. ``cp3``). Defaults to ``True``.
-    :param bool warn: Whether warnings should be logged. Defaults to ``False``.
+    :param bool warn: Whether warnings should be logged when looking up the
+        interpreter version. Defaults to ``False``.
 
     .. versionadded:: 26.4
     """
     prefix = interpreter_name() if implementation else "py"
-    if version:
-        return prefix + interpreter_version(warn=warn)
-    return prefix + str(sys.version_info.major)
+    interp_version = interpreter_version(warn=warn)
+    return prefix + (interp_version if version else interp_version[0])
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
@@ -1050,9 +1048,9 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
         yield from generic_tags(warn=warn)
 
     if interp_name == "pp":
-        interp = python_tag(version=False)
+        interp = "pp3"
     elif interp_name == "cp":
-        interp = python_tag(warn=warn)
+        interp = "cp" + interpreter_version(warn=warn)
     else:
         interp = None
     yield from compatible_tags(interpreter=interp)
