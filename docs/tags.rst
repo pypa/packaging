@@ -83,6 +83,8 @@ to the implementation to provide.
 
 .. autofunction:: interpreter_abi
 
+.. autofunction:: python_tag
+
 .. autofunction:: mac_platforms
 
 .. autofunction:: ios_platforms

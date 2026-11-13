@@ -59,6 +59,7 @@ __all__ = [
     "parse_tag",
     "platform_tags",
     "pure_python_tags",
+    "python_tag",
     "sys_tags",
 ]
 
@@ -566,9 +567,7 @@ def generic_tags(
     .. versionadded:: 20.0
     """
     if not interpreter:
-        interp_name = interpreter_name()
-        interp_version = interpreter_version(warn=warn)
-        interpreter = f"{interp_name}{interp_version}"
+        interpreter = python_tag(warn=warn)
     abis = list(_generic_abi()) if abis is None else list(abis)
     platforms = list(platform_tags() if platforms is None else platforms)
     if "none" not in abis:
@@ -986,6 +985,28 @@ def interpreter_abi() -> str:
     if interpreter_name() == "cp":
         return next(iter(_cpython_abis(sys.version_info[:2])))
     return next(iter(_generic_abi()))
+
+
+def python_tag(
+    *, implementation: bool = True, version: bool = True, warn: bool = False
+) -> str:
+    """
+    Returns a :pep:`425` python tag for the running interpreter.
+
+    :param bool implementation: Whether the tag should use the short name of the
+        running interpreter (e.g. ``cp311`` or ``pp311``) instead of the generic
+        ``py`` prefix (e.g. ``py311``). Defaults to ``True``.
+    :param bool version: Whether the tag should include the full interpreter
+        version (e.g. ``cp311``) instead of only the major version
+        (e.g. ``cp3``). Defaults to ``True``.
+    :param bool warn: Whether warnings should be logged when looking up the
+        interpreter version. Defaults to ``False``.
+
+    .. versionadded:: 26.4
+    """
+    prefix = interpreter_name() if implementation else "py"
+    interp_version = interpreter_version(warn=warn)
+    return prefix + (interp_version if version else interp_version[0])
 
 
 def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
