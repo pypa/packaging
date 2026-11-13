@@ -193,9 +193,7 @@ class DependencyGroupResolver:
                 include_group = _normalize_name(item.include_group)
                 if include_group in stack:
                     errors.error(
-                        CyclicDependencyGroup(
-                            requested_group, group, item.include_group
-                        )
+                        CyclicDependencyGroup(requested_group, group, include_group)
                     )
                 elif include_group not in visited:
                     self._validate(
