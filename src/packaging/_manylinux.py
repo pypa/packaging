@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import collections
-import contextlib
 import functools
 import os
 import re
@@ -13,7 +12,7 @@ from ._elffile import EIClass, EIData, ELFFile, EMachine
 
 if TYPE_CHECKING:
     import types
-    from collections.abc import Generator, Iterator, Sequence
+    from collections.abc import Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000
@@ -30,43 +29,38 @@ _ALLOWED_ARCHS = {
 }
 
 
-@contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[ELFFile | None]:
-    # The guard deliberately does not cover the yield below: only a failure to
-    # open or parse the executable is reported as None, while an error raised by
-    # the caller inspecting the file has to propagate unchanged.
-    with contextlib.ExitStack() as stack:
-        try:
-            ef: ELFFile | None = ELFFile(stack.enter_context(open(path, "rb")))
-        except (OSError, TypeError, ValueError):
-            yield None
-            return
-        yield ef
+def _parse_elf(path: str) -> ELFFile | None:
+    # Only the header is used, so the file can be closed before returning.
+    try:
+        with open(path, "rb") as f:
+            return ELFFile(f)
+    except (OSError, TypeError, ValueError):
+        return None
 
 
 def _is_linux_armhf(executable: str) -> bool:
     # hard-float ABI can be detected from the ELF header of the running
     # process
     # https://static.docs.arm.com/ihi0044/g/aaelf32.pdf
-    with _parse_elf(executable) as f:
-        return (
-            f is not None
-            and f.capacity == EIClass.C32
-            and f.encoding == EIData.Lsb
-            and f.machine == EMachine.Arm
-            and f.flags & EF_ARM_ABIMASK == EF_ARM_ABI_VER5
-            and f.flags & EF_ARM_ABI_FLOAT_HARD == EF_ARM_ABI_FLOAT_HARD
-        )
+    f = _parse_elf(executable)
+    return (
+        f is not None
+        and f.capacity == EIClass.C32
+        and f.encoding == EIData.Lsb
+        and f.machine == EMachine.Arm
+        and f.flags & EF_ARM_ABIMASK == EF_ARM_ABI_VER5
+        and f.flags & EF_ARM_ABI_FLOAT_HARD == EF_ARM_ABI_FLOAT_HARD
+    )
 
 
 def _is_linux_i686(executable: str) -> bool:
-    with _parse_elf(executable) as f:
-        return (
-            f is not None
-            and f.capacity == EIClass.C32
-            and f.encoding == EIData.Lsb
-            and f.machine == EMachine.I386
-        )
+    f = _parse_elf(executable)
+    return (
+        f is not None
+        and f.capacity == EIClass.C32
+        and f.encoding == EIData.Lsb
+        and f.machine == EMachine.I386
+    )
 
 
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
