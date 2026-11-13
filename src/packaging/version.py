@@ -872,8 +872,7 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        # Keep the release property, since _TrimmedRelease overrides it.
-        version = ".".join(map(str, self.release))
+        version = ".".join(map(str, self._release))
 
         # Epoch
         if self._epoch:
@@ -1014,7 +1013,7 @@ class Version(_BaseVersion):
         The "base version" is the public version of the project without any pre or post
         release markers.
         """
-        release_segment = ".".join(map(str, self.release))
+        release_segment = ".".join(map(str, self._release))
         return f"{self._epoch}!{release_segment}" if self._epoch else release_segment
 
     @property
@@ -1093,40 +1092,33 @@ class Version(_BaseVersion):
         """
         return self.release[2] if len(self.release) >= 3 else 0
 
-
-class _TrimmedRelease(Version):
-    __slots__ = ()
-
-    def __init__(self, version: str | Version) -> None:
-        if isinstance(version, Version):
-            self._epoch = version._epoch
-            self._release = version._release
-            self._dev = version._dev
-            self._pre = version._pre
-            self._post = version._post
-            self._local = version._local
-            self._key_cache = version._key_cache
-            self._hash_cache = version._hash_cache
-            return
-        super().__init__(version)  # pragma: no cover
-
-    @property
-    def release(self) -> tuple[int, ...]:
+    def _trim_release(self) -> Version:
         """
-        Release segment without any trailing zeros.
+        Return the version with trailing zeros removed from the release segment.
 
-        >>> _TrimmedRelease('1.0.0').release
-        (1,)
-        >>> _TrimmedRelease('0.0').release
-        (0,)
+        >>> Version('1.0.0')._trim_release()
+        <Version('1')>
+        >>> Version('0.0')._trim_release()
+        <Version('0')>
         """
         # This leaves one 0.
-        rel = super().release
-        len_release = len(rel)
-        i = len_release
-        while i > 1 and rel[i - 1] == 0:
+        release = self._release
+        i = len(release)
+        while i > 1 and release[i - 1] == 0:
             i -= 1
-        return rel if i == len_release else rel[:i]
+        if i == len(release):
+            return self
+
+        new_version = Version.__new__(Version)
+        new_version._epoch = self._epoch
+        new_version._release = release[:i]
+        new_version._dev = self._dev
+        new_version._pre = self._pre
+        new_version._post = self._post
+        new_version._local = self._local
+        new_version._key_cache = self._key_cache
+        new_version._hash_cache = self._hash_cache
+        return new_version
 
 
 def _parse_letter_version(
