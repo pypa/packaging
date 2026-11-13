@@ -898,7 +898,10 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         return
     if is_32bit:
         if linux == "linux_x86_64":
-            linux = "linux_i686"
+            if _manylinux._is_linux_x32(sys.executable):
+                linux = "linux_x32"
+            else:
+                linux = "linux_i686"
         elif linux == "linux_aarch64":
             linux = "linux_armv8l"
     _, arch = linux.split("_", 1)
@@ -927,6 +930,9 @@ def platform_tags() -> Iterator[str]:
     Yields the :attr:`~Tag.platform` tags for the running interpreter.
 
     .. versionadded:: 21.1
+    .. versionchanged:: 26.4
+        Detect x32 userspace ABIs on 64-bit Linux kernels and emit ``linux_x32``
+        and ``musllinux_*_x32`` tags (:issue:`217`).
     """
     match platform.system():
         case "Darwin":
@@ -1018,6 +1024,9 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
     .. versionchanged:: 26.3
         Native ``linux_*`` platform tags are now ordered before ``manylinux``
         and ``musllinux`` tags (:issue:`160`).
+    .. versionchanged:: 26.4
+        Detect x32 userspace ABIs on 64-bit Linux kernels and emit ``linux_x32``
+        and ``musllinux_*_x32`` tags (:issue:`217`).
     """
 
     interp_name = interpreter_name()

@@ -66,6 +66,16 @@ def _is_linux_i686(executable: str) -> bool:
         )
 
 
+def _is_linux_x32(executable: str) -> bool:
+    with _parse_elf(executable) as f:
+        return (
+            f is not None
+            and f.capacity == EIClass.C32
+            and f.encoding == EIData.Lsb
+            and f.machine == EMachine.X8664
+        )
+
+
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
     if "armv7l" in archs:
         return _is_linux_armhf(executable)
