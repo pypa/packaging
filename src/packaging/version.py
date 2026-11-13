@@ -269,12 +269,13 @@ def _validate_epoch(value: object, /) -> int:
 
 def _validate_release(value: object, /) -> tuple[int, ...]:
     release = (0,) if value is None else value
-    if (
-        isinstance(release, tuple)
-        and len(release) > 0
-        and all(isinstance(i, int) and i >= 0 for i in release)
-    ):
-        return release
+    # A loop is faster than iteration based alternatives.
+    if isinstance(release, tuple) and release:
+        for i in release:
+            if not isinstance(i, int) or i < 0:
+                break
+        else:
+            return release
     msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
     raise InvalidVersion(msg)
 
