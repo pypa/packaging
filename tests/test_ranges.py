@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import operator
+import pickle
+from copy import copy, deepcopy
 from typing import TYPE_CHECKING
 
 import pytest
@@ -2953,3 +2955,173 @@ class TestFromBounds:
         assert VersionRange.from_bounds("0.dev0") == VersionRange.full(
             admit_arbitrary=False
         )
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+@pytest.mark.parametrize("prereleases", [None, False, True])
+@pytest.mark.parametrize(
+    "spec", ["", ">=2,<1", ">=1,<2", "===wat", "===1.0a1", ">=2.0b1,<3"]
+)
+@pytest.mark.parametrize("complement", [False, True])
+def test_copy_and_pickle_preserve_state(
+    roundtrip: Callable[[VersionRange], VersionRange],
+    prereleases: bool | None,
+    spec: str,
+    complement: bool,
+) -> None:
+    original = vr(spec, prereleases)
+    if complement:
+        original = ~original
+    clone = roundtrip(original)
+    assert clone is not original
+    assert clone == original
+    assert hash(clone) == hash(original)
+    candidates = ["wat", "1.0a1", "1.0", "1.5b1", "1.5", "2.0b1", "2.5", "3.0"]
+    assert [clone.contains(v) for v in candidates] == [
+        original.contains(v) for v in candidates
+    ]
+    assert list(clone.filter(candidates)) == list(original.filter(candidates))
+    assert (clone | original) == (original | original)
+    assert (clone & original) == (original & original)
+    assert ~clone == ~original
+
+
+class DerivedRange(VersionRange):
+    extra: list[int]
+    owner: VersionRange
+
+
+def test_copy_and_pickle_subclass_state() -> None:
+    original = DerivedRange.from_bounds("1", "2")
+    assert isinstance(original, DerivedRange)
+    original.extra = [1]
+    original.owner = original
+    shallow = copy(original)
+    assert type(shallow) is DerivedRange
+    assert shallow.extra is original.extra
+    assert shallow.owner is original
+    for clone in [deepcopy(original), pickle.loads(pickle.dumps(original))]:
+        assert isinstance(clone, DerivedRange)
+        assert clone == original
+        assert clone.extra == original.extra
+        assert clone.extra is not original.extra
+        assert clone.owner is clone
+
+
+def test_pickle_has_no_private_references() -> None:
+    original = ~vr(">1.0a1,!=1.5,<2")
+    data = pickle.dumps(original, pickle.HIGHEST_PROTOCOL)
+    assert pickle.loads(data) == original
+    assert b"_ranges" not in data
+    assert b"BoundaryVersion" not in data
+    assert b"packaging.version" not in data
+
+
+class SlottedRange(VersionRange):
+    __slots__ = ("__label", "optional", "owner")
+    owner: VersionRange
+
+    def set_label(self, value: list[str]) -> None:
+        self.__label = value
+
+    def get_label(self) -> list[str]:
+        return self.__label
+
+
+class InheritedSlottedRange(SlottedRange):
+    __slots__ = ("tag",)
+    tag: str
+
+
+class MixedSlottedRange(SlottedRange):
+    tag: str
+
+
+class StateHookRange(VersionRange):
+    label: list[str]
+    owner: VersionRange
+
+    def __getstate__(self) -> tuple[list[str], VersionRange]:
+        return self.label, self.owner
+
+    def __setstate__(self, state: tuple[list[str], VersionRange]) -> None:
+        self.label, self.owner = state
+
+
+@pytest.mark.parametrize(
+    "cls", [SlottedRange, InheritedSlottedRange, MixedSlottedRange]
+)
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+def test_copy_and_pickle_extra_slots(
+    cls: type[SlottedRange], roundtrip: Callable[[VersionRange], VersionRange]
+) -> None:
+    original = cls.from_bounds("1", "2")
+    assert isinstance(original, SlottedRange)
+    original.set_label(["constraint"])
+    original.owner = original
+    if isinstance(original, (InheritedSlottedRange, MixedSlottedRange)):
+        original.tag = "extra"
+    clone = roundtrip(original)
+    assert isinstance(clone, SlottedRange)
+    assert type(clone) is cls
+    assert clone == original
+    assert clone.get_label() == ["constraint"]
+    assert not hasattr(clone, "optional")
+    if isinstance(clone, (InheritedSlottedRange, MixedSlottedRange)):
+        assert clone.tag == "extra"
+    if roundtrip is copy:
+        assert clone.get_label() is original.get_label()
+        assert clone.owner is original
+    else:
+        assert clone.get_label() is not original.get_label()
+        assert clone.owner is clone
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+def test_copy_and_pickle_state_hooks(
+    roundtrip: Callable[[VersionRange], VersionRange],
+) -> None:
+    original = StateHookRange.from_bounds("1", "2")
+    assert isinstance(original, StateHookRange)
+    original.label = ["constraint"]
+    original.owner = original
+    clone = roundtrip(original)
+    assert isinstance(clone, StateHookRange)
+    assert clone == original
+    assert clone.label == ["constraint"]
+    if roundtrip is copy:
+        assert clone.label is original.label
+        assert clone.owner is original
+    else:
+        assert clone.label is not original.label
+        assert clone.owner is clone

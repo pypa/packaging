@@ -22,6 +22,7 @@ from __future__ import annotations
 __lazy_modules__ = {"bisect", f"{__spec__.parent}._ranges"}
 
 import bisect
+import copyreg
 import enum
 import typing
 from typing import (
@@ -433,6 +434,42 @@ def _bound_version_str(value: BoundaryVersion | Version) -> str:
     if isinstance(value, BoundaryVersion):
         return f"{value.version}[{value.kind.name}]"
     return str(value)
+
+
+_PointState = str | tuple[str, str] | None
+_IntervalState = tuple[tuple[_PointState, bool], tuple[_PointState, bool]]
+
+
+def _point_state(value: BoundaryVersion | Version | None) -> _PointState:
+    if isinstance(value, BoundaryVersion):
+        return (str(value.version), value.kind.name)
+    return None if value is None else str(value)
+
+
+def _point_from_state(state: _PointState) -> BoundaryVersion | Version | None:
+    if isinstance(state, tuple):
+        return BoundaryVersion(Version(state[0]), BoundaryKind[state[1]])
+    return None if state is None else Version(state)
+
+
+def _intervals_state(intervals: Sequence[Interval]) -> tuple[_IntervalState, ...]:
+    return tuple(
+        (
+            (_point_state(lower.version), lower.inclusive),
+            (_point_state(upper.version), upper.inclusive),
+        )
+        for lower, upper in intervals
+    )
+
+
+def _intervals_from_state(state: Sequence[_IntervalState]) -> tuple[Interval, ...]:
+    return tuple(
+        (
+            LowerBound(_point_from_state(lower[0]), lower[1]),
+            UpperBound(_point_from_state(upper[0]), upper[1]),
+        )
+        for lower, upper in state
+    )
 
 
 def _format_lower(bound: LowerBound) -> str:
@@ -1136,6 +1173,33 @@ class VersionRange:
             "VersionRange.empty(), VersionRange.singleton(), or "
             "VersionRange.from_bounds() instead"
         )
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Store only public value types, so pickles do not depend on internals.
+        state = (
+            _intervals_state(self._bounds),
+            _intervals_state(self._pre_region),
+            sorted(self._admit),
+            sorted(self._reject),
+            self._admit_arbitrary,
+            self._prereleases_configured,
+        )
+        # Preserve custom state hooks, or collect only the subclass state.
+        getstate = getattr(type(self), "__getstate__", None)
+        if getstate is not None and getstate is not getattr(
+            object, "__getstate__", None
+        ):
+            extra = getstate(self)
+        else:
+            extra = getattr(self, "__dict__", None) or None
+            slots = {
+                name: getattr(self, name)
+                for name in copyreg._slotnames(type(self))  # type: ignore[attr-defined]
+                if name not in VersionRange.__slots__ and hasattr(self, name)
+            }
+            if slots:
+                extra = (extra, slots)
+        return (_restore_version_range, (type(self), state), extra)
 
     @classmethod
     def _build(
@@ -2340,3 +2404,25 @@ class VersionRange:
             tail += f" pre-region={_format_intervals(self._pre_region)!r}"
 
         return f"<{self.__class__.__name__} {body!r}{tail}>"
+
+
+def _restore_version_range(
+    cls: type[VersionRange],
+    state: tuple[
+        Sequence[_IntervalState],
+        Sequence[_IntervalState],
+        Iterable[str],
+        Iterable[str],
+        bool,
+        bool | None,
+    ],
+) -> VersionRange:
+    bounds, pre_region, admit, reject, admit_arbitrary, prereleases = state
+    return cls._build(
+        _intervals_from_state(bounds),
+        frozenset(admit),
+        frozenset(reject),
+        admit_arbitrary,
+        pre_region=_intervals_from_state(pre_region),
+        prereleases_configured=prereleases,
+    )
