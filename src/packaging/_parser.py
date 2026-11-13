@@ -467,8 +467,10 @@ def process_env_var(env_var: str) -> Variable:
 
 
 def process_python_str(python_str: str) -> Value:
+    if "\\" in python_str:
+        raise ValueError("Backslashes are not allowed in marker values")
     # The tokenizer guarantees matching delimiters with no embedded delimiter.
-    if "\\" not in python_str and python_str.isprintable():
+    if python_str.isprintable():
         return Value(python_str[1:-1])
 
     value = ast.literal_eval(python_str)
