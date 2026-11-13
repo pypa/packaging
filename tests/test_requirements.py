@@ -343,11 +343,21 @@ class TestRequirementParsing:
         assert req.specifier == ""
 
     @pytest.mark.parametrize(
-        "specifier", ["===bar===", "===arbitrarystring,>=1", ">=1,===arbitrarystring"]
+        "specifier",
+        [
+            "===bar===",
+            "===arbitrarystring,>=1",
+            ">=1,===arbitrarystring",
+            "===arbitrarystring,>= 1",
+            "===arbitrarystring, >=1",
+            "===arbitrarystring , != 1.0",
+            " (===arbitrarystring,>= 1)",
+            "===arbitrarystring,>= 1 ; python_version >= '3'",
+        ],
     )
     def test_nonempty_arbitrary_version(self, specifier: str) -> None:
         req = Requirement(f"foo{specifier}")
-        assert req.specifier == specifier
+        assert req.specifier == specifier.partition(";")[0].strip(" ()")
 
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
