@@ -48,4 +48,11 @@ jobs:
         run: asv continuous origin/main HEAD --interleave-rounds --sort default --no-only-changed | tee -a asv_output.txt || true
 
       - name: Write out to GitHub Summary
-        run: python tasks/asv_summary.py asv_output.txt >> "$GITHUB_STEP_SUMMARY"
+        run: python tasks/asv_summary.py asv_output.txt --comment-dir asv-comment >> "$GITHUB_STEP_SUMMARY"
+
+      # Posted by perf-comment.yml, since this job has no write access.
+      - name: Upload PR comment
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: asv-comment
+          path: asv-comment/
