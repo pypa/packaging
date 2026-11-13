@@ -62,3 +62,25 @@ def test_marker_item_with_other_rules(op: str) -> None:
     assert str(_parse_marker(tokenizer)) == (
         f"[(<Variable('os_name')>, <Op({op!r})>, <Value('a')>)]"
     )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '  os_name == "posix"',
+        'os_name == "posix"  ',
+        '(  os_name == "posix")',
+        '(os_name == "posix"  )',
+    ],
+)
+def test_marker_with_partial_whitespace_rule(source: str) -> None:
+    rules = dict(DEFAULT_RULES, WS=re.compile(r"[ \t]"))
+    tokenizer = Tokenizer(source, rules=rules)
+    marker = _parse_marker(tokenizer)
+
+    assert tokenizer.position == len(source)
+    if isinstance(marker[0], list):
+        marker = marker[0]
+    atom = marker[0]
+    assert isinstance(atom, tuple)
+    assert tuple(node.value for node in atom) == ("os_name", "==", "posix")

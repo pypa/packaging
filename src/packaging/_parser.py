@@ -391,9 +391,11 @@ def _parse_marker_atom(tokenizer: Tokenizer) -> MarkerAtom:
             "RIGHT_PARENTHESIS",
             around="marker expression",
         ):
-            tokenizer.consume("WS")
+            if tokenizer.rules is not DEFAULT_RULES:
+                tokenizer.consume("WS")
             marker: MarkerAtom = _parse_marker(tokenizer)
-            tokenizer.consume("WS")
+            if tokenizer.rules is not DEFAULT_RULES:
+                tokenizer.consume("WS")
     else:
         marker = _parse_marker_item(tokenizer)
     tokenizer.consume("WS")
@@ -404,13 +406,16 @@ def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
     """
     marker_item = WS? marker_var WS? marker_op WS? marker_var WS?
     """
-    tokenizer.consume("WS")
+    # Custom rules may consume only part of a whitespace run.
+    if tokenizer.rules is not DEFAULT_RULES:
+        tokenizer.consume("WS")
     marker_var_left = _parse_marker_var(tokenizer)
     tokenizer.consume("WS")
     marker_op = _parse_marker_op(tokenizer)
     tokenizer.consume("WS")
     marker_var_right = _parse_marker_var(tokenizer)
-    tokenizer.consume("WS")
+    if tokenizer.rules is not DEFAULT_RULES:
+        tokenizer.consume("WS")
     return (marker_var_left, marker_op, marker_var_right)
 
 
