@@ -270,7 +270,7 @@ def _parse_specifier(tokenizer: Tokenizer) -> str | SpecifierSet:
         return _parse_padded_version_many(tokenizer)
 
 
-def _parse_padded_version_many(tokenizer: Tokenizer) -> str:
+def _parse_padded_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
     """
     padded_version_many = WS? version_many WS?
     """
