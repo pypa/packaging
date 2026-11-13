@@ -17,13 +17,30 @@ def test_exceptions() -> None:
         assert exception_id == exception_id.lower()
 
 
-@pytest.mark.parametrize("depth", [201, 1000])
-@pytest.mark.parametrize(
-    "license_expression", ["MIT", "MIT AND (Apache-2.0 OR BSD-3-Clause)"]
-)
-def test_deep_license_parentheses(depth: int, license_expression: str) -> None:
-    # CPython's compiler rejects more than 200 nested parentheses.
+@pytest.mark.parametrize("depth", [199, 200])
+@pytest.mark.parametrize("license_expression", ["MIT", "MIT AND Apache-2.0"])
+def test_license_parentheses_within_nesting_limit(
+    depth: int, license_expression: str
+) -> None:
     expression = "(" * depth + license_expression + ")" * depth
+    assert canonicalize_license_expression(expression) == expression
+
+
+@pytest.mark.parametrize("depth", [201, 1000])
+@pytest.mark.parametrize("license_expression", ["MIT", "MIT AND Apache-2.0"])
+def test_license_parentheses_exceed_nesting_limit(
+    depth: int, license_expression: str
+) -> None:
+    expression = "(" * depth + license_expression + ")" * depth
+    with pytest.raises(InvalidLicenseExpression) as exc_info:
+        canonicalize_license_expression(expression)
+
+    assert str(exc_info.value) == f"Invalid license expression: {expression!r}"
+
+
+def test_license_parenthesis_limit_is_per_group() -> None:
+    group = "(" * 200 + "MIT" + ")" * 200
+    expression = f"{group} OR {group}"
     assert canonicalize_license_expression(expression) == expression
 
 

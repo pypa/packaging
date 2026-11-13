@@ -52,6 +52,9 @@ def __dir__() -> list[str]:
 
 license_ref_allowed = re.compile("^[A-Za-z0-9.-]+$")
 
+# Match CPython's tokenizer limit for nested parentheses.
+_MAX_PARENTHESIS_DEPTH = 200
+
 NormalizedLicenseExpression = NewType("NormalizedLicenseExpression", str)
 """
 A :class:`typing.NewType` of :class:`str`, representing a normalized
@@ -86,7 +89,7 @@ def _validate_expression_syntax(tokens: list[str], source: str) -> None:
 
     for token in tokens:
         if token == "(":
-            if not expect_operand:
+            if not expect_operand or parenthesis_depth >= _MAX_PARENTHESIS_DEPTH:
                 break
             parenthesis_depth += 1
         elif token == ")":
