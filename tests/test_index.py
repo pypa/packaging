@@ -744,15 +744,9 @@ class TestParseDetails(ParseBaseTests):
 
     @pytest.mark.parametrize(
         ("data_value", "specifier_value"),
-        [
-            ('="==3.16"', "==3.16"),
-            ('="&gt;=3"', ">=3"),
-            ("", index.InvalidHTMLAttributeValue),
-        ],
+        [('="==3.16"', "==3.16"), ('="&gt;=3"', ">=3"), ("", ""), ('=""', "")],
     )
-    def test_html_requires_python(
-        self, data_value: str, specifier_value: str | type[index.IndexServerException]
-    ) -> None:
+    def test_html_requires_python(self, data_value: str, specifier_value: str) -> None:
         given = f"""
             <html>
             <body>
@@ -763,28 +757,24 @@ class TestParseDetails(ParseBaseTests):
             </body>
             </html>
         """
-        if is_exception(specifier_value):
-            with pytest.raises(specifier_value):
-                index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
-        else:
-            expect: index.RawProjectDetails = typing.cast(
-                "index.RawProjectDetails",
-                {
-                    "meta": {"api-version": "1.0"},
-                    "name": "spam",
-                    "files": [
-                        {
-                            "filename": "spam-1.0.tar.gz",
-                            "url": "https://example.com/spam/spam-1.0.tar.gz",
-                            "hashes": {},
-                            "requires-python": specifier_value,
-                        }
-                    ],
-                },
-            )
-            result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
+        expect: index.RawProjectDetails = typing.cast(
+            "index.RawProjectDetails",
+            {
+                "meta": {"api-version": "1.0"},
+                "name": "spam",
+                "files": [
+                    {
+                        "filename": "spam-1.0.tar.gz",
+                        "url": "https://example.com/spam/spam-1.0.tar.gz",
+                        "hashes": {},
+                        "requires-python": specifier_value,
+                    }
+                ],
+            },
+        )
+        result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
 
-            assert result == expect
+        assert result == expect
 
     @pytest.mark.parametrize(
         ("attr", "value"), [("", True), ('=""', True), ('="bad"', "bad")]

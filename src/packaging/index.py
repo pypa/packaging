@@ -376,9 +376,7 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
         self.current_file["gpg-sig"] = has_sig
 
     def handle_data_requires_python_attr(self, value: str | None) -> None:
-        if value is None:
-            raise InvalidHTMLAttributeValue("a", "data-requires-python", value)
-        self.current_file["requires-python"] = value
+        self.current_file["requires-python"] = value or ""
 
     def handle_data_yanked_attr(self, value: str | None) -> None:
         self.current_file["yanked"] = value or True
