@@ -871,8 +871,7 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        # Keep the release property, since _TrimmedRelease overrides it.
-        version = ".".join(map(str, self.release))
+        version = ".".join(map(str, self._release))
 
         # Epoch
         if self._epoch:
@@ -1013,7 +1012,7 @@ class Version(_BaseVersion):
         The "base version" is the public version of the project without any pre or post
         release markers.
         """
-        release_segment = ".".join(map(str, self.release))
+        release_segment = ".".join(map(str, self._release))
         return f"{self._epoch}!{release_segment}" if self._epoch else release_segment
 
     @property
@@ -1094,6 +1093,15 @@ class Version(_BaseVersion):
 
 
 class _TrimmedRelease(Version):
+    """
+    Version with trailing zeros removed from the release segment.
+
+    >>> _TrimmedRelease('1.0.0').release
+    (1,)
+    >>> _TrimmedRelease('0.0').release
+    (0,)
+    """
+
     __slots__ = ()
 
     def __init__(self, version: str | Version) -> None:
@@ -1106,26 +1114,15 @@ class _TrimmedRelease(Version):
             self._local = version._local
             self._key_cache = version._key_cache
             self._hash_cache = version._hash_cache
-            return
-        super().__init__(version)  # pragma: no cover
+        else:  # pragma: no cover
+            super().__init__(version)
 
-    @property
-    def release(self) -> tuple[int, ...]:
-        """
-        Release segment without any trailing zeros.
-
-        >>> _TrimmedRelease('1.0.0').release
-        (1,)
-        >>> _TrimmedRelease('0.0').release
-        (0,)
-        """
         # This leaves one 0.
-        rel = super().release
-        len_release = len(rel)
-        i = len_release
+        rel = self._release
+        i = len(rel)
         while i > 1 and rel[i - 1] == 0:
             i -= 1
-        return rel if i == len_release else rel[:i]
+        self._release = rel[:i]
 
 
 def _parse_letter_version(
