@@ -871,9 +871,7 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        # This is a hot function, so not calling self.base_version, and reading
-        # the private fields instead of the properties. The release property is
-        # kept, since _TrimmedRelease overrides it.
+        # Keep the release property, since _TrimmedRelease overrides it.
         version = ".".join(map(str, self.release))
 
         # Epoch
@@ -894,7 +892,7 @@ class Version(_BaseVersion):
 
         # Local version segment
         if self._local:
-            version += f"+{self.local}"
+            version += "+" + ".".join(map(str, self._local))
 
         return version
 
@@ -1016,7 +1014,7 @@ class Version(_BaseVersion):
         release markers.
         """
         release_segment = ".".join(map(str, self.release))
-        return f"{self.epoch}!{release_segment}" if self.epoch else release_segment
+        return f"{self._epoch}!{release_segment}" if self._epoch else release_segment
 
     @property
     def is_prerelease(self) -> bool:
