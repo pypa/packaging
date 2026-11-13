@@ -1,0 +1,76 @@
+name: Performance Comment
+
+# This runs with write access after an untrusted run. Do not check out or run
+# code from the PR here, and treat the artifact as untrusted data.
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: ["Performance Benchmarks"]
+    types:
+      - completed
+
+permissions: {}
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    name: Comment on PR
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      actions: read # Download the artifact.
+      pull-requests: write # Post the comment.
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: asv-comment
+          path: asv-comment
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Create or update comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD: ${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          MARKER: "<!-- asv-summary -->"
+        run: |
+          for f in asv-comment/comment.md asv-comment/significant; do
+            if [ -L "$f" ] || [ ! -f "$f" ]; then
+              echo "::error::Unexpected artifact content: $f"
+              exit 1
+            fi
+          done
+
+          # The event has no PR number for forks, so find it from the branch.
+          pr=$(gh pr view "$HEAD" --json number,state,headRefOid \
+            --jq 'select(.state == "OPEN" and .headRefOid == env.HEAD_SHA) | .number' || true)
+          if [ -z "$pr" ]; then
+            echo "No open PR with head $HEAD_SHA for $HEAD."
+            exit 0
+          fi
+
+          {
+            echo "$MARKER"
+            head -c 60000 asv-comment/comment.md
+            printf '\n[Full output](%s)\n' "$RUN_URL"
+          } > body.md
+
+          comment=$(gh api "repos/$GH_REPO/issues/$pr/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith(env.MARKER))) | .id' | head -n 1)
+
+          # Only start a comment for a significant change, but keep it current.
+          if [ -n "$comment" ]; then
+            gh api --silent -X PATCH "repos/$GH_REPO/issues/comments/$comment" -F body=@body.md
+          elif [ "$(head -c 4 asv-comment/significant)" = "true" ]; then
+            gh api --silent "repos/$GH_REPO/issues/$pr/comments" -F body=@body.md
+          else
+            echo "No significant change and no existing comment."
+          fi

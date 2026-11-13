@@ -1,12 +1,15 @@
 """Convert ``asv continuous`` output into a compact Markdown summary.
 
 Usage: ``python asv_summary.py asv_output.txt >> "$GITHUB_STEP_SUMMARY"``
+
+With ``--comment-dir DIR``, also write ``DIR/comment.md`` (the summary without
+the full asv output) and ``DIR/significant`` (``true`` or ``false``).
 """
 
 from __future__ import annotations
 
+import argparse
 import re
-import sys
 from pathlib import Path
 
 MARKS = {
@@ -16,6 +19,7 @@ MARKS = {
     "*": "✅",  # Fixed failure
     "x": "⚪",  # Not comparable
 }
+SIGNIFICANT = frozenset("+-!*")
 
 ROW = re.compile(
     r"^\|\s*(?P<mark>\S?)\s*\|[^|]*\|[^|]*\|\s*(?P<ratio>[^|]*?)\s*"
@@ -48,49 +52,66 @@ def version_key(version: str) -> tuple[int, ...]:
     return tuple(int(p) for p in version.rstrip("t").split("."))
 
 
-def main(path: str) -> None:
-    text = Path(path).read_text(encoding="utf-8")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", type=Path, help="Output of asv continuous.")
+    parser.add_argument("--comment-dir", type=Path, help="Write PR comment files.")
+    args = parser.parse_args()
+
+    text = args.path.read_text(encoding="utf-8")
     _, _, table = text.partition("All benchmarks:")
     lines = table.strip().splitlines()
 
     results: dict[str, dict[str, str]] = {}
+    significant = False
     for line in lines:
         if not (m := ROW.match(line.strip())):
             continue
+        significant |= m["mark"] in SIGNIFICANT
         ratio = format_ratio(m["ratio"])
         cell = f"{MARKS[m['mark']]} **{ratio}**" if m["mark"] in MARKS else ratio
         results.setdefault(clean_name(m["name"]), {})[m["python"]] = cell
 
+    out = []
     if header := HEADER.search(table):
         ref = f" ({header['ref']})" if header["ref"] else ""
-        print(f"## Benchmarks: `{header['before']}`{ref} → `{header['after']}`\n")
+        out += [f"## Benchmarks: `{header['before']}`{ref} → `{header['after']}`", ""]
     else:
-        print("## Benchmarks\n")
+        out += ["## Benchmarks", ""]
 
     status = [ln for ln in lines if ln.strip() and not ln.lstrip().startswith("|")]
     if status:
-        print(f"**{status[-1].strip()}**\n")
+        out += [f"**{status[-1].strip()}**", ""]
 
-    if not results:
-        print("No benchmark results found.")
-        return
+    if results:
+        cols = sorted({p for row in results.values() for p in row}, key=version_key)
+        out += [
+            "Ratio of after / before time (lower is faster). "
+            "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable, "
+            "`~` exceeds threshold but not statistically significant.",
+            "",
+            "| Benchmark | " + " | ".join(cols) + " |",
+            "|:--|" + "--:|" * len(cols),
+        ]
+        for name, row in sorted(results.items()):
+            cells = " | ".join(row.get(c, "") for c in cols)
+            out.append(f"| {name} | {cells} |")
+    else:
+        out.append("No benchmark results found.")
 
-    print(
-        "Ratio of after / before time (lower is faster). "
-        "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable, "
-        "`~` exceeds threshold but not statistically significant.\n"
-    )
-    cols = sorted({p for row in results.values() for p in row}, key=version_key)
-    print("| Benchmark | " + " | ".join(cols) + " |")
-    print("|:--|" + "--:|" * len(cols))
-    for name, row in sorted(results.items()):
-        cells = " | ".join(row.get(c, "") for c in cols)
-        print(f"| {name} | {cells} |")
+    summary = "\n".join(out)
+    print(summary)
+    if results:
+        print("\n<details><summary>Full asv output</summary>\n")
+        print("\n".join(lines))
+        print("\n</details>")
 
-    print("\n<details><summary>Full asv output</summary>\n")
-    print("\n".join(lines))
-    print("\n</details>")
+    if args.comment_dir:
+        args.comment_dir.mkdir(parents=True, exist_ok=True)
+        (args.comment_dir / "comment.md").write_text(summary + "\n", encoding="utf-8")
+        flag = "true" if significant else "false"
+        (args.comment_dir / "significant").write_text(flag + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main()
