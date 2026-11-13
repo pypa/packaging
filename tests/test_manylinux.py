@@ -19,6 +19,7 @@ import pretend
 import pytest
 
 from packaging import _manylinux
+from packaging._elffile import EMachine
 from packaging._manylinux import (
     _get_glibc_version,
     _get_manylinux_module,
@@ -208,5 +209,20 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     else:
         path_str = None
     # None is not supported in the type annotation, but it was tested before.
-    with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
-        assert ef is None
+    assert _parse_elf(path_str) is None  # type: ignore[arg-type]
+
+
+def test_parse_elf_missing_executable() -> None:
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-does-not-exist"
+    )
+    assert _parse_elf(path) is None
+
+
+def test_parse_elf_valid_executable() -> None:
+    path = os.fsdecode(
+        pathlib.Path(__file__).parent / "manylinux" / "hello-world-x86_64-amd64"
+    )
+    ef = _parse_elf(path)
+    assert ef is not None
+    assert ef.machine == EMachine.X8664
