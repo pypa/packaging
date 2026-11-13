@@ -436,7 +436,7 @@ class TestParseDetails(ParseBaseTests):
         expect: index.RawProjectDetails = {
             "meta": {"api-version": "1.0"},
             "name": "spam",
-            "files": [],
+            "files": [{"filename": "spam-1.0.tar.gz", "url": "", "hashes": {}}],
         }
         result = index.parse_details(HTML_CONTENT_TYPE, given, name="spam")
 
@@ -985,5 +985,5 @@ class TestIsSupportedContentType:
             ("application/vnd.pypi.simple.v1+html", True),
         ],
     )
-    def test_supported(self, content_type: str, supported: str) -> None:
+    def test_supported(self, content_type: str, supported: bool) -> None:
         assert index.is_supported_content_type(content_type) == supported

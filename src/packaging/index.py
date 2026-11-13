@@ -301,7 +301,7 @@ def parse_list(content_type: str, data: str) -> RawProjectList:
 
 class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     files: list[RawProjectDetailsFile]
-    current_file: dict[str, typing.Any]
+    current_file: RawProjectDetailsFile
     status: str | None = None
     status_reason: str | None = None
     base_url: str | None = None
@@ -311,8 +311,8 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
         self.files = []
         self.current_file = self._new_file()
 
-    def _new_file(self) -> dict[str, typing.Any]:
-        return {"hashes": {}}
+    def _new_file(self) -> RawProjectDetailsFile:
+        return {"filename": "", "url": "", "hashes": {}}
 
     def handle_project_status_content(self, content: str) -> None:
         content_lower = content.lower()
@@ -345,7 +345,9 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
                 hashes[hash_algo] = val
             self.current_file["hashes"] = hashes
 
-    def _process_metadata(self, key: str, value: str | None) -> None:
+    def _process_metadata(
+        self, key: Literal["core-metadata", "dist-info-metadata"], value: str | None
+    ) -> None:
         result: dict[str, str] | bool = True
         if value:
             if "=" in value:
@@ -395,7 +397,7 @@ class _RawProjectDetailsHTMLParser(_RawProjectMetaHTMLParser):
     def handle_a_endtag(self) -> None:
         if "url" in self.current_file:  # No href, no file.
             self.current_file["filename"] = self.data.strip()
-            self.files.append(typing.cast("RawProjectDetailsFile", self.current_file))
+            self.files.append(self.current_file)
         self.data = ""
         self.current_file = self._new_file()
 
