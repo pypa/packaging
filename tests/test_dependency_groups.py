@@ -321,6 +321,40 @@ def test_cyclic_include_self() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("group_name", "include_name", "normalized"),
+    [
+        ("group1", "group1", "group1"),
+        ("group1", "Group1", "group1"),
+        ("group1", "GROUP1", "group1"),
+        ("a.b", "A_B", "a-b"),
+        ("a_b", "A.B", "a-b"),
+    ],
+)
+def test_cyclic_include_self_with_unnormalized_spelling(
+    group_name: str, include_name: str, normalized: str
+) -> None:
+    # A self-include is a self-include regardless of how it is spelled: the
+    # include name is normalized before the cycle check, so the diagnostic
+    # must report self-inclusion rather than a cycle between two groups.
+    groups: GroupsTable = {group_name: [{"include-group": include_name}]}
+
+    with pytest.raises(
+        ExceptionGroup,
+        match=r"\[dependency-groups\] data for .* was malformed",
+    ) as excinfo:
+        resolve_dependency_groups(groups, group_name)
+
+    assert _group_contains(
+        excinfo,
+        CyclicDependencyGroup,
+        match=(
+            "Cyclic dependency group include while resolving "
+            f"{normalized}: {normalized} includes itself"
+        ),
+    )
+
+
 def test_cyclic_include_pickle_roundtrip() -> None:
     exc = CyclicDependencyGroup("group1", "group2", "group1")
     copy = pickle.loads(pickle.dumps(exc))
