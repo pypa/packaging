@@ -591,7 +591,8 @@ class Specifier(BaseSpecifier):
         >>> str(Specifier('>=1.0.0', prereleases=False))
         '>=1.0.0'
         """
-        return "{}{}".format(*self._spec)
+        operator, version = self._spec
+        return operator + version
 
     @property
     def _canonical_spec(self) -> tuple[str, str]:
@@ -615,7 +616,10 @@ class Specifier(BaseSpecifier):
         return result
 
     def __hash__(self) -> int:
-        return hash(self._canonical_spec)
+        # Read the cache directly to skip the property call on warm specifiers.
+        if (canonical := self._canonical_spec_cache) is None:
+            canonical = self._canonical_spec
+        return hash(canonical)
 
     def __eq__(self, other: object) -> bool:
         """Whether or not the two Specifier-like objects are equal.
@@ -644,7 +648,11 @@ class Specifier(BaseSpecifier):
         elif not isinstance(other, self.__class__):
             return NotImplemented
 
-        return self._canonical_spec == other._canonical_spec
+        if (canonical := self._canonical_spec_cache) is None:
+            canonical = self._canonical_spec
+        if (other_canonical := other._canonical_spec_cache) is None:
+            other_canonical = other._canonical_spec
+        return canonical == other_canonical
 
     def __contains__(self, item: str | Version) -> bool:
         """Return whether or not the item is contained in this specifier.
