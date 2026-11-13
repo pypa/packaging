@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 import pretend
 import pytest
 
-from packaging import _manylinux
+from packaging import _manylinux, _musllinux, tags
 from packaging._manylinux import (
     _get_glibc_version,
     _get_manylinux_module,
@@ -268,3 +268,14 @@ def test_have_compatible_abi_elf_fallback(
     monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: None)
     path = pathlib.Path(__file__).parent / "manylinux" / name
     assert _manylinux._have_compatible_abi(os.fsdecode(path), [arch]) is expected
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux" or _glibc_version_string() is None,
+    reason="requires a glibc-based Linux",
+)
+def test_sys_tags_glibc_host() -> None:
+    # No mocks: this checks the real interpreter, including its MULTIARCH.
+    assert not any(tag.platform.startswith("musllinux") for tag in tags.sys_tags())
+    if platform.python_implementation() == "CPython" and sys.version_info >= (3, 13):
+        assert _musllinux._is_glibc_build()

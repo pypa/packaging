@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import typing
@@ -7,7 +8,7 @@ import typing
 import pretend
 import pytest
 
-from packaging import _musllinux
+from packaging import _musllinux, tags
 from packaging._musllinux import _get_musl_version, _MuslVersion, _parse_musl_version
 
 if typing.TYPE_CHECKING:
@@ -135,3 +136,13 @@ def test_platform_tags_not_glibc_build(monkeypatch: pytest.MonkeyPatch) -> None:
         "musllinux_1_1_x86_64",
         "musllinux_1_0_x86_64",
     ]
+
+
+@pytest.mark.skipif(
+    not os.path.exists("/etc/alpine-release"), reason="requires Alpine Linux"
+)
+def test_sys_tags_musl_host() -> None:
+    # No mocks: this checks the real interpreter, including its MULTIARCH.
+    platforms = {tag.platform for tag in tags.sys_tags()}
+    assert any(p.startswith("musllinux_") for p in platforms)
+    assert not any(p.startswith("manylinux") for p in platforms)
