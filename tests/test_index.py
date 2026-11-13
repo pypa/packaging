@@ -971,3 +971,19 @@ class TestParseDetails(ParseBaseTests):
                 name=bad_value,  # type: ignore[arg-type]
                 request_url=bad_value,
             )
+
+
+class TestIsSupportedContentType:
+    @pytest.mark.parametrize(
+        ("content_type", "supported"),
+        [
+            ("application/vnd.pypi.simple.v1+json", True),
+            ("application/json", False),
+            ("text/html", True),
+            ("text/html;charset=utf-8", True),
+            ("text/HTML", True),
+            ("application/vnd.pypi.simple.v1+html", True),
+        ],
+    )
+    def test_supported(self, content_type: str, supported: str) -> None:
+        assert index.is_supported_content_type(content_type) == supported

@@ -34,6 +34,8 @@ High Level Interface
 
 .. autodata:: packaging.index.ACCEPT
 
+.. autofunction:: packaging.index.is_supported_content_type
+
 
 Low Level Interface
 '''''''''''''''''''

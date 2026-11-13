@@ -261,6 +261,12 @@ def _normalize_content_type(content_type: str) -> str:
     return message.get_content_type()
 
 
+def is_supported_content_type(content_type: str) -> bool:
+    """Check if the content type is valid for an index server response."""
+    cleaned = _normalize_content_type(content_type)
+    return cleaned == ACCEPT_JSON_V1 or cleaned in _ACCEPT_HTML_VALUES
+
+
 def parse_list(content_type: str, data: str) -> RawProjectList:
     """Parse the project list based on the specified content type.
 
