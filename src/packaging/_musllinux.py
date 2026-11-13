@@ -12,6 +12,7 @@ import functools
 import re
 import subprocess
 import sys
+import sysconfig
 from typing import TYPE_CHECKING, NamedTuple
 
 from ._elffile import ELFFile
@@ -58,6 +59,15 @@ def _get_musl_version(executable: str) -> _MuslVersion | None:
     return _parse_musl_version(proc.stderr)
 
 
+def _is_glibc_build() -> bool:
+    # Before Python 3.13, MULTIARCH can report "gnu" for a musl build, because
+    # configure took the libc from the triplet of the build machine.
+    if sys.version_info < (3, 13):
+        return False
+    multiarch = sysconfig.get_config_var("MULTIARCH")
+    return isinstance(multiarch, str) and "-linux-gnu" in multiarch
+
+
 def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     """Generate musllinux tags compatible to the current platform.
 
@@ -69,6 +79,8 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
 
     :returns: An iterator of compatible musllinux tags.
     """
+    if _is_glibc_build():
+        return
     sys_musl = _get_musl_version(sys.executable)
     if sys_musl is None:  # Python not dynamically linked against musl.
         return

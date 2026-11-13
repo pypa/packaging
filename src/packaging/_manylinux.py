@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"re", "warnings", f"{__spec__.parent}._elffile"}
+__lazy_modules__ = {"re", "sysconfig", "warnings", f"{__spec__.parent}._elffile"}
 
 import collections
 import contextlib
@@ -8,6 +8,7 @@ import functools
 import os
 import re
 import sys
+import sysconfig
 import warnings
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -66,10 +67,24 @@ def _is_linux_i686(executable: str) -> bool:
         )
 
 
+def _get_multiarch() -> str | None:
+    multiarch = sysconfig.get_config_var("MULTIARCH")
+    return multiarch if isinstance(multiarch, str) and multiarch else None
+
+
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
+    # MULTIARCH describes the interpreter itself, so it is also correct if
+    # the executable is missing or is not the interpreter. Parse the ELF
+    # header only if the interpreter does not set it.
     if "armv7l" in archs:
+        multiarch = _get_multiarch()
+        if multiarch is not None:
+            return multiarch == "arm-linux-gnueabihf"
         return _is_linux_armhf(executable)
     if "i686" in archs:
+        multiarch = _get_multiarch()
+        if multiarch is not None:
+            return multiarch == "i386-linux-gnu"
         return _is_linux_i686(executable)
     return any(arch in _ALLOWED_ARCHS for arch in archs)
 

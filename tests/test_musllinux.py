@@ -95,3 +95,43 @@ def test_get_musl_version(
     else:
         expected_calls = []
     assert run_recorder.calls == expected_calls
+
+
+@pytest.mark.parametrize(
+    ("version_info", "multiarch", "expected"),
+    [
+        ((3, 13), "x86_64-linux-gnu", True),
+        ((3, 13), "arm-linux-gnueabihf", True),
+        ((3, 13), "x86_64-linux-musl", False),
+        ((3, 13), "", False),
+        ((3, 13), None, False),
+        # MULTIARCH is not reliable for musl before Python 3.13.
+        ((3, 12), "x86_64-linux-gnu", False),
+    ],
+)
+def test_is_glibc_build(
+    monkeypatch: pytest.MonkeyPatch,
+    version_info: tuple[int, int],
+    multiarch: str | None,
+    expected: bool,
+) -> None:
+    monkeypatch.setattr(_musllinux.sys, "version_info", version_info)  # type: ignore[attr-defined]
+    monkeypatch.setattr(_musllinux.sysconfig, "get_config_var", lambda _: multiarch)  # type: ignore[attr-defined]
+    assert _musllinux._is_glibc_build() is expected
+
+
+def test_platform_tags_glibc_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorder = pretend.call_recorder(lambda _: _MuslVersion(1, 2))
+    monkeypatch.setattr(_musllinux, "_is_glibc_build", lambda: True)
+    monkeypatch.setattr(_musllinux, "_get_musl_version", recorder)
+    assert list(_musllinux.platform_tags(["x86_64"])) == []
+    assert recorder.calls == []
+
+
+def test_platform_tags_not_glibc_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_musllinux, "_is_glibc_build", lambda: False)
+    monkeypatch.setattr(_musllinux, "_get_musl_version", lambda _: _MuslVersion(1, 1))
+    assert list(_musllinux.platform_tags(["x86_64"])) == [
+        "musllinux_1_1_x86_64",
+        "musllinux_1_0_x86_64",
+    ]
