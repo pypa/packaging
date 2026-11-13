@@ -269,7 +269,7 @@ def _validate_epoch(value: object, /) -> int:
 
 def _validate_release(value: object, /) -> tuple[int, ...]:
     release = (0,) if value is None else value
-    # A loop is faster than all() with a generator.
+    # A loop is faster than iteration based alternatives.
     if isinstance(release, tuple) and release:
         for i in release:
             if not isinstance(i, int) or i < 0:
