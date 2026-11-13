@@ -720,21 +720,16 @@ class _Validator(Generic[T]):
         self,
         value: list[str],
     ) -> list[utils.NormalizedName]:
-        originals: dict[utils.NormalizedName, str] = {}
-        for name in value:
-            try:
-                normalized = utils.canonicalize_name(name, validate=True)
-            except utils.InvalidName as exc:
-                raise self._invalid_metadata(
-                    f"{name!r} is invalid for {self.raw_name!r}", cause=exc
-                ) from exc
-            if normalized in originals:
-                raise self._invalid_metadata(
-                    f"{originals[normalized]!r} and {name!r} both normalize to "
-                    f"{normalized!r} in {self.raw_name!r}"
-                )
-            originals[normalized] = name
-        return list(originals)
+        normalized_names = []
+        try:
+            for name in value:
+                normalized_names.append(utils.canonicalize_name(name, validate=True))
+        except utils.InvalidName as exc:
+            raise self._invalid_metadata(
+                f"{name!r} is invalid for {self.raw_name!r}", cause=exc
+            ) from exc
+        else:
+            return normalized_names
 
     def _process_requires_python(self, value: str) -> specifiers.SpecifierSet:
         try:
@@ -833,6 +828,10 @@ class Metadata:
     .. versionchanged:: 24.0
         Optional attributes now return None when the field is absent instead of
         raising.
+
+    .. versionchanged:: 26.4
+        Validation of metadata version 2.3 or later rejects ``Provides-Extra``
+        names with different spellings that normalize to the same name.
     """
 
     _raw: RawMetadata
@@ -851,9 +850,14 @@ class Metadata:
         if validate:
             collector = _ErrorCollector()
             metadata_version = None
+            unambiguous_extras = False
             with collector.collect(InvalidMetadata):
                 metadata_version = ins.metadata_version
                 metadata_age = _VALID_METADATA_VERSIONS.index(metadata_version)
+                # PEP 685 only requires unambiguous extra names from metadata 2.3.
+                unambiguous_extras = metadata_age >= _VALID_METADATA_VERSIONS.index(
+                    "2.3"
+                )
 
             # Make sure to check for the fields that are present, the required
             # fields (so their absence can be reported).
@@ -887,6 +891,27 @@ class Metadata:
                     getattr(ins, key)
                 except InvalidMetadata as exc:
                     collector.error(exc)
+
+            if unambiguous_extras:
+                spellings: dict[utils.NormalizedName, list[str]] = {}
+                for extra in data.get("provides_extra") or []:
+                    try:
+                        normalized = utils.canonicalize_name(extra, validate=True)
+                    except utils.InvalidName:
+                        # Invalid names are reported by the field validator.
+                        continue
+                    names = spellings.setdefault(normalized, [])
+                    if extra not in names:
+                        names.append(extra)
+                for normalized, names in spellings.items():
+                    if len(names) > 1:
+                        collector.error(
+                            InvalidMetadata(
+                                "provides-extra",
+                                f"{' and '.join(map(repr, names))} normalize to "
+                                f"the same extra name {normalized!r}",
+                            )
+                        )
 
             collector.finalize("invalid metadata")
 

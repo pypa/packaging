@@ -880,20 +880,54 @@ class TestMetadata:
             meta, "provides_extra", utils.InvalidName, field="provides-extra"
         )
 
+    @pytest.mark.parametrize("metadata_version", ["2.3", "2.4"])
     @pytest.mark.parametrize(
-        "extras",
+        ("extras", "message"),
         [
-            ["dev_test", "dev-test"],
-            ["DEV.test", "dev-test"],
-            ["dev-test", "dev-test"],
+            (
+                ["dev_test", "dev-test"],
+                "'dev_test' and 'dev-test' normalize to the same extra name 'dev-test'",
+            ),
+            (
+                ["DEV.test", "dev-test", "dev_test", "DEV.test"],
+                "'DEV.test' and 'dev-test' and 'dev_test' normalize to the same "
+                "extra name 'dev-test'",
+            ),
         ],
     )
-    def test_colliding_provides_extra(self, extras: list[str]) -> None:
-        meta = metadata.Metadata.from_raw({"provides_extra": extras}, validate=False)
+    def test_colliding_provides_extra(
+        self, metadata_version: str, extras: list[str], message: str
+    ) -> None:
+        raw: metadata.RawMetadata = {
+            "metadata_version": metadata_version,
+            "name": "example",
+            "version": "1.0",
+            "provides_extra": extras,
+        }
 
-        with pytest.raises(metadata.InvalidMetadata, match="dev-test") as exc_info:
-            meta.provides_extra  # noqa: B018
-        assert exc_info.value.field == "provides-extra"
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw)
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "provides-extra"
+        assert str(exc) == message
+
+    def test_colliding_provides_extra_reports_all(self) -> None:
+        raw: metadata.RawMetadata = {
+            "metadata_version": "2.3",
+            "name": "example",
+            "version": "1.0",
+            "provides_extra": ["a_b", "a-b", "c_d", "c-d", "-bad"],
+        }
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw)
+        messages = sorted(str(exc) for exc in exc_info.value.exceptions)
+        assert messages == [
+            "'-bad' is invalid for 'provides-extra'",
+            "'a_b' and 'a-b' normalize to the same extra name 'a-b'",
+            "'c_d' and 'c-d' normalize to the same extra name 'c-d'",
+        ]
 
     def test_colliding_provides_extra_from_email(self) -> None:
         data = (
@@ -906,6 +940,39 @@ class TestMetadata:
         (exc,) = exc_info.value.exceptions
         assert isinstance(exc, metadata.InvalidMetadata)
         assert exc.field == "provides-extra"
+
+    @pytest.mark.parametrize("metadata_version", ["2.1", "2.2"])
+    def test_colliding_provides_extra_old_metadata(self, metadata_version: str) -> None:
+        # PEP 685 only requires unambiguous extra names from metadata 2.3.
+        raw: metadata.RawMetadata = {
+            "metadata_version": metadata_version,
+            "name": "example",
+            "version": "1.0",
+            "provides_extra": ["dev_test", "dev-test"],
+        }
+
+        meta = metadata.Metadata.from_raw(raw)
+        assert meta.provides_extra == ["dev-test", "dev-test"]
+
+    def test_duplicate_provides_extra(self) -> None:
+        raw: metadata.RawMetadata = {
+            "metadata_version": "2.3",
+            "name": "example",
+            "version": "1.0",
+            "provides_extra": ["dev-test", "dev-test"],
+        }
+
+        meta = metadata.Metadata.from_raw(raw)
+        assert meta.provides_extra == ["dev-test", "dev-test"]
+
+    def test_colliding_provides_extra_not_validated(self) -> None:
+        raw: metadata.RawMetadata = {
+            "metadata_version": "2.3",
+            "provides_extra": ["B_x", "b-x", "a"],
+        }
+
+        meta = metadata.Metadata.from_raw(raw, validate=False)
+        assert meta.provides_extra == ["b-x", "b-x", "a"]
 
     def test_valid_requires_dist(self) -> None:
         requires = [
