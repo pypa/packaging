@@ -65,7 +65,9 @@ def test_pylock_version(version: str) -> None:
     Pylock.from_dict(data)
 
 
-@pytest.mark.parametrize("version", ["0.9", "2", "2.0", "2.1"])
+@pytest.mark.parametrize(
+    "version", ["0.9", "2", "2.0", "2.1", "2.0.dev0", "2.0a1", "2.0rc1"]
+)
 def test_pylock_unsupported_version(version: str) -> None:
     data = {
         "lock-version": version,
