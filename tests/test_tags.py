@@ -190,6 +190,30 @@ class TestParseTag:
         with pytest.raises(ValueError, match="not in sorted order"):
             tags.parse_tag("py3.py2-none-any", validate_order=True, limit=2)
 
+    @pytest.mark.parametrize("limit", [None, 0, 1, 2])
+    @pytest.mark.parametrize(
+        ("tag", "match"),
+        [
+            ("py3-none", "exactly three components"),
+            ("py3-none-any-extra", "exactly three components"),
+            ("py2.py3-none-any-extra", "exactly three components"),
+            ("3bad-none-any", "invalid interpreter"),
+            ("py2.3bad-none-any", "invalid interpreter"),
+        ],
+    )
+    def test_invalid_tag_raises_invalid_tag_regardless_of_limit(
+        self, tag: str, match: str, limit: int | None
+    ) -> None:
+        # A malformed tag is invalid no matter how many tags it would expand
+        # to: the limit bounds the expansion of a well-formed tag set.
+        with pytest.raises(tags.InvalidTag, match=match):
+            tags.parse_tag(tag, limit=limit)
+
+    @pytest.mark.parametrize("limit", [0, 1])
+    def test_limit_still_applies_to_well_formed_tags(self, limit: int) -> None:
+        with pytest.raises(tags.TooManyTagsError, match="exceeding limit"):
+            tags.parse_tag("py2.py3-none-any", limit=limit)
+
     def test_unsorted_interpreter_parses_by_default(self) -> None:
         # Unsorted tags should parse fine without validate_order
         result = tags.parse_tag("py3.py2-none-any")
