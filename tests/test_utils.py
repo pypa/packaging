@@ -1,23 +1,24 @@
 # This file is dual licensed under the terms of the Apache License, Version
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
-
 from __future__ import annotations
 
 import pytest
 
 from packaging.tags import Tag
 from packaging.utils import (
+    BuildTag,
     InvalidName,
     InvalidSdistFilename,
     InvalidWheelFilename,
     canonicalize_name,
     canonicalize_version,
     is_normalized_name,
+    make_wheel_filename,
     parse_sdist_filename,
     parse_wheel_filename,
 )
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 
 @pytest.mark.parametrize(
@@ -106,6 +107,88 @@ def test_canonicalize_version(version: str, expected: str) -> None:
 @pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
 def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
     assert canonicalize_version(version, strip_trailing_zero=False) == version
+
+
+@pytest.mark.parametrize(
+    ("expected_filename", "name", "version", "build", "tags"),
+    [
+        pytest.param(
+            "foo-1.0-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+            id="simple",
+        ),
+        pytest.param(
+            "some_pack_age-1.0-py3-none-any.whl",
+            "some-PACK.AGE",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+            id="normalizename",
+        ),
+        pytest.param(
+            "foo-1.0-1000-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+            id="numericbuildtag",
+        ),
+        pytest.param(
+            "foo-1.0-1000abc-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, "abc"),
+            {Tag("py3", "none", "any")},
+            id="complexbuildtag",
+        ),
+        pytest.param(
+            "foo-1.4.0.0.0-py3-none-any.whl",
+            "foo",
+            "1.4.0.0.0",
+            (),
+            {Tag("py3", "none", "any")},
+            id="stringkeepstrailingzeros",
+        ),
+        pytest.param(
+            "foo-1.0+local.1-py3-none-any.whl",
+            "foo",
+            "1.0+local-1",
+            (),
+            {Tag("py3", "none", "any")},
+            id="stringnormalizeslocal",
+        ),
+    ],
+)
+def test_make_wheel_filename(
+    expected_filename: str,
+    name: str,
+    version: str | Version,
+    build: BuildTag,
+    tags: set[Tag],
+) -> None:
+    assert (
+        make_wheel_filename(name, version, tags, build_tag=build) == expected_filename
+    )
+
+
+def test_make_wheel_filename_roundtrips() -> None:
+    filename = make_wheel_filename("foo", "1.0+local-1", {Tag("py3", "none", "any")})
+    parsed_name, parsed_version = parse_wheel_filename(filename)[:2]
+    assert parsed_name == "foo"
+    assert parsed_version == Version("1.0+local-1")
+
+
+def test_make_wheel_filename_invalid_version() -> None:
+    with pytest.raises(InvalidVersion):
+        make_wheel_filename("foo", "not a version", {Tag("py3", "none", "any")})
+
+
+def test_make_wheel_filename_no_tags() -> None:
+    with pytest.raises(ValueError, match="At least one tag is required"):
+        make_wheel_filename("foo", "1.0", [])
 
 
 @pytest.mark.parametrize(
