@@ -10,6 +10,7 @@ if [ $# -eq 0 ]; then
 	docker run --rm -v $(pwd):/home/hello-world s390x/debian /home/hello-world/manylinux/build.sh incontainer 64
 	docker run --rm -v $(pwd):/home/hello-world debian /home/hello-world/manylinux/build.sh incontainer 64
 	docker run --rm -v $(pwd):/home/hello-world debian /home/hello-world/manylinux/build.sh x32 52
+	docker run --rm -v $(pwd):/home/hello-world debian /home/hello-world/manylinux/build.sh loong64 64
 	cp -f manylinux/hello-world-x86_64-i386 manylinux/hello-world-invalid-magic
 	printf "\x00" | dd of=manylinux/hello-world-invalid-magic bs=1 seek=0x00 count=1 conv=notrunc
 	cp -f manylinux/hello-world-x86_64-i386 manylinux/hello-world-invalid-class
@@ -24,8 +25,14 @@ export DEBIAN_FRONTEND=noninteractive
 cd /home/hello-world/
 apt-get update
 apt-get install -y --no-install-recommends gcc libc6-dev
+CC=gcc
 if [ "$1" == "incontainer" ]; then
 	ARCH=$(dpkg --print-architecture)
+	CFLAGS=""
+elif [ "$1" == "loong64" ]; then
+	ARCH=loong64
+	apt-get install -y --no-install-recommends gcc-loongarch64-linux-gnu libc6-dev-loong64-cross
+	CC=loongarch64-linux-gnu-gcc
 	CFLAGS=""
 else
 	ARCH=$1
@@ -34,6 +41,9 @@ else
 	CFLAGS="-mx32"
 fi
 NAME=hello-world-$(uname -m)-${ARCH}
-gcc -Os -s ${CFLAGS} -o ${NAME}-full hello-world.c
+if [ "$ARCH" == "loong64" ]; then
+	NAME=manylinux/hello-world-loongarch64-loong64
+fi
+${CC} -Os -s ${CFLAGS} -o ${NAME}-full hello-world.c
 head -c $2 ${NAME}-full > ${NAME}
 rm -f ${NAME}-full

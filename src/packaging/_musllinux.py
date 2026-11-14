@@ -14,10 +14,47 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, NamedTuple
 
-from ._elffile import ELFFile
+from ._elffile import EIClass, EIData, ELFFile, EMachine
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+
+
+EF_LOONGARCH_ABI_MODIFIER_MASK = 0x07
+EF_LOONGARCH_ABI_DOUBLE_FLOAT = 0x03
+EF_LOONGARCH_OBJABI_MASK = 0xC0
+EF_LOONGARCH_OBJABI_V1 = 0x40
+
+AT_HWCAP = 16
+HWCAP_LOONGARCH_LSX = 1 << 4
+
+
+def _has_lsx() -> bool:
+    try:
+        import ctypes  # noqa: PLC0415
+
+        getauxval = ctypes.CDLL(None).getauxval
+    except (ImportError, OSError, AttributeError):
+        return False
+    getauxval.argtypes = [ctypes.c_ulong]
+    getauxval.restype = ctypes.c_ulong
+    return bool(getauxval(AT_HWCAP) & HWCAP_LOONGARCH_LSX)
+
+
+def _is_linux_loongarch64(executable: str) -> bool:
+    try:
+        with open(executable, "rb") as f:
+            elf = ELFFile(f)
+    except (OSError, TypeError, ValueError):
+        return False
+    return (
+        elf.capacity == EIClass.C64
+        and elf.encoding == EIData.Lsb
+        and elf.machine == EMachine.LoongArch
+        and elf.flags & EF_LOONGARCH_ABI_MODIFIER_MASK == EF_LOONGARCH_ABI_DOUBLE_FLOAT
+        and elf.flags & EF_LOONGARCH_OBJABI_MASK == EF_LOONGARCH_OBJABI_V1
+        and _has_lsx()
+    )
 
 
 class _MuslVersion(NamedTuple):
@@ -73,6 +110,8 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     if sys_musl is None:  # Python not dynamically linked against musl.
         return
     for arch in archs:
+        if arch == "loongarch64" and not _is_linux_loongarch64(sys.executable):
+            continue
         for minor in range(sys_musl.minor, -1, -1):
             yield f"musllinux_{sys_musl.major}_{minor}_{arch}"
 

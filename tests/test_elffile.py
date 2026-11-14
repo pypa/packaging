@@ -19,6 +19,7 @@ BIN_MUSL_X86_64 = DIR_MUSLLINUX.joinpath("musl-x86_64").read_bytes()
         ("x86_64-amd64", EIClass.C64, EIData.Lsb, EMachine.X8664),
         ("armv7l-armel", EIClass.C32, EIData.Lsb, EMachine.Arm),
         ("armv7l-armhf", EIClass.C32, EIData.Lsb, EMachine.Arm),
+        ("loongarch64-loong64", EIClass.C64, EIData.Lsb, EMachine.LoongArch),
         ("s390x-s390x", EIClass.C64, EIData.Msb, EMachine.S390),
     ],
 )

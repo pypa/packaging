@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import collections.abc
+import io
 import subprocess
 
 try:
@@ -814,6 +815,59 @@ class TestManylinuxPlatform:
         for arch in archs:
             expected.extend([f"manylinux_2_17_{arch}", f"manylinux2014_{arch}"])
         assert platforms == expected
+
+    @pytest.mark.parametrize("libc", ["glibc", "musl"])
+    @pytest.mark.parametrize("lsx", [True, False])
+    @pytest.mark.parametrize(
+        ("flags", "compatible"),
+        [(0x43, True), (0x03, False), (0x41, False), (0x42, False), (0x83, False)],
+    )
+    def test_linux_platforms_loongarch64_abi(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        libc: str,
+        lsx: bool,
+        flags: int,
+        compatible: bool,
+    ) -> None:
+        executable = (
+            pathlib.Path(__file__)
+            .with_name("manylinux")
+            .joinpath("hello-world-loongarch64-loong64")
+        )
+        data = bytearray(executable.read_bytes())
+        elf64_flags_offset = 48
+        struct.pack_into("<I", data, elf64_flags_offset, flags)
+        monkeypatch.setattr(sys, "executable", str(executable))
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_loongarch64")
+        for module in (
+            tags._manylinux,  # type: ignore[attr-defined]
+            tags._musllinux,  # type: ignore[attr-defined]
+        ):
+            monkeypatch.setattr(
+                module, "open", lambda *_: io.BytesIO(data), raising=False
+            )
+            monkeypatch.setattr(module, "_has_lsx", lambda: lsx)
+        monkeypatch.setattr(tags._manylinux, "_get_glibc_version", lambda: (2, 38))  # type: ignore[attr-defined]
+        monkeypatch.setattr(
+            tags._manylinux,  # type: ignore[attr-defined]
+            "_is_compatible",
+            lambda _, version: libc == "glibc" and version == _GLibCVersion(2, 38),
+        )
+        monkeypatch.setattr(
+            tags._musllinux,  # type: ignore[attr-defined]
+            "_get_musl_version",
+            lambda _: _MuslVersion(1, 2) if libc == "musl" else None,
+        )
+        expected = ["linux_loongarch64"]
+        if compatible and lsx:
+            if libc == "glibc":
+                expected.append("manylinux_2_38_loongarch64")
+            else:
+                expected.extend(
+                    f"musllinux_1_{minor}_loongarch64" for minor in range(2, -1, -1)
+                )
+        assert list(tags._linux_platforms(is_32bit=False)) == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(
         self, monkeypatch: pytest.MonkeyPatch

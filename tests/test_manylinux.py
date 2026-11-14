@@ -210,3 +210,16 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     # None is not supported in the type annotation, but it was tested before.
     with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
         assert ef is None
+
+
+@pytest.mark.parametrize("hwcap", [0, 1 << 3, 1 << 4, (1 << 4) | (1 << 5)])
+def test_has_lsx(hwcap: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    getauxval = pretend.call_recorder(lambda _: hwcap)
+    ctypes = pretend.stub(
+        CDLL=lambda _: pretend.stub(getauxval=getauxval), c_ulong=object()
+    )
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes)
+    assert _manylinux._has_lsx() is bool(hwcap & (1 << 4))
+    assert getauxval.calls == [pretend.call(16)]
+    assert getauxval.argtypes == [ctypes.c_ulong]
+    assert getauxval.restype is ctypes.c_ulong
