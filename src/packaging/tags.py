@@ -261,7 +261,8 @@ def parse_tag(
     to be in sorted order as required by PEP 425.
 
     If **limit** is not ``None``, the compressed tag set can generate at most
-    that many tags.
+    that many tags. The tag is validated before **limit** is applied, so a
+    malformed tag raises :class:`InvalidTag` regardless of **limit**.
 
     :param str tag: The tag to parse, e.g. ``"py3-none-any"``.
     :param bool validate_order: Check whether compressed tag set components
@@ -301,6 +302,17 @@ def parse_tag(
                 f"Tag component {component!r} is not in sorted order per PEP 425"
             )
 
+    # Validate the tag's shape before applying the limit. A malformed tag is
+    # invalid no matter how many tags it would expand to, and the limit only
+    # bounds the expansion of a well-formed compressed tag set.
+    try:
+        interpreters, abis, platforms = component_parts
+    except ValueError as exc:
+        raise InvalidTag(f"Tag {tag!r} must have exactly three components") from exc
+    for interpreter in interpreters:
+        if not interpreter.isidentifier():
+            raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
+
     tag_count = 1
     for parts in component_parts:
         tag_count *= len(parts)
@@ -311,13 +323,6 @@ def parse_tag(
             f"limit {limit}"
         )
 
-    try:
-        interpreters, abis, platforms = component_parts
-    except ValueError as exc:
-        raise InvalidTag(f"Tag {tag!r} must have exactly three components") from exc
-    for interpreter in interpreters:
-        if not interpreter.isidentifier():
-            raise InvalidTag(f"Tag {tag!r} has an invalid interpreter: {interpreter!r}")
     return frozenset(
         Tag(interpreter, abi, platform_)
         for interpreter in interpreters
