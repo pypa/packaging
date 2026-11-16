@@ -32,6 +32,15 @@ Features:
   :class:`~packaging.requirements.InvalidRequirement` and
   :class:`~packaging.markers.InvalidMarker` for syntax errors. (:pull:`1547`)
 
+Behavior adaptations:
+
+* ``str()`` of markers joined with ``&`` or ``|`` has fewer parentheses when
+  unambiguous. Evaluation and parsed markers do not change. (:pull:`1510`)
+* The ``pylock`` and ``direct_url`` dataclasses use ``__slots__``.  Pickles
+  from 26.3 still load. (:pull:`1366`, :pull:`1548`)
+* ``Version.__replace__()`` raises ``TypeError`` for unknown keyword arguments
+  instead of ignoring them. (:pull:`1378`)
+
 Fixes for versions and specifiers:
 
 * Parse plain strings in the iterable form of ``SpecifierSet``, and raise
@@ -48,7 +57,8 @@ Fixes for versions and specifiers:
 
 Fixes for requirements and markers:
 
-* Reject whitespace in the URL of a requirement. (:pull:`1379`)
+* Reject all whitespace in the URL of a requirement, including Unicode
+  whitespace such as a no-break space. (:pull:`1379`)
 * Parse ``===`` followed by a comma and a spaced specifier in a requirement.
   (:pull:`1531`)
 * Keep the ``prereleases`` override of each specifier when a ``Requirement``
@@ -66,8 +76,8 @@ Fixes for metadata and licenses:
   (:pull:`1454`)
 * Reject Windows drive-relative ``License-File`` paths like ``C:LICENSE``.
   (:pull:`1382`)
-* Use one spelling for case variants of a ``LicenseRef-`` identifier in
-  ``canonicalize_license_expression()``. (:pull:`1412`)
+* Use one spelling, the first one, for case variants of a ``LicenseRef-``
+  identifier in ``canonicalize_license_expression()``. (:pull:`1412`)
 * Reject non-ASCII ``LicenseRef-`` identifiers before normalization.
   (:pull:`1481`)
 
@@ -121,18 +131,29 @@ Documentation:
   (:pull:`1393`), and for ``packaging.tags.INTERPRETER_SHORT_NAMES``.
   (:pull:`1491`)
 * Fix duplicated words in comments and docstrings. (:pull:`1516`)
+* Update the contribution guide for batched changelog edits and remove
+  PyPy 3.9 from the nox example. (:pull:`1383`, :pull:`1456`)
 
-Internal:
+Benchmarks:
 
-* Use ``slots=True`` in dataclasses and other modernizations for Python 3.10.
-  (:pull:`1347`, :pull:`1365`, :pull:`1366`, :pull:`1367`, :pull:`1368`,
-  :pull:`1369`)
-* Speed up the test suite. (:pull:`1385`, :pull:`1386`, :pull:`1387`,
-  :pull:`1388`, :pull:`1389`, :pull:`1390`, :pull:`1391`)
-* Support parallel nox sessions. (:pull:`1381`)
 * Add Python 3.15 to the benchmarks. (:pull:`1380`)
 * Add ``VersionRange`` and PubGrub resolver benchmarks. (:pull:`1541`,
   :pull:`1543`)
+* Report benchmark changes in a summary table and as PR comments.
+  (:pull:`1526`, :pull:`1528`)
+* Make the cold benchmarks independent of internal caches, and do not filter
+  compatible release examples in tests. (:pull:`1407`, :pull:`1508`)
+
+Internal:
+
+* Modernize the code for Python 3.10. (:pull:`1347`, :pull:`1365`,
+  :pull:`1367`, :pull:`1368`, :pull:`1369`)
+* Give an unbounded end of a range one spelling, so that it compares and
+  hashes the same. (:pull:`1392`)
+* Remove unused constants in ``metadata``. (:pull:`1488`)
+* Speed up the test suite. (:pull:`1385`, :pull:`1386`, :pull:`1387`,
+  :pull:`1388`, :pull:`1389`, :pull:`1390`, :pull:`1391`)
+* Support parallel nox sessions. (:pull:`1381`)
 * Simplify the cached spec ``Version`` in ``Specifier``. (:pull:`1539`)
 * Update the downstream test projects. (:pull:`1400`, :pull:`1479`,
   :pull:`1490`, :pull:`1493`)
@@ -140,8 +161,12 @@ Internal:
   :pull:`1517`)
 * Skip GC freezing for property tests, and cover overlapping pre-release
   literals in ranges. (:pull:`1514`, :pull:`1515`)
-* Report benchmark changes in a summary table and as PR comments.
-  (:pull:`1526`, :pull:`1528`)
+* Update CI: test feature branches, always run lint, check all test jobs,
+  set up in parallel, and pin the oldest Python jobs to Ubuntu 24.04.
+  (:pull:`1355`, :pull:`1414`, :pull:`1423`, :pull:`1441`, :pull:`1442`,
+  :pull:`1443`, :pull:`1463`)
+* Update GitHub Actions and pre-commit hooks. (:pull:`1401`, :pull:`1402`,
+  :pull:`1432`, :pull:`1433`, :pull:`1483`, :pull:`1484`)
 
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
