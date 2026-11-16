@@ -8,6 +8,8 @@ import urllib.parse
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
+from ._structures import dict_state_pickle_compat
+
 if TYPE_CHECKING:  # pragma: no cover
     import sys
     from collections.abc import Collection
@@ -154,6 +156,7 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
         super().__init__("Missing required value", context=key)
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class VcsInfo:
     """The version control information of a :class:`DirectUrl`."""
@@ -172,6 +175,7 @@ class VcsInfo:
         )
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class ArchiveInfo:
     """The archive information of a :class:`DirectUrl`."""
@@ -213,6 +217,7 @@ class ArchiveInfo:
         return cls(hashes=hashes)
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class DirInfo:
     """The local directory information of a :class:`DirectUrl`."""
@@ -226,6 +231,7 @@ class DirInfo:
         )
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class DirectUrl:
     """A class representing a direct URL.
