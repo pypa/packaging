@@ -69,6 +69,10 @@ exclude = [
   "build/__pycache__",
 ]
 
+[tool.typos.default]
+# Pickle bytes in the tests.
+extend-ignore-re = ['(?m)^\s+b["\x27].*\\x[0-9a-f]{2}.*["\x27]$']
+
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
 ANDed = "ANDed"
