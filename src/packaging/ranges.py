@@ -19,7 +19,7 @@ exists.
 
 from __future__ import annotations
 
-__lazy_modules__ = {"bisect", f"{__spec__.parent}._ranges"}
+__lazy_modules__ = {"bisect", "copyreg", f"{__spec__.parent}._ranges"}
 
 import bisect
 import copyreg
@@ -28,6 +28,7 @@ import typing
 from typing import (
     TYPE_CHECKING,
     Any,
+    SupportsIndex,
     TypeVar,
 )
 
@@ -1174,8 +1175,21 @@ class VersionRange:
             "VersionRange.from_bounds() instead"
         )
 
-    def __reduce__(self) -> tuple[Any, ...]:
-        # Store only public value types, so pickles do not depend on internals.
+    def __reduce_ex__(self, protocol: SupportsIndex) -> str | tuple[Any, ...]:
+        extra: tuple[object, ...] = ()
+        if type(self) is not VersionRange:
+            reduction = super().__reduce_ex__(protocol)
+            # Only replace the default allocator, which typeshed does not expose.
+            if not (
+                type(self).__new__ is VersionRange.__new__
+                and isinstance(reduction, tuple)
+                and reduction[0] is copyreg.__newobj__  # type: ignore[attr-defined]
+                and reduction[1] == (type(self),)
+            ):
+                return reduction
+            extra = reduction[2:]
+
+        # Encode the base range using strings and builtin values.
         state = (
             _intervals_state(self._bounds),
             _intervals_state(self._pre_region),
@@ -1184,22 +1198,7 @@ class VersionRange:
             self._admit_arbitrary,
             self._prereleases_configured,
         )
-        # Preserve custom state hooks, or collect only the subclass state.
-        getstate = getattr(type(self), "__getstate__", None)
-        if getstate is not None and getstate is not getattr(
-            object, "__getstate__", None
-        ):
-            extra = getstate(self)
-        else:
-            extra = getattr(self, "__dict__", None) or None
-            slots = {
-                name: getattr(self, name)
-                for name in copyreg._slotnames(type(self))  # type: ignore[attr-defined]
-                if name not in VersionRange.__slots__ and hasattr(self, name)
-            }
-            if slots:
-                extra = (extra, slots)
-        return (_restore_version_range, (type(self), state), extra)
+        return (_restore_version_range, (type(self), state), *extra)
 
     @classmethod
     def _build(
