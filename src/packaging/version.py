@@ -222,24 +222,27 @@ _VERSION_PATTERN = r"""
 """
 
 
-def _adapt_possessive(pattern: str) -> str:
+# Each interpreter takes only one path, so coverage cannot be complete.
+def _adapt_possessive(pattern: str) -> str:  # pragma: no cover
     """Remove the possessive quantifiers that this interpreter does not support."""
-    # The "++" quantifier is broken before PyPy 7.3.22 (pypy/pypy#5504).
-    no_plus = pattern.replace("++", "+")
+    cpython = sys.implementation.name == "cpython"
+    pypy = sys.implementation.name == "pypy"
 
     # Possessive qualifiers were added in Python 3.11.
     # CPython 3.11.0-3.11.4 had a bug: https://github.com/python/cpython/pull/107795
     # Older PyPy also had a bug.
-    return (
-        no_plus.replace("*+", "*").replace("?+", "?")
-        if (sys.implementation.name == "cpython" and sys.version_info < (3, 11, 5))
-        or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
-        or sys.version_info < (3, 11)
-        else pattern
-        if sys.implementation.name == "cpython"
-        or getattr(sys, "pypy_version_info", (0,)) >= (7, 3, 22)
-        else no_plus
-    )
+    if (
+        sys.version_info < (3, 11)
+        or (cpython and sys.version_info < (3, 11, 5))
+        or (pypy and sys.version_info < (3, 11, 13))
+    ):
+        return pattern.replace("++", "+").replace("*+", "*").replace("?+", "?")
+
+    # The "++" quantifier is broken before PyPy 7.3.22 (pypy/pypy#5504).
+    if not cpython and getattr(sys, "pypy_version_info", (0,)) < (7, 3, 22):
+        return pattern.replace("++", "+")
+
+    return pattern
 
 
 VERSION_PATTERN = _adapt_possessive(_VERSION_PATTERN)
