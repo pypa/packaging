@@ -3,6 +3,15 @@
 # for complete details.
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "copy",
+    f"{__spec__.parent}._parser",
+    f"{__spec__.parent}._tokenizer",
+    f"{__spec__.parent}.markers",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.utils",
+}
+
 import builtins
 import copy
 import sys
@@ -85,6 +94,10 @@ class Requirement:
 
         Added ``__replace__``, enabling :func:`copy.replace` on Python 3.13+.
 
+        Pickling and copying preserve a
+        :attr:`~packaging.specifiers.Specifier.prereleases` override on each
+        specifier in :attr:`specifier`.
+
     :param str requirement_string: The string representation of a requirement.
     :raises InvalidRequirement: If the given ``requirement_string`` is not
         parseable, then this exception will be raised.
@@ -110,7 +123,11 @@ class Requirement:
         self.extras: set[str] = set(parsed.extras)
         """A set of extras that the requirement specifies."""
         try:
-            self.specifier: SpecifierSet = SpecifierSet(parsed.specifier)
+            self.specifier: SpecifierSet = (
+                SpecifierSet(parsed.specifier)
+                if isinstance(parsed.specifier, str)
+                else parsed.specifier
+            )
             """A :class:`~.SpecifierSet` of the version specified by the requirement."""
         except InvalidSpecifier as e:
             raise InvalidRequirement(str(e)) from e
@@ -178,26 +195,36 @@ class Requirement:
         if self.marker:
             yield f"; {self.marker}"
 
-    def __getstate__(self) -> tuple[str, bool | None]:
-        # Return the requirement string for compactness and stability, paired
-        # with the specifier's explicit prereleases override, which is not
-        # captured by the string form. Re-parsed on load to reconstruct all
-        # other fields.
-        return (str(self), self.specifier._prereleases)
+    def __getstate__(self) -> tuple[str, bool | None, tuple[bool | None, ...]]:
+        # Only primitives, for stability: the requirement string, then the
+        # prereleases overrides that the string cannot hold, for the
+        # SpecifierSet and for each specifier in canonical order. Re-parsed
+        # on load to reconstruct all other fields.
+        specs = self.specifier._canonical_specs()
+        return (
+            str(self),
+            self.specifier._prereleases,
+            tuple(s._prereleases for s in specs),
+        )
 
     def __setstate__(self, state: object) -> None:
+        inner: object = None
+        prereleases: bool | None = None
         if isinstance(state, str):
             # Format (26.2): just the requirement string.
             requirement_string: str = state
-            prereleases: bool | None = None
         elif (
             isinstance(state, tuple)
-            and len(state) == 2
+            and len(state) in {2, 3}
             and isinstance(state[0], str)
             and (state[1] is None or isinstance(state[1], bool))
         ):
-            # New format (26.3+): (requirement string, specifier prereleases).
-            requirement_string, prereleases = state
+            # Format (26.3): (requirement string, specifier prereleases).
+            # Format (26.4+): the same, then a tuple with the prereleases of
+            # each specifier in canonical order.
+            requirement_string, prereleases = state[:2]
+            if len(state) == 3:
+                inner = state[2]
         elif isinstance(state, dict) and state.keys() >= set(self.__slots__):
             # Old format (packaging <= 26.1, no __slots__): plain __dict__.
             for key in self.__slots__:
@@ -210,11 +237,21 @@ class Requirement:
             tmp = Requirement(requirement_string)
         except InvalidRequirement as exc:
             raise TypeError(f"Cannot restore Requirement from {state!r}") from exc
+        if inner is not None:
+            specs = tmp.specifier._canonical_specs()
+            if (
+                not isinstance(inner, tuple)
+                or len(inner) != len(specs)
+                or not all(p is None or isinstance(p, bool) for p in inner)
+            ):
+                raise TypeError(f"Cannot restore Requirement from {state!r}")
+            for spec, spec_prereleases in zip(specs, inner, strict=True):
+                spec._prereleases = spec_prereleases
+        tmp.specifier._prereleases = prereleases
         self.name = tmp.name
         self.url = tmp.url
         self.extras = tmp.extras
         self.specifier = tmp.specifier
-        self.specifier._prereleases = prereleases
         self.marker = tmp.marker
 
     def __str__(self) -> str:

@@ -1,3 +1,6 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
 from __future__ import annotations
 
 import pickle
@@ -318,6 +321,40 @@ def test_cyclic_include_self() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("group_name", "include_name", "normalized"),
+    [
+        ("group1", "group1", "group1"),
+        ("group1", "Group1", "group1"),
+        ("group1", "GROUP1", "group1"),
+        ("a.b", "A_B", "a-b"),
+        ("a_b", "A.B", "a-b"),
+    ],
+)
+def test_cyclic_include_self_with_unnormalized_spelling(
+    group_name: str, include_name: str, normalized: str
+) -> None:
+    # A self-include is a self-include regardless of how it is spelled: the
+    # include name is normalized before the cycle check, so the diagnostic
+    # must report self-inclusion rather than a cycle between two groups.
+    groups: GroupsTable = {group_name: [{"include-group": include_name}]}
+
+    with pytest.raises(
+        ExceptionGroup,
+        match=r"\[dependency-groups\] data for .* was malformed",
+    ) as excinfo:
+        resolve_dependency_groups(groups, group_name)
+
+    assert _group_contains(
+        excinfo,
+        CyclicDependencyGroup,
+        match=(
+            "Cyclic dependency group include while resolving "
+            f"{normalized}: {normalized} includes itself"
+        ),
+    )
+
+
 def test_cyclic_include_pickle_roundtrip() -> None:
     exc = CyclicDependencyGroup("group1", "group2", "group1")
     copy = pickle.loads(pickle.dumps(exc))
@@ -569,6 +606,35 @@ def test_error_in_later_sibling_include_is_collected() -> None:
     assert len(messages) == 2
     assert "!!! bad invalid" in messages[0]
     assert "!!! also invalid" in messages[1]
+
+
+def test_malformed_group_does_not_hide_included_group_errors() -> None:
+    groups: GroupsTable = {
+        "root": [
+            "invalid parent requirement",
+            {"include-group": "child"},
+            {"include-group": "child"},
+            {"include-group": "missing"},
+        ],
+        "child": ["invalid child requirement"],
+    }
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    assert len(excinfo.value.exceptions) == 3
+    assert _group_contains(excinfo, InvalidRequirement, match="invalid parent")
+    assert _group_contains(excinfo, InvalidRequirement, match="invalid child")
+    assert _group_contains(excinfo, LookupError, match="'missing' not found")
+
+
+def test_malformed_group_does_not_hide_include_cycle() -> None:
+    groups: GroupsTable = {"root": [{}, {"include-group": "root"}]}
+    with pytest.raises(ExceptionGroup) as excinfo:
+        resolve_dependency_groups(groups, "root")
+
+    assert len(excinfo.value.exceptions) == 2
+    assert _group_contains(excinfo, InvalidDependencyGroupObject)
+    assert _group_contains(excinfo, CyclicDependencyGroup, match="root includes itself")
 
 
 def test_cycle_error_uses_path_of_current_resolve_call() -> None:

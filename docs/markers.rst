@@ -67,6 +67,81 @@ when building markers dynamically from separate conditions.
 
 .. versionadded:: 26.1
 
+Evaluating many markers against one environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:func:`prepare_environment` applies the same defaults, context and overrides
+as :meth:`Marker.evaluate`. Use it once when evaluating many markers against
+one environment:
+
+.. doctest::
+
+    >>> from packaging.markers import Marker, prepare_environment
+    >>> environment = prepare_environment({"os_name": "posix"})
+    >>> markers = [Marker("os_name == 'posix'"), Marker("os_name == 'nt'")]
+    >>> [marker.evaluate_prepared(environment) for marker in markers]
+    [True, False]
+
+The returned dict is mutable. If changing ``extra`` between evaluations,
+normalize its value with :func:`packaging.utils.canonicalize_name` first:
+
+.. doctest::
+
+    >>> from packaging.utils import canonicalize_name
+    >>> marker = Marker('extra == "fancy-feature"')
+    >>> environment["extra"] = canonicalize_name("Fancy.Feature")
+    >>> marker.evaluate_prepared(environment)
+    True
+
+:meth:`Marker.evaluate_prepared` also accepts a caller-built mapping. It does
+not fill missing keys from the host, add context defaults, normalize ``extra``
+or repair ``python_full_version``. :func:`default_environment` alone does not
+perform these preparation steps; use :func:`prepare_environment` to prepare
+the detected environment. A referenced key missing from the mapping raises
+:class:`UndefinedEnvironmentName`:
+
+.. doctest::
+
+    >>> Marker("sys_platform == 'linux'").evaluate_prepared({"sys_platform": "linux"})
+    True
+
+Overrides in :func:`prepare_environment` are independent. When targeting another
+interpreter, supply both ``python_version`` and ``python_full_version``.
+
+.. versionadded:: 26.4
+
+Evaluating ``extra`` markers against a set of extras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Installers usually select several extras at once. Passing a set of extra names
+as the ``extra`` environment value evaluates the marker against the whole set.
+Logical operators work as you'd expect. The :ref:`dependency specifier
+specification <pypug:dependency-specifiers>` says ``extra != "name"`` should
+not be used in published metadata but allows arbitrary handling; this is
+handled logically if encountered.  Any operator other than ``==`` and ``!=`` on
+``extra`` raises :exc:`UndefinedComparison` in this mode.
+
+.. doctest::
+
+    >>> from packaging.markers import Marker
+    >>> marker = Marker('extra == "gpu"')
+    >>> marker.evaluate(environment={"extra": {"gpu", "docs"}})
+    True
+    >>> # Both extras must be selected
+    >>> both = Marker('extra == "gpu" and extra == "docs"')
+    >>> both.evaluate(environment={"extra": {"gpu", "docs"}})
+    True
+    >>> both.evaluate(environment={"extra": {"gpu"}})
+    False
+    >>> # An empty set behaves like no selected extra
+    >>> marker.evaluate(environment={"extra": set()})
+    False
+
+:func:`prepare_environment` accepts a set of extras too. A set given directly
+to :meth:`Marker.evaluate_prepared` must hold normalized names.
+
+.. versionadded:: 26.4
+
 
 Reference
 ---------

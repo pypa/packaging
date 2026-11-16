@@ -14,7 +14,7 @@ import typing
 
 import pytest
 
-from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet, _fast_match
 from packaging.version import InvalidVersion, Version, parse
 
 from .test_version import VERSIONS
@@ -1196,7 +1196,7 @@ class TestSpecifierInternal:
         assert spec._spec_version is None
 
         _ = test_versions[0] in spec
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
         initial_cache = spec._spec_version
 
         for v in test_versions[1:]:
@@ -1239,7 +1239,13 @@ class TestSpecifierInternal:
         # ``==1.0.*`` parses ``1.0`` for the range bounds; that
         # parsed base lands in the cache.
         assert spec._spec_version is not None
-        assert spec._spec_version[0] == "1.0"
+        assert spec._spec_version == Version("1.0")
+
+    def test_arbitrary_wildcard_is_not_stripped(self) -> None:
+        # ``===`` matches the literal string, so ``1.*`` is not a valid version.
+        spec = Specifier("===1.*")
+        assert spec.prereleases is None
+        assert spec._spec_version is None
 
     @pytest.mark.parametrize(
         "specifier",
@@ -1256,7 +1262,7 @@ class TestSpecifierInternal:
         _ = spec.prereleases
         _ = hash(spec)
 
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
 
     @pytest.mark.parametrize(
         ("specifier", "versions"),
@@ -1293,7 +1299,7 @@ class TestSpecifierInternal:
         assert spec._spec_version is None
 
         assert versions[0] in spec
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
         initial_cache = spec._spec_version
 
         for v in versions[1:]:
@@ -1365,6 +1371,31 @@ class TestSpecifierInternal:
         assert spec == Specifier(">=9.9")
 
 
+class TestFastMatch:
+    """Tests for ``_fast_match``, the range-free path of ``SpecifierSet.contains``."""
+
+    @pytest.mark.parametrize("spec", ["===1.0", "~=1.0", "==1.*", "!=1.*"])
+    def test_defers_to_range_path(self, spec: str) -> None:
+        assert _fast_match(Specifier(spec), Version("1.0")) is None
+
+    def test_defers_for_local(self) -> None:
+        assert _fast_match(Specifier(">=1.0"), Version("1.0+local")) is None
+
+    @pytest.mark.parametrize(
+        "version",
+        ["1.0", "1.0.0", "1!1.0rc1.post2.dev3", "0.0", "2.0.1.0a1"],
+    )
+    def test_key_starts_with_epoch_and_trimmed_release(self, version: str) -> None:
+        # _fast_match compares the first two key items as (epoch, trimmed release).
+        v = Version(version)
+        release = v.release
+        while len(release) > 1 and release[-1] == 0:
+            release = release[:-1]
+        if release == (0,):
+            release = ()
+        assert v._key[:2] == (v.epoch, release)
+
+
 class TestSpecifierSet:
     def test_replace_specifiers_and_prereleases(self) -> None:
         original = SpecifierSet(">=1.0a1,<2.0", prereleases=False)
@@ -1397,6 +1428,34 @@ class TestSpecifierSet:
 
         original = CustomSpecifierSet(">=1.0")
         assert isinstance(original.__replace__(specifiers="<2.0"), CustomSpecifierSet)
+
+    @pytest.mark.parametrize(
+        "spec_str",
+        [">=1.0", "===foobar", "!=1.0.*", "~=1.4.5"],
+    )
+    def test_iterable_accepts_plain_strings(self, spec_str: str) -> None:
+        """str elements are parsed, yielding the same set as the string form."""
+        from_strings = SpecifierSet([spec_str])
+        from_specs = SpecifierSet([Specifier(spec_str)])
+        expected = SpecifierSet(spec_str)
+
+        assert from_strings == from_specs
+        assert from_strings == expected
+        assert hash(from_strings) == hash(expected)
+        assert str(from_strings) == str(expected)
+
+    def test_iterable_plain_strings_are_usable(self) -> None:
+        assert SpecifierSet([">=1.0"]).contains("1.5")
+
+    # Each str element is one specifier: no comma splitting across elements.
+    @pytest.mark.parametrize("spec_str", [">=1.0,<2.0", "not a spec"])
+    def test_iterable_invalid_string_element(self, spec_str: str) -> None:
+        with pytest.raises(InvalidSpecifier):
+            SpecifierSet([spec_str])
+
+    def test_iterable_rejects_non_specifier_elements(self) -> None:
+        with pytest.raises(TypeError):
+            SpecifierSet([42])  # type: ignore[list-item]
 
     def test_copy_replace(self) -> None:
         if sys.version_info < (3, 13):

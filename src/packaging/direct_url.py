@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"collections.abc", "urllib.parse"}
+
 import dataclasses
 import re
 import urllib.parse
@@ -115,7 +117,7 @@ def _file_url_has_absolute_path(parsed_url: SplitResult) -> bool:
 
 
 class DirectUrlValidationError(Exception):
-    """Raised when when input data is not spec-compliant.
+    """Raised when input data is not spec-compliant.
 
     .. versionadded:: 26.1
     """

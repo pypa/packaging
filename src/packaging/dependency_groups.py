@@ -1,4 +1,13 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
 from __future__ import annotations
+
+__lazy_modules__ = {
+    "collections.abc",
+    f"{__spec__.parent}.errors",
+    f"{__spec__.parent}.requirements",
+}
 
 import re
 from collections.abc import Mapping, Sequence
@@ -184,9 +193,7 @@ class DependencyGroupResolver:
                 include_group = _normalize_name(item.include_group)
                 if include_group in stack:
                     errors.error(
-                        CyclicDependencyGroup(
-                            requested_group, group, item.include_group
-                        )
+                        CyclicDependencyGroup(requested_group, group, include_group)
                     )
                 elif include_group not in visited:
                     self._validate(
@@ -267,13 +274,12 @@ class DependencyGroupResolver:
             else:
                 errors.error(TypeError(f"Invalid dependency group item: {item!r}"))
 
-        # If errors were detected while parsing this group, present the
-        # group as empty and do not cache the result.
-        if len(errors.errors) > error_count_before_parse:
-            return ()
-
-        self._parsed_groups[group] = tuple(elements)
-        return self._parsed_groups[group]
+        # Return valid includes for validation even if other items failed.
+        # Cache only complete, successful parses.
+        parsed = tuple(elements)
+        if len(errors.errors) == error_count_before_parse:
+            self._parsed_groups[group] = parsed
+        return parsed
 
 
 # --------------------
