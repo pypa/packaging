@@ -100,10 +100,7 @@ def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
     if parsed._local is not None or op_str in {"~=", "==="} or ver_str.endswith(".*"):
         return None
 
-    cached = specifier._spec_version
-    spec_v = (
-        cached[1] if cached is not None else specifier._require_spec_version(ver_str)
-    )
+    spec_v = specifier._spec_version or specifier._require_spec_version()
 
     key = parsed._key_cache or parsed._key
     spec_key = spec_v._key_cache or spec_v._key
@@ -401,7 +398,7 @@ class Specifier(BaseSpecifier):
         self._prereleases = prereleases
 
         # Specifier version cache
-        self._spec_version: tuple[str, Version] | None = None
+        self._spec_version: Version | None = None
 
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[Interval] | None = None
@@ -446,25 +443,27 @@ class Specifier(BaseSpecifier):
             f"{new_operator}{new_version}", prereleases=new_prereleases
         )
 
-    def _get_spec_version(self, version: str) -> Version | None:
-        """One element cache, as only one spec Version is needed per Specifier."""
-        if self._spec_version is not None and self._spec_version[0] == version:
-            return self._spec_version[1]
+    def _get_spec_version(self) -> Version | None:
+        """Parse and cache the spec version, without any ``.*`` suffix.
 
-        version_specifier = coerce_version(version)
-        if version_specifier is None:
-            return None
+        Returns ``None`` if it is not a valid version (only for ``===``).
+        """
+        if (cached := self._spec_version) is not None:
+            return cached
 
-        self._spec_version = (version, version_specifier)
-        return version_specifier
+        operator, version = self._spec
+        if operator != "===":
+            version = version.removesuffix(".*")
+        self._spec_version = coerce_version(version)
+        return self._spec_version
 
-    def _require_spec_version(self, version: str) -> Version:
+    def _require_spec_version(self) -> Version:
         """Get spec version, asserting it's valid (not for === operator).
 
         This method should only be called for operators where version
         strings are guaranteed to be valid PEP 440 versions (not ===).
         """
-        spec_version = self._get_spec_version(version)
+        spec_version = self._get_spec_version()
         assert spec_version is not None
         return spec_version
 
@@ -483,7 +482,7 @@ class Specifier(BaseSpecifier):
         if op == "===":
             result: Sequence[Interval] = FULL_RANGE
         else:
-            version = self._require_spec_version(ver_str.removesuffix(".*"))
+            version = self._require_spec_version()
             result = bounds_for_spec(op, ver_str, version)
 
         self._ranges = result
@@ -509,7 +508,7 @@ class Specifier(BaseSpecifier):
 
         # "===" can have arbitrary string versions, so we cannot parse
         # those, we take prereleases as unknown (None) for those.
-        version = self._get_spec_version(version_str)
+        version = self._get_spec_version()
         if version is None:
             return None
 
@@ -619,7 +618,7 @@ class Specifier(BaseSpecifier):
             result = self._spec
         else:
             canonical = canonicalize_version(
-                self._require_spec_version(version),
+                self._require_spec_version(),
                 strip_trailing_zero=(operator != "~="),
             )
             # Most versions are already canonical, so reuse the existing tuple rather
