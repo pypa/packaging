@@ -52,9 +52,14 @@ benchmark = [
   "asv",
   "pip",
 ]
+codspeed = [
+  "pytest>=6.2.0",
+  "pytest-codspeed>=5",
+]
 dev = [
   { include-group = "test" },
   { include-group = "benchmark" },
+  { include-group = "codspeed" },
 ]
 
 
