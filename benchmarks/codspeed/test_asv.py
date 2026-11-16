@@ -17,6 +17,8 @@ import pkgutil
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pytest_codspeed.instruments import MeasurementMode
+from pytest_codspeed.plugin import get_plugin
 
 import benchmarks
 
@@ -47,7 +49,11 @@ def _cases() -> list[Any]:
 
 @pytest.mark.parametrize(("cls", "name", "args"), _cases())
 def test_benchmark(
-    benchmark: BenchmarkFixture, cls: type, name: str, args: tuple[Any, ...]
+    request: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
+    cls: type,
+    name: str,
+    args: tuple[Any, ...],
 ) -> None:
     def setup() -> tuple[tuple[Any, ...], dict[str, Any]]:
         obj = cls()
@@ -59,8 +65,11 @@ def test_benchmark(
         func(*func_args)
 
     if getattr(getattr(cls, name), "number", None) == 1:
-        # Cold benchmarks need new state for each round and no warmup.
-        benchmark.pedantic(call, setup=setup, rounds=10, warmup_rounds=0)
+        # Cold benchmarks need new state for each round and no warmup. Only
+        # wall time supports more than one round; the others warn.
+        walltime = get_plugin(request.config).mode == MeasurementMode.WallTime
+        rounds = 10 if walltime else 1
+        benchmark.pedantic(call, setup=setup, rounds=rounds, warmup_rounds=0)
     else:
         (func, *func_args), _ = setup()
         benchmark(func, *func_args)
