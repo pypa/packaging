@@ -35,7 +35,7 @@ from ._ranges import (
     resolve_prereleases,
 )
 from .utils import canonicalize_version
-from .version import Version
+from .version import Version, _adapt_possessive
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -260,7 +260,8 @@ class Specifier(BaseSpecifier):
         "_spec_version",
     )
 
-    _specifier_regex_str = r"""
+    _specifier_regex_str = _adapt_possessive(
+        r"""
         (?:
             (?:
                 # The identity operators allow for an escape hatch that will
@@ -269,8 +270,8 @@ class Specifier(BaseSpecifier):
                 # any semantic meaning from it. This operator is discouraged
                 # but included entirely as an escape hatch.
                 ===  # Only match for the identity operator
-                \s*
-                [^\s;)]+  # The arbitrary version can be just about anything,
+                \s*+
+                [^\s;)]++ # The arbitrary version can be just about anything,
                           # we match everything except for whitespace, a
                           # semi-colon for marker support, and a closing paren
                           # since versions can be enclosed in them.
@@ -282,10 +283,10 @@ class Specifier(BaseSpecifier):
                 # operators separately to enable that.
                 (?:==|!=)            # Only match for equals and not equals
 
-                \s*
-                v?
-                (?:[0-9]+!)?          # epoch
-                [0-9]+(?:\.[0-9]+)*   # release
+                \s*+
+                v?+
+                (?:[0-9]++!)?+          # epoch
+                [0-9]++(?:\.[0-9]++)*+  # release
 
                 # You cannot use a wild card and a pre-release, post-release, a dev or
                 # local version together so group them with a | and make them optional.
@@ -293,17 +294,17 @@ class Specifier(BaseSpecifier):
                     \.\*  # Wild card syntax of .*
                     |
                     (?a:                                  # pre release
-                        [-_\.]?
-                        (alpha|beta|preview|pre|a|b|c|rc)
-                        [-_\.]?
-                        [0-9]*
-                    )?
+                        [-_\.]?+
+                        (?:alpha|beta|preview|pre|a|b|c|rc)
+                        [-_\.]?+
+                        [0-9]*+
+                    )?+
                     (?a:                                  # post release
-                        (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
-                    )?
-                    (?a:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
-                    (?a:\+[a-z0-9]+(?:[-_\.][a-z0-9]+)*)? # local
-                )?
+                        (?:-[0-9]++)|(?:[-_\.]?+(?:post|rev|r)[-_\.]?+[0-9]*+)
+                    )?+
+                    (?a:[-_\.]?+dev[-_\.]?+[0-9]*+)?+          # dev release
+                    (?a:\+[a-z0-9]++(?:[-_\.][a-z0-9]++)*+)?+  # local
+                )?+
             )
             |
             (?:
@@ -311,20 +312,20 @@ class Specifier(BaseSpecifier):
                 # release segment.
                 (?:~=)               # Only match for the compatible operator
 
-                \s*
-                v?
-                (?:[0-9]+!)?          # epoch
-                [0-9]+(?:\.[0-9]+)+   # release  (We have a + instead of a *)
+                \s*+
+                v?+
+                (?:[0-9]++!)?+          # epoch
+                [0-9]++(?:\.[0-9]++)++  # release (We have a + instead of a *)
                 (?a:                  # pre release
-                    [-_\.]?
-                    (alpha|beta|preview|pre|a|b|c|rc)
-                    [-_\.]?
-                    [0-9]*
-                )?
+                    [-_\.]?+
+                    (?:alpha|beta|preview|pre|a|b|c|rc)
+                    [-_\.]?+
+                    [0-9]*+
+                )?+
                 (?a:                                  # post release
-                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
-                )?
-                (?a:[-_\.]?dev[-_\.]?[0-9]*)?         # dev release
+                    (?:-[0-9]++)|(?:[-_\.]?+(?:post|rev|r)[-_\.]?+[0-9]*+)
+                )?+
+                (?a:[-_\.]?+dev[-_\.]?+[0-9]*+)?+          # dev release
             )
             |
             (?:
@@ -334,23 +335,24 @@ class Specifier(BaseSpecifier):
                 # matching wild cards.
                 (?:<=|>=|<|>)
 
-                \s*
-                v?
-                (?:[0-9]+!)?          # epoch
-                [0-9]+(?:\.[0-9]+)*   # release
+                \s*+
+                v?+
+                (?:[0-9]++!)?+          # epoch
+                [0-9]++(?:\.[0-9]++)*+  # release
                 (?a:                   # pre release
-                    [-_\.]?
-                    (alpha|beta|preview|pre|a|b|c|rc)
-                    [-_\.]?
-                    [0-9]*
-                )?
+                    [-_\.]?+
+                    (?:alpha|beta|preview|pre|a|b|c|rc)
+                    [-_\.]?+
+                    [0-9]*+
+                )?+
                 (?a:                                   # post release
-                    (?:-[0-9]+)|(?:[-_\.]?(post|rev|r)[-_\.]?[0-9]*)
-                )?
-                (?a:[-_\.]?dev[-_\.]?[0-9]*)?          # dev release
+                    (?:-[0-9]++)|(?:[-_\.]?+(?:post|rev|r)[-_\.]?+[0-9]*+)
+                )?+
+                (?a:[-_\.]?+dev[-_\.]?+[0-9]*+)?+           # dev release
             )
         )
         """
+    )
 
     _regex = re.compile(
         r"\s*" + _specifier_regex_str + r"\s*", re.VERBOSE | re.IGNORECASE
