@@ -185,7 +185,8 @@ class _BaseVersion:
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
 
-# Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
+# "++" is broken on PyPy 3.11.13 (fixed by 3.11.15), so it is not used here.
+# Using it on "[0-9]+" and "[a-z0-9]+" is about 3% faster when that can be gated.
 _VERSION_PATTERN = r"""
     v?+                                                   # optional leading v
     (?a:
@@ -195,23 +196,23 @@ _VERSION_PATTERN = r"""
             [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
             [._-]?+
-            (?P<pre_n>[0-9]+)?
+            (?P<pre_n>[0-9]+)?+
         )?+
         (?P<post>                                         # post release
             (?:-(?P<post_n1>[0-9]+))
             |
             (?:
-                [._-]?
+                [._-]?+
                 (?P<post_l>post|rev|r)
-                [._-]?
-                (?P<post_n2>[0-9]+)?
+                [._-]?+
+                (?P<post_n2>[0-9]+)?+
             )
         )?+
         (?P<dev>                                          # dev release
             [._-]?+
             (?P<dev_l>dev)
             [._-]?+
-            (?P<dev_n>[0-9]+)?
+            (?P<dev_n>[0-9]+)?+
         )?+
     )
     (?a:\+
