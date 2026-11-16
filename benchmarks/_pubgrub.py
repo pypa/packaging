@@ -4,7 +4,7 @@
 """
 A PubGrub walkthrough used by the resolver macrobenchmark.
 
-Run ``asv run --bench resolver.TimePubGrubSuite``. The input catalogue lists
+Run ``asv run --bench pubgrub.TimePubGrubSuite``. The input catalogue lists
 all available versions and their dependencies. Solver.solve() returns pins:
 one chosen version for each required package.
 
@@ -81,6 +81,12 @@ class Domain:
 
     def inverse(self) -> Domain:
         return Domain(FULL - self.versions, not self.absent)
+
+    def is_empty(self) -> bool:
+        return not self.absent and self.versions.is_empty
+
+    def is_full(self) -> bool:
+        return self.absent and FULL.is_subset(self.versions)
 
     def is_subset(self, other: Domain) -> bool:
         return (not self.absent or other.absent) and self.versions.is_subset(
@@ -163,7 +169,7 @@ def resolve_incompatibilities(
             resolved[package] = resolved.get(package, UNCONSTRAINED).intersection(term)
 
     # An always-true term adds nothing to a forbidden conjunction.
-    if UNCONSTRAINED.is_subset(resolved[pivot]):
+    if resolved[pivot].is_full():
         del resolved[pivot]
 
     return resolved
@@ -172,6 +178,9 @@ def resolve_incompatibilities(
 class Solver:
     """
     Choose compatible releases from a complete, fixed catalogue.
+
+    Every root and dependency range must use prereleases=True. All releases
+    must be PEP 440 versions; arbitrary version strings are not supported.
 
         attribute   contents
         ----------  ---------------------------------------------------
@@ -432,13 +441,17 @@ class Solver:
         # Dependency facts stay valid after backtracking; add them only once.
         if (package, version) not in self.expanded:
             for dependency, constraint in self.catalogue[package][version].items():
-                incompatibility = {package: singleton}
                 negative = Domain(constraint).inverse()
 
-                # A self-dependency puts both conditions on the same package.
-                incompatibility[dependency] = incompatibility.get(
-                    dependency, UNCONSTRAINED
-                ).intersection(negative)
+                if dependency == package:
+                    # Both conditions must hold for the same package version.
+                    term = singleton.intersection(negative)
+                    if term.is_empty():
+                        continue
+
+                    incompatibility = {package: term}
+                else:
+                    incompatibility = {package: singleton, dependency: negative}
 
                 self.incompatibilities.append(incompatibility)
 
@@ -456,7 +469,11 @@ class Solver:
         Record a choice or deduction and narrow the package's allowed values.
         """
         current = self.domains.get(package, UNCONSTRAINED)
-        self.domains[package] = current.intersection(domain)
+        narrowed = current.intersection(domain)
+
+        # Propagation only forces undetermined terms; choices use allowed versions.
+        assert not narrowed.is_empty()
+        self.domains[package] = narrowed
 
         self.trail.append(Assignment(package, domain, self.level, cause))
 
@@ -491,7 +508,7 @@ class Solver:
             if (
                 package in incompatibility
                 and package not in found
-                and not UNCONSTRAINED.is_subset(incompatibility[package])
+                and not incompatibility[package].is_full()
                 and domains[package].is_subset(incompatibility[package])
             ):
                 found[package] = (index, assignment)
@@ -523,7 +540,7 @@ class Solver:
 
         # Earlier assignments may supply the part the latest one does not.
         residual = latest.domain.intersection(incompatibility[latest.package].inverse())
-        if not residual.is_disjoint(UNCONSTRAINED):
+        if not residual.is_empty():
             prefix = UNCONSTRAINED
 
             # Other packages are accounted for above; replay this one's support.
@@ -549,25 +566,16 @@ class Solver:
         """
         self.trail = [entry for entry in self.trail if entry.level <= level]
 
+        # Keep the exact versions of decisions that survived the jump.
+        self.decisions = {
+            entry.package: self.decisions[entry.package]
+            for entry in self.trail
+            if entry.cause is None
+        }
         self.domains.clear()
-        self.decisions.clear()
 
         for entry in self.trail:
             current = self.domains.get(entry.package, UNCONSTRAINED)
             self.domains[entry.package] = current.intersection(entry.domain)
 
-            # Deductions narrow ranges; only decisions record selected releases.
-            if entry.cause is None:
-                self.decisions[entry.package] = self.decision_version(entry)
-
         self.level = level
-
-    def decision_version(self, entry: Assignment) -> Version:
-        """
-        Find the chosen release in a decision's one-version range.
-        """
-        return next(
-            version
-            for version in self.versions[entry.package]
-            if version in entry.domain.versions
-        )
