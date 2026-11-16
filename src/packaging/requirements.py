@@ -49,7 +49,25 @@ class InvalidRequirement(ValueError):
     does not conform to the specification. Users should refer to PEP 508.
 
     .. versionadded:: 16.1
+    .. versionchanged:: 26.4
+       Added the :attr:`message`, :attr:`source`, and :attr:`span` attributes.
     """
+
+    def __init__(
+        self,
+        *args: object,
+        message: str | None = None,
+        source: str | None = None,
+        span: tuple[int, int] | None = None,
+    ) -> None:
+        super().__init__(*args)
+        self.message: str = str(self) if message is None else message
+        """The error message, without the source display."""
+        self.source: str | None = source
+        """The text that failed to parse, or ``None`` if not a syntax error."""
+        self.span: tuple[int, int] | None = span
+        """The ``(start, end)`` indices of the error in :attr:`source`, or
+        ``None`` if not a syntax error."""
 
 
 class Requirement:
@@ -114,7 +132,9 @@ class Requirement:
         try:
             parsed = _parse_requirement(requirement_string)
         except ParserSyntaxError as e:
-            raise InvalidRequirement(str(e)) from e
+            raise InvalidRequirement(
+                str(e), message=e.message, source=e.source, span=e.span
+            ) from e
 
         self.name: str = parsed.name
         """The name of the requirement."""

@@ -73,7 +73,26 @@ class InvalidMarker(ValueError):
 
     This error indicates that the given marker string does not conform to the
     :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`.
+
+    .. versionchanged:: 26.4
+       Added the :attr:`message`, :attr:`source`, and :attr:`span` attributes.
     """
+
+    def __init__(
+        self,
+        *args: object,
+        message: str | None = None,
+        source: str | None = None,
+        span: tuple[int, int] | None = None,
+    ) -> None:
+        super().__init__(*args)
+        self.message: str = str(self) if message is None else message
+        """The error message, without the source display."""
+        self.source: str | None = source
+        """The text that failed to parse, or ``None`` if not a syntax error."""
+        self.span: tuple[int, int] | None = span
+        """The ``(start, end)`` indices of the error in :attr:`source`, or
+        ``None`` if not a syntax error."""
 
 
 class UndefinedComparison(ValueError):
@@ -546,7 +565,9 @@ class Marker:
             #     ]
             # ]
         except ParserSyntaxError as e:
-            raise InvalidMarker(str(e)) from e
+            raise InvalidMarker(
+                str(e), message=e.message, source=e.source, span=e.span
+            ) from e
 
     @classmethod
     def _from_markers(cls, markers: MarkerList) -> Marker:
