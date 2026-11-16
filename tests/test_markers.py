@@ -369,6 +369,28 @@ class TestMarker:
             Marker(marker_string)
         assert ctx.exconly() == expected
 
+    def test_invalid_marker_syntax_details(self) -> None:
+        with pytest.raises(InvalidMarker) as ctx:
+            Marker('os_name == "C:\\"')
+
+        assert ctx.value.message == "Invalid quoted string"
+        assert ctx.value.source == 'os_name == "C:\\"'
+        assert ctx.value.span == (11, 16)
+
+        loaded = pickle.loads(pickle.dumps(ctx.value))
+        assert str(loaded) == str(ctx.value)
+        assert (loaded.message, loaded.source, loaded.span) == (
+            ctx.value.message,
+            ctx.value.source,
+            ctx.value.span,
+        )
+
+    def test_invalid_marker_manual_construction(self) -> None:
+        err = InvalidMarker("custom")
+        assert err.message == "custom"
+        assert err.source is None
+        assert err.span is None
+
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
         [

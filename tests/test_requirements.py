@@ -373,6 +373,41 @@ class TestRequirementParsing:
         with pytest.raises(InvalidRequirement, match="Invalid specifier: 'y'"):
             Requirement(to_parse)
 
+    def test_error_syntax_details(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("name[bar")
+
+        assert ctx.value.message == (
+            "Expected matching RIGHT_BRACKET for LEFT_BRACKET, after extras"
+        )
+        assert ctx.value.source == "name[bar"
+        assert ctx.value.span == (4, 8)
+        assert str(ctx.value).startswith(ctx.value.message + "\n")
+
+    def test_error_details_absent_for_non_syntax_error(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("demo===x,y")
+
+        assert ctx.value.message == str(ctx.value)
+        assert ctx.value.source is None
+        assert ctx.value.span is None
+
+    def test_error_details_pickle(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("name[bar")
+
+        loaded = pickle.loads(pickle.dumps(ctx.value))
+        assert str(loaded) == str(ctx.value)
+        assert loaded.message == ctx.value.message
+        assert loaded.source == ctx.value.source
+        assert loaded.span == ctx.value.span
+
+    def test_error_manual_construction(self) -> None:
+        err = InvalidRequirement("custom")
+        assert err.message == "custom"
+        assert err.source is None
+        assert err.span is None
+
     def test_error_when_empty_string(self) -> None:
         # GIVEN
         to_parse = ""
