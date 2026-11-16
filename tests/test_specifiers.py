@@ -1196,7 +1196,7 @@ class TestSpecifierInternal:
         assert spec._spec_version is None
 
         _ = test_versions[0] in spec
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
         initial_cache = spec._spec_version
 
         for v in test_versions[1:]:
@@ -1239,7 +1239,13 @@ class TestSpecifierInternal:
         # ``==1.0.*`` parses ``1.0`` for the range bounds; that
         # parsed base lands in the cache.
         assert spec._spec_version is not None
-        assert spec._spec_version[0] == "1.0"
+        assert spec._spec_version == Version("1.0")
+
+    def test_arbitrary_wildcard_is_not_stripped(self) -> None:
+        # ``===`` matches the literal string, so ``1.*`` is not a valid version.
+        spec = Specifier("===1.*")
+        assert spec.prereleases is None
+        assert spec._spec_version is None
 
     @pytest.mark.parametrize(
         "specifier",
@@ -1256,7 +1262,7 @@ class TestSpecifierInternal:
         _ = spec.prereleases
         _ = hash(spec)
 
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
 
     @pytest.mark.parametrize(
         ("specifier", "versions"),
@@ -1293,7 +1299,7 @@ class TestSpecifierInternal:
         assert spec._spec_version is None
 
         assert versions[0] in spec
-        assert spec._spec_version == (spec.version, Version(spec.version))
+        assert spec._spec_version == Version(spec.version)
         initial_cache = spec._spec_version
 
         for v in versions[1:]:
