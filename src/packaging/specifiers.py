@@ -97,7 +97,7 @@ def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
     op_str, ver_str = specifier._spec
     # All locals use the range path, which handles how PEP 440 strips them
     # for ``<=``/``==``/``!=``.
-    if parsed._local is not None or op_str in ("~=", "===") or ver_str.endswith(".*"):
+    if parsed._local is not None or op_str in {"~=", "==="} or ver_str.endswith(".*"):
         return None
 
     cached = specifier._spec_version
@@ -1387,15 +1387,8 @@ class SpecifierSet(BaseSpecifier):
         else:
             check_item = version
 
-        # Fast path: a parseable, local-free version against a rangelike set.
-        # A local on ``version`` needs PEP 440 stripping that the range path
-        # applies.
-        if (
-            version is not None
-            and not self._has_arbitrary
-            and version._local is None
-            and self._specs
-        ):
+        # Fast path: a parseable version against a rangelike set.
+        if version is not None and not self._has_arbitrary and self._specs:
             if (version._pre is not None or version._dev is not None) and (
                 prereleases is False
                 or (prereleases is None and self._prereleases is False)
