@@ -1031,7 +1031,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3dev1").is_prerelease
         True
         """
-        return self.dev is not None or self.pre is not None
+        return self._dev is not None or self._pre is not None
 
     @property
     def is_postrelease(self) -> bool:
