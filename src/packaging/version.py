@@ -185,44 +185,45 @@ class _BaseVersion:
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
 
-# Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
 _VERSION_PATTERN = r"""
     v?+                                                   # optional leading v
     (?a:
-        (?:(?P<epoch>[0-9]+)!)?+                          # epoch
-        (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
+        (?:(?P<epoch>[0-9]++)!)?+                         # epoch
+        (?P<release>[0-9]++(?:\.[0-9]++)*+)               # release segment
         (?P<pre>                                          # pre-release
             [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
             [._-]?+
-            (?P<pre_n>[0-9]+)?
+            (?P<pre_n>[0-9]++)?+
         )?+
         (?P<post>                                         # post release
-            (?:-(?P<post_n1>[0-9]+))
+            (?:-(?P<post_n1>[0-9]++))
             |
             (?:
-                [._-]?
+                [._-]?+
                 (?P<post_l>post|rev|r)
-                [._-]?
-                (?P<post_n2>[0-9]+)?
+                [._-]?+
+                (?P<post_n2>[0-9]++)?+
             )
         )?+
         (?P<dev>                                          # dev release
             [._-]?+
             (?P<dev_l>dev)
             [._-]?+
-            (?P<dev_n>[0-9]+)?
+            (?P<dev_n>[0-9]++)?+
         )?+
     )
     (?a:\+
         (?P<local>                                        # local version
-            [a-z0-9]+
-            (?:[._-][a-z0-9]+)*+
+            [a-z0-9]++
+            (?:[._-][a-z0-9]++)*+
         )
     )?+
 """
 
-_VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
+# The "++" quantifier is broken before PyPy 7.3.22 (pypy/pypy#5504).
+_VERSION_PATTERN_NO_PLUS = _VERSION_PATTERN.replace("++", "+")
+_VERSION_PATTERN_OLD = _VERSION_PATTERN_NO_PLUS.replace("*+", "*").replace("?+", "?")
 
 # Possessive qualifiers were added in Python 3.11.
 # CPython 3.11.0-3.11.4 had a bug: https://github.com/python/cpython/pull/107795
@@ -233,6 +234,9 @@ VERSION_PATTERN = (
     or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
     or sys.version_info < (3, 11)
     else _VERSION_PATTERN
+    if sys.implementation.name == "cpython"
+    or getattr(sys, "pypy_version_info", (0,)) >= (7, 3, 22)
+    else _VERSION_PATTERN_NO_PLUS
 )
 """
 A string containing the regular expression used to match a valid version.
@@ -246,6 +250,11 @@ flags set.
 
    The regex now uses possessive qualifiers on Python 3.11 if they are
    supported (CPython 3.11.5+, PyPy 3.11.13+).
+
+.. versionchanged:: 26.4
+
+   The regex now also uses the possessive ``++`` quantifier on CPython 3.11.5+
+   and PyPy 7.3.22+.
 
 :meta hide-value:
 """
