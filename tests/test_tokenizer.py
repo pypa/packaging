@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from packaging._parser import _parse_marker
+from packaging._parser import _parse_marker, _parse_requirement
 from packaging._tokenizer import DEFAULT_RULES, Tokenizer
 
 
@@ -84,3 +84,23 @@ def test_marker_with_partial_whitespace_rule(source: str) -> None:
     atom = marker[0]
     assert isinstance(atom, tuple)
     assert tuple(node.value for node in atom) == ("os_name", "==", "posix")
+
+
+@pytest.mark.parametrize(
+    ("source", "specifier"),
+    [
+        ("name   >=1.0", ">=1.0"),
+        ("name[a]  >=1.0", ">=1.0"),
+        ("name ( >=1.0 ) ", ">=1.0"),
+        ("name     ; os_name == 'posix'", ""),
+        ("name >=1.0 ; os_name == 'posix'  ", ">=1.0"),
+    ],
+)
+def test_requirement_with_partial_whitespace_rule(source: str, specifier: str) -> None:
+    rules = dict(DEFAULT_RULES, WS=re.compile(r"[ \t]"))
+    tokenizer = Tokenizer(source, rules=rules)
+    parsed = _parse_requirement(tokenizer)
+
+    assert tokenizer.position == len(source)
+    assert parsed.name == "name"
+    assert str(parsed.specifier).strip() == specifier

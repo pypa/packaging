@@ -126,7 +126,6 @@ def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
     tokenizer.consume("WS")
 
     extras = _parse_extras(tokenizer)
-    tokenizer.consume("WS")
 
     url, specifier, marker = _parse_requirement_details(tokenizer)
     tokenizer.expect("END", expected="end of dependency specifier")
@@ -169,7 +168,8 @@ def _parse_requirement_details(
     else:
         specifier_start = tokenizer.position
         specifier = _parse_specifier(tokenizer)
-        tokenizer.consume("WS")
+        if tokenizer.rules is not DEFAULT_RULES:
+            tokenizer.consume("WS")
 
         if tokenizer.check("END", peek=True):
             return (url, specifier, marker)
@@ -203,7 +203,8 @@ def _parse_requirement_marker(
     tokenizer.read()
 
     marker = _parse_marker(tokenizer)
-    tokenizer.consume("WS")
+    if tokenizer.rules is not DEFAULT_RULES:
+        tokenizer.consume("WS")
 
     return marker
 
@@ -213,6 +214,9 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
     if not tokenizer.check("LEFT_BRACKET"):
+        # The default whitespace rule leaves no whitespace after the name.
+        if tokenizer.rules is not DEFAULT_RULES:
+            tokenizer.consume("WS")
         return []
 
     with tokenizer.enclosing_tokens(
@@ -224,6 +228,7 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
         extras = _parse_extras_list(tokenizer)
         tokenizer.consume("WS")
 
+    tokenizer.consume("WS")
     return extras
 
 
@@ -260,14 +265,21 @@ def _parse_specifier(tokenizer: Tokenizer) -> str | SpecifierSet:
               | WS? version_many WS?
     """
     if not tokenizer.check("LEFT_PARENTHESIS"):
-        return _parse_padded_version_many(tokenizer)
+        # The caller already consumed the leading whitespace.
+        if tokenizer.rules is not DEFAULT_RULES:
+            return _parse_padded_version_many(tokenizer)
+        return _parse_version_many(tokenizer)
 
     with tokenizer.enclosing_tokens(
         "LEFT_PARENTHESIS",
         "RIGHT_PARENTHESIS",
         around="version specifier",
     ):
-        return _parse_padded_version_many(tokenizer)
+        parsed_specifiers = _parse_padded_version_many(tokenizer)
+
+    if tokenizer.rules is DEFAULT_RULES:
+        tokenizer.consume("WS")
+    return parsed_specifiers
 
 
 def _parse_padded_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
@@ -276,7 +288,9 @@ def _parse_padded_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
     """
     tokenizer.consume("WS")
     parsed_specifiers = _parse_version_many(tokenizer)
-    tokenizer.consume("WS")
+    # With the default rules, version_many consumes its trailing whitespace.
+    if tokenizer.rules is not DEFAULT_RULES:
+        tokenizer.consume("WS")
     return parsed_specifiers
 
 
