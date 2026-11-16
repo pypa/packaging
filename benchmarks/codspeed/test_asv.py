@@ -14,6 +14,8 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
+import sys
+import sysconfig
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -26,6 +28,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pytest_codspeed import BenchmarkFixture
+
+
+# CodSpeed needs unique names across the jobs of a matrix.
+_FT = "t" if sysconfig.get_config_var("Py_GIL_DISABLED") else ""
+PY = f"py{sys.version_info.major}.{sys.version_info.minor}{_FT}"
 
 
 def _cases() -> list[Any]:
@@ -42,7 +49,9 @@ def _cases() -> list[Any]:
                     args = () if param == () else (param,)
                     suffix = f"[{param}]" if args else ""
                     cases.append(
-                        pytest.param(cls, name, args, id=f"{cls_name}.{name}{suffix}")
+                        pytest.param(
+                            cls, name, args, id=f"{PY}-{cls_name}.{name}{suffix}"
+                        )
                     )
     return cases
 
