@@ -33,7 +33,6 @@ from ._ranges import (
     matches_bounds_only,
     ranges_are_prerelease_only,
     resolve_prereleases,
-    trim_release,
 )
 from .utils import canonicalize_version
 from .version import Version
@@ -83,44 +82,59 @@ UnparsedVersionVar = TypeVar("UnparsedVersionVar", bound=UnparsedVersion)
 _UNSET: Any = object() if sys.version_info < (3, 15) else builtins.sentinel("_UNSET")  # type: ignore[attr-defined]
 
 
-# Operators whose result is just a direct Version comparison, given a parsed
-# item with no local. ``<=``/``==``/``!=`` need that no-local guard because
-# PEP 440 strips locals on those; ``>=`` works regardless.
-_DIRECT_COMPARE_OPS: dict[str, Callable[[Version, Version], bool]] = {
-    ">=": Version.__ge__,
-    "<=": Version.__le__,
-    "==": Version.__eq__,
-    "!=": Version.__ne__,
-}
-
-
 def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
     """Match ``parsed`` against ``specifier`` without building a range.
 
     Handles ``>=``, ``<=``, ``==``, ``!=``, ``<``, ``>`` when the spec is
     not a wildcard and ``parsed`` has no local. Returns ``None`` when the
-    range path must be used. Pre-release policy is left to the caller.
+    range path must be used: for ``===``, ``~=``, wildcards, a local
+    ``parsed``, and ``<V`` where ``parsed`` has V's release and V is a final
+    release with a post segment. Pre-release policy is left to the caller.
+
+    The comparison keys are compared directly; that is what the rich
+    comparisons on :class:`Version` do, without the call overhead.
     """
     op_str, ver_str = specifier._spec
-    if ver_str.endswith(".*") or parsed.local is not None:
+    # All locals use the range path, which handles how PEP 440 strips them
+    # for ``<=``/``==``/``!=``.
+    if parsed._local is not None or op_str in {"~=", "==="} or ver_str.endswith(".*"):
         return None
 
-    direct_compare = _DIRECT_COMPARE_OPS.get(op_str)
-    if direct_compare is not None:
-        return direct_compare(parsed, specifier._require_spec_version(ver_str))
+    cached = specifier._spec_version
+    spec_v = (
+        cached[1] if cached is not None else specifier._require_spec_version(ver_str)
+    )
 
-    if op_str in ("<", ">"):
-        spec_v = specifier._require_spec_version(ver_str)
-        # ``<V``/``>V`` carve out V's family (pre/dev/post); that only
-        # matters when parsed shares V's epoch and trimmed release.
-        # Otherwise a direct cmpkey comparison is correct.
-        if parsed.epoch != spec_v.epoch or trim_release(parsed.release) != trim_release(
-            spec_v.release
-        ):
-            return parsed < spec_v if op_str == "<" else parsed > spec_v
-        return None
+    key = parsed._key_cache or parsed._key
+    spec_key = spec_v._key_cache or spec_v._key
 
-    return None
+    if op_str == ">=":
+        return key >= spec_key
+    if op_str == "<=":
+        return key <= spec_key
+    if op_str == "==":
+        return key == spec_key
+    if op_str == "!=":
+        return key != spec_key
+
+    # ``<V``/``>V`` carve out V's family (pre/dev/post); that only matters
+    # when parsed shares V's epoch and trimmed release, the first two key
+    # items. Otherwise a direct comparison is correct.
+    if key[0] != spec_key[0] or key[1] != spec_key[1]:
+        return key < spec_key if op_str == "<" else key > spec_key
+
+    if op_str == "<":
+        # ``<V`` is ``< V.dev0`` unless V is a pre-release. Nothing with V's
+        # release sorts below a final V's ``.dev0``.
+        if spec_v._pre is not None or spec_v._dev is not None:
+            return key < spec_key
+        return False if spec_v._post is None else None
+
+    # Only ``>`` is left. ``>V`` excludes the post-releases of a final or
+    # pre-release V; those are the later versions that share V's pre segment.
+    if spec_v._dev is not None or spec_v._post is not None:
+        return key > spec_key
+    return key > spec_key and parsed._pre != spec_v._pre
 
 
 class InvalidSpecifier(ValueError):
@@ -1361,9 +1375,9 @@ class SpecifierSet(BaseSpecifier):
             Earlier versions rejected it. An unparsable version now returns
             ``False`` instead of raising :exc:`~packaging.version.InvalidVersion`.
         """
-        version = coerce_version(item)
+        version = item if isinstance(item, Version) else coerce_version(item)
 
-        if version is not None and installed and version.is_prerelease:
+        if installed and version is not None and version.is_prerelease:
             prereleases = True
 
         # When item is a string and === is involved, keep it as-is
@@ -1373,16 +1387,9 @@ class SpecifierSet(BaseSpecifier):
         else:
             check_item = version
 
-        # Fast path: a parseable, local-free version against a rangelike set.
-        # A local on ``version`` needs PEP 440 stripping that the range path
-        # applies.
-        if (
-            version is not None
-            and not self._has_arbitrary
-            and version.local is None
-            and self._specs
-        ):
-            if version.is_prerelease and (
+        # Fast path: a parseable version against a rangelike set.
+        if version is not None and not self._has_arbitrary and self._specs:
+            if (version._pre is not None or version._dev is not None) and (
                 prereleases is False
                 or (prereleases is None and self._prereleases is False)
             ):

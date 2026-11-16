@@ -420,35 +420,19 @@ def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
     a post-release. AFTER_POSTS sits above V and every V.postN (with
     or without local), and just below the next release.
     """
-    version_ge = version.__ge__
-    version_epoch = version.epoch
-    version_pre = version.pre
-    version_release_trimmed = trim_release(version.release)
-    trimmed_length = len(version_release_trimmed)
+    version_key = version._key
+    version_pre = version._pre
 
     def above(parsed: Version) -> bool:
-        if version_ge(parsed):
-            return False
-        # parsed > V cmpkey-wise: above the boundary iff NOT in V's
-        # post family.
-        if parsed.epoch != version_epoch:
-            return True
-        parsed_release = parsed.release
-        if len(parsed_release) < trimmed_length:
-            return True
-        if parsed_release[:trimmed_length] != version_release_trimmed:
-            return True
-        for i in range(trimmed_length, len(parsed_release)):
-            if parsed_release[i] != 0:
-                return True
-        if parsed.pre != version_pre:
-            return True
-
-        # Same release and pre as V: parsed is in V's post family (V itself,
-        # V+local, or V.postN), which the boundary sits above. A V.devN
-        # (different dev, no post) sorts before V and was already caught by
-        # ``version_ge`` above, so the answer here is always "not above".
-        return False
+        # Above V by key, and not in V's post family: the later versions
+        # that share V's epoch, trimmed release (the first two key items),
+        # and pre segment.
+        key = parsed._key_cache or parsed._key
+        return key > version_key and (
+            key[0] != version_key[0]
+            or key[1] != version_key[1]
+            or parsed._pre != version_pre
+        )
 
     return above
 

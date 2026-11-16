@@ -1031,7 +1031,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3dev1").is_prerelease
         True
         """
-        return self.dev is not None or self.pre is not None
+        return self._dev is not None or self._pre is not None
 
     @property
     def is_postrelease(self) -> bool:
@@ -1186,7 +1186,8 @@ def _cmpkey(
 
     Returns ``(epoch, release, suffix)`` or
     ``(epoch, release, suffix, local)`` so that plain tuple
-    comparison gives the correct order.
+    comparison gives the correct order. ``specifiers._fast_match``
+    relies on the first two items being epoch and trimmed release.
 
     Trailing zeros are stripped from the release so that ``1.0.0 == 1``.
 

@@ -14,7 +14,7 @@ import typing
 
 import pytest
 
-from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet, _fast_match
 from packaging.version import InvalidVersion, Version, parse
 
 from .test_version import VERSIONS
@@ -1363,6 +1363,31 @@ class TestSpecifierInternal:
         assert spec._canonical_spec == (">=", "9.9")
         assert hash(spec) == hash(Specifier(">=9.9"))
         assert spec == Specifier(">=9.9")
+
+
+class TestFastMatch:
+    """Tests for ``_fast_match``, the range-free path of ``SpecifierSet.contains``."""
+
+    @pytest.mark.parametrize("spec", ["===1.0", "~=1.0", "==1.*", "!=1.*"])
+    def test_defers_to_range_path(self, spec: str) -> None:
+        assert _fast_match(Specifier(spec), Version("1.0")) is None
+
+    def test_defers_for_local(self) -> None:
+        assert _fast_match(Specifier(">=1.0"), Version("1.0+local")) is None
+
+    @pytest.mark.parametrize(
+        "version",
+        ["1.0", "1.0.0", "1!1.0rc1.post2.dev3", "0.0", "2.0.1.0a1"],
+    )
+    def test_key_starts_with_epoch_and_trimmed_release(self, version: str) -> None:
+        # _fast_match compares the first two key items as (epoch, trimmed release).
+        v = Version(version)
+        release = v.release
+        while len(release) > 1 and release[-1] == 0:
+            release = release[:-1]
+        if release == (0,):
+            release = ()
+        assert v._key[:2] == (v.epoch, release)
 
 
 class TestSpecifierSet:
