@@ -87,14 +87,17 @@ def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
 
     Handles ``>=``, ``<=``, ``==``, ``!=``, ``<``, ``>`` when the spec is
     not a wildcard and ``parsed`` has no local. Returns ``None`` when the
-    range path must be used. Pre-release policy is left to the caller.
+    range path must be used: for ``===``, ``~=``, wildcards, a local
+    ``parsed``, and ``<V`` where ``parsed`` has V's release and V is a final
+    release with a post segment. Pre-release policy is left to the caller.
 
     The comparison keys are compared directly; that is what the rich
     comparisons on :class:`Version` do, without the call overhead.
     """
     op_str, ver_str = specifier._spec
-    # PEP 440 strips locals for ``<=``/``==``/``!=``, which the range path does.
-    if parsed._local is not None or op_str == "~=" or ver_str.endswith(".*"):
+    # All locals use the range path, which handles how PEP 440 strips them
+    # for ``<=``/``==``/``!=``.
+    if parsed._local is not None or op_str in ("~=", "===") or ver_str.endswith(".*"):
         return None
 
     cached = specifier._spec_version
@@ -127,8 +130,8 @@ def _fast_match(specifier: Specifier, parsed: Version) -> bool | None:
             return key < spec_key
         return False if spec_v._post is None else None
 
-    # ``>V`` excludes the post-releases of a final or pre-release V; those
-    # are the later versions that share V's pre segment.
+    # Only ``>`` is left. ``>V`` excludes the post-releases of a final or
+    # pre-release V; those are the later versions that share V's pre segment.
     if spec_v._dev is not None or spec_v._post is not None:
         return key > spec_key
     return key > spec_key and parsed._pre != spec_v._pre
