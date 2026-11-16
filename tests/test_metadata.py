@@ -94,12 +94,11 @@ class TestRawMetadata:
     @pytest.mark.parametrize(
         ("given", "expected"),
         [
-            ("", {"": ""}),
-            ("A", {"A": ""}),
             ("A,B", {"A": "B"}),
             ("A, B", {"A": "B"}),
             (" A,B", {"A": "B"}),
             ("A,B ", {"A": "B"}),
+            # The URL may contain commas; only the first one is the separator.
             ("A,B,C", {"A": "B,C"}),
         ],
     )
@@ -110,6 +109,31 @@ class TestRawMetadata:
         assert len(raw) == 1
         assert "project_urls" in raw
         assert raw["project_urls"] == expected
+
+    def test_project_urls_label_length_not_enforced(self) -> None:
+        # The spec limits labels to 32 characters, but enforcing that here
+        # could reject metadata that indexes already accept.
+        label = "a" * 33
+        header = f"project-url: {label}, https://example.com"
+        raw, unparsed = metadata.parse_email(header)
+        assert not unparsed
+        assert raw["project_urls"] == {label: "https://example.com"}
+
+    @pytest.mark.parametrize(
+        "given",
+        [
+            "",
+            "just-a-url",
+            "Docs,",
+            ", https://x.example",
+        ],
+    )
+    def test_malformed_project_urls(self, given: str) -> None:
+        header = f"project-url: {given}"
+        raw, unparsed = metadata.parse_email(header)
+        assert not raw
+        assert len(unparsed) == 1
+        assert "project-url" in unparsed
 
     def test_duplicate_project_urls(self) -> None:
         header = "project-url: A, B\nproject-url: A, C"
@@ -418,6 +442,36 @@ class TestMetadata:
             metadata.Metadata.from_email(
                 "Project-URL: A, B\nProject-URL: A, C", validate=True
             )
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "just-a-url",
+            "Docs,",
+            ", https://x.example",
+        ],
+    )
+    def test_from_email_malformed_project_urls(self, value: str) -> None:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_email(
+                f"Metadata-Version: 2.4\nName: x\nVersion: 1\nProject-URL: {value}\n",
+                validate=True,
+            )
+
+        (exc,) = exc_info.value.exceptions
+        assert isinstance(exc, metadata.InvalidMetadata)
+        assert exc.field == "project-url"
+
+    def test_from_email_project_url_with_comma_in_url(self) -> None:
+        meta = metadata.Metadata.from_email(
+            "Metadata-Version: 2.4\n"
+            "Name: x\n"
+            "Version: 1\n"
+            "Project-URL: Docs, https://example.com/a,b\n",
+            validate=True,
+        )
+
+        assert meta.project_urls == {"Docs": "https://example.com/a,b"}
 
     def test_from_email_empty_metadata_uses_from_email_error_message(self) -> None:
         with pytest.raises(ExceptionGroup) as exc_info:
