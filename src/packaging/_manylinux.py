@@ -74,18 +74,13 @@ def _get_multiarch() -> str | None:
 
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
     # MULTIARCH describes the interpreter itself, so it is also correct if
-    # the executable is missing or is not the interpreter. Parse the ELF
-    # header only if the interpreter does not set it.
+    # the executable is missing or is not the interpreter. It can only confirm
+    # the ABI: other values are not conclusive (PyPy can report
+    # "arm-linux-gnu" for hard-float), so the ELF header decides them.
     if "armv7l" in archs:
-        multiarch = _get_multiarch()
-        if multiarch is not None:
-            return multiarch == "arm-linux-gnueabihf"
-        return _is_linux_armhf(executable)
+        return _get_multiarch() == "arm-linux-gnueabihf" or _is_linux_armhf(executable)
     if "i686" in archs:
-        multiarch = _get_multiarch()
-        if multiarch is not None:
-            return multiarch == "i386-linux-gnu"
-        return _is_linux_i686(executable)
+        return _get_multiarch() == "i386-linux-gnu" or _is_linux_i686(executable)
     return any(arch in _ALLOWED_ARCHS for arch in archs)
 
 

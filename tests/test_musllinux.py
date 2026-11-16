@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 import subprocess
+import types
 import typing
 
 import pretend
@@ -99,23 +100,31 @@ def test_get_musl_version(
 
 
 @pytest.mark.parametrize(
-    ("version_info", "multiarch", "expected"),
+    ("implementation", "version_info", "multiarch", "expected"),
     [
-        ((3, 13), "x86_64-linux-gnu", True),
-        ((3, 13), "arm-linux-gnueabihf", True),
-        ((3, 13), "x86_64-linux-musl", False),
-        ((3, 13), "", False),
-        ((3, 13), None, False),
+        ("cpython", (3, 13), "x86_64-linux-gnu", True),
+        ("cpython", (3, 13), "arm-linux-gnueabihf", True),
+        ("cpython", (3, 13), "x86_64-linux-musl", False),
+        ("cpython", (3, 13), "", False),
+        ("cpython", (3, 13), None, False),
         # MULTIARCH is not reliable for musl before Python 3.13.
-        ((3, 12), "x86_64-linux-gnu", False),
+        ("cpython", (3, 12), "x86_64-linux-gnu", False),
+        # PyPy can report "gnu" without a check of the libc.
+        ("pypy", (3, 13), "x86_64-linux-gnu", False),
     ],
 )
 def test_is_glibc_build(
     monkeypatch: pytest.MonkeyPatch,
+    implementation: str,
     version_info: tuple[int, int],
     multiarch: str | None,
     expected: bool,
 ) -> None:
+    monkeypatch.setattr(
+        _musllinux.sys,  # type: ignore[attr-defined]
+        "implementation",
+        types.SimpleNamespace(name=implementation),
+    )
     monkeypatch.setattr(_musllinux.sys, "version_info", version_info)  # type: ignore[attr-defined]
     monkeypatch.setattr(_musllinux.sysconfig, "get_config_var", lambda _: multiarch)  # type: ignore[attr-defined]
     assert _musllinux._is_glibc_build() is expected

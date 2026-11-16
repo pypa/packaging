@@ -233,11 +233,7 @@ def test_get_multiarch(
     [
         (["armv7l"], "arm-linux-gnueabihf", True),
         (["armv8l", "armv7l"], "arm-linux-gnueabihf", True),
-        (["armv7l"], "arm-linux-gnueabi", False),
-        (["armv7l"], "arm-linux-musleabihf", False),
         (["i686"], "i386-linux-gnu", True),
-        (["i686"], "x86_64-linux-gnux32", False),
-        (["i686"], "i386-linux-musl", False),
         (["x86_64"], "x86_64-linux-musl", True),
         (["armv6l"], "arm-linux-gnueabihf", False),
     ],
@@ -248,7 +244,7 @@ def test_have_compatible_abi_multiarch(
     multiarch: str,
     expected: bool,
 ) -> None:
-    # The executable must not be read if MULTIARCH is set.
+    # The executable must not be read if MULTIARCH confirms the ABI.
     monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: multiarch)
     assert _manylinux._have_compatible_abi("does-not-exist", archs) is expected
 
@@ -262,10 +258,27 @@ def test_have_compatible_abi_multiarch(
         ("i686", "hello-world-x86_64-x32", False),
     ],
 )
+@pytest.mark.parametrize(
+    "multiarch",
+    [
+        None,
+        # PyPy reports this for hard-float and soft-float if the compiler
+        # does not print a multiarch value.
+        "arm-linux-gnu",
+        "arm-linux-gnueabi",
+        "x86_64-linux-gnux32",
+        "i386-linux-musl",
+    ],
+)
 def test_have_compatible_abi_elf_fallback(
-    monkeypatch: pytest.MonkeyPatch, arch: str, name: str, expected: bool
+    monkeypatch: pytest.MonkeyPatch,
+    multiarch: str | None,
+    arch: str,
+    name: str,
+    expected: bool,
 ) -> None:
-    monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: None)
+    # MULTIARCH can only confirm the ABI; the ELF header decides the rest.
+    monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: multiarch)
     path = pathlib.Path(__file__).parent / "manylinux" / name
     assert _manylinux._have_compatible_abi(os.fsdecode(path), [arch]) is expected
 

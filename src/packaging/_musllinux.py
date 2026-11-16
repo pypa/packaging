@@ -61,8 +61,9 @@ def _get_musl_version(executable: str) -> _MuslVersion | None:
 
 def _is_glibc_build() -> bool:
     # Before Python 3.13, MULTIARCH can report "gnu" for a musl build, because
-    # configure took the libc from the triplet of the build machine.
-    if sys.version_info < (3, 13):
+    # configure took the libc from the triplet of the build machine. Other
+    # implementations (PyPy) can report "gnu" without a check of the libc.
+    if sys.implementation.name != "cpython" or sys.version_info < (3, 13):
         return False
     multiarch = sysconfig.get_config_var("MULTIARCH")
     return isinstance(multiarch, str) and "-linux-gnu" in multiarch
