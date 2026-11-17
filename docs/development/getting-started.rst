@@ -111,8 +111,15 @@ The HTML documentation index can now be found at
 Updating dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
-Refresh the development lock with ``nox -s locks -- --upgrade``. Use
-``nox -s locks -- --locked`` to check the committed file.
+Refresh the development and build locks with ``nox -s locks -- --upgrade``. Use
+``nox -s locks -- --locked`` to check the committed files.
+
+Build and deployment tools use the separate
+``pylock.build.toml``. Its requirements come from the ``build`` group and
+``build-system.requires`` in ``pyproject.toml``; ``tool.nab.plans.build``
+selects its single Python 3.14 Linux environment and requires wheels for every package.
+Builds use the installed backend
+without creating an additional build environment.
 
 .. _`pytest`: https://pypi.org/project/pytest/
 .. _`nox`: https://pypi.org/project/nox/

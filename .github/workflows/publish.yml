@@ -38,8 +38,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
+        with:
+          activate-environment: true
 
       - name: Check ref is the commit SHA
         # require SHA as tags and branches are mutable
@@ -56,14 +62,17 @@ jobs:
         env:
           INPUTS_REF: ${{ inputs.ref }}
 
-      - name: Install nox with pbs
-        run: pipx install nox[pbs]
+      - name: Install locked Nox
+        run: uv pip install -r pylock.dev.toml
 
       - name: Provision nox environment
         run: nox --install-only -s release_build
 
       - name: Build distribution via nox
-        run: nox --no-install -R -s release_build
+        run: |
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          export SOURCE_DATE_EPOCH
+          nox --no-install -R -s release_build
 
       - name: Upload distribution
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 7.0.2

@@ -60,16 +60,24 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
 
-      - name: Build
-        run: uv build
+      - name: Install build dependencies
+        run: uv pip install -r pylock.build.toml
 
       - name: Build
-        run: uvx twine check --strict ./dist/*
+        run: uv build --no-build-isolation
+
+      - name: Build
+        run: python -m twine check --strict ./dist/*
 
       - name: Archive files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
