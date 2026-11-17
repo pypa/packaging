@@ -599,7 +599,8 @@ def test_pickle(session: nox.Session, version: str) -> None:
 
     # Step 1: install the old release so the generator pickles objects in
     # the format that version serialises.
-    session.install(f"packaging=={version}")
+    lock = ROOT / "tasks" / "pickle" / f"pylock.pickle-{version.replace('.', '-')}.toml"
+    session.install("-r", str(lock))
     session.run(
         "python",
         "tasks/pickle_compat.py",
@@ -610,7 +611,7 @@ def test_pickle(session: nox.Session, version: str) -> None:
 
     # Step 2: install the current (in-tree) packaging so we can verify
     # backward compatibility of the load path.
-    session.install("-e.")
+    _install_project(session)
     session.run(
         "python",
         "tasks/pickle_compat.py",

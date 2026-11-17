@@ -114,6 +114,9 @@ Updating dependencies
 Refresh the development and build locks with ``nox -s locks -- --upgrade``. Use
 ``nox -s locks -- --locked`` to check the committed files.
 
+The pickle compatibility sessions install historical packaging releases from
+separate files under ``tasks/pickle/``. The locks session refreshes these too.
+
 Build and deployment tools use the separate
 ``pylock.build.toml``. Its requirements come from the ``build`` group and
 ``build-system.requires`` in ``pyproject.toml``; ``tool.nab.plans.build``
