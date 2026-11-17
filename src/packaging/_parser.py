@@ -110,7 +110,7 @@ class ParsedRequirement(NamedTuple):
 # Recursive descent parser for dependency specifier
 # --------------------------------------------------------------------------------------
 def parse_requirement(source: str) -> ParsedRequirement:
-    return _parse_requirement(Tokenizer(source, rules=DEFAULT_RULES))
+    return _parse_requirement(Tokenizer(source))
 
 
 def _parse_requirement(tokenizer: Tokenizer) -> ParsedRequirement:
@@ -168,8 +168,6 @@ def _parse_requirement_details(
     else:
         specifier_start = tokenizer.position
         specifier = _parse_specifier(tokenizer)
-        if tokenizer.rules is not DEFAULT_RULES:
-            tokenizer.consume("WS")
 
         if tokenizer.check("END", peek=True):
             return (url, specifier, marker)
@@ -202,11 +200,7 @@ def _parse_requirement_marker(
         )
     tokenizer.read()
 
-    marker = _parse_marker(tokenizer)
-    if tokenizer.rules is not DEFAULT_RULES:
-        tokenizer.consume("WS")
-
-    return marker
+    return _parse_marker(tokenizer)
 
 
 def _parse_extras(tokenizer: Tokenizer) -> list[str]:
@@ -214,9 +208,6 @@ def _parse_extras(tokenizer: Tokenizer) -> list[str]:
     extras = (LEFT_BRACKET wsp* extras_list? wsp* RIGHT_BRACKET)?
     """
     if not tokenizer.check("LEFT_BRACKET"):
-        # The default whitespace rule leaves no whitespace after the name.
-        if tokenizer.rules is not DEFAULT_RULES:
-            tokenizer.consume("WS")
         return []
 
     with tokenizer.enclosing_tokens(
@@ -266,8 +257,6 @@ def _parse_specifier(tokenizer: Tokenizer) -> str | SpecifierSet:
     """
     if not tokenizer.check("LEFT_PARENTHESIS"):
         # The caller already consumed the leading whitespace.
-        if tokenizer.rules is not DEFAULT_RULES:
-            return _parse_padded_version_many(tokenizer)
         return _parse_version_many(tokenizer)
 
     with tokenizer.enclosing_tokens(
@@ -277,8 +266,7 @@ def _parse_specifier(tokenizer: Tokenizer) -> str | SpecifierSet:
     ):
         parsed_specifiers = _parse_padded_version_many(tokenizer)
 
-    if tokenizer.rules is DEFAULT_RULES:
-        tokenizer.consume("WS")
+    tokenizer.consume("WS")
     return parsed_specifiers
 
 
@@ -287,11 +275,7 @@ def _parse_padded_version_many(tokenizer: Tokenizer) -> str | SpecifierSet:
     padded_version_many = WS? version_many WS?
     """
     tokenizer.consume("WS")
-    parsed_specifiers = _parse_version_many(tokenizer)
-    # With the default rules, version_many consumes its trailing whitespace.
-    if tokenizer.rules is not DEFAULT_RULES:
-        tokenizer.consume("WS")
-    return parsed_specifiers
+    return _parse_version_many(tokenizer)
 
 
 def _try_parse_specifier_set(tokenizer: Tokenizer) -> SpecifierSet | None:
@@ -376,7 +360,7 @@ _MAX_MARKER_NESTING = 200
 
 
 def parse_marker(source: str) -> MarkerList:
-    return _parse_full_marker(Tokenizer(source, rules=DEFAULT_RULES))
+    return _parse_full_marker(Tokenizer(source))
 
 
 def _parse_full_marker(tokenizer: Tokenizer) -> MarkerList:
@@ -415,11 +399,7 @@ def _parse_marker_atom(tokenizer: Tokenizer, depth: int) -> MarkerAtom:
             "RIGHT_PARENTHESIS",
             around="marker expression",
         ):
-            if tokenizer.rules is not DEFAULT_RULES:
-                tokenizer.consume("WS")
             marker: MarkerAtom = _parse_marker(tokenizer, depth + 1)
-            if tokenizer.rules is not DEFAULT_RULES:
-                tokenizer.consume("WS")
     else:
         marker = _parse_marker_item(tokenizer)
     tokenizer.consume("WS")
@@ -430,16 +410,11 @@ def _parse_marker_item(tokenizer: Tokenizer) -> MarkerItem:
     """
     marker_item = WS? marker_var WS? marker_op WS? marker_var WS?
     """
-    # Custom rules may consume only part of a whitespace run.
-    if tokenizer.rules is not DEFAULT_RULES:
-        tokenizer.consume("WS")
     marker_var_left = _parse_marker_var(tokenizer)
     tokenizer.consume("WS")
     marker_op = _parse_marker_op(tokenizer)
     tokenizer.consume("WS")
     marker_var_right = _parse_marker_var(tokenizer)
-    if tokenizer.rules is not DEFAULT_RULES:
-        tokenizer.consume("WS")
     return (marker_var_left, marker_op, marker_var_right)
 
 
@@ -448,10 +423,10 @@ def _parse_marker_var(tokenizer: Tokenizer) -> MarkerVar:  # noqa: RET503
     marker_var = VARIABLE | QUOTED_STRING
     """
     position = tokenizer.position
-    match = tokenizer.match_pattern(tokenizer.rules["VARIABLE"])
+    match = tokenizer.match_pattern(DEFAULT_RULES["VARIABLE"])
     if match is not None:
         return _process_marker_var(match[0])
-    match = tokenizer.match_pattern(tokenizer.rules["QUOTED_STRING"])
+    match = tokenizer.match_pattern(DEFAULT_RULES["QUOTED_STRING"])
     if match is not None:
         return _process_marker_value(tokenizer, match[0], position)
     tokenizer.raise_syntax_error(message="Expected a marker variable or quoted string")
@@ -492,14 +467,13 @@ def _parse_marker_op(tokenizer: Tokenizer) -> Op:
     """
     marker_op = IN | NOT IN | OP
     """
-    rules = tokenizer.rules
-    if tokenizer.match_pattern(rules["IN"]) is not None:
+    if tokenizer.match_pattern(DEFAULT_RULES["IN"]) is not None:
         return Op("in")
-    elif tokenizer.match_pattern(rules["NOT"]) is not None:
+    elif tokenizer.match_pattern(DEFAULT_RULES["NOT"]) is not None:
         tokenizer.expect("WS", expected="whitespace after 'not'")
         tokenizer.expect("IN", expected="'in' after 'not'")
         return Op("not in")
-    match = tokenizer.match_pattern(rules["OP"])
+    match = tokenizer.match_pattern(DEFAULT_RULES["OP"])
     if match is not None:
         return Op(match[0])
     return tokenizer.raise_syntax_error(
