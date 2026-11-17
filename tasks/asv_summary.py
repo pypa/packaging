@@ -42,7 +42,7 @@ class Row:
 
 
 def resolve(ref: str) -> str:
-    cmd = ["git", "rev-parse", ref]
+    cmd = ["git", "rev-parse", f"{ref}^{{commit}}"]
     return subprocess.check_output(cmd, text=True).strip()
 
 
@@ -124,7 +124,10 @@ def compare(
                 change = math.log(ratio)
                 row.changes.append(change)
                 text = f"{ratio:.2f}"
-                row.cells[py] = f"**{text}**" if abs(change) >= limit else text
+                if abs(change) >= limit:
+                    dot = "🔴" if change > 0 else "🟢"
+                    text = f"{dot} **{text}**"
+                row.cells[py] = text
     return rows
 
 
