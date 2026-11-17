@@ -25,7 +25,7 @@ import typing
 import pretend
 import pytest
 
-from packaging import tags
+from packaging import _elffile, tags
 from packaging._manylinux import _GLibCVersion
 from packaging._musllinux import _MuslVersion
 
@@ -840,13 +840,13 @@ class TestManylinuxPlatform:
         struct.pack_into("<I", data, elf64_flags_offset, flags)
         monkeypatch.setattr(sys, "executable", str(executable))
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_loongarch64")
+        monkeypatch.setattr(
+            _elffile, "open", lambda *_: io.BytesIO(data), raising=False
+        )
         for module in (
             tags._manylinux,  # type: ignore[attr-defined]
             tags._musllinux,  # type: ignore[attr-defined]
         ):
-            monkeypatch.setattr(
-                module, "open", lambda *_: io.BytesIO(data), raising=False
-            )
             monkeypatch.setattr(module, "_has_lsx", lambda: lsx)
         monkeypatch.setattr(tags._manylinux, "_get_glibc_version", lambda: (2, 38))  # type: ignore[attr-defined]
         monkeypatch.setattr(

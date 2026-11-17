@@ -3,7 +3,6 @@ from __future__ import annotations
 __lazy_modules__ = {"re", "warnings", f"{__spec__.parent}._elffile"}
 
 import collections
-import contextlib
 import functools
 import os
 import re
@@ -11,11 +10,11 @@ import sys
 import warnings
 from typing import TYPE_CHECKING, NamedTuple
 
-from ._elffile import EIClass, EIData, ELFFile, EMachine
+from ._elffile import EIClass, EIData, EMachine, _parse_elf
 
 if TYPE_CHECKING:
     import types
-    from collections.abc import Generator, Iterator, Sequence
+    from collections.abc import Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000
@@ -37,15 +36,6 @@ _ALLOWED_ARCHS = {
     "s390x",
     "riscv64",
 }
-
-
-@contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[ELFFile | None]:
-    try:
-        with open(path, "rb") as f:
-            yield ELFFile(f)
-    except (OSError, TypeError, ValueError):
-        yield None
 
 
 def _is_linux_armhf(executable: str) -> bool:

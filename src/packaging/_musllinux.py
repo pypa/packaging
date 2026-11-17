@@ -14,7 +14,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, NamedTuple
 
-from ._elffile import EIClass, EIData, ELFFile, EMachine
+from ._elffile import EIClass, EIData, EMachine, _parse_elf
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -42,19 +42,17 @@ def _has_lsx() -> bool:
 
 
 def _is_linux_loongarch64(executable: str) -> bool:
-    try:
-        with open(executable, "rb") as f:
-            elf = ELFFile(f)
-    except (OSError, TypeError, ValueError):
-        return False
-    return (
-        elf.capacity == EIClass.C64
-        and elf.encoding == EIData.Lsb
-        and elf.machine == EMachine.LoongArch
-        and elf.flags & EF_LOONGARCH_ABI_MODIFIER_MASK == EF_LOONGARCH_ABI_DOUBLE_FLOAT
-        and elf.flags & EF_LOONGARCH_OBJABI_MASK == EF_LOONGARCH_OBJABI_V1
-        and _has_lsx()
-    )
+    with _parse_elf(executable) as elf:
+        return (
+            elf is not None
+            and elf.capacity == EIClass.C64
+            and elf.encoding == EIData.Lsb
+            and elf.machine == EMachine.LoongArch
+            and elf.flags & EF_LOONGARCH_ABI_MODIFIER_MASK
+            == EF_LOONGARCH_ABI_DOUBLE_FLOAT
+            and elf.flags & EF_LOONGARCH_OBJABI_MASK == EF_LOONGARCH_OBJABI_V1
+            and _has_lsx()
+        )
 
 
 class _MuslVersion(NamedTuple):
@@ -84,11 +82,10 @@ def _get_musl_version(executable: str) -> _MuslVersion | None:
         Version 1.2.2
         Dynamic Program Loader
     """
-    try:
-        with open(executable, "rb") as f:
-            ld = ELFFile(f).interpreter
-    except (OSError, TypeError, ValueError):
-        return None
+    with _parse_elf(executable) as elf:
+        if elf is None:
+            return None
+        ld = elf.interpreter
     if ld is None or "musl" not in ld:
         return None
     proc = subprocess.run([ld], check=False, stderr=subprocess.PIPE, text=True)

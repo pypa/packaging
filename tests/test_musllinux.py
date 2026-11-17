@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 import subprocess
+import sys
 import typing
 
 import pretend
@@ -95,3 +96,33 @@ def test_get_musl_version(
     else:
         expected_calls = []
     assert run_recorder.calls == expected_calls
+
+
+@pytest.mark.parametrize("hwcap", [0, 1 << 3, 1 << 4, (1 << 4) | (1 << 5)])
+def test_has_lsx(hwcap: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    getauxval = pretend.call_recorder(lambda _: hwcap)
+    ctypes = pretend.stub(
+        CDLL=lambda _: pretend.stub(getauxval=getauxval), c_ulong=object()
+    )
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes)
+    assert _musllinux._has_lsx() is bool(hwcap & (1 << 4))
+    assert getauxval.calls == [pretend.call(16)]
+    assert getauxval.argtypes == [ctypes.c_ulong]
+    assert getauxval.restype is ctypes.c_ulong
+
+
+@pytest.mark.parametrize(
+    "ctypes_module",
+    [
+        None,
+        pretend.stub(CDLL=pretend.raiser(OSError)),
+        pretend.stub(CDLL=lambda _: pretend.stub()),
+    ],
+    ids=["missing-ctypes", "dlopen-error", "missing-getauxval"],
+)
+def test_has_lsx_unavailable(
+    ctypes_module: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes_module)
+    assert not _musllinux._has_lsx()
