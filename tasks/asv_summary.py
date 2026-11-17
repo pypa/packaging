@@ -7,7 +7,9 @@ asv's per-run significance, since one noisy Python version on a shared runner
 should not flag a change. Instead, count the Python versions past
 ``--threshold`` in each direction. A benchmark is flagged if the count in one
 direction, less the count in the other, is at least ``--agree`` of the Python
-versions.
+versions. A smaller change also counts if every Python version (at least
+four) moves in the same direction and the mean change is at least half the
+threshold.
 
 With ``--comment-dir DIR``, also write ``DIR/comment.md`` and
 ``DIR/significant`` (``true`` or ``false``).
@@ -28,16 +30,14 @@ LEGEND = (
     "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable "
     "(benchmark changed). "
     "Values past the threshold are bold. A row is marked only if several "
-    "Python versions agree."
+    "Python versions agree, or all move together."
 )
 
 
 @dataclass
 class Row:
     cells: dict[str, str] = field(default_factory=dict)
-    slower: int = 0
-    faster: int = 0
-    compared: int = 0
+    changes: list[float] = field(default_factory=list)
     failed: bool = False
     fixed: bool = False
 
@@ -90,6 +90,22 @@ def load(results_dir: Path, commit: str) -> dict[str, Results]:
     return out
 
 
+def classify(changes: list[float], limit: float, agree: float) -> int:
+    """Return 1 for slower, -1 for faster, or 0. Changes are log ratios."""
+    if not changes:
+        return 0
+    slower = sum(c >= limit for c in changes)
+    faster = sum(c <= -limit for c in changes)
+    needed = max(1, math.ceil(agree * len(changes)))
+    if abs(slower - faster) >= needed:
+        return 1 if slower > faster else -1
+    mean = sum(changes) / len(changes)
+    together = all(c > 0 for c in changes) or all(c < 0 for c in changes)
+    if len(changes) >= 4 and together and abs(mean) >= limit / 2:
+        return 1 if mean > 0 else -1
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("before", help="Base commit or ref.")
@@ -129,9 +145,7 @@ def main() -> None:
                 row.cells[py] = "✅"
             else:
                 change = math.log(new / old)
-                row.compared += 1
-                row.slower += change >= limit
-                row.faster += -change >= limit
+                row.changes.append(change)
                 text = f"{new / old:.2f}"
                 row.cells[py] = f"**{text}**" if abs(change) >= limit else text
 
@@ -139,11 +153,11 @@ def main() -> None:
     table = []
     for name, row in sorted(rows.items()):
         mark = ""
-        needed = max(1, math.ceil(args.agree * row.compared))
-        if row.slower - row.faster >= needed:
+        direction = classify(row.changes, limit, args.agree)
+        if direction > 0:
             mark = "🔴"
             slower += 1
-        elif row.faster - row.slower >= needed:
+        elif direction < 0:
             mark = "🟢"
             faster += 1
         if row.failed:
