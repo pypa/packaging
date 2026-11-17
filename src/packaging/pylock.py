@@ -32,6 +32,7 @@ from typing import (
 )
 from urllib.parse import unquote, urlparse
 
+from ._structures import dict_state_pickle_compat
 from .markers import (
     Environment,
     Marker,
@@ -336,6 +337,7 @@ class PylockSelectError(Exception):
     """
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
     """A package installed from a version control system."""
@@ -361,6 +363,7 @@ class PackageVcs:
         return package_vcs
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
     """A package installed from a local directory."""
@@ -378,6 +381,7 @@ class PackageDirectory:
         )
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
     """A package installed from an archive."""
@@ -403,6 +407,7 @@ class PackageArchive:
         return package_archive
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
     """A source distribution for a package."""
@@ -439,6 +444,7 @@ class PackageSdist:
         return filename
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
     """A wheel distribution for a package."""
@@ -472,6 +478,7 @@ class PackageWheel:
         return filename
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
     """A package entry in a pylock file.
@@ -580,6 +587,7 @@ class Package:
         return not (self.sdist or self.wheels)
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
     """Represent a validated pylock file."""
