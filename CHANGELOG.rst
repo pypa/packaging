@@ -111,9 +111,9 @@ Performance:
 * Cache the canonical form of a ``Specifier``. (:pull:`1372`)
 * Speed up and cache ``str(Marker)``. (:pull:`1371`, :pull:`1459`)
 * Avoid ``literal_eval`` for plain marker strings. (:pull:`1429`)
-* Speed up ``VersionRange`` subtraction, comparison, disjointness checks,
-  and filtering. (:pull:`1458`, :pull:`1460`, :pull:`1471`, :pull:`1506`,
-  :pull:`1542`)
+* Speed up ``VersionRange`` construction, subtraction, comparison,
+  disjointness checks, and filtering. (:pull:`1458`, :pull:`1460`,
+  :pull:`1471`, :pull:`1506`, :pull:`1542`, :pull:`1551`)
 * Speed up ``Version`` parsing, string conversion, and release validation.
   (:pull:`1520`, :pull:`1523`, :pull:`1524`, :pull:`1538`)
 * Speed up ``Specifier`` parsing, string conversion, hashing, and equality.
@@ -161,6 +161,8 @@ Internal:
   :pull:`1517`)
 * Skip GC freezing for property tests, and cover overlapping pre-release
   literals in ranges. (:pull:`1514`, :pull:`1515`)
+* Test that pickles from 26.2 and 26.3 load, including ``pylock`` and
+  ``direct_url`` objects. (:pull:`1550`)
 * Update CI: test feature branches, always run lint, check all test jobs,
   set up in parallel, and pin the oldest Python jobs to Ubuntu 24.04.
   (:pull:`1355`, :pull:`1414`, :pull:`1423`, :pull:`1441`, :pull:`1442`,
