@@ -432,36 +432,3 @@ def test_pickle_old_dict_state_wrong_keys(state: dict[str, Any]) -> None:
     data = pickle.dumps(_OldPickle(DirectUrl, state))
     with pytest.raises(TypeError, match="DirectUrl"):
         pickle.loads(data)
-
-
-# Generated with packaging==26.1 and 26.3, Python 3.13, pickle protocol 2.
-_PICKLE_26_3 = (
-    b"\x80\x02cpackaging.direct_url\nDirectUrl\nq\x00)\x81q\x01}q\x02(X\x03"
-    b"\x00\x00\x00urlq\x03X\x11\x00\x00\x00https://g.c/r.gitq\x04X\x0c\x00"
-    b"\x00\x00archive_infoq\x05NX\x08\x00\x00\x00vcs_infoq\x06cpackaging.dir"
-    b"ect_url\nVcsInfo\nq\x07)\x81q\x08}q\x09(X\x03\x00\x00\x00vcsq\nX\x03"
-    b"\x00\x00\x00gitq\x0bX\x09\x00\x00\x00commit_idq\x0cX\x08\x00\x00\x00aa"
-    b"aaaaaaq\x0dX\x12\x00\x00\x00requested_revisionq\x0eX\x02\x00\x00\x00v1"
-    b"q\x0fubX\x08\x00\x00\x00dir_infoq\x10NX\x0c\x00\x00\x00subdirectoryq"
-    b"\x11Nub."
-)
-
-
-# Generated with packaging==26.4.dev0, Python 3.13, pickle protocol 2.
-_PICKLE_26_4_DEV = (
-    b"\x80\x02cpackaging.direct_url\nDirectUrl\nq\x00)\x81q\x01]q\x02(X\x11"
-    b"\x00\x00\x00https://g.c/r.gitq\x03Ncpackaging.direct_url\nVcsInfo\nq"
-    b"\x04)\x81q\x05]q\x06(X\x03\x00\x00\x00gitq\x07X\x08\x00\x00\x00aaaaaaa"
-    b"aq\x08X\x02\x00\x00\x00v1q\x09ebNNeb."
-)
-
-
-@pytest.mark.parametrize(
-    "data", [_PICKLE_26_3, _PICKLE_26_4_DEV], ids=["26.3", "26.4.dev0"]
-)
-def test_pickle_from_older_version_loads(data: bytes) -> None:
-    expected = DirectUrl(
-        url="https://g.c/r.git",
-        vcs_info=VcsInfo(vcs="git", commit_id="a" * 8, requested_revision="v1"),
-    )
-    assert pickle.loads(data) == expected

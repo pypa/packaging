@@ -528,7 +528,7 @@ def update_licenses(session: nox.Session) -> None:
 
 
 @nox.session(default=False)
-@nox.parametrize("version", ["21.0", "24.0", "25.0", "26.0", "26.1"])
+@nox.parametrize("version", ["21.0", "24.0", "25.0", "26.0", "26.1", "26.2", "26.3"])
 def test_pickle(session: nox.Session, version: str) -> None:
     """
     Make sure pickles written by an older packaging release can be read
