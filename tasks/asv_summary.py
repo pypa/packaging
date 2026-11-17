@@ -43,12 +43,7 @@ class Row:
 
 def resolve(ref: str) -> str:
     cmd = ["git", "rev-parse", ref]
-    return subprocess.run(
-        cmd,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    return subprocess.check_output(cmd, text=True).strip()
 
 
 def clean_name(name: str) -> str:
@@ -79,8 +74,7 @@ def load(results_dir: Path, commit: str) -> dict[str, Results]:
         for name, row in data["results"].items():
             # Trailing empty columns may be omitted.
             entry = dict(zip(cols, row, strict=False))
-            params = entry.get("params") or []
-            combos = list(itertools.product(*params)) if params else [()]
+            combos = list(itertools.product(*(entry.get("params") or [])))
             values = entry["result"] or [None] * len(combos)
             for combo, value in zip(combos, values, strict=True):
                 full = f"{name}({', '.join(combo)})" if combo else name
@@ -98,6 +92,73 @@ def classify(changes: list[float], limit: float, min_count: int) -> int:
         if abs(net) >= k:
             return 1 if net > 0 else -1
     return 0
+
+
+def compare(
+    before: dict[str, Results],
+    after: dict[str, Results],
+    pythons: list[str],
+    limit: float,
+) -> dict[str, Row]:
+    """Return one row per benchmark, with one cell per Python version."""
+    rows: dict[str, Row] = {}
+    for py in pythons:
+        for name, (new, new_version) in after[py].items():
+            row = rows.setdefault(clean_name(name), Row())
+            if name not in before[py]:
+                row.cells[py] = "new"
+                continue
+            old, old_version = before[py][name]
+            if old_version != new_version:
+                row.cells[py] = "⚪"
+            elif new is None and old is None:
+                row.cells[py] = "failed"
+            elif new is None:
+                row.failed = True
+                row.cells[py] = "❌"
+            elif old is None:
+                row.fixed = True
+                row.cells[py] = "✅"
+            else:
+                ratio = new / old
+                change = math.log(ratio)
+                row.changes.append(change)
+                text = f"{ratio:.2f}"
+                row.cells[py] = f"**{text}**" if abs(change) >= limit else text
+    return rows
+
+
+def render(
+    rows: dict[str, Row], pythons: list[str], limit: float, min_count: int
+) -> tuple[list[str], bool]:
+    """Return the Markdown lines and whether a benchmark is flagged."""
+    if not rows:
+        return ["No benchmark results found."], False
+
+    counts = {"slower": 0, "faster": 0, "newly failing": 0}
+    table = []
+    for name, row in sorted(rows.items()):
+        direction = classify(row.changes, limit, min_count)
+        mark = "❌" if row.failed else "✅" if row.fixed else ""
+        mark += {1: "🔴", -1: "🟢", 0: ""}[direction]
+        counts["slower"] += direction > 0
+        counts["faster"] += direction < 0
+        counts["newly failing"] += row.failed
+        cells = " | ".join(row.cells.get(py, "") for py in pythons)
+        label = f"{mark} {name}" if mark else name
+        table.append(f"| {label} | {cells} |")
+
+    status = [f"{n} {label}" for label, n in counts.items() if n]
+    lines = [
+        f"**{', '.join(status) or 'No significant changes'}.**",
+        "",
+        LEGEND,
+        "",
+        "| Benchmark | " + " | ".join(pythons) + " |",
+        "|:--|" + "--:|" * len(pythons),
+        *table,
+    ]
+    return lines, bool(status)
 
 
 def main() -> None:
@@ -121,74 +182,12 @@ def main() -> None:
     pythons = sorted(before.keys() & after.keys(), key=version_key)
     limit = math.log1p(args.threshold)
 
-    rows: dict[str, Row] = {}
-    for py in pythons:
-        for name, (new, new_version) in after[py].items():
-            row = rows.setdefault(clean_name(name), Row())
-            if name not in before[py]:
-                row.cells[py] = "new"
-                continue
-            old, old_version = before[py][name]
-            if old_version != new_version:
-                row.cells[py] = "⚪"
-            elif new is None:
-                row.failed |= old is not None
-                row.cells[py] = "❌" if old is not None else "failed"
-            elif old is None:
-                row.fixed = True
-                row.cells[py] = "✅"
-            else:
-                change = math.log(new / old)
-                row.changes.append(change)
-                text = f"{new / old:.2f}"
-                row.cells[py] = f"**{text}**" if abs(change) >= limit else text
-
-    slower = faster = 0
-    table = []
-    for name, row in sorted(rows.items()):
-        mark = ""
-        direction = classify(row.changes, limit, args.min_count)
-        if direction > 0:
-            mark = "🔴"
-            slower += 1
-        elif direction < 0:
-            mark = "🟢"
-            faster += 1
-        if row.failed:
-            mark = "❌" + mark
-        elif row.fixed:
-            mark = "✅" + mark
-        cells = " | ".join(row.cells.get(py, "") for py in pythons)
-        label = f"{mark} {name}" if mark else name
-        table.append(f"| {label} | {cells} |")
-
-    failed = sum(row.failed for row in rows.values())
-    significant = bool(slower or faster or failed)
+    rows = compare(before, after, pythons, limit)
+    lines, significant = render(rows, pythons, limit, args.min_count)
 
     ref = "" if before_hash.startswith(args.before) else f" ({args.before})"
-    out = [f"## Benchmarks: `{before_hash[:8]}`{ref} → `{after_hash[:8]}`", ""]
-    if not rows:
-        out.append("No benchmark results found.")
-    else:
-        status = [
-            f"{n} {label}"
-            for n, label in (
-                (slower, "slower"),
-                (faster, "faster"),
-                (failed, "newly failing"),
-            )
-            if n
-        ]
-        out += [f"**{', '.join(status) if status else 'No significant changes'}.**", ""]
-        out += [
-            LEGEND,
-            "",
-            "| Benchmark | " + " | ".join(pythons) + " |",
-            "|:--|" + "--:|" * len(pythons),
-            *table,
-        ]
-
-    summary = "\n".join(out)
+    title = f"## Benchmarks: `{before_hash[:8]}`{ref} → `{after_hash[:8]}`"
+    summary = "\n".join([title, "", *lines])
     print(summary)
 
     if args.comment_dir:
