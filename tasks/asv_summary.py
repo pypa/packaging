@@ -189,6 +189,9 @@ def main() -> None:
     title = f"## Benchmarks: `{before_hash[:8]}`{ref} → `{after_hash[:8]}`"
     summary = "\n".join([title, "", *lines])
     print(summary)
+    if not rows:
+        # Fail the job, so a broken run does not replace the PR comment.
+        raise SystemExit(1)
 
     if args.comment_dir:
         args.comment_dir.mkdir(parents=True, exist_ok=True)
