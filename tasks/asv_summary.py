@@ -4,12 +4,10 @@ Usage: ``python asv_summary.py BEFORE AFTER >> "$GITHUB_STEP_SUMMARY"``
 
 This reads the asv result JSON files for the two commits. It does not use
 asv's per-run significance, since one noisy Python version on a shared runner
-should not flag a change. Instead, count the Python versions past
-``--threshold`` in each direction. A benchmark is flagged if the count in one
-direction, less the count in the other, is at least ``--agree`` of the Python
-versions. A smaller change also counts if every Python version (at least
-four) moves in the same direction and the mean change is at least half the
-threshold.
+should not flag a change. Instead, a benchmark is flagged if ``k`` Python
+versions move in one direction by at least ``threshold * min_count / k``,
+for some ``k >= min_count``. More versions that agree need a smaller change.
+Versions that move the other way by the same amount subtract from ``k``.
 
 With ``--comment-dir DIR``, also write ``DIR/comment.md`` and
 ``DIR/significant`` (``true`` or ``false``).
@@ -30,7 +28,8 @@ LEGEND = (
     "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable "
     "(benchmark changed). "
     "Values past the threshold are bold. A row is marked only if several "
-    "Python versions agree, or all move together."
+    "Python versions agree. The more versions agree, the smaller the change "
+    "can be."
 )
 
 
@@ -90,19 +89,14 @@ def load(results_dir: Path, commit: str) -> dict[str, Results]:
     return out
 
 
-def classify(changes: list[float], limit: float, agree: float) -> int:
+def classify(changes: list[float], limit: float, min_count: int) -> int:
     """Return 1 for slower, -1 for faster, or 0. Changes are log ratios."""
-    if not changes:
-        return 0
-    slower = sum(c >= limit for c in changes)
-    faster = sum(c <= -limit for c in changes)
-    needed = max(1, math.ceil(agree * len(changes)))
-    if abs(slower - faster) >= needed:
-        return 1 if slower > faster else -1
-    mean = sum(changes) / len(changes)
-    together = all(c > 0 for c in changes) or all(c < 0 for c in changes)
-    if len(changes) >= 4 and together and abs(mean) >= limit / 2:
-        return 1 if mean > 0 else -1
+    low = min(min_count, len(changes))
+    for k in range(max(low, 1), len(changes) + 1):
+        bar = limit * low / k
+        net = sum(c >= bar for c in changes) - sum(c <= -bar for c in changes)
+        if abs(net) >= k:
+            return 1 if net > 0 else -1
     return 0
 
 
@@ -113,10 +107,10 @@ def main() -> None:
     parser.add_argument("--results", type=Path, default=Path("results"))
     parser.add_argument("--threshold", type=float, default=0.05)
     parser.add_argument(
-        "--agree",
-        type=float,
-        default=0.5,
-        help="Fraction of Python versions that must agree on a change.",
+        "--min-count",
+        type=int,
+        default=3,
+        help="Fewest Python versions that can flag a change at --threshold.",
     )
     parser.add_argument("--comment-dir", type=Path, help="Write PR comment files.")
     args = parser.parse_args()
@@ -153,7 +147,7 @@ def main() -> None:
     table = []
     for name, row in sorted(rows.items()):
         mark = ""
-        direction = classify(row.changes, limit, args.agree)
+        direction = classify(row.changes, limit, args.min_count)
         if direction > 0:
             mark = "🔴"
             slower += 1
