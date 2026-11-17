@@ -395,6 +395,38 @@ def _canonicalize(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
     return tuple(result)
 
 
+# These filters are kept out of ``VersionRange._build``: generator closures
+# there would make its locals cell variables and slow down every call.
+def _filter_admit(
+    bounds: tuple[Interval, ...],
+    admit_arbitrary: bool,
+    prereleases_configured: bool | None,
+    admit: frozenset[str],
+) -> frozenset[str]:
+    """Drop admit literals the bounds already admit, except named pre-releases."""
+    kept = []
+    for literal in admit:
+        parsed = coerce_version(literal)
+        if (
+            parsed is not None
+            and prereleases_configured is None
+            and parsed.is_prerelease
+        ) or not _struct_admits(bounds, admit_arbitrary, parsed):
+            kept.append(literal)
+    return frozenset(kept)
+
+
+def _filter_reject(
+    bounds: tuple[Interval, ...], admit_arbitrary: bool, reject: frozenset[str]
+) -> frozenset[str]:
+    """Drop reject literals the bounds do not admit anyway."""
+    return frozenset(
+        literal
+        for literal in reject
+        if _struct_admits(bounds, admit_arbitrary, coerce_version(literal))
+    )
+
+
 def _struct_admits(
     bounds: tuple[Interval, ...], admit_arbitrary: bool, parsed: Version | None
 ) -> bool:
@@ -1226,22 +1258,11 @@ class VersionRange:
         if admit and reject:
             admit = admit - reject
         if admit:
-            admit = frozenset(
-                literal
-                for literal in admit
-                if (
-                    (parsed := coerce_version(literal)) is not None
-                    and prereleases_configured is None
-                    and parsed.is_prerelease
-                )
-                or not _struct_admits(bounds, admit_arbitrary, parsed)
+            admit = _filter_admit(
+                bounds, admit_arbitrary, prereleases_configured, admit
             )
         if reject:
-            reject = frozenset(
-                literal
-                for literal in reject
-                if _struct_admits(bounds, admit_arbitrary, coerce_version(literal))
-            )
+            reject = _filter_reject(bounds, admit_arbitrary, reject)
 
         instance = object.__new__(cls)
         instance._bounds = bounds
