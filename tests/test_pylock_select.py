@@ -750,7 +750,7 @@ def test_wheel_tag_preference_precedes_build_tag(reverse: bool) -> None:
         ),
         (
             ["foo-1.0-py3-none-any.whl", "foo-1.0-2-py2.py3-none-any.whl"],
-            0,
+            1,
         ),
         (
             ["foo-1.0-2-py2.py3-none-any.whl", "foo-1.0-py3-none-any.whl"],
@@ -758,7 +758,7 @@ def test_wheel_tag_preference_precedes_build_tag(reverse: bool) -> None:
         ),
         (["foo-1.0-02-py3-none-any.whl", "foo-1.0-2-py3-none-any.whl"], 0),
         (["foo-1.0-2-py3-none-any.whl", "foo-1.0-02-py3-none-any.whl"], 0),
-        (["foo-1.0-py3-none-any.whl", "foo-1.0.0-2-py3-none-any.whl"], 0),
+        (["foo-1.0-py3-none-any.whl", "foo-1.0.0-2-py3-none-any.whl"], 1),
         (["foo-1.0.0-2-py3-none-any.whl", "foo-1.0-py3-none-any.whl"], 0),
         (
             [
@@ -766,7 +766,7 @@ def test_wheel_tag_preference_precedes_build_tag(reverse: bool) -> None:
                 "foo-1.0-3-py2.py3-none-any.whl",
                 "foo-1.0-2-py3-none-any.whl",
             ],
-            2,
+            1,
         ),
         (
             ["foo-1.0-2-py3-none-any.whl", "foo-1.0-2-py3-none-any.whl"],
