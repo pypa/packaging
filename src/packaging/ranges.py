@@ -402,9 +402,8 @@ def _filter_admit(
     admit_arbitrary: bool,
     prereleases_configured: bool | None,
     admit: frozenset[str],
-) -> frozenset[str]:
+) -> Iterator[str]:
     """Drop admit literals the bounds already admit, except named pre-releases."""
-    kept = []
     for literal in admit:
         parsed = coerce_version(literal)
         if (
@@ -412,19 +411,16 @@ def _filter_admit(
             and prereleases_configured is None
             and parsed.is_prerelease
         ) or not _struct_admits(bounds, admit_arbitrary, parsed):
-            kept.append(literal)
-    return frozenset(kept)
+            yield literal
 
 
 def _filter_reject(
     bounds: tuple[Interval, ...], admit_arbitrary: bool, reject: frozenset[str]
-) -> frozenset[str]:
+) -> Iterator[str]:
     """Drop reject literals the bounds do not admit anyway."""
-    return frozenset(
-        literal
-        for literal in reject
-        if _struct_admits(bounds, admit_arbitrary, coerce_version(literal))
-    )
+    for literal in reject:
+        if _struct_admits(bounds, admit_arbitrary, coerce_version(literal)):
+            yield literal
 
 
 def _struct_admits(
@@ -1258,11 +1254,11 @@ class VersionRange:
         if admit and reject:
             admit = admit - reject
         if admit:
-            admit = _filter_admit(
-                bounds, admit_arbitrary, prereleases_configured, admit
+            admit = frozenset(
+                _filter_admit(bounds, admit_arbitrary, prereleases_configured, admit)
             )
         if reject:
-            reject = _filter_reject(bounds, admit_arbitrary, reject)
+            reject = frozenset(_filter_reject(bounds, admit_arbitrary, reject))
 
         instance = object.__new__(cls)
         instance._bounds = bounds
