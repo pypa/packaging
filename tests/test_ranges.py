@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import operator
+import pickle
+from copy import copy, deepcopy
 from typing import TYPE_CHECKING
 
 import pytest
@@ -18,12 +20,14 @@ from packaging._ranges import (
     LowerBound,
     UpperBound,
 )
-from packaging.ranges import _MAX_EXCLUSION_RUN, VersionRange
+from packaging.ranges import _MAX_EXCLUSION_RUN, RangeRelation, VersionRange
 from packaging.specifiers import Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from typing_extensions import Self
 
     from packaging._ranges import Interval
 
@@ -634,6 +638,37 @@ class TestPrereleaseRegion:
         assert u.contains("1.0a1")
         assert list(u.filter(["1.0a1", "3.0"], prereleases=False)) == ["3.0"]
 
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_named_literal_prerelease_inside_union_bounds(
+        self, reverse: bool, prereleases: bool | None
+    ) -> None:
+        broad = vr(">=1,<2", prereleases=prereleases)
+        literal = vr("===1.5a1", prereleases=prereleases)
+        combined = literal | broad if reverse else broad | literal
+        versions = ["1.5a1", "1.5a01", "1.5a2", "1.6"]
+        expected = {
+            None: ["1.5a1", "1.6"],
+            False: ["1.6"],
+            True: versions,
+        }
+        assert list(combined.filter(versions)) == expected[prereleases]
+
+    def test_overlapping_literal_opt_in_survives_narrowing(self) -> None:
+        combined = vr(">=1,<2") | vr("===1.5a1")
+        versions = ["1.5a1", "1.5a2", "1.6"]
+        for narrowed in (combined & vr(">=1.4"), combined - vr(">=1.7")):
+            assert list(narrowed.filter(versions)) == ["1.5a1", "1.6"]
+
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_union_does_not_turn_rejected_literal_into_opt_in(
+        self, reverse: bool
+    ) -> None:
+        broad = vr(">=1,<2")
+        excluded = broad - vr("===1.5a1")
+        combined = excluded | broad if reverse else broad | excluded
+        assert list(combined.filter(["1.5a1", "1.6"])) == ["1.6"]
+
     def test_difference_by_empty_preserves_empty_self(self) -> None:
         # ``a - empty()`` returns a unchanged even when a is itself empty but
         # carries provenance: ``~full()`` keeps its arbitrary flag for involution,
@@ -906,6 +941,54 @@ class TestSetRelations:
         assert not whole.is_subset(gapped)
         assert not gapped.is_disjoint(whole)
 
+    def test_disjoint_advances_the_side_that_ends_first(self) -> None:
+        # The overlap is between the second interval of each side, so both
+        # pointers have to step past a non-overlapping pair to reach it.
+        a = vr(">=1.0,<2.0") | vr(">=5.0,<6.0")
+        b = vr(">=3.0,<4.0") | vr(">=5.5,<5.7")
+        assert not a.is_disjoint(b)
+        assert a.is_disjoint(vr(">=3.0,<4.0") | vr(">=7.0,<8.0"))
+
+    def test_disjoint_pin_inside_a_gap(self) -> None:
+        assert vr("!=1.5").is_disjoint(vr("==1.5"))
+        assert not vr("!=1.5").is_disjoint(vr("==1.6"))
+
+        # A local version leaves a gap whose bounds carry that exact version, so
+        # here only the inclusive flags keep the pin out of it.
+        assert vr("!=1.0+local").is_disjoint(vr("==1.0+local"))
+        assert not vr("!=1.0+local").is_disjoint(vr("==1.0+other"))
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "<0.dev0",  # Below the minimum version.
+            ">=2,<1",  # Reversed endpoints.
+            ">1a1,<1a2.dev0",  # Ordered endpoints with no version between them.
+        ],
+    )
+    def test_empty_ranges_are_disjoint(self, spec: str) -> None:
+        empty = vr(spec)
+        whole = VersionRange.full(admit_arbitrary=False)
+        assert empty._bounds == ()
+        assert empty.is_disjoint(whole)
+        assert whole.is_disjoint(empty)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "disjoint"),
+        [
+            (">1a1", "<1a2.dev0", True),
+            (">1a1", ">=1a2.dev0", False),
+            ("<=1", ">=1.post0.dev0", True),
+            ("<=1", "==1+local", False),
+        ],
+    )
+    def test_disjoint_synthetic_boundaries(
+        self, left: str, right: str, disjoint: bool
+    ) -> None:
+        a, b = vr(left), vr(right)
+        assert a.is_disjoint(b) is disjoint
+        assert b.is_disjoint(a) is disjoint
+
     def test_disjoint_nonempty_excludes_subset(self) -> None:
         a, b = vr(">=1.0,<2.0"), vr(">=3.0,<4.0")
         assert a.is_disjoint(b)
@@ -968,6 +1051,178 @@ class TestSetRelations:
             vr(">=1.0").is_disjoint("x")  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="expected VersionRange"):
             vr(">=1.0").is_superset("x")  # type: ignore[arg-type]
+
+
+class TestRangeRelation:
+    def test_members_partition_the_flag_space(self) -> None:
+        flags = {(rel.is_subset, rel.is_disjoint) for rel in RangeRelation}
+        assert flags == {(True, True), (True, False), (False, True), (False, False)}
+
+    @pytest.mark.parametrize(
+        ("relation", "is_subset", "is_disjoint"),
+        [
+            (RangeRelation.EMPTY, True, True),
+            (RangeRelation.SUBSET, True, False),
+            (RangeRelation.DISJOINT, False, True),
+            (RangeRelation.OVERLAPPING, False, False),
+        ],
+    )
+    def test_flags(
+        self, relation: RangeRelation, is_subset: bool, is_disjoint: bool
+    ) -> None:
+        assert relation.is_subset is is_subset
+        assert relation.is_disjoint is is_disjoint
+
+    def test_flags_are_read_only(self) -> None:
+        # Members are process-wide singletons, so a writable flag would let
+        # one caller rewrite every later answer.
+        with pytest.raises(AttributeError):
+            # Deliberately assign to a read-only property to check refusal.
+            RangeRelation.SUBSET.is_subset = False  # type: ignore[misc]
+
+    def test_repr_is_the_qualified_member_name(self) -> None:
+        assert repr(RangeRelation.SUBSET) == "RangeRelation.SUBSET"
+
+
+class TestRelation:
+    @pytest.mark.parametrize("spec", ["<0", "", ">=1", "===legacy"])
+    @pytest.mark.parametrize("prereleases", [None, False, True])
+    def test_identity_and_equal_bounds(
+        self, spec: str, prereleases: bool | None
+    ) -> None:
+        source = vr(spec, prereleases)
+        equivalent = vr(spec, prereleases)
+        expected = RangeRelation.EMPTY if source.is_empty else RangeRelation.SUBSET
+
+        assert source.relation(source) is expected
+        assert source.relation(equivalent) is expected
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            # A single interval inside a single interval, and the reverse.
+            (">=1.5,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<1.8", RangeRelation.OVERLAPPING),
+            # Partial overlap on either side.
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.5,<2.5", ">=1.0,<2.0", RangeRelation.OVERLAPPING),
+            # Separated, with self below and above other.
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            (">=3.0,<4.0", ">=1.0,<2.0", RangeRelation.DISJOINT),
+            # Touching but sharing no version, then sharing the endpoint.
+            (">=1.0,<2.0", ">=2.0,<3.0", RangeRelation.DISJOINT),
+            (">=1.0,<=2.0", ">=2.0,<3.0", RangeRelation.OVERLAPPING),
+            # Identical bounds, which is containment both ways.
+            (">=1.0,<2.0", ">=1.0,<2.0", RangeRelation.SUBSET),
+            # An exclusion splits self into two intervals, both covered; the
+            # other way round self spans the hole the exclusion leaves, which
+            # no single interval covers.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.0,<2.0,!=1.5", RangeRelation.OVERLAPPING),
+            # Two intervals a side, matched pairwise, so the walk advances
+            # both pointers before it runs out.
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0,!=1.5", RangeRelation.SUBSET),
+            # An empty self is EMPTY whatever other is; an empty other shares
+            # nothing.
+            (">=2.0,<1.0", ">=1.0", RangeRelation.EMPTY),
+            (">=2.0,<1.0", ">=2.0,<1.0", RangeRelation.EMPTY),
+            (">=1.0", ">=2.0,<1.0", RangeRelation.DISJOINT),
+        ],
+    )
+    def test_plain_ranges(self, left: str, right: str, expected: RangeRelation) -> None:
+        assert vr(left).relation(vr(right)) is expected
+
+    def test_covered_interval_beside_a_separated_one(self) -> None:
+        # The first interval is covered and the second is not, so the walk
+        # finishes with an overlap recorded and a left interval unmatched.
+        split = vr(">=1.0,<1.2") | vr(">=5.0,<6.0")
+        assert split.relation(vr(">=1.0,<2.0")) is RangeRelation.OVERLAPPING
+
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            (">=1.5,<1.8", ">=1.0,<2.0"),
+            (">=1.0,<2.0", ">=1.5,<1.8"),
+            (">=1.0,<2.0", ">=1.5,<2.5"),
+            (">=1.0,<2.0", ">=3.0,<4.0"),
+            (">=1.0,<2.0", ">=1.0,<2.0"),
+            (">=2.0,<1.0", ">=1.0"),
+            (">=1.0", ">=2.0,<1.0"),
+            (">=1.0,<2.0,!=1.5", ">=1.0,<2.0"),
+        ],
+    )
+    def test_agrees_with_the_predicates(self, left: str, right: str) -> None:
+        a, b = vr(left), vr(right)
+        relation = a.relation(b)
+
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+        # There is no superset member; reversing the operands answers it.
+        assert b.relation(a).is_subset == a.is_superset(b)
+
+    @pytest.mark.parametrize(
+        ("left", "right", "expected"),
+        [
+            (">=1.2,<1.8", ">=1.0,<2.0", RangeRelation.SUBSET),
+            (">=1.0,<2.0", ">=1.5,<2.5", RangeRelation.OVERLAPPING),
+            (">=1.0,<2.0", ">=3.0,<4.0", RangeRelation.DISJOINT),
+            # Only pre-releases are in range, which the policy excludes.
+            ("==1.0a1", ">=1.0", RangeRelation.EMPTY),
+        ],
+    )
+    def test_prerelease_excluding_policy(
+        self, left: str, right: str, expected: RangeRelation
+    ) -> None:
+        # An excluding pre-release policy requires the algebra fallback.
+        a, b = vr(left, prereleases=False), vr(right, prereleases=False)
+        relation = a.relation(b)
+
+        assert relation is expected
+        assert relation.is_subset == a.is_subset(b)
+        assert relation.is_disjoint == a.is_disjoint(b)
+
+    def test_literal_ranges(self) -> None:
+        a = vr("===a")
+        ab = vr("===a") | vr("===b")
+        assert a.relation(ab) is RangeRelation.SUBSET
+        assert ab.relation(a) is RangeRelation.OVERLAPPING
+        assert a.relation(vr("===b")) is RangeRelation.DISJOINT
+
+    def test_literal_on_one_side_only(self) -> None:
+        # A literal on either operand alone still defers to the predicates:
+        # the walk would miss ``===1.0``, whose member no bounds cover.
+        plain, literal = vr(">=1.0"), vr("===1.0")
+        assert plain.relation(literal) is RangeRelation.OVERLAPPING
+        assert literal.relation(plain) is RangeRelation.SUBSET
+
+    def test_arbitrary_admission_is_one_way(self) -> None:
+        # ``full()`` admits non-version strings that the versions-only full
+        # range does not, matching what is_subset already documents.
+        full = VersionRange.full()
+        versions_only = VersionRange.full(admit_arbitrary=False)
+        assert full.relation(versions_only) is RangeRelation.OVERLAPPING
+        assert versions_only.relation(full) is RangeRelation.SUBSET
+        assert full.relation(full) is RangeRelation.SUBSET
+
+    def test_empty_describes_self_not_other(self) -> None:
+        empty = VersionRange.empty()
+        assert empty.relation(VersionRange.full()) is RangeRelation.EMPTY
+        assert VersionRange.full().relation(empty) is RangeRelation.DISJOINT
+
+    # relation checks the policy before it picks a path, so a plain other
+    # (``None``) and a non-plain one (``False``) raise from the same place.
+    @pytest.mark.parametrize("other_policy", [None, False])
+    def test_policy_mismatch_raises(self, other_policy: bool | None) -> None:
+        left = vr(">=1.0", prereleases=True)
+        right = vr("<2.0", prereleases=other_policy)
+        with pytest.raises(ValueError, match="different"):
+            left.relation(right)
+
+    def test_wrong_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="expected VersionRange"):
+            # Deliberately pass an invalid type to check the public error.
+            vr(">=1.0").relation("x")  # type: ignore[arg-type]
 
 
 class TestFilter:
@@ -1037,11 +1292,18 @@ class TestFilter:
         out = list(vr("<2.0").filter(items, key=lambda x: x["v"]))
         assert out == [{"v": "1.0"}]
 
-    def test_filter_universal(self) -> None:
-        assert list(VersionRange.full().filter(["1.3", "1.5a1"])) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"])) == ["1.5a1"]
-        assert list(VersionRange.full().filter(["1.3"], prereleases=True)) == ["1.3"]
-        assert list(VersionRange.full().filter(["1.5a1"], prereleases=False)) == []
+    @pytest.mark.parametrize(
+        ("final", "pre"),
+        [("1.3", "1.5a1"), (Version("1.3"), Version("1.5a1"))],
+    )
+    def test_filter_universal(self, final: Version | str, pre: Version | str) -> None:
+        r = VersionRange.full()
+        assert list(r.filter([final, pre])) == [final]
+        assert list(r.filter([pre])) == [pre]
+        assert list(r.filter([final, pre], prereleases=True)) == [final, pre]
+        assert list(r.filter([pre], prereleases=False)) == []
+
+    def test_filter_universal_arbitrary(self) -> None:
         assert list(VersionRange.full().filter(["junk", "1.0"])) == ["junk", "1.0"]
         assert list(VersionRange.full().filter(["junk"])) == ["junk"]
 
@@ -1050,6 +1312,13 @@ class TestFilter:
         assert list(r.filter(["1.5a1"], prereleases=True)) == ["1.5a1"]
         assert list(r.filter(["1.5a1"], prereleases=False)) == []
         assert list(r.filter(["1.5a1"])) == ["1.5a1"]
+
+    def test_filter_literal_version_text(self) -> None:
+        versions = [Version("1"), Version("1.0")]
+        literal = vr("===1.0")
+
+        assert list(literal.filter(versions)) == [versions[1]]
+        assert list((~literal).filter(versions)) == [versions[0]]
 
     def test_filter_admission_with_final(self) -> None:
         r = VersionRange.full() & vr("===wat")
@@ -2428,3 +2697,599 @@ class TestCoverageEdges:
         recovered = r.to_specifier_set()
         assert recovered is not None
         assert recovered.to_range() == r
+
+
+class TestSnapBounds:
+    @pytest.mark.parametrize(
+        "versions",
+        [
+            ["1.2", "1.5", "1.8"],
+            ["1.8", "1.2", "1.5", "1.2"],
+            ["1.2", Version("1.8")],
+        ],
+    )
+    def test_finite_bounds_move_inward(self, versions: list[Version | str]) -> None:
+        result = vr(">=1.0,<2.0").snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.2"), True), UpperBound(Version("1.8"), True)),
+        )
+
+    def test_keeps_unbounded_end(self) -> None:
+        r = vr(">=1.0")
+        assert r.snap_bounds(["1.2", "1.5"]) == vr(">=1.2")
+
+    def test_segment_holding_none_of_them_is_kept(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds(["5.0", "6.0"]) == r
+
+    def test_no_versions_leaves_the_range_alone(self) -> None:
+        r = vr(">=1.0,<2.0")
+        assert r.snap_bounds([]) == r
+
+    def test_empty_range_snaps_to_itself(self) -> None:
+        r = VersionRange.empty()
+        assert r.snap_bounds(["1.0"]) == r
+
+    def test_empty_range_still_parses_the_versions(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.empty().snap_bounds(["not a version"])
+
+    def test_unparsable_version_raises(self) -> None:
+        with pytest.raises(InvalidVersion):
+            vr(">=1.0").snap_bounds(["not a version"])
+
+    def test_multi_segment_independent(self) -> None:
+        r = vr(">=1.0,<2.0") | vr(">=3.0,<4.0")
+        result = r.snap_bounds(["1.5", "3.5"])
+        expected = VersionRange.singleton("1.5") | VersionRange.singleton("3.5")
+        assert result == expected
+
+    def test_admitted_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") | vr("===wat")
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._admit == frozenset({"wat"})
+        assert result.contains("wat")
+
+    def test_rejected_literal_carriage(self) -> None:
+        r = vr(">=1.0,<2.0") - vr("===1.5")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result._reject == frozenset({"1.5"})
+        assert result.contains("1.5") is False
+
+    def test_arbitrary_admission_carriage(self) -> None:
+        r = VersionRange.full()
+        result = r.snap_bounds(["1.0", "2.0"])
+        assert result == r
+        assert "wat" in result
+
+    def test_pre_region_carriage(self) -> None:
+        r = vr(">=1.0a1,<2.0")
+        assert r._pre_region
+        result = r.snap_bounds(["1.0a1", "1.5"])
+        assert result._pre_region
+        assert list(result.filter(["1.0a1"])) == ["1.0a1"]
+
+    def test_configured_policy_carriage(self) -> None:
+        r = vr(">=1.0,<2.0", prereleases=False)
+        result = r.snap_bounds(["1.2", "1.8"])
+        assert result._prereleases_configured is False
+
+    @pytest.mark.parametrize("prereleases", [None, True, False])
+    @pytest.mark.parametrize(
+        ("versions", "upper"),
+        [(["1.5a1"], "1.5a1"), (["1.5a1", "1.5"], "1.5")],
+    )
+    def test_prerelease_policy_does_not_choose_endpoints(
+        self, prereleases: bool | None, versions: list[str], upper: str
+    ) -> None:
+        r = vr(">=1.0,<2.0", prereleases=prereleases)
+        result = r.snap_bounds(versions)
+        assert result._bounds == (
+            (LowerBound(Version("1.5a1"), True), UpperBound(Version(upper), True)),
+        )
+        assert result.contains("1.5a1") == r.contains("1.5a1")
+        assert result.contains("1.5a1", prereleases=True)
+        assert list(result.filter(versions)) == list(r.filter(versions))
+
+    @pytest.mark.parametrize("opt_in", [False, True])
+    def test_preserves_prerelease_opt_in_for_later_union(self, opt_in: bool) -> None:
+        r = vr(">=1.5a1,<1.5b1")
+        if not opt_in:
+            r = ~~r
+
+        result = r.snap_bounds(["1.5a2"])
+        assert list(result.filter(["1.5a2"])) == ["1.5a2"]
+
+        combined = result | VersionRange.singleton("2.0")
+        versions = ["1.5a2", "2.0"]
+        expected = versions if opt_in else ["2.0"]
+        assert list(combined.filter(versions)) == expected
+
+    def test_result_is_subset(self) -> None:
+        r = vr(">=1.0,<2.0")
+        result = r.snap_bounds(["1.2", "1.5", "1.8"])
+        assert result.is_subset(r)
+
+    def test_agrees_on_given_versions(self) -> None:
+        r = vr(">=1.0,<2.0")
+        versions = ["0.5", "1.0", "1.5", "1.9", "2.0", "3.0"]
+        result = r.snap_bounds(versions)
+        for v in versions:
+            assert result.contains(v) == r.contains(v)
+
+    def test_gap_round_trips_to_singleton(self) -> None:
+        versions = [Version("1.0"), Version("2.0"), Version("3.0")]
+        gap = vr(">1.0,<3.0")
+        assert gap.snap_bounds(versions) == VersionRange.singleton("2.0")
+
+
+class TestFromBounds:
+    def test_closed_default(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("1.0") in r
+        assert Version("2.0") in r
+        assert Version("0.9") not in r
+        assert Version("2.1") not in r
+
+    def test_half_open_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_upper=False)
+        assert Version("1.0") in r
+        assert Version("2.0") not in r
+
+    def test_half_open_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0") not in r
+        assert Version("2.0") in r
+
+    def test_open_both(self) -> None:
+        r = VersionRange.from_bounds(
+            "1.0", "2.0", include_lower=False, include_upper=False
+        )
+        assert Version("1.0") not in r
+        assert Version("1.5") in r
+        assert Version("2.0") not in r
+
+    def test_unbounded_lower(self) -> None:
+        r = VersionRange.from_bounds(upper="2.0")
+        assert Version("0.1") in r
+        assert Version("2.0") in r
+        assert Version("2.1") not in r
+
+    def test_unbounded_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0")
+        assert Version("1.0") in r
+        assert Version("99") in r
+        assert Version("0.9") not in r
+
+    def test_unbounded_both_equals_full_no_arbitrary(self) -> None:
+        assert VersionRange.from_bounds() == VersionRange.full(admit_arbitrary=False)
+        assert "wat" not in VersionRange.from_bounds()
+
+    def test_unbounded_end_ignores_inclusion_flag(self) -> None:
+        assert VersionRange.from_bounds(
+            None, "2.0", include_lower=False
+        ) == VersionRange.from_bounds(upper="2.0")
+        assert VersionRange.from_bounds(
+            "1.0", None, include_upper=False
+        ) == VersionRange.from_bounds("1.0")
+
+    def test_inverted_is_empty(self) -> None:
+        assert VersionRange.from_bounds("2.0", "1.0").is_empty
+
+    def test_equal_bounds_closed_is_singleton(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5") == VersionRange.singleton("1.5")
+
+    def test_equal_bounds_exclusive_upper_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_upper=False).is_empty
+
+    def test_equal_bounds_exclusive_lower_is_empty(self) -> None:
+        assert VersionRange.from_bounds("1.5", "1.5", include_lower=False).is_empty
+
+    def test_accepts_version_objects(self) -> None:
+        r = VersionRange.from_bounds(Version("1.0"), Version("2.0"))
+        assert Version("1.5") in r
+
+    def test_invalid_lower(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds("not a version")
+
+    def test_invalid_upper(self) -> None:
+        with pytest.raises(InvalidVersion):
+            VersionRange.from_bounds(upper="not a version")
+
+    def test_prereleases_false_excludes(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=False)
+        assert r._prereleases_configured is False
+        assert not r.contains("1.5a1")
+
+    def test_prereleases_true_admits(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", prereleases=True)
+        assert r._prereleases_configured is True
+        assert r.contains("1.5a1")
+
+    @pytest.mark.parametrize("closed", [True, False])
+    def test_prerelease_bound_does_not_opt_in(self, closed: bool) -> None:
+        r = VersionRange.from_bounds(
+            "1.0a1", "2.0", include_lower=closed, include_upper=closed
+        )
+        versions = ["1.0a1", "1.5a1", "1.6"]
+
+        assert r.contains("1.0a1") is closed
+        assert list(r.filter(versions)) == ["1.6"]
+
+    def test_bounds_only_admits_post_of_lower(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0.post1") in r
+        assert Version("1.0.post1") not in vr(">1.0,<2.0")
+
+    def test_local_endpoints_use_version_order(self) -> None:
+        interval = VersionRange.from_bounds(
+            "1.0+build1", "1.0+build3", include_lower=False, include_upper=False
+        )
+        assert "1.0+build2" in interval
+        assert "1.0+build1" not in interval
+        assert "1.0+build3" not in interval
+
+    def test_bounds_only_admits_local(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0", include_lower=False)
+        assert Version("1.0+local") in r
+
+    def test_bounds_only_admits_rc_below_upper(self) -> None:
+        r = VersionRange.from_bounds("1.0", "2.0")
+        assert Version("2.0rc1") in r
+        assert Version("2.0rc1") not in vr(">=1.0,<2.0")
+
+    def test_floor_empty_canonical(self) -> None:
+        # (-inf, 0.dev0) holds no version; _canonical_floor drops the interval,
+        # which plain bound comparison cannot see with an unbounded lower.
+        assert VersionRange.from_bounds(None, "0.dev0", include_upper=False).is_empty
+
+    def test_floor_empty_epoch_variant(self) -> None:
+        # 0!0.dev0 is the same version as 0.dev0, so it is floor-empty too.
+        assert VersionRange.from_bounds(None, "0!0.dev0", include_upper=False).is_empty
+
+    def test_higher_epoch_floor_not_collapsed(self) -> None:
+        r = VersionRange.from_bounds(None, "1!0.dev0", include_upper=False)
+        assert not r.is_empty
+        assert Version("5.0") in r
+
+    def test_inclusive_lower_at_floor_folds_to_full(self) -> None:
+        assert VersionRange.from_bounds("0.dev0") == VersionRange.full(
+            admit_arbitrary=False
+        )
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+@pytest.mark.parametrize("prereleases", [None, False, True])
+@pytest.mark.parametrize(
+    "spec", ["", ">=2,<1", ">=1,<2", "===wat", "===1.0a1", ">=2.0b1,<3"]
+)
+@pytest.mark.parametrize("complement", [False, True])
+def test_copy_and_pickle_preserve_state(
+    roundtrip: Callable[[VersionRange], VersionRange],
+    prereleases: bool | None,
+    spec: str,
+    complement: bool,
+) -> None:
+    original = vr(spec, prereleases)
+    if complement:
+        original = ~original
+    clone = roundtrip(original)
+    assert clone is not original
+    assert clone == original
+    assert hash(clone) == hash(original)
+    candidates = ["wat", "1.0a1", "1.0", "1.5b1", "1.5", "2.0b1", "2.5", "3.0"]
+    assert [clone.contains(v) for v in candidates] == [
+        original.contains(v) for v in candidates
+    ]
+    assert list(clone.filter(candidates)) == list(original.filter(candidates))
+    assert (clone | original) == (original | original)
+    assert (clone & original) == (original & original)
+    assert ~clone == ~original
+
+
+class DerivedRange(VersionRange):
+    extra: list[int]
+    owner: VersionRange
+
+
+def test_copy_and_pickle_subclass_state() -> None:
+    original = DerivedRange.from_bounds("1", "2")
+    assert isinstance(original, DerivedRange)
+    original.extra = [1]
+    original.owner = original
+    shallow = copy(original)
+    assert type(shallow) is DerivedRange
+    assert shallow.extra is original.extra
+    assert shallow.owner is original
+    for clone in [deepcopy(original), pickle.loads(pickle.dumps(original))]:
+        assert isinstance(clone, DerivedRange)
+        assert clone == original
+        assert clone.extra == original.extra
+        assert clone.extra is not original.extra
+        assert clone.owner is clone
+
+
+def test_pickle_has_no_private_references() -> None:
+    original = ~vr(">1.0a1,!=1.5,<2")
+    data = pickle.dumps(original, pickle.HIGHEST_PROTOCOL)
+    assert pickle.loads(data) == original
+    assert b"_ranges" not in data
+    assert b"BoundaryVersion" not in data
+    assert b"packaging.version" not in data
+
+
+class SlottedRange(VersionRange):
+    __slots__ = ("__label", "optional", "owner")
+    owner: VersionRange
+
+    def set_label(self, value: list[str]) -> None:
+        self.__label = value
+
+    def get_label(self) -> list[str]:
+        return self.__label
+
+
+class InheritedSlottedRange(SlottedRange):
+    __slots__ = ("tag",)
+    tag: str
+
+
+class MixedSlottedRange(SlottedRange):
+    tag: str
+
+
+class StateHookRange(VersionRange):
+    label: list[str]
+    owner: VersionRange
+
+    def __getstate__(self) -> tuple[list[str], VersionRange]:
+        return self.label, self.owner
+
+    def __setstate__(self, state: tuple[list[str], VersionRange]) -> None:
+        self.label, self.owner = state
+
+
+@pytest.mark.parametrize(
+    "cls", [SlottedRange, InheritedSlottedRange, MixedSlottedRange]
+)
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(2, pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+def test_copy_and_pickle_extra_slots(
+    cls: type[SlottedRange], roundtrip: Callable[[VersionRange], VersionRange]
+) -> None:
+    original = cls.from_bounds("1", "2")
+    assert isinstance(original, SlottedRange)
+    original.set_label(["constraint"])
+    original.owner = original
+    if isinstance(original, (InheritedSlottedRange, MixedSlottedRange)):
+        original.tag = "extra"
+    clone = roundtrip(original)
+    assert isinstance(clone, SlottedRange)
+    assert type(clone) is cls
+    assert clone == original
+    assert clone.get_label() == ["constraint"]
+    assert not hasattr(clone, "optional")
+    if isinstance(clone, (InheritedSlottedRange, MixedSlottedRange)):
+        assert clone.tag == "extra"
+    if roundtrip is copy:
+        assert clone.get_label() is original.get_label()
+        assert clone.owner is original
+    else:
+        assert clone.get_label() is not original.get_label()
+        assert clone.owner is clone
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [
+        copy,
+        deepcopy,
+        *[
+            lambda r, protocol=protocol: pickle.loads(pickle.dumps(r, protocol))
+            for protocol in range(2, pickle.HIGHEST_PROTOCOL + 1)
+        ],
+    ],
+)
+def test_copy_and_pickle_state_hooks(
+    roundtrip: Callable[[VersionRange], VersionRange],
+) -> None:
+    original = StateHookRange.from_bounds("1", "2")
+    assert isinstance(original, StateHookRange)
+    original.label = ["constraint"]
+    original.owner = original
+    clone = roundtrip(original)
+    assert isinstance(clone, StateHookRange)
+    assert clone == original
+    assert clone.label == ["constraint"]
+    if roundtrip is copy:
+        assert clone.label is original.label
+        assert clone.owner is original
+    else:
+        assert clone.label is not original.label
+        assert clone.owner is clone
+
+
+@pytest.fixture(params=["copy", "deepcopy", *range(2, pickle.HIGHEST_PROTOCOL + 1)])
+def roundtrip_range(
+    request: pytest.FixtureRequest,
+) -> Callable[[VersionRange], VersionRange]:
+    operation: object = request.param
+
+    def roundtrip(value: VersionRange) -> VersionRange:
+        if operation == "copy":
+            return copy(value)
+        if operation == "deepcopy":
+            return deepcopy(value)
+        assert isinstance(operation, int)
+
+        result = pickle.loads(pickle.dumps(value, operation))
+        assert isinstance(result, VersionRange)
+        return result
+
+    return roundtrip
+
+
+class CachedRange(VersionRange):
+    """Recreate a transient cache in __new__."""
+
+    label: str
+    cache: dict[str, str]
+
+    def __new__(cls, label: str = "default") -> Self:
+        instance = cls.full()
+        assert isinstance(instance, cls)
+        instance.label = label
+        instance.cache = {"label": label}
+        return instance
+
+    def __getstate__(self) -> str:
+        return self.label
+
+    def __setstate__(self, state: str) -> None:
+        self.label = state
+
+
+class PositionalCachedRange(CachedRange):
+    def __getnewargs__(self) -> tuple[str]:
+        return (self.label,)
+
+
+class KeywordCachedRange(CachedRange):
+    def __new__(cls, *, label: str) -> Self:
+        return super().__new__(cls, label)
+
+    def __getnewargs_ex__(self) -> tuple[tuple[()], dict[str, str]]:
+        return (), {"label": self.label}
+
+
+@pytest.mark.parametrize(
+    ("cls", "args", "kwargs"),
+    [
+        (CachedRange, (), {}),
+        (PositionalCachedRange, ("positional",), {}),
+        (KeywordCachedRange, (), {"label": "keyword"}),
+    ],
+)
+def test_copy_and_pickle_recreate_transient_state(
+    roundtrip_range: Callable[[VersionRange], VersionRange],
+    cls: type[CachedRange],
+    args: tuple[str, ...],
+    kwargs: dict[str, str],
+) -> None:
+    original = cls(*args, **kwargs)
+    original.cache["stale"] = "discard"
+
+    clone = roundtrip_range(original)
+
+    assert isinstance(clone, CachedRange)
+    assert type(clone) is cls
+    assert clone == original
+    assert clone.label == original.label
+    assert clone.cache == {"label": original.label}
+
+
+class SetstateRange(VersionRange):
+    """Restore the default dictionary and slots, then initialize a cache."""
+
+    label: str
+    cache: dict[str, bool]
+
+    def __setstate__(
+        self, state: tuple[dict[str, object] | None, dict[str, object]]
+    ) -> None:
+        attributes, slots = state
+        if attributes is not None:
+            self.__dict__.update(attributes)
+        for name, value in slots.items():
+            setattr(self, name, value)
+        self.cache = {}
+
+
+@pytest.mark.parametrize("with_label", [False, True])
+def test_copy_and_pickle_preserve_default_setstate(
+    roundtrip_range: Callable[[VersionRange], VersionRange], with_label: bool
+) -> None:
+    original = SetstateRange.from_bounds("1", "2")
+    assert isinstance(original, SetstateRange)
+    if with_label:
+        original.label = "constraint"
+
+    clone = roundtrip_range(original)
+
+    assert isinstance(clone, SetstateRange)
+    assert clone == original
+    assert clone.cache == {}
+    if with_label:
+        assert clone.label == "constraint"
+
+
+class StaticStateRange(VersionRange):
+    label: str
+
+    @staticmethod
+    def __getstate__() -> dict[str, str]:
+        return {"label": "constraint"}
+
+
+class ClassStateRange(VersionRange):
+    label: str
+
+    @classmethod
+    def __getstate__(cls) -> dict[str, str]:
+        return {"label": cls.__name__}
+
+
+@pytest.mark.parametrize(
+    ("cls", "label"),
+    [(StaticStateRange, "constraint"), (ClassStateRange, "ClassStateRange")],
+)
+def test_copy_and_pickle_bind_getstate(
+    roundtrip_range: Callable[[VersionRange], VersionRange],
+    cls: type[StaticStateRange | ClassStateRange],
+    label: str,
+) -> None:
+    original = cls.from_bounds("1", "2")
+
+    clone = roundtrip_range(original)
+
+    assert isinstance(clone, (StaticStateRange, ClassStateRange))
+    assert type(clone) is cls
+    assert clone == original
+    assert clone.label == label
+
+
+class ReducedRange(VersionRange):
+    def __reduce__(self) -> str | tuple[Callable[[], VersionRange], tuple[()]]:
+        if self.is_empty:
+            return "REDUCED_EMPTY_RANGE"
+        return type(self).empty, ()
+
+
+REDUCED_EMPTY_RANGE = ReducedRange.empty()
+
+
+def test_copy_and_pickle_preserve_custom_reduction(
+    roundtrip_range: Callable[[VersionRange], VersionRange],
+) -> None:
+    assert roundtrip_range(ReducedRange.full()).is_empty
+    assert roundtrip_range(REDUCED_EMPTY_RANGE) is REDUCED_EMPTY_RANGE

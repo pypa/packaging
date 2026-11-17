@@ -4,6 +4,14 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "platform",
+    f"{__spec__.parent}._parser",
+    f"{__spec__.parent}._tokenizer",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.utils",
+}
+
 import functools
 import operator
 import os
@@ -13,7 +21,7 @@ from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from typing import TYPE_CHECKING, Final, Literal, TypedDict, cast
 
-from ._parser import MarkerAtom, MarkerList, Op, Value, Variable
+from ._parser import MarkerAtom, MarkerList, MarkerLogical, Op, Value, Variable
 from ._parser import parse_marker as _parse_marker
 from ._tokenizer import ParserSyntaxError
 from .specifiers import InvalidSpecifier, Specifier
@@ -30,6 +38,7 @@ __all__ = [
     "UndefinedComparison",
     "UndefinedEnvironmentName",
     "default_environment",
+    "prepare_environment",
 ]
 
 
@@ -64,7 +73,26 @@ class InvalidMarker(ValueError):
 
     This error indicates that the given marker string does not conform to the
     :ref:`specification of dependency specifiers <pypug:dependency-specifiers>`.
+
+    .. versionchanged:: 26.4
+       Added the :attr:`message`, :attr:`source`, and :attr:`span` attributes.
     """
+
+    def __init__(
+        self,
+        *args: object,
+        message: str | None = None,
+        source: str | None = None,
+        span: tuple[int, int] | None = None,
+    ) -> None:
+        super().__init__(*args)
+        self.message: str = str(self) if message is None else message
+        """The error message, without the source display."""
+        self.source: str | None = source
+        """The text that failed to parse, or ``None`` if not a syntax error."""
+        self.span: tuple[int, int] | None = span
+        """The ``(start, end)`` indices of the error in :attr:`source`, or
+        ``None`` if not a syntax error."""
 
 
 class UndefinedComparison(ValueError):
@@ -167,8 +195,8 @@ class Environment(TypedDict):
 
 
 def _normalize_extras(
-    result: MarkerList | MarkerAtom | str,
-) -> MarkerList | MarkerAtom | str:
+    result: MarkerAtom | MarkerLogical,
+) -> MarkerAtom | MarkerLogical:
     if isinstance(result, list):
         return [_normalize_extras(r) for r in result]
     if not isinstance(result, tuple):
@@ -208,7 +236,7 @@ _GROUP_TYPES: Final = (list, tuple)
 
 
 def _format_marker(
-    marker: list[str] | MarkerAtom | str, first: bool | None = True
+    marker: MarkerAtom | MarkerLogical, first: bool | None = True
 ) -> str:
     if isinstance(marker, tuple):
         lhs, op, rhs = marker
@@ -228,6 +256,20 @@ def _format_marker(
     return "(" + " ".join(inner) + ")"
 
 
+def _splice_operand(markers: MarkerList, op: MarkerLogical) -> MarkerList:
+    while len(markers) == 1 and isinstance(markers[0], list):
+        markers = markers[0]
+    if all(markers[i] == op for i in range(1, len(markers), 2)):
+        return markers
+    return [markers]
+
+
+def _join_markers(lhs: MarkerList, op: MarkerLogical, rhs: MarkerList) -> MarkerList:
+    # Splice in sides that only use ``op`` so chains like ``a & b & c`` stay
+    # flat instead of nesting one level per operation.
+    return [*_splice_operand(lhs, op), op, *_splice_operand(rhs, op)]
+
+
 _operators: dict[str, Operator] = {
     "in": lambda lhs, rhs: lhs in rhs,
     "not in": lambda lhs, rhs: lhs not in rhs,
@@ -238,6 +280,23 @@ _operators: dict[str, Operator] = {
     ">=": operator.eq,
     ">": lambda _lhs, _rhs: False,
 }
+
+
+def _eval_extra_set(extras: AbstractSet[str], op: Op, literal: str) -> bool:
+    """Evaluate an ``extra`` comparison against the whole set of selected extras.
+
+    Equality is membership and inequality is non-membership. The dependency
+    specifier spec leaves every other operator on ``extra`` undefined. An empty
+    set evaluates like the empty string, as in :func:`_prepare_extra`.
+    """
+    if not extras:
+        extras = {""}
+    op_str = op.serialize()
+    if op_str == "==":
+        return literal in extras
+    if op_str == "!=":
+        return literal not in extras
+    raise UndefinedComparison(f"Undefined {op!r} on {extras!r} and {literal!r}.")
 
 
 def _eval_op(lhs: str, op: Op, rhs: str | AbstractSet[str], *, key: str) -> bool:
@@ -265,21 +324,20 @@ def _normalize(
     # > When comparing extra names, tools MUST normalize the names being
     # > compared using the semantics outlined in PEP 503 for names
     if key == "extra":
-        assert isinstance(rhs, str), "extra value must be a string"
-        # Both sides are normalized at this point already
+        if not isinstance(rhs, str):
+            raise UndefinedComparison(f"Marker 'extra' must be a string, not {rhs!r}.")
         return (lhs, rhs)
     if key in MARKERS_ALLOWING_SET:
-        if isinstance(rhs, str):  # pragma: no cover
-            return (canonicalize_name(lhs), canonicalize_name(rhs))
-        else:
-            return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
+        if isinstance(rhs, str):
+            raise UndefinedComparison(f"Marker {key!r} must be a set, not {rhs!r}.")
+        return (canonicalize_name(lhs), {canonicalize_name(v) for v in rhs})
 
     # other environment markers don't have such standards
     return lhs, rhs
 
 
 def _lookup_environment(
-    environment: dict[str, str | AbstractSet[str]], key: str
+    environment: Mapping[str, str | AbstractSet[str]], key: str
 ) -> str | AbstractSet[str]:
     try:
         return environment[key]
@@ -287,8 +345,23 @@ def _lookup_environment(
         raise UndefinedEnvironmentName(key) from None
 
 
+def _prepare_extra(extra: str | AbstractSet[str] | None) -> str | AbstractSet[str]:
+    """Canonicalize an ``extra`` environment value.
+
+    The API used to allow setting extra to None, and an empty selection of
+    extras also evaluates like the empty string. Any other iterable of selected
+    extras evaluates set-wide; its names are normalized here, so _normalize can
+    skip them.
+    """
+    if not extra:
+        return ""
+    if isinstance(extra, str):
+        return canonicalize_name(extra)
+    return frozenset(canonicalize_name(name) for name in extra)
+
+
 def _evaluate_markers(
-    markers: MarkerList, environment: dict[str, str | AbstractSet[str]]
+    markers: MarkerList, environment: Mapping[str, str | AbstractSet[str]]
 ) -> bool:
     groups: list[list[bool]] = [[]]
 
@@ -298,6 +371,7 @@ def _evaluate_markers(
         elif isinstance(marker, tuple):
             lhs, op, rhs = marker
 
+            rhs_value: str | AbstractSet[str]
             if isinstance(lhs, Variable):
                 environment_key = lhs.value
                 lhs_value = _lookup_environment(environment, environment_key)
@@ -306,8 +380,19 @@ def _evaluate_markers(
                 lhs_value = lhs.value
                 environment_key = rhs.value
                 rhs_value = _lookup_environment(environment, environment_key)
+                if environment_key == "extra" and isinstance(rhs_value, AbstractSet):
+                    groups[-1].append(_eval_extra_set(rhs_value, op, lhs.value))
+                    continue
 
+            # Checks for ``extra`` stay off the common string path.
             if not isinstance(lhs_value, str):
+                if environment_key == "extra":
+                    if isinstance(lhs_value, AbstractSet):
+                        groups[-1].append(_eval_extra_set(lhs_value, op, rhs.value))
+                        continue
+                    raise UndefinedComparison(
+                        f"Marker 'extra' must be a string, not {lhs_value!r}."
+                    )
                 raise UndefinedComparison(
                     f"Set-valued marker {environment_key!r} can only be used "
                     f'with the membership form (e.g. "<name>" in '
@@ -376,6 +461,60 @@ def default_environment() -> Environment:
     return cast("Environment", dict(_cached_default_environment()))
 
 
+def prepare_environment(
+    environment: Mapping[str, str | AbstractSet[str]] | None = None,
+    context: EvaluateContext = "metadata",
+) -> dict[str, str | AbstractSet[str]]:
+    """Prepare a reusable marker environment.
+
+    The result is :func:`default_environment` extended with the keys ``context``
+    defines, updated from ``environment``, with ``extra`` canonicalized and
+    ``python_full_version`` repaired for non-tagged builds.
+
+    Pass the result to :meth:`Marker.evaluate_prepared` to reuse it across
+    evaluations. Overrides are applied independently: changing
+    ``python_full_version`` does not derive a new ``python_version``.
+
+    :param environment: Mapping containing keys and values to override the
+        detected environment. Values must be strings, except for ``extras``
+        and ``dependency_groups``, which take sets of strings. ``extra`` may
+        also be a set of extra names, as in :meth:`Marker.evaluate`.
+        ``extra=None`` is treated as an empty string for compatibility.
+    :param EvaluateContext context: The context in which the marker is
+        evaluated, which influences what marker names are considered valid.
+        Accepted values are ``"metadata"`` (for core metadata; default),
+        ``"lock_file"``, and ``"requirement"`` (i.e. all other situations).
+    :returns: A new mutable dict. Set-valued overrides are shared with the
+        caller.
+
+    >>> from packaging.markers import Marker, prepare_environment
+    >>> environment = prepare_environment({"extra": "Fancy.Feature"})
+    >>> environment["extra"]
+    'fancy-feature'
+    >>> Marker('extra == "fancy-feature"').evaluate_prepared(environment)
+    True
+
+    .. versionadded:: 26.4
+    """
+    current_environment = cast(
+        "dict[str, str | AbstractSet[str]]", default_environment()
+    )
+    if context == "lock_file":
+        current_environment |= {
+            "extras": frozenset(),
+            "dependency_groups": frozenset(),
+        }
+    elif context == "metadata":
+        current_environment["extra"] = ""
+
+    if environment is not None:
+        current_environment |= environment
+        if "extra" in current_environment:
+            current_environment["extra"] = _prepare_extra(current_environment["extra"])
+
+    return _repair_python_full_version(current_environment)
+
+
 class Marker:
     """Represents a parsed dependency marker expression.
 
@@ -410,8 +549,7 @@ class Marker:
 
         try:
             self._markers = _normalize_extra_values(_parse_marker(marker))
-            # The attribute `_markers` can be described in terms of a recursive type:
-            # MarkerList = list[tuple[Node, ...] | str | MarkerList]
+            # The attribute `_markers` is a `_parser.MarkerList` tree.
             #
             # For example, the following expression:
             # python_version > "3.6" or (python_version == "3.6" and os_name == "unix")
@@ -419,15 +557,17 @@ class Marker:
             # is parsed into:
             # [
             #     (<Variable('python_version')>, <Op('>')>, <Value('3.6')>),
-            #     'and',
+            #     'or',
             #     [
             #         (<Variable('python_version')>, <Op('==')>, <Value('3.6')>),
-            #         'or',
+            #         'and',
             #         (<Variable('os_name')>, <Op('==')>, <Value('unix')>)
             #     ]
             # ]
         except ParserSyntaxError as e:
-            raise InvalidMarker(str(e)) from e
+            raise InvalidMarker(
+                str(e), message=e.message, source=e.source, span=e.span
+            ) from e
 
     @classmethod
     def _from_markers(cls, markers: MarkerList) -> Marker:
@@ -496,7 +636,7 @@ class Marker:
         """
         if not isinstance(other, Marker):
             return NotImplemented
-        return self._from_markers([self._markers, "and", other._markers])
+        return self._from_markers(_join_markers(self._markers, "and", other._markers))
 
     def __or__(self, other: Marker) -> Marker:
         """Combine this marker with another using ``or``.
@@ -505,7 +645,7 @@ class Marker:
         """
         if not isinstance(other, Marker):
             return NotImplemented
-        return self._from_markers([self._markers, "or", other._markers])
+        return self._from_markers(_join_markers(self._markers, "or", other._markers))
 
     def evaluate(
         self,
@@ -516,7 +656,9 @@ class Marker:
 
         Return the boolean from evaluating this marker against the environment.
         The environment is determined from the current Python process unless
-        passed in explicitly.
+        passed in explicitly. This is equivalent to passing the same arguments
+        to :func:`prepare_environment` and the result to
+        :meth:`evaluate_prepared`.
 
         :param environment: Mapping containing keys and values to override the
            detected environment.
@@ -526,7 +668,8 @@ class Marker:
             ``"lock_file"``, and ``"requirement"`` (i.e. all other situations).
         :raises UndefinedComparison: If the marker uses a comparison on values
             that are not valid versions per the :ref:`specification of version
-            specifiers <pypug:version-specifiers>`.
+            specifiers <pypug:version-specifiers>`, or a set-valued marker is
+            given a string.
         :raises UndefinedEnvironmentName: If the marker references a value that
             is missing from the evaluation environment.
         :returns: ``True`` if the marker matches, otherwise ``False``.
@@ -534,7 +677,12 @@ class Marker:
         .. versionchanged:: 25.0
             Added the ``context`` parameter, which influences which marker names
             are considered valid.
+
+        .. versionchanged:: 26.4
+            ``environment`` may map ``"extra"`` to a set of extra names to
+            evaluate ``extra`` markers against the whole selected set.
         """
+        # Keep single evaluations free of a preparation helper call.
         current_environment = cast(
             "dict[str, str | AbstractSet[str]]", default_environment()
         )
@@ -549,15 +697,46 @@ class Marker:
         if environment is not None:
             current_environment |= environment
             if "extra" in current_environment:
-                # The API used to allow setting extra to None. We need to handle
-                # this case for backwards compatibility. Also skip running
-                # normalize name if extra is empty.
-                extra = cast("str | None", current_environment["extra"])
-                current_environment["extra"] = canonicalize_name(extra) if extra else ""
+                current_environment["extra"] = _prepare_extra(
+                    current_environment["extra"]
+                )
 
         return _evaluate_markers(
             self._markers, _repair_python_full_version(current_environment)
         )
+
+    def evaluate_prepared(
+        self, environment: Mapping[str, str | AbstractSet[str]]
+    ) -> bool:
+        """Evaluate a marker against the supplied environment.
+
+        ``environment`` is read as given: unlike :meth:`evaluate`, no detected
+        values are filled in, no context keys are added, ``extra`` is not
+        canonicalized and ``python_full_version`` is not repaired. The mapping
+        may come from :func:`prepare_environment` or be supplied by the caller.
+        If changing ``extra`` between evaluations, normalize its value with
+        :func:`packaging.utils.canonicalize_name` first.
+
+        :param environment: The environment to evaluate against, normally from
+            :func:`prepare_environment`.
+        :raises UndefinedComparison: If the marker uses a comparison on values
+            that are not valid versions per the :ref:`specification of version
+            specifiers <pypug:version-specifiers>`, or ``extra`` holds
+            something other than a string or a set, or a set of extras is used
+            with an operator other than ``==`` or ``!=``, or a set-valued marker
+            is given a string or used on the left-hand side of a comparison.
+        :raises UndefinedEnvironmentName: If the marker references a value that
+            is missing from ``environment``.
+        :returns: ``True`` if the marker matches, otherwise ``False``.
+
+        >>> from packaging.markers import Marker, prepare_environment
+        >>> environment = prepare_environment({"sys_platform": "linux"})
+        >>> Marker("sys_platform == 'linux'").evaluate_prepared(environment)
+        True
+
+        .. versionadded:: 26.4
+        """
+        return _evaluate_markers(self._markers, environment)
 
 
 def _pep440_python_full_version(python_full_version: str) -> str:

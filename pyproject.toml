@@ -69,6 +69,10 @@ exclude = [
   "build/__pycache__",
 ]
 
+[tool.typos.default]
+# Pickle bytes in the tests.
+extend-ignore-re = ['(?m)^\s+b["\x27].*\\x[0-9a-f]{2}.*["\x27]$']
+
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
 ANDed = "ANDed"
@@ -170,6 +174,7 @@ ignore = [
     "TRY003",  # long messages outside exception class
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+flake8-import-conventions.extend-aliases = { datetime = "datetime" }
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]

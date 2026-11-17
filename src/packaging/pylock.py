@@ -6,6 +6,17 @@ attributes correspond to fields in the pylock file specification.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "collections.abc",
+    "datetime",
+    "urllib.parse",
+    f"{__spec__.parent}.markers",
+    f"{__spec__.parent}.specifiers",
+    f"{__spec__.parent}.tags",
+    f"{__spec__.parent}.utils",
+    f"{__spec__.parent}.version",
+}
+
 import dataclasses
 import logging
 import re
@@ -21,11 +32,13 @@ from typing import (
 )
 from urllib.parse import unquote, urlparse
 
+from ._structures import dict_state_pickle_compat
 from .markers import (
     Environment,
     Marker,
     _pep440_python_full_version,
     default_environment,
+    prepare_environment,
 )
 from .specifiers import SpecifierSet
 from .tags import create_compatible_tags_selector, sys_tags
@@ -40,6 +53,7 @@ from .version import Version
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Collection, Iterator
+    from collections.abc import Set as AbstractSet
     from pathlib import Path
 
     from typing_extensions import Self
@@ -278,7 +292,7 @@ def _validate_hashes(hashes: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 class PylockValidationError(Exception):
-    """Raised when when input data is not spec-compliant."""
+    """Raised when input data is not spec-compliant."""
 
     context: str | None = None
     message: str
@@ -323,6 +337,7 @@ class PylockSelectError(Exception):
     """
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageVcs:
     """A package installed from a version control system."""
@@ -348,6 +363,7 @@ class PackageVcs:
         return package_vcs
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageDirectory:
     """A package installed from a local directory."""
@@ -365,6 +381,7 @@ class PackageDirectory:
         )
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageArchive:
     """A package installed from an archive."""
@@ -390,6 +407,7 @@ class PackageArchive:
         return package_archive
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageSdist:
     """A source distribution for a package."""
@@ -426,6 +444,7 @@ class PackageSdist:
         return filename
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PackageWheel:
     """A wheel distribution for a package."""
@@ -459,6 +478,7 @@ class PackageWheel:
         return filename
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Package:
     """A package entry in a pylock file.
@@ -567,6 +587,7 @@ class Package:
         return not (self.sdist or self.wheels)
 
 
+@dict_state_pickle_compat
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Pylock:
     """Represent a validated pylock file."""
@@ -594,7 +615,8 @@ class Pylock:
             packages=_get_required_sequence_of_objects(d, Package, "packages"),
             tool=_get(d, Mapping, "tool"),  # type: ignore[type-abstract]
         )
-        if not Version("1") <= pylock.lock_version < Version("2"):
+        # Prereleases of the next major version are unsupported too.
+        if not Version("1") <= pylock.lock_version < Version("2.dev0"):
             raise PylockUnsupportedVersionError(
                 f"pylock version {pylock.lock_version} is not supported"
             )
@@ -704,10 +726,10 @@ class Pylock:
         #    #. ``extras`` SHOULD be set to the empty set by default.
         #    #. ``dependency_groups`` SHOULD be the set created from
         #       :ref:`pylock-default-groups` by default.
-        env = cast(
+        overrides = cast(
             "dict[str, str | frozenset[str]]",
             dict(
-                environment or {},  # Marker.evaluate will fill-up
+                environment or {},
                 extras=frozenset(canonical_extras),
                 dependency_groups=frozenset(
                     (self.default_groups or [])
@@ -742,10 +764,13 @@ class Pylock:
         #    environment marker expressions is satisfied; an error MUST be raised if no
         #    expression is satisfied.
         if self.environments is not None:
+            requirement_env: dict[str, str | AbstractSet[str]] | None = None
             for env_marker in self.environments:
-                if env_marker.evaluate(
-                    cast("dict[str, str]", environment or {}), context="requirement"
-                ):
+                if requirement_env is None:
+                    requirement_env = prepare_environment(
+                        cast("dict[str, str]", environment or {}), context="requirement"
+                    )
+                if env_marker.evaluate_prepared(requirement_env):
                     break
             else:
                 raise PylockSelectError(
@@ -754,12 +779,16 @@ class Pylock:
                 )
 
         # #. For each package listed in :ref:`pylock-packages`:
+        lock_file_env: dict[str, str | AbstractSet[str]] | None = None
         selected_packages_by_name: dict[str, tuple[int, Package]] = {}
         for package_index, package in enumerate(self.packages):
             # #. If :ref:`pylock-packages-marker` is specified, check if it is
             #    satisfied;if it isn't, skip to the next package.
-            if package.marker and not package.marker.evaluate(env, context="lock_file"):
-                continue
+            if package.marker:
+                if lock_file_env is None:
+                    lock_file_env = prepare_environment(overrides, context="lock_file")
+                if not package.marker.evaluate_prepared(lock_file_env):
+                    continue
 
             # #. If :ref:`pylock-packages-requires-python` is specified, check if it is
             #    satisfied; an error MUST be raised if it isn't.

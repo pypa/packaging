@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"functools"}
+
 import builtins
 import re
 import sys
@@ -183,55 +185,67 @@ class _BaseVersion:
 # Deliberately not anchored to the start and end of the string, to make it
 # easier for 3rd party code to reuse
 
-# Note that ++ doesn't behave identically on CPython and PyPy, so not using it here
 _VERSION_PATTERN = r"""
     v?+                                                   # optional leading v
     (?a:
-        (?:(?P<epoch>[0-9]+)!)?+                          # epoch
-        (?P<release>[0-9]+(?:\.[0-9]+)*+)                 # release segment
+        (?:(?P<epoch>[0-9]++)!)?+                         # epoch
+        (?P<release>[0-9]++(?:\.[0-9]++)*+)               # release segment
         (?P<pre>                                          # pre-release
             [._-]?+
             (?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)
             [._-]?+
-            (?P<pre_n>[0-9]+)?
+            (?P<pre_n>[0-9]++)?+
         )?+
         (?P<post>                                         # post release
-            (?:-(?P<post_n1>[0-9]+))
+            (?:-(?P<post_n1>[0-9]++))
             |
             (?:
-                [._-]?
+                [._-]?+
                 (?P<post_l>post|rev|r)
-                [._-]?
-                (?P<post_n2>[0-9]+)?
+                [._-]?+
+                (?P<post_n2>[0-9]++)?+
             )
         )?+
         (?P<dev>                                          # dev release
             [._-]?+
             (?P<dev_l>dev)
             [._-]?+
-            (?P<dev_n>[0-9]+)?
+            (?P<dev_n>[0-9]++)?+
         )?+
     )
     (?a:\+
         (?P<local>                                        # local version
-            [a-z0-9]+
-            (?:[._-][a-z0-9]+)*+
+            [a-z0-9]++
+            (?:[._-][a-z0-9]++)*+
         )
     )?+
 """
 
-_VERSION_PATTERN_OLD = _VERSION_PATTERN.replace("*+", "*").replace("?+", "?")
 
-# Possessive qualifiers were added in Python 3.11.
-# CPython 3.11.0-3.11.4 had a bug: https://github.com/python/cpython/pull/107795
-# Older PyPy also had a bug.
-VERSION_PATTERN = (
-    _VERSION_PATTERN_OLD
-    if (sys.implementation.name == "cpython" and sys.version_info < (3, 11, 5))
-    or (sys.implementation.name == "pypy" and sys.version_info < (3, 11, 13))
-    or sys.version_info < (3, 11)
-    else _VERSION_PATTERN
-)
+# Each interpreter takes only one path, so coverage cannot be complete.
+def _adapt_possessive(pattern: str) -> str:  # pragma: no cover
+    """Remove the possessive quantifiers that this interpreter does not support."""
+    cpython = sys.implementation.name == "cpython"
+    pypy = sys.implementation.name == "pypy"
+
+    # Possessive qualifiers were added in Python 3.11.
+    # CPython 3.11.0-3.11.4 had a bug: https://github.com/python/cpython/pull/107795
+    # Older PyPy also had a bug.
+    if (
+        sys.version_info < (3, 11)
+        or (cpython and sys.version_info < (3, 11, 5))
+        or (pypy and sys.version_info < (3, 11, 13))
+    ):
+        return pattern.replace("++", "+").replace("*+", "*").replace("?+", "?")
+
+    # The "++" quantifier is broken before PyPy 7.3.22 (pypy/pypy#5504).
+    if not cpython and getattr(sys, "pypy_version_info", (0,)) < (7, 3, 22):
+        return pattern.replace("++", "+")
+
+    return pattern
+
+
+VERSION_PATTERN = _adapt_possessive(_VERSION_PATTERN)
 """
 A string containing the regular expression used to match a valid version.
 
@@ -244,6 +258,11 @@ flags set.
 
    The regex now uses possessive qualifiers on Python 3.11 if they are
    supported (CPython 3.11.5+, PyPy 3.11.13+).
+
+.. versionchanged:: 26.4
+
+   The regex now also uses the possessive ``++`` quantifier on CPython 3.11.5+
+   and PyPy 7.3.22+.
 
 :meta hide-value:
 """
@@ -267,12 +286,13 @@ def _validate_epoch(value: object, /) -> int:
 
 def _validate_release(value: object, /) -> tuple[int, ...]:
     release = (0,) if value is None else value
-    if (
-        isinstance(release, tuple)
-        and len(release) > 0
-        and all(isinstance(i, int) and i >= 0 for i in release)
-    ):
-        return release
+    # A loop is faster than iteration based alternatives.
+    if isinstance(release, tuple) and release:
+        for i in release:
+            if not isinstance(i, int) or i < 0:
+                break
+        else:
+            return release
     msg = f"release must be a non-empty tuple of non-negative integers, got {release}"
     raise InvalidVersion(msg)
 
@@ -869,28 +889,27 @@ class Version(_BaseVersion):
         >>> str(Version("1.0a5"))
         '1.0a5'
         """
-        # This is a hot function, so not calling self.base_version
-        version = ".".join(map(str, self.release))
+        version = ".".join(map(str, self._release))
 
         # Epoch
-        if self.epoch:
-            version = f"{self.epoch}!{version}"
+        if self._epoch:
+            version = f"{self._epoch}!{version}"
 
         # Pre-release
-        if self.pre is not None:
-            version += "".join(map(str, self.pre))
+        if self._pre is not None:
+            version += "".join(map(str, self._pre))
 
         # Post-release
-        if self.post is not None:
-            version += f".post{self.post}"
+        if self._post:
+            version += f".post{self._post[1]}"
 
         # Development release
-        if self.dev is not None:
-            version += f".dev{self.dev}"
+        if self._dev:
+            version += f".dev{self._dev[1]}"
 
         # Local version segment
-        if self.local is not None:
-            version += f"+{self.local}"
+        if self._local:
+            version += "+" + ".".join(map(str, self._local))
 
         return version
 
@@ -1011,8 +1030,8 @@ class Version(_BaseVersion):
         The "base version" is the public version of the project without any pre or post
         release markers.
         """
-        release_segment = ".".join(map(str, self.release))
-        return f"{self.epoch}!{release_segment}" if self.epoch else release_segment
+        release_segment = ".".join(map(str, self._release))
+        return f"{self._epoch}!{release_segment}" if self._epoch else release_segment
 
     @property
     def is_prerelease(self) -> bool:
@@ -1029,7 +1048,7 @@ class Version(_BaseVersion):
         >>> Version("1.2.3dev1").is_prerelease
         True
         """
-        return self.dev is not None or self.pre is not None
+        return self._dev is not None or self._pre is not None
 
     @property
     def is_postrelease(self) -> bool:
@@ -1090,40 +1109,33 @@ class Version(_BaseVersion):
         """
         return self.release[2] if len(self.release) >= 3 else 0
 
-
-class _TrimmedRelease(Version):
-    __slots__ = ()
-
-    def __init__(self, version: str | Version) -> None:
-        if isinstance(version, Version):
-            self._epoch = version._epoch
-            self._release = version._release
-            self._dev = version._dev
-            self._pre = version._pre
-            self._post = version._post
-            self._local = version._local
-            self._key_cache = version._key_cache
-            self._hash_cache = version._hash_cache
-            return
-        super().__init__(version)  # pragma: no cover
-
-    @property
-    def release(self) -> tuple[int, ...]:
+    def _trim_release(self) -> Version:
         """
-        Release segment without any trailing zeros.
+        Return the version with trailing zeros removed from the release segment.
 
-        >>> _TrimmedRelease('1.0.0').release
-        (1,)
-        >>> _TrimmedRelease('0.0').release
-        (0,)
+        >>> Version('1.0.0')._trim_release()
+        <Version('1')>
+        >>> Version('0.0')._trim_release()
+        <Version('0')>
         """
         # This leaves one 0.
-        rel = super().release
-        len_release = len(rel)
-        i = len_release
-        while i > 1 and rel[i - 1] == 0:
+        release = self._release
+        i = len(release)
+        while i > 1 and release[i - 1] == 0:
             i -= 1
-        return rel if i == len_release else rel[:i]
+        if i == len(release):
+            return self
+
+        new_version = Version.__new__(Version)
+        new_version._epoch = self._epoch
+        new_version._release = release[:i]
+        new_version._dev = self._dev
+        new_version._pre = self._pre
+        new_version._post = self._post
+        new_version._local = self._local
+        new_version._key_cache = self._key_cache
+        new_version._hash_cache = self._hash_cache
+        return new_version
 
 
 def _parse_letter_version(
@@ -1191,7 +1203,8 @@ def _cmpkey(
 
     Returns ``(epoch, release, suffix)`` or
     ``(epoch, release, suffix, local)`` so that plain tuple
-    comparison gives the correct order.
+    comparison gives the correct order. ``specifiers._fast_match``
+    relies on the first two items being epoch and trimmed release.
 
     Trailing zeros are stripped from the release so that ``1.0.0 == 1``.
 

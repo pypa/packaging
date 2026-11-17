@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"collections.abc", "urllib.parse"}
+
 import dataclasses
 import re
 import urllib.parse
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+
+from ._structures import dict_state_pickle_compat
 
 if TYPE_CHECKING:  # pragma: no cover
     import sys
@@ -115,7 +119,7 @@ def _file_url_has_absolute_path(parsed_url: SplitResult) -> bool:
 
 
 class DirectUrlValidationError(Exception):
-    """Raised when when input data is not spec-compliant.
+    """Raised when input data is not spec-compliant.
 
     .. versionadded:: 26.1
     """
@@ -152,6 +156,7 @@ class _DirectUrlRequiredKeyError(DirectUrlValidationError):
         super().__init__("Missing required value", context=key)
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class VcsInfo:
     """The version control information of a :class:`DirectUrl`."""
@@ -170,6 +175,7 @@ class VcsInfo:
         )
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class ArchiveInfo:
     """The archive information of a :class:`DirectUrl`."""
@@ -211,6 +217,7 @@ class ArchiveInfo:
         return cls(hashes=hashes)
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class DirInfo:
     """The local directory information of a :class:`DirectUrl`."""
@@ -224,6 +231,7 @@ class DirInfo:
         )
 
 
+@dict_state_pickle_compat
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class DirectUrl:
     """A class representing a direct URL.
