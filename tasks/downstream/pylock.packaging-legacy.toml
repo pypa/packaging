@@ -1,0 +1,211 @@
+lock-version = "1.0"
+environments = [
+    "python_version == \"3.14\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and platform_python_implementation == \"CPython\"",
+]
+requires-python = "<3.15,>=3.14"
+created-by = "nab"
+
+[[packages]]
+name = "coverage"
+version = "7.17.3"
+requires-python = ">=3.11"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "coverage-7.17.3-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+upload-time = 2026-11-12T12:25:20.000483+00:00
+url = "https://files.pythonhosted.org/packages/26/2c/c871c22a11981f58895e4dd167f4aa64c04853c5a0e91de853408c0f2d3e/coverage-7.17.3-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+size = 263872
+
+[packages.wheels.hashes]
+sha256 = "eb25b51a30d07db8493901e3040284f2e756ec2b6549ee392798b9ef4c0607b3"
+
+[[packages.wheels]]
+name = "coverage-7.17.3-py3-none-any.whl"
+upload-time = 2026-11-12T12:26:43.553593+00:00
+url = "https://files.pythonhosted.org/packages/d1/8e/f7d7e69e2ad34ce08595b787eb578f669c00fd57d432ed4c7cfd71666f36/coverage-7.17.3-py3-none-any.whl"
+size = 219999
+
+[packages.wheels.hashes]
+sha256 = "21745c08f2835b847a16887b748d3084dddeb0571ae2a0d62e33644413568b99"
+
+[[packages]]
+name = "flit-core"
+version = "4.2.0"
+requires-python = ">=3.8"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "flit_core-4.2.0-py3-none-any.whl"
+upload-time = 2026-10-27T21:07:46.392085+00:00
+url = "https://files.pythonhosted.org/packages/d9/f0/e546c28b937f094b354ca29b9060c5f1dd5043a332b2905049a51420b7a2/flit_core-4.2.0-py3-none-any.whl"
+size = 48025
+
+[packages.wheels.hashes]
+sha256 = "2bee22dc8ba89c2e35b4e1ad575e596aac945c85672dd8f3cad21b629036e044"
+
+[[packages]]
+name = "iniconfig"
+version = "2.3.1"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "iniconfig-2.3.1-py3-none-any.whl"
+upload-time = 2026-10-06T22:48:36.959685+00:00
+url = "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl"
+size = 7552
+
+[packages.wheels.hashes]
+sha256 = "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+
+[[packages]]
+name = "packaging"
+version = "26.3"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "packaging-26.3-py3-none-any.whl"
+upload-time = 2026-08-04T18:15:27.159957+00:00
+url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+size = 129956
+
+[packages.wheels.hashes]
+sha256 = "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+
+[[packages]]
+name = "pip"
+version = "26.3"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pip-26.3-py3-none-any.whl"
+upload-time = 2026-11-02T20:34:25.728168+00:00
+url = "https://files.pythonhosted.org/packages/07/25/ee8c38ae72d66b844ce8eb9711ba905dba21ca1a8a0c960057c41cd23337/pip-26.3-py3-none-any.whl"
+size = 1950951
+
+[packages.wheels.hashes]
+sha256 = "f3b60b20ffaadd4415ed7957212a38ac63fa4c5fa375bd0f4a797777940fad13"
+
+[[packages]]
+name = "pluggy"
+version = "1.7.0"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pluggy-1.7.0-py3-none-any.whl"
+upload-time = 2026-10-15T09:50:56.808462+00:00
+url = "https://files.pythonhosted.org/packages/40/9e/2b38731e0fc536806f16490e1a12d7f0dc2a1235aa8cc07bcc75416a7daa/pluggy-1.7.0-py3-none-any.whl"
+size = 27082
+
+[packages.wheels.hashes]
+sha256 = "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+
+[[packages]]
+name = "pretend"
+version = "1.0.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pretend-1.0.9-py2.py3-none-any.whl"
+upload-time = 2018-04-14T14:31:04.213995+00:00
+url = "https://files.pythonhosted.org/packages/49/1f/3d4f0579913edd3ad5b23ad52fcc42531cb736ad52af2ba6c057da8785b6/pretend-1.0.9-py2.py3-none-any.whl"
+size = 3848
+
+[packages.wheels.hashes]
+sha256 = "e389b12b7073604be67845dbe32bf8297360ad9a609b24846fe15d86e0b7dc01"
+
+[[packages]]
+name = "pygments"
+version = "2.21.0"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pygments-2.21.0-py3-none-any.whl"
+upload-time = 2026-08-17T08:02:44.912148+00:00
+url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl"
+size = 1250147
+
+[packages.wheels.hashes]
+sha256 = "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+
+[[packages]]
+name = "pytest"
+version = "9.0.3"
+requires-python = ">=3.10"
+dependencies = [
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pytest-9.0.3-py3-none-any.whl"
+upload-time = 2026-04-07T17:16:16.130051+00:00
+url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl"
+size = 375249
+
+[packages.wheels.hashes]
+sha256 = "2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9"
+
+[[packages]]
+name = "setuptools"
+version = "84.2.1"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "setuptools-84.2.1-py3-none-any.whl"
+upload-time = 2026-10-20T19:01:35.678013+00:00
+url = "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl"
+size = 876263
+
+[packages.wheels.hashes]
+sha256 = "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+
+[[packages]]
+name = "wheel"
+version = "0.48.0"
+requires-python = ">=3.9"
+dependencies = [
+    { name = "packaging" },
+]
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "wheel-0.48.0-py3-none-any.whl"
+upload-time = 2026-08-11T22:02:26.100721+00:00
+url = "https://files.pythonhosted.org/packages/2e/29/69cfbb602cd91690c55d38ba9fe53e6a7e76a6fa647bf38f19c138d25449/wheel-0.48.0-py3-none-any.whl"
+size = 33320
+
+[packages.wheels.hashes]
+sha256 = "3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab"
+
+[tool.nab]
+nab-version = "0.0.31"
+created-at = 2026-11-24T20:00:22.407029+00:00
+command-line = [
+    "nab",
+    "lock",
+    "tasks/downstream/nab.toml",
+    "--output",
+    "tasks/downstream/pylock.packaging-legacy.toml",
+    "--plan",
+    "packaging-legacy",
+    "--upgrade",
+]
+input-path = "tasks/downstream/nab.toml"
+mode = "specific"
+python-specifier = ">=3.14,<3.15"
+
+[tool.nab.validation]
+version = 1
+all-inputs-sha256 = "85d051afe586604978efc6fb16cb31c49cb8e629d94184a69007b94567a88604"
+selection-inputs-sha256 = "ad352e5ca8da5079eab31ab6b01d9d8f38c9168daf3a1d63db83af6dac5a4c54"
+contents-sha256 = "6c9be8e495116060e83f1ba0c5507c48fe4380c9a5cf656f8ab7c674ff20b953"

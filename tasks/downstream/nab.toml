@@ -1,0 +1,178 @@
+requires-python = ">=3.14,<3.15"
+uploaded-prior-to = "P7D"
+dist-policy = "sdist-if-needed"
+
+[environment]
+python = "3.14"
+platform = "linux_x86_64"
+
+# The pinned PDM release needs this wheel before its cooldown ends.
+[packages."hishel==2.0.0"]
+uploaded-prior-to = "2026-11-05T14:10:40.115929Z"
+
+[input-sources.packaging]
+path = "../.."
+
+[input-sources.packaging-legacy]
+url = "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz"
+sha256 = "af6c4f9efb6e13a5bb1352e1e1cb3b45b929abf3b6621185a1432559accf69f2"
+
+[plans.packaging-legacy]
+inputs.packaging = { groups = ["downstream-packaging-legacy"] }
+[plans.packaging-legacy.inputs.packaging-legacy]
+requirements-files = ["tests/requirements.txt"]
+dependencies = true
+build-requirements = true
+
+[input-sources.build]
+url = "https://github.com/pypa/build/archive/refs/tags/1.6.1.tar.gz"
+sha256 = "3f86cc69a22d5e0a45783be999ee49aad36181ab2be62300d98b4584c26d721f"
+
+[plans.build]
+inputs.packaging = { groups = ["downstream-build"] }
+[plans.build.inputs.build]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.setuptools]
+url = "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz"
+sha256 = "0b4d724588a6995a5700ce7ce5b7a9df89c624875e62fc8323432e451829fda1"
+
+[plans.setuptools]
+inputs.packaging = { groups = ["downstream-setuptools"] }
+[plans.setuptools.inputs.setuptools]
+dependencies = true
+build-requirements = true
+extras = ["test", "cover"]
+
+[input-sources.pyproject-metadata]
+url = "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz"
+sha256 = "e15d2f1bab8b3cf18161773b96f34f0199ef483034c577da2731c3a3290cfe76"
+
+[plans.pyproject-metadata]
+inputs.packaging = { groups = ["downstream-pyproject-metadata"] }
+[plans.pyproject-metadata.inputs.pyproject-metadata]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.pip]
+url = "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz"
+sha256 = "b70256771f5ea127dae3e4bd6a9c9ab4928d1833519e17b132e76bdeec5a373d"
+
+[plans.pip]
+inputs.packaging = { groups = ["downstream-pip"] }
+[plans.pip.inputs.pip]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.dependency-groups]
+url = "https://github.com/pypa/dependency-groups/archive/refs/tags/1.3.1.tar.gz"
+sha256 = "df31e804d078643229c43ee74bf0bd5911edf13ca1a1a24c87612a2c19b393be"
+
+[plans.dependency-groups]
+inputs.packaging = { groups = ["downstream-dependency-groups"] }
+[plans.dependency-groups.inputs.dependency-groups]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.dep-logic]
+url = "https://github.com/pdm-project/dep-logic/archive/refs/tags/0.6.0.tar.gz"
+sha256 = "92017dc3a3046a988012587054fa0f7d472c025b1379c227244248063efb0f4f"
+
+[plans.dep-logic]
+inputs.packaging = { groups = ["downstream-dep-logic"] }
+[plans.dep-logic.inputs.dep-logic]
+dependencies = true
+build-requirements = true
+
+[input-sources.twine]
+url = "https://github.com/pypa/twine/archive/refs/tags/7.0.0.tar.gz"
+sha256 = "c4ce7afa802efb38dffa761bca83c3485ae482f8262c32ded74380c64ab508b5"
+
+[plans.twine]
+inputs.packaging = { groups = ["downstream-twine"] }
+[plans.twine.inputs.twine]
+dependencies = true
+build-requirements = true
+
+[input-sources.cibuildwheel]
+url = "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz"
+sha256 = "d3980f8aacfc17f80dfd563d5c136c65909ddacaa5ddbbe68106b9e5a29dc896"
+
+[plans.cibuildwheel]
+inputs.packaging = { groups = ["downstream-cibuildwheel"] }
+[plans.cibuildwheel.inputs.cibuildwheel]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.hatchling]
+url = "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.31.0.tar.gz"
+sha256 = "7432f025f7d641a7e5ced035b712d67895ab31ba487f127163683ae26f51b90e"
+
+[plans.hatchling]
+inputs.packaging = { groups = ["downstream-hatchling"] }
+[plans.hatchling.inputs.hatchling]
+projects = [{ path = "./backend", dependencies = true, build-requirements = true }, { dependencies = true, build-requirements = true }]
+
+[input-sources.tox]
+url = "https://github.com/tox-dev/tox/archive/refs/tags/4.67.9.tar.gz"
+sha256 = "c95c06b68815227c9919f05523697e6974ca0f49893703140c1c3f142eb98957"
+
+[plans.tox]
+inputs.packaging = { groups = ["downstream-tox"] }
+[plans.tox.inputs.tox]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.virtualenv]
+url = "https://github.com/pypa/virtualenv/archive/refs/tags/21.15.5.tar.gz"
+sha256 = "351c7ace23428bc8e9e3b821a80820402d41cde6236399a70e60117045df8d90"
+
+[plans.virtualenv]
+inputs.packaging = { groups = ["downstream-virtualenv"] }
+[plans.virtualenv.inputs.virtualenv]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.pdm]
+url = "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.7.tar.gz"
+sha256 = "9873985ab5f2d84baf60ab787394e706f38deeffe55eec4619bb168cd2d43040"
+
+[plans.pdm]
+inputs.packaging = { groups = ["downstream-pdm"] }
+[plans.pdm.inputs.pdm]
+dependencies = true
+build-requirements = true
+groups = ["test"]
+
+[input-sources.poetry-core]
+url = "https://github.com/python-poetry/poetry-core/archive/refs/tags/2.4.1.tar.gz"
+sha256 = "da83444c058008e87b6505883e4f40569ebe833b8cd9d9ef6541e3942ea1c8ba"
+
+[plans.poetry-core]
+inputs.packaging = { groups = ["downstream-poetry-core"] }
+[plans.poetry-core.inputs.poetry-core]
+dependencies = true
+build-requirements = true
+
+[input-sources.pipenv]
+url = "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz"
+sha256 = "23991bed64882e39a21cdfb8085ee2c6188d7649556446904c64cffb2ee8d411"
+
+[plans.pipenv]
+inputs.packaging = { groups = ["downstream-pipenv"] }
+[plans.pipenv.inputs.pipenv]
+dependencies = true
+build-requirements = true
+extras = ["tests"]
+
+[plans.pip-wheels]
+[plans.pip-wheels.inputs.pip]
+groups = ["test-common-wheels"]

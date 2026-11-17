@@ -65,6 +65,7 @@ dev = [
 ]
 
 editable-build = ["flit_core>=3.12"]
+installer = ["pip>=26.3"]
 lint = [
   "prek",
   "build",
@@ -102,6 +103,103 @@ pickle-26-2 = [
 pickle-26-3 = [
   "packaging==26.3",
   { include-group = "editable-build" },
+]
+
+# Additional tools needed by the pinned downstream suites.
+downstream-packaging-legacy = [
+    "pytest<9.1",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# The legacy fixture treats forwarded backend warnings as errors.
+downstream-build = [
+    "pyproject-hooks<1.3",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-setuptools = [
+    "pytest<9.1",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-pyproject-metadata = [
+    "pytest<9.1",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-pip = [
+    "pytest<9.1",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-dependency-groups = [
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-dep-logic = [
+    "pytest",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Twine declares its test dependencies in tox.ini, outside standard project metadata.
+downstream-twine = [
+    "pretend",
+    "pytest",
+    "pytest-socket",
+    "coverage",
+    "docutils>=0.23",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Its editable build hook requests editables.
+downstream-cibuildwheel = [
+    "editables",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-hatchling = [
+    "pytest",
+    "pytest-mock",
+    "filelock",
+    "editables",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Tox tests import argcomplete; its editable backend also requests editables.
+downstream-tox = [
+    "argcomplete",
+    "docutils>=0.23",
+    "editables",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Its editable build hook requests editables.
+downstream-virtualenv = [
+    "editables",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Match pdm.lock when regenerating the release's shell completion scripts.
+downstream-pdm = [
+    "argcomplete==3.7.0",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+# Poetry-specific test groups are not PEP 735 groups; setuptools builds C fixtures.
+downstream-poetry-core = [
+    "pytest",
+    "pytest-mock",
+    "build",
+    "setuptools",
+    "tomli-w",
+    "virtualenv",
+    "trove-classifiers",
+    { include-group = "editable-build" },
+    { include-group = "installer" },
+]
+downstream-pipenv = [
+    { include-group = "editable-build" },
+    { include-group = "installer" },
 ]
 
 [tool.flit.sdist]

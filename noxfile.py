@@ -9,6 +9,7 @@ import contextlib
 import datetime
 import difflib
 import glob
+import hashlib
 import importlib.metadata
 import io
 import os
@@ -44,8 +45,11 @@ if packaging.version.Version("2026.08.10") <= NOX_VERSION:
 ROOT = Path(__file__).resolve().parent
 PYPROJECT = nox.project.load_toml(ROOT / "pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
+DOWNSTREAM = ROOT / "tasks" / "downstream"
+DOWNSTREAM_CONFIG = nox.project.load_toml(DOWNSTREAM / "nab.toml")
 DEV_LOCK = ROOT / "pylock.dev.toml"
 BUILD_LOCK = ROOT / "pylock.build.toml"
+PYTEST_91_UPLOAD_CUTOFF = "2026-06-12 00:00:00Z"
 
 # Interpreters that run the tests without coverage, because tracing is too slow
 # there: PyPy, and free-threaded 3.13, which has no fast C tracer.
@@ -60,9 +64,9 @@ def _install_group(session: nox.Session, group: str) -> None:
         session.install("--group", f"{DEV_LOCK}:{group}")
 
 
-def _install_project(session: nox.Session) -> None:
-    """Install the checkout with its locked build requirements."""
-    session.install("--no-deps", "--no-build-isolation", "-e.")
+def _install_project(session: nox.Session, *, editable: bool = True) -> None:
+    """Build the current source using the already installed locked backend."""
+    session.install("--no-deps", "--no-build-isolation", "-e." if editable else ".")
 
 
 @nox.session(
@@ -165,38 +169,35 @@ def locks(session: nox.Session) -> None:
         *session.posargs,
     )
     session.run("nab", "lock", "--all-plans", *session.posargs)
-
-
-# A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13)
-PYTEST_910_CUTOFF = "2026-06-12 00:00:00Z"
+    session.run(
+        "nab",
+        "lock",
+        "tasks/downstream/nab.toml",
+        "--all-plans",
+        *session.posargs,
+    )
 
 
 @dataclass(frozen=True)
 class Project:
-    url: str
-    install: tuple[str, ...] = ("-e.", "--group=test")
     install_env: dict[str, str] | None = None
     swap: tuple[str, ...] = ()
     pytest_args: tuple[str, ...] = ()
     extra_env: dict[str, str | None] | None = None
-    date_limit: bool = False
+    pytest_before_9_1: bool = False
+    uninstall_after_build: tuple[str, ...] = ()
     isolated_home: bool = False
 
 
 PROJECTS = {
     "packaging_legacy": Project(
-        "https://github.com/di/packaging_legacy/archive/refs/tags/23.0.post0.tar.gz",
-        install=("-r", "tests/requirements.txt", "-e."),
-        date_limit=True,
+        pytest_before_9_1=True,
     ),
     "build": Project(
-        "https://github.com/pypa/build/archive/refs/tags/1.6.1.tar.gz",
-        # The fixture treats newer hook warnings as errors.
-        install=("-e.", "--group=test", "pyproject-hooks<1.3"),
+        # Exercise metadata extraction with its backend absent, as the suite expects.
+        uninstall_after_build=("flit-core",),
     ),
     "setuptools": Project(
-        "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
-        install=("-e.[test,cover]",),
         swap=("setuptools/_vendor/packaging",),
         pytest_args=(
             # Performance comparisons require a Git checkout.
@@ -205,14 +206,12 @@ PROJECTS = {
             "-k",
             "not test_editable_install and not test_editable_with_pyproject",
         ),
-        date_limit=True,
+        pytest_before_9_1=True,
     ),
     "pyproject_metadata": Project(
-        "https://github.com/pypa/pyproject-metadata/archive/refs/tags/0.11.0.tar.gz",
-        date_limit=True,
+        pytest_before_9_1=True,
     ),
     "pip": Project(
-        "https://github.com/pypa/pip/archive/refs/tags/26.0.1.tar.gz",
         swap=("src/pip/_vendor/packaging",),
         pytest_args=(
             "tests/unit",
@@ -220,20 +219,13 @@ PROJECTS = {
             "-k",
             "not test_ensure_svn_available",
         ),
-        date_limit=True,
+        pytest_before_9_1=True,
     ),
-    "dependency_groups": Project(
-        "https://github.com/pypa/dependency-groups/archive/refs/tags/1.3.1.tar.gz",
-    ),
+    "dependency_groups": Project(),
     "dep_logic": Project(
-        "https://github.com/pdm-project/dep-logic/archive/refs/tags/0.6.0.tar.gz",
-        install=("-e.", "pytest"),
         install_env={"PDM_BUILD_SCM_VERSION": "0.6.0"},
     ),
     "twine": Project(
-        "https://github.com/pypa/twine/archive/refs/tags/7.0.0.tar.gz",
-        # twine keeps its test deps in tox.ini rather than a [test] extra.
-        install=("-e.", "pretend", "pytest", "pytest-socket", "coverage"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "7.0.0"},
         isolated_home=True,
         extra_env={
@@ -248,22 +240,12 @@ PROJECTS = {
         pytest_args=("-k", "not test_fails_rst_no_content"),
     ),
     "cibuildwheel": Project(
-        "https://github.com/pypa/cibuildwheel/archive/refs/tags/v4.1.0.tar.gz",
         # unit_test/ is the fast suite; test/ holds slow Docker integration tests.
         pytest_args=("unit_test",),
     ),
     "hatchling": Project(
-        "https://github.com/pypa/hatch/archive/refs/tags/hatchling-v1.31.0.tar.gz",
         # hatchling lives in the hatch monorepo; its backend tests rely on the
         # full hatch package and its fixtures.
-        install=(
-            "-e./backend",
-            "-e.",
-            "pytest",
-            "pytest-mock",
-            "filelock",
-            "editables",
-        ),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "1.31.0"},
         # test_binary downloads a PyApp binary over the network.
         # See https://github.com/pypa/hatch/issues/2319.
@@ -277,9 +259,6 @@ PROJECTS = {
         ),
     ),
     "tox": Project(
-        "https://github.com/tox-dev/tox/archive/refs/tags/4.67.9.tar.gz",
-        # argcomplete is an optional dep that several tests import at collection.
-        install=("-e.", "--group=test", "argcomplete"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "4.67.9"},
         # packaging rejects the test's newline URL before tox's validation runs.
         pytest_args=(
@@ -294,38 +273,19 @@ PROJECTS = {
         extra_env={"CI": None, "GITHUB_ACTIONS": None},
     ),
     "virtualenv": Project(
-        "https://github.com/pypa/virtualenv/archive/refs/tags/21.15.5.tar.gz",
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "21.15.5"},
     ),
     "pdm": Project(
-        "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.7.tar.gz",
-        # Match pdm.lock when regenerating the release's shell completion scripts.
-        install=("-e.", "--group=test", "argcomplete==3.7.0"),
         install_env={"PDM_BUILD_SCM_VERSION": "2.29.7"},
+        uninstall_after_build=("pdm-backend", "pdm-build-locked"),
         pytest_args=("-m", "not network and not integration"),
     ),
     "poetry_core": Project(
-        "https://github.com/python-poetry/poetry-core/archive/refs/tags/2.4.1.tar.gz",
-        # poetry-core uses poetry-native dependency groups, so its test deps are
-        # not pip-installable as an extra; install them explicitly. setuptools is
-        # needed to build its C-extension test fixtures.
-        install=(
-            "-e.",
-            "pytest",
-            "pytest-mock",
-            "build",
-            "setuptools",
-            "tomli-w",
-            "virtualenv",
-            "trove-classifiers",
-        ),
         # poetry-core vendors packaging under _vendor and injects it onto sys.path.
         swap=("src/poetry/core/_vendor/packaging",),
         pytest_args=("tests",),
     ),
     "pipenv": Project(
-        "https://github.com/pypa/pipenv/archive/refs/tags/v2026.6.2.tar.gz",
-        install=("-e.[tests]",),
         # pipenv vendors packaging twice: its own vendor tree and the patched pip.
         swap=("pipenv/vendor/packaging", "pipenv/patched/pip/_vendor/packaging"),
         # test_vendor.py asserts vendoring integrity (and needs pytz), so it is
@@ -341,60 +301,84 @@ PROJECTS = {
 }
 
 
-@nox.parametrize("project", list(PROJECTS))
-@nox.session(default=False)
-def downstream(session: nox.Session, project: str) -> None:
-    """
-    Run downstream projects with this packaging.
-    """
-    cfg = PROJECTS[project]
-    pkg_dir = Path.cwd() / "src/packaging"
-    # virtualenv's relocation tests copy the files listed in packaging's RECORD.
-    session.install(".")
+def download_project(source_name: str) -> bytes:
+    """Download and verify the source that supplied the locked requirements."""
+    source = DOWNSTREAM_CONFIG["input-sources"][source_name]
+    with urllib.request.urlopen(source["url"]) as response:
+        data = response.read()
+    if not isinstance(data, bytes):
+        raise TypeError("expected source archive bytes")
+    if hashlib.sha256(data).hexdigest() != source["sha256"]:
+        raise ValueError("downstream archive differs from its pinned dependency input")
+    return data
 
+
+def _editable_sources(name: str) -> list[str]:
+    """Read the editable projects and extras selected from the pinned source."""
+    selection = DOWNSTREAM_CONFIG["plans"][name]["inputs"][name]
+    result = []
+    for item in selection.get("projects", [selection]):
+        extras = item.get("extras", [])
+        suffix = "[" + ",".join(extras) + "]" if extras else ""
+        result.append("-e" + item.get("path", ".") + suffix)
+    return result
+
+
+def _prepare_downstream(session: nox.Session, project: str) -> None:
+    """Enter the verified source tree without inheriting pytest configuration."""
     tmp_dir = Path(session.create_tmp())
     session.chdir(tmp_dir)
 
     shutil.rmtree(project, ignore_errors=True)
-    with urllib.request.urlopen(cfg.url) as resp:
-        data = resp.read()
+    data = download_project(project)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
-        tf.extractall(project)
+        tf.extractall(project, filter="data")
     project_path = Path(project)
     (inner_dir,) = project_path.iterdir()
     # Make sure pytest doesn't keep searching upwards for config
     project_path.joinpath("pytest.ini").touch()
     session.chdir(inner_dir)
 
-    pip_cmd = ["uv", "pip"] if session.venv_backend == "uv" else ["pip"]
 
-    if cfg.date_limit:
-        # See PYTEST_910_CUTOFF: cap resolution so these projects pull a pytest
-        # they support, on both backends.
-        session.env["UV_EXCLUDE_NEWER"] = PYTEST_910_CUTOFF
-        session.env["PIP_UPLOADED_PRIOR_TO"] = PYTEST_910_CUTOFF
-
-    session.install(*cfg.install, env=cfg.install_env)
-
+def _install_downstream(session: nox.Session, project: str, cfg: Project) -> None:
+    """Install source and fixture wheels without resolving their dependencies again."""
     if project == "pip":
-        # pip needs its common test wheels built before its vendored copy of
-        # packaging is swapped out.
-        session.run(
+        # Build these before installing the older pip that is under test.
+        session.run_install(
+            "python",
+            "-m",
             "pip",
             "wheel",
             "-w",
             "tests/data/common_wheels",
-            "--group",
-            "test-common-wheels",
+            "-r",
+            str(DOWNSTREAM / "pylock.pip-wheels.toml"),
         )
 
-    for repl_dir in cfg.swap:
-        # Replace the vendored packaging with the current source. Its relative
-        # imports keep it self-contained under any vendor namespace.
-        shutil.rmtree(repl_dir)
-        shutil.copytree(pkg_dir, repl_dir)
+    session.install(
+        "--no-deps",
+        "--no-build-isolation",
+        *_editable_sources(project.replace("_", "-")),
+        env=cfg.install_env,
+    )
+    if cfg.uninstall_after_build:
+        session.run_install(
+            "python", "-m", "pip", "uninstall", "--yes", *cfg.uninstall_after_build
+        )
+    session.run("python", "-m", "pip", "check")
 
-    session.run(*pip_cmd, "list")
+
+@nox.parametrize("project", list(PROJECTS))
+@nox.session(python="3.14", default=False)
+def downstream(session: nox.Session, project: str) -> None:
+    """Run downstream projects with the current packaging wheel and vendored sources."""
+    cfg = PROJECTS[project]
+    name = project.replace("_", "-")
+    session.install("-r", str(DOWNSTREAM / f"pylock.{name}.toml"))
+    # virtualenv's relocation tests copy the files listed in packaging's RECORD.
+    _install_project(session, editable=False)
+    _prepare_downstream(session, name)
+
     # Keep test-created projects outside this checkout's VCS and tool configuration.
     with tempfile.TemporaryDirectory(prefix="downstream-") as test_tmp:
         test_env: dict[str, str | None] = {
@@ -407,8 +391,20 @@ def downstream(session: nox.Session, project: str) -> None:
             home = Path(test_tmp) / "home"
             home.mkdir()
             test_env["HOME"] = str(home)
-        if cfg.extra_env:
+        if cfg.pytest_before_9_1:
+            # Preserve the cutoff for installers started by these legacy tests.
+            test_env["UV_EXCLUDE_NEWER"] = PYTEST_91_UPLOAD_CUTOFF
+            test_env["PIP_UPLOADED_PRIOR_TO"] = PYTEST_91_UPLOAD_CUTOFF
+        if cfg.extra_env is not None:
             test_env |= cfg.extra_env
+
+        _install_downstream(session, project, cfg)
+        for repl_dir in cfg.swap:
+            # Relative imports keep the replacement self-contained when vendored.
+            shutil.rmtree(repl_dir)
+            shutil.copytree(ROOT / "src/packaging", repl_dir)
+
+        session.run("python", "-m", "pip", "list")
         session.run("pytest", *cfg.pytest_args, *session.posargs, env=test_env)
 
 
