@@ -1,33 +1,55 @@
-"""Convert ``asv continuous`` output into a compact Markdown summary.
+"""Summarize ``asv continuous`` results as a compact Markdown table.
 
-Usage: ``python asv_summary.py asv_output.txt >> "$GITHUB_STEP_SUMMARY"``
+Usage: ``python asv_summary.py BEFORE AFTER >> "$GITHUB_STEP_SUMMARY"``
 
-With ``--comment-dir DIR``, also write ``DIR/comment.md`` (the summary without
-the full asv output) and ``DIR/significant`` (``true`` or ``false``).
+This reads the asv result JSON files for the two commits. It does not use
+asv's per-run significance, since one noisy Python version on a shared runner
+should not flag a change. Instead, count the Python versions past
+``--threshold`` in each direction. A benchmark is flagged if the count in one
+direction, less the count in the other, is at least ``--agree`` of the Python
+versions.
+
+With ``--comment-dir DIR``, also write ``DIR/comment.md`` and
+``DIR/significant`` (``true`` or ``false``).
 """
 
 from __future__ import annotations
 
 import argparse
-import re
+import itertools
+import json
+import math
+import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 
-MARKS = {
-    "+": "🔴",  # Slower
-    "-": "🟢",  # Faster
-    "!": "❌",  # New failure
-    "*": "✅",  # Fixed failure
-    "x": "⚪",  # Not comparable
-}
-SIGNIFICANT = frozenset("+-!*")
+LEGEND = (
+    "Ratio of after / before time (lower is faster). "
+    "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable "
+    "(benchmark changed). "
+    "Values past the threshold are bold. A row is marked only if several "
+    "Python versions agree."
+)
 
-ROW = re.compile(
-    r"^\|\s*(?P<mark>\S?)\s*\|[^|]*\|[^|]*\|\s*(?P<ratio>[^|]*?)\s*"
-    r"\|\s*(?P<name>[^|]+?)\s+\[[^\]]*-py(?P<python>\d+\.\d+t?)[^\]]*\]\s*\|$"
-)
-HEADER = re.compile(
-    r"Before \[(?P<before>\w+)\](?: <(?P<ref>[^>]+)>)?\s*\|\s*After \[(?P<after>\w+)\]"
-)
+
+@dataclass
+class Row:
+    cells: dict[str, str] = field(default_factory=dict)
+    slower: int = 0
+    faster: int = 0
+    compared: int = 0
+    failed: bool = False
+    fixed: bool = False
+
+
+def resolve(ref: str) -> str:
+    cmd = ["git", "rev-parse", ref]
+    return subprocess.run(
+        cmd,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def clean_name(name: str) -> str:
@@ -39,72 +61,127 @@ def clean_name(name: str) -> str:
     return f"{module}: {method}{paren}{params}"
 
 
-def format_ratio(ratio: str) -> str:
-    """Pad ratios to two decimals, since asv strips trailing zeros."""
-    prefix = "~" if ratio.startswith("~") else ""
-    try:
-        return f"{prefix}{float(ratio.lstrip('~')):.2f}"
-    except ValueError:
-        return ratio or "n/a"
-
-
 def version_key(version: str) -> tuple[int, ...]:
     return tuple(int(p) for p in version.rstrip("t").split("."))
 
 
+Results = dict[str, tuple[float | None, str]]
+
+
+def load(results_dir: Path, commit: str) -> dict[str, Results]:
+    """Return ``{python: {benchmark: (time, version)}}`` for one commit."""
+    out: dict[str, Results] = {}
+    for path in results_dir.glob(f"*/{commit[:8]}-*.json"):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("commit_hash") != commit:
+            continue
+        cols = data["result_columns"]
+        bench: Results = {}
+        for name, row in data["results"].items():
+            # Trailing empty columns may be omitted.
+            entry = dict(zip(cols, row, strict=False))
+            params = entry.get("params") or []
+            combos = list(itertools.product(*params)) if params else [()]
+            values = entry["result"] or [None] * len(combos)
+            for combo, value in zip(combos, values, strict=True):
+                full = f"{name}({', '.join(combo)})" if combo else name
+                bench[full] = (value, entry["version"])
+        out[data["python"]] = bench
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path, help="Output of asv continuous.")
+    parser.add_argument("before", help="Base commit or ref.")
+    parser.add_argument("after", help="Head commit or ref.")
+    parser.add_argument("--results", type=Path, default=Path("results"))
+    parser.add_argument("--threshold", type=float, default=0.05)
+    parser.add_argument(
+        "--agree",
+        type=float,
+        default=0.5,
+        help="Fraction of Python versions that must agree on a change.",
+    )
     parser.add_argument("--comment-dir", type=Path, help="Write PR comment files.")
     args = parser.parse_args()
 
-    text = args.path.read_text(encoding="utf-8")
-    _, _, table = text.partition("All benchmarks:")
-    lines = table.strip().splitlines()
+    before_hash, after_hash = resolve(args.before), resolve(args.after)
+    before = load(args.results, before_hash)
+    after = load(args.results, after_hash)
+    pythons = sorted(before.keys() & after.keys(), key=version_key)
+    limit = math.log1p(args.threshold)
 
-    results: dict[str, dict[str, str]] = {}
-    significant = False
-    for line in lines:
-        if not (m := ROW.match(line.strip())):
-            continue
-        significant |= m["mark"] in SIGNIFICANT
-        ratio = format_ratio(m["ratio"])
-        cell = f"{MARKS[m['mark']]} **{ratio}**" if m["mark"] in MARKS else ratio
-        results.setdefault(clean_name(m["name"]), {})[m["python"]] = cell
+    rows: dict[str, Row] = {}
+    for py in pythons:
+        for name, (new, new_version) in after[py].items():
+            row = rows.setdefault(clean_name(name), Row())
+            if name not in before[py]:
+                row.cells[py] = "new"
+                continue
+            old, old_version = before[py][name]
+            if old_version != new_version:
+                row.cells[py] = "⚪"
+            elif new is None:
+                row.failed |= old is not None
+                row.cells[py] = "❌" if old is not None else "failed"
+            elif old is None:
+                row.fixed = True
+                row.cells[py] = "✅"
+            else:
+                change = math.log(new / old)
+                row.compared += 1
+                row.slower += change >= limit
+                row.faster += -change >= limit
+                text = f"{new / old:.2f}"
+                row.cells[py] = f"**{text}**" if abs(change) >= limit else text
 
-    out = []
-    if header := HEADER.search(table):
-        ref = f" ({header['ref']})" if header["ref"] else ""
-        out += [f"## Benchmarks: `{header['before']}`{ref} → `{header['after']}`", ""]
-    else:
-        out += ["## Benchmarks", ""]
+    slower = faster = 0
+    table = []
+    for name, row in sorted(rows.items()):
+        mark = ""
+        needed = max(1, math.ceil(args.agree * row.compared))
+        if row.slower - row.faster >= needed:
+            mark = "🔴"
+            slower += 1
+        elif row.faster - row.slower >= needed:
+            mark = "🟢"
+            faster += 1
+        if row.failed:
+            mark = "❌" + mark
+        elif row.fixed:
+            mark = "✅" + mark
+        cells = " | ".join(row.cells.get(py, "") for py in pythons)
+        label = f"{mark} {name}" if mark else name
+        table.append(f"| {label} | {cells} |")
 
-    status = [ln for ln in lines if ln.strip() and not ln.lstrip().startswith("|")]
-    if status:
-        out += [f"**{status[-1].strip()}**", ""]
+    failed = sum(row.failed for row in rows.values())
+    significant = bool(slower or faster or failed)
 
-    if results:
-        cols = sorted({p for row in results.values() for p in row}, key=version_key)
-        out += [
-            "Ratio of after / before time (lower is faster). "
-            "🔴 slower, 🟢 faster, ❌ newly failing, ✅ fixed, ⚪ not comparable, "
-            "`~` exceeds threshold but not statistically significant.",
-            "",
-            "| Benchmark | " + " | ".join(cols) + " |",
-            "|:--|" + "--:|" * len(cols),
-        ]
-        for name, row in sorted(results.items()):
-            cells = " | ".join(row.get(c, "") for c in cols)
-            out.append(f"| {name} | {cells} |")
-    else:
+    ref = "" if before_hash.startswith(args.before) else f" ({args.before})"
+    out = [f"## Benchmarks: `{before_hash[:8]}`{ref} → `{after_hash[:8]}`", ""]
+    if not rows:
         out.append("No benchmark results found.")
+    else:
+        status = [
+            f"{n} {label}"
+            for n, label in (
+                (slower, "slower"),
+                (faster, "faster"),
+                (failed, "newly failing"),
+            )
+            if n
+        ]
+        out += [f"**{', '.join(status) if status else 'No significant changes'}.**", ""]
+        out += [
+            LEGEND,
+            "",
+            "| Benchmark | " + " | ".join(pythons) + " |",
+            "|:--|" + "--:|" * len(pythons),
+            *table,
+        ]
 
     summary = "\n".join(out)
     print(summary)
-    if results:
-        print("\n<details><summary>Full asv output</summary>\n")
-        print("\n".join(lines))
-        print("\n</details>")
 
     if args.comment_dir:
         args.comment_dir.mkdir(parents=True, exist_ok=True)
