@@ -37,10 +37,14 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
 
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
+
       - name: Run `nox -s lint`
-        run: pipx run nox -s lint -- --show-diff-on-failure
+        run: nox -s lint -- --show-diff-on-failure
 
   build:
     name: Build sdist and wheel
@@ -72,3 +76,20 @@ jobs:
         with:
           name: dist
           path: dist
+
+  locks:
+    name: Dependency locks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          activate-environment: true
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
+      - run: nox -s locks -- --locked

@@ -41,17 +41,27 @@ NOX_VERSION = packaging.version.Version(importlib.metadata.version("nox"))
 if packaging.version.Version("2026.08.10") <= NOX_VERSION:
     nox.options.allow_parallel = True
 
-PYPROJECT = nox.project.load_toml("pyproject.toml")
+ROOT = Path(__file__).resolve().parent
+PYPROJECT = nox.project.load_toml(ROOT / "pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
-
-# hypothesis 6.156+ ships as a maturin/pyo3 project without wheels for PyPy or
-# free-threaded CPython, so building from the sdist fails there. Restrict it to
-# binaries so uv/pip picks the newest version with a compatible wheel instead.
-HYPOTHESIS_BINARY_ONLY = ("--only-binary", "hypothesis")
+DEV_LOCK = ROOT / "pylock.dev.toml"
 
 # Interpreters that run the tests without coverage, because tracing is too slow
 # there: PyPy, and free-threaded 3.13, which has no fast C tracer.
 NO_COVERAGE = {"pypy", "3.13t"}
+
+
+def _install_group(session: nox.Session, group: str) -> None:
+    """Select a development-lock group using the session's installer."""
+    if session.venv_backend == "uv":
+        session.install("-r", str(DEV_LOCK), "--group", group)
+    else:
+        session.install("--group", f"{DEV_LOCK}:{group}")
+
+
+def _install_project(session: nox.Session) -> None:
+    """Install the checkout with its locked build requirements."""
+    session.install("--no-deps", "--no-build-isolation", "-e.")
 
 
 @nox.session(
@@ -83,10 +93,8 @@ def tests(session: nox.Session) -> None:
 
     coverage = ["python", "-m", "coverage"]
 
-    session.install(
-        *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
-    )
-    session.install("-e.")
+    _install_group(session, "test")
+    _install_project(session)
 
     # Give each session its own data file so parallel sessions don't fight over
     # the default ".coverage".
@@ -123,16 +131,36 @@ def property_tests(session: nox.Session) -> None:
     """
     Run property-based tests (no coverage).
     """
-    session.install(
-        *HYPOTHESIS_BINARY_ONLY, *nox.project.dependency_groups(PYPROJECT, "test")
-    )
-    session.install("-e.")
+    _install_group(session, "test")
+    _install_project(session)
     session.run(
         "python",
         "-m",
         "pytest",
         "-m",
         "property",
+        *session.posargs,
+    )
+
+
+@nox.session(python="3.14", default=False)
+def locks(session: nox.Session) -> None:
+    """Check or refresh all dependency locks with the committed locker toolchain."""
+    _install_group(session, "locks")
+    # Expose the groups included by dev for individual CI sessions.
+    groups = [
+        entry["include-group"]
+        for entry in PYPROJECT["dependency-groups"]["dev"]
+        if isinstance(entry, dict)
+    ]
+    session.run(
+        "nab",
+        "lock",
+        "--output",
+        DEV_LOCK.name,
+        "--groups",
+        "dev",
+        *groups,
         *session.posargs,
     )
 
@@ -387,7 +415,7 @@ def lint(session: nox.Session) -> None:
     """
     Run the linters.
     """
-    session.install("prek", "build", "twine")
+    _install_group(session, "lint")
 
     # Run the linters (via prek, a Rust pre-commit runner)
     session.run("prek", "run", "--all-files", *session.posargs)
@@ -395,7 +423,7 @@ def lint(session: nox.Session) -> None:
     # Check the distribution. Build into the session temp dir, so this does not
     # collide with the "dist/" the release sessions manage.
     out_dir = Path(session.create_tmp()) / "dist"
-    session.run("pyproject-build", "--outdir", str(out_dir))
+    session.run("pyproject-build", "--no-isolation", "--outdir", str(out_dir))
     session.run("twine", "check", *glob.glob(f"{out_dir}/*"))
 
 
@@ -405,8 +433,8 @@ def docs(session: nox.Session) -> None:
     Build the docs.
     """
     shutil.rmtree("docs/_build", ignore_errors=True)
-    session.install(*nox.project.dependency_groups(PYPROJECT, "docs"))
-    session.install("-e.")
+    _install_group(session, "docs")
+    _install_project(session)
 
     variants = [
         # (builder, dest)
@@ -553,7 +581,7 @@ def update_licenses(session: nox.Session) -> None:
     """
     Update licenses.
     """
-    session.install("httpx")
+    _install_group(session, "licenses")
     session.run("python", "tasks/licenses.py")
 
 
