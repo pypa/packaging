@@ -160,8 +160,9 @@ PROJECTS = {
         date_limit=True,
     ),
     "build": Project(
-        "https://github.com/pypa/build/archive/refs/tags/1.5.0.tar.gz",
-        date_limit=True,
+        "https://github.com/pypa/build/archive/refs/tags/1.6.1.tar.gz",
+        # The fixture treats newer hook warnings as errors.
+        install=("-e.", "--group=test", "pyproject-hooks<1.3"),
     ),
     "setuptools": Project(
         "https://github.com/pypa/setuptools/archive/refs/tags/v82.0.0.tar.gz",
