@@ -408,6 +408,20 @@ class TestRequirementParsing:
         assert err.source is None
         assert err.span is None
 
+    def test_error_subclass_can_initialize_context(self) -> None:
+        class LocatedError(InvalidRequirement):
+            def __init__(self, filename: str) -> None:
+                super().__init__("invalid requirement")
+                self.filename = filename
+
+            def __str__(self) -> str:
+                return f"{self.filename}: {super().__str__()}"
+
+        err = LocatedError("pyproject.toml")
+        assert err.args == ("invalid requirement",)
+        assert str(err) == "pyproject.toml: invalid requirement"
+        assert err.message == "invalid requirement"
+
     def test_error_when_empty_string(self) -> None:
         # GIVEN
         to_parse = ""
