@@ -890,6 +890,15 @@ def android_platforms(
         yield f"android_{ver}_{abi}"
 
 
+def _is_linux_x32() -> bool:
+    multiarch = _get_config_var("MULTIARCH")
+    if isinstance(multiarch, str) and multiarch.endswith(
+        ("linux-gnux32", "linux-muslx32")
+    ):
+        return True
+    return _manylinux._get_32bit_elf_arch(sys.executable) == "x32"
+
+
 def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
     linux = _normalize_string(sysconfig.get_platform())
     if not linux.startswith("linux_"):
@@ -898,10 +907,7 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         return
     if is_32bit:
         if linux == "linux_x86_64":
-            if _manylinux._is_linux_x32(sys.executable):
-                linux = "linux_x32"
-            else:
-                linux = "linux_i686"
+            linux = "linux_x32" if _is_linux_x32() else "linux_i686"
         elif linux == "linux_aarch64":
             linux = "linux_armv8l"
     _, arch = linux.split("_", 1)
@@ -910,6 +916,8 @@ def _linux_platforms(is_32bit: bool = _32_BIT_INTERPRETER) -> Iterator[str]:
         yield f"linux_{arch}"
     yield from _manylinux.platform_tags(archs)
     yield from _musllinux.platform_tags(archs)
+    if linux == "linux_x32":
+        yield "linux_i686"
 
 
 def _emscripten_platforms() -> Iterator[str]:
@@ -931,8 +939,9 @@ def platform_tags() -> Iterator[str]:
 
     .. versionadded:: 21.1
     .. versionchanged:: 26.4
-        Detect x32 userspace ABIs on 64-bit Linux kernels and emit ``linux_x32``
-        and ``musllinux_*_x32`` tags (:issue:`217`).
+        Detect x32 userspace ABIs on 64-bit Linux kernels: emit ``linux_x32``
+        and ``musllinux_*_x32`` tags ahead of a lower-priority ``linux_i686``
+        fallback, and stop emitting ``musllinux_*_i686`` tags (:issue:`217`).
     """
     match platform.system():
         case "Darwin":
@@ -1025,8 +1034,9 @@ def sys_tags(*, warn: bool = False) -> Iterator[Tag]:
         Native ``linux_*`` platform tags are now ordered before ``manylinux``
         and ``musllinux`` tags (:issue:`160`).
     .. versionchanged:: 26.4
-        Detect x32 userspace ABIs on 64-bit Linux kernels and emit ``linux_x32``
-        and ``musllinux_*_x32`` tags (:issue:`217`).
+        Detect x32 userspace ABIs on 64-bit Linux kernels: emit ``linux_x32``
+        and ``musllinux_*_x32`` tags ahead of a lower-priority ``linux_i686``
+        fallback, and stop emitting ``musllinux_*_i686`` tags (:issue:`217`).
     """
 
     interp_name = interpreter_name()

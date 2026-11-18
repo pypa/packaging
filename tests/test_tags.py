@@ -667,6 +667,7 @@ def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
         # Clear the version and module caches
+        tags._manylinux._get_32bit_elf_arch.cache_clear()  # type: ignore[attr-defined]
         tags._manylinux._get_glibc_version.cache_clear()  # type: ignore[attr-defined]
         tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
@@ -688,25 +689,47 @@ class TestManylinuxPlatform:
         ]
 
     @pytest.mark.parametrize(
-        ("arch", "is_32bit", "executable", "expected"),
+        ("arch", "is_32bit", "multiarch", "executable", "expected"),
         [
-            ("linux-x86_64", False, None, ["linux_x86_64"]),
-            ("linux-x86_64", True, "hello-world-x86_64-i386", ["linux_i686"]),
-            ("linux-x86_64", True, "hello-world-invalid-magic", ["linux_i686"]),
-            ("linux-x86_64", True, "hello-world-x86_64-x32", ["linux_x32"]),
-            ("linux-aarch64", False, None, ["linux_aarch64"]),
-            ("linux-aarch64", True, None, ["linux_armv8l", "linux_armv7l"]),
+            ("linux-x86_64", False, None, None, ["linux_x86_64"]),
+            ("linux-x86_64", True, None, "hello-world-x86_64-i386", ["linux_i686"]),
+            ("linux-x86_64", True, None, "hello-world-invalid-magic", ["linux_i686"]),
+            (
+                "linux-x86_64",
+                True,
+                None,
+                "hello-world-x86_64-x32",
+                ["linux_x32", "linux_i686"],
+            ),
+            (
+                "linux-x86_64",
+                True,
+                "x86_64-linux-gnux32",
+                "hello-world-invalid-magic",
+                ["linux_x32", "linux_i686"],
+            ),
+            (
+                "linux-x86_64",
+                True,
+                "x86_64-linux-muslx32",
+                "hello-world-invalid-magic",
+                ["linux_x32", "linux_i686"],
+            ),
+            ("linux-aarch64", False, None, None, ["linux_aarch64"]),
+            ("linux-aarch64", True, None, None, ["linux_armv8l", "linux_armv7l"]),
         ],
     )
     def test_linux_platforms_32_64bit_on_64bit_os(
         self,
         arch: str,
         is_32bit: bool,
+        multiarch: str | None,
         executable: str | None,
         expected: list[str],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: multiarch)
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)  # type: ignore[attr-defined]
         if executable is not None:
@@ -715,8 +738,7 @@ class TestManylinuxPlatform:
                 "executable",
                 os.path.join(os.path.dirname(__file__), "manylinux", executable),
             )
-        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[: len(expected)]
-        assert linux_platform == expected
+        assert list(tags._linux_platforms(is_32bit=is_32bit)) == expected
 
     def test_linux_platforms_manylinux_unsupported(
         self, monkeypatch: pytest.MonkeyPatch
@@ -829,15 +851,16 @@ class TestManylinuxPlatform:
     ) -> None:
         monkeypatch.setattr(tags._manylinux, "_glibc_version_string", lambda: "2.17")  # type: ignore[attr-defined]
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
-        monkeypatch.setattr(
-            sys,
-            "executable",
-            os.path.join(
-                os.path.dirname(__file__),
-                "manylinux",
-                "hello-world-x86_64-i386",
-            ),
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: "i386-linux-gnu")
+        orig_parse_elf = tags._manylinux._parse_elf  # type: ignore[attr-defined]
+        parse_recorder = pretend.call_recorder(orig_parse_elf)
+        monkeypatch.setattr(tags._manylinux, "_parse_elf", parse_recorder)  # type: ignore[attr-defined]
+        i386_executable = os.path.join(
+            os.path.dirname(__file__),
+            "manylinux",
+            "hello-world-x86_64-i386",
         )
+        monkeypatch.setattr(sys, "executable", i386_executable)
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = [
             "linux_i686",
@@ -859,6 +882,7 @@ class TestManylinuxPlatform:
             "manylinux1_i686",
         ]
         assert platforms == expected
+        assert parse_recorder.calls == [pretend.call(i386_executable)]
 
     def test_linux_platforms_manylinux_glibc3(
         self, monkeypatch: pytest.MonkeyPatch
@@ -942,6 +966,7 @@ class TestManylinuxPlatform:
         )
         monkeypatch.setattr(sys, "executable", fake_executable)
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
         monkeypatch.setattr(tags._manylinux, "platform_tags", lambda *_: ())  # type: ignore[attr-defined]
 
         recorder = pretend.call_recorder(lambda _: _MuslVersion(1, 2))
@@ -953,6 +978,7 @@ class TestManylinuxPlatform:
             "musllinux_1_2_x32",
             "musllinux_1_1_x32",
             "musllinux_1_0_x32",
+            "linux_i686",
         ]
         assert recorder.calls == [pretend.call(fake_executable)]
 
@@ -971,30 +997,54 @@ class TestManylinuxPlatform:
         assert platforms == expected
 
     @pytest.mark.parametrize(
-        ("machine", "abi", "alt_machine"),
+        ("machine", "abi", "expected"),
         [
-            ("x86_64", "x86_64-x32", "x32"),
-            ("i686", "x86_64-x32", "i686"),
-            ("armv7l", "armv7l-armel", "armv7l"),
+            ("x86_64", "x32", ["linux_x32", "linux_i686"]),
+            ("armv7l", "armel", ["linux_armv7l"]),
         ],
     )
     def test_linux_platforms_not_manylinux_abi(
-        self, monkeypatch: pytest.MonkeyPatch, machine: str, abi: str, alt_machine: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        machine: str,
+        abi: str,
+        expected: list[str],
     ) -> None:
-        monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)  # type: ignore[attr-defined]
+        monkeypatch.setattr(tags._manylinux, "_glibc_version_string", lambda: "2.20")  # type: ignore[attr-defined]
+        monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: True)  # type: ignore[attr-defined]
         monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
         monkeypatch.setattr(
             sys,
             "executable",
             os.path.join(
                 os.path.dirname(__file__),
                 "manylinux",
-                f"hello-world-{abi}",
+                f"hello-world-{machine}-{abi}",
             ),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = [f"linux_{alt_machine}"]
         assert platforms == expected
+        assert not any(p.startswith("manylinux") for p in platforms)
+
+    def test_linux_platforms_i686_invalid_elf_not_manylinux(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tags._manylinux, "_glibc_version_string", lambda: "2.20")  # type: ignore[attr-defined]
+        monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: True)  # type: ignore[attr-defined]
+        monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
+        monkeypatch.setattr(
+            sys,
+            "executable",
+            os.path.join(
+                os.path.dirname(__file__),
+                "manylinux",
+                "hello-world-invalid-magic",
+            ),
+        )
+        platforms = list(tags._linux_platforms(is_32bit=True))
+        assert platforms == ["linux_i686"]
 
     def test_linux_not_linux(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "not_linux_x86_64")
@@ -1834,6 +1884,7 @@ class TestSysTags:
         )
         assert result[-1] == expected
 
+    @pytest.mark.usefixtures("manylinux_module")
     def test_linux_x32_sys_tags(
         self,
         mock_interpreter_name: Callable[[str], bool],
@@ -1843,6 +1894,15 @@ class TestSysTags:
             monkeypatch.setattr(tags, "_cpython_abis", lambda *a: ["cp33m"])
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr(sysconfig, "get_platform", lambda: "linux_x86_64")
+        monkeypatch.setattr(
+            sysconfig,
+            "get_config_var",
+            lambda name: (
+                None
+                if name == "MULTIARCH"
+                else {"EXT_SUFFIX": ".cpython-33m-x86_64-linux-gnux32.so"}.get(name, 0)
+            ),
+        )
         monkeypatch.setattr(
             sys,
             "executable",
@@ -1860,11 +1920,17 @@ class TestSysTags:
             lambda: original_linux_platforms(is_32bit=True),
         )
 
-        assert list(tags.platform_tags()) == ["linux_x32"]
+        assert list(tags.platform_tags()) == ["linux_x32", "linux_i686"]
         abis = list(tags._cpython_abis(sys.version_info[:2]))
         result = list(tags.sys_tags())
         expected_interpreter = "cp" + tags._version_nodot(sys.version_info[:2])
-        assert result[0] == tags.Tag(expected_interpreter, abis[0], "linux_x32")
+        x32_tag = tags.Tag(expected_interpreter, abis[0], "linux_x32")
+        i686_tag = tags.Tag(expected_interpreter, abis[0], "linux_i686")
+        assert result[0] == x32_tag
+        assert result.index(x32_tag) < result.index(i686_tag)
+        assert not any(
+            t.platform.startswith(("manylinux", "musllinux")) for t in result
+        )
 
     def test_generic(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(platform, "system", lambda: "Generic")
@@ -1928,29 +1994,33 @@ class TestSysTags:
 
     @pytest.mark.usefixtures("manylinux_module")
     @pytest.mark.parametrize(
-        ("machine", "abi", "alt_machine"),
+        ("machine", "abi", "expected"),
         [
-            ("x86_64", "x86_64-x32", "x32"),
-            ("i686", "x86_64-x32", "i686"),
-            ("armv7l", "armv7l-armel", "armv7l"),
+            ("x86_64", "x32", ["linux_x32", "linux_i686"]),
+            ("armv7l", "armel", ["linux_armv7l"]),
         ],
     )
     def test_linux_platforms_not_manylinux_abi(
-        self, monkeypatch: pytest.MonkeyPatch, machine: str, abi: str, alt_machine: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        machine: str,
+        abi: str,
+        expected: list[str],
     ) -> None:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: f"linux_{machine}")
+        monkeypatch.setattr(sysconfig, "get_config_var", lambda _: None)
         monkeypatch.setattr(
             sys,
             "executable",
             os.path.join(
                 os.path.dirname(__file__),
                 "manylinux",
-                f"hello-world-{abi}",
+                f"hello-world-{machine}-{abi}",
             ),
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
-        expected = [f"linux_{alt_machine}"]
         assert platforms == expected
+        assert not any(p.startswith("manylinux") for p in platforms)
 
     @pytest.mark.parametrize(
         ("machine", "major", "minor", "tf"),
