@@ -14,8 +14,8 @@ __lazy_modules__ = {
 
 import builtins
 import copy
+import functools
 import sys
-from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from ._parser import parse_requirement as _parse_requirement
@@ -70,7 +70,7 @@ class InvalidRequirement(ValueError):
         """The ``(start, end)`` indices of the error in :attr:`source`, or
         ``None`` if not a syntax error."""
 
-    @cached_property
+    @functools.cached_property
     def message(self) -> str:
         """The error message, without the source display."""
         return super().__str__()
