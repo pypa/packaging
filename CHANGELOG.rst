@@ -30,7 +30,7 @@ Features:
   a marker against several selected extras at once. (:pull:`1438`)
 * Add ``message``, ``source``, and ``span`` attributes to
   :class:`~packaging.requirements.InvalidRequirement` and
-  :class:`~packaging.markers.InvalidMarker` for syntax errors. (:pull:`1547`)
+  :class:`~packaging.markers.InvalidMarker` for syntax errors. (:pull:`1547`, :pull:`1554`)
 
 Behavior adaptations:
 
