@@ -15,6 +15,7 @@ __lazy_modules__ = {
 import builtins
 import copy
 import sys
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from ._parser import parse_requirement as _parse_requirement
@@ -61,13 +62,18 @@ class InvalidRequirement(ValueError):
         span: tuple[int, int] | None = None,
     ) -> None:
         super().__init__(*args)
-        self.message: str = str(self) if message is None else message
-        """The error message, without the source display."""
+        if message is not None:
+            self.message = message
         self.source: str | None = source
         """The text that failed to parse, or ``None`` if not a syntax error."""
         self.span: tuple[int, int] | None = span
         """The ``(start, end)`` indices of the error in :attr:`source`, or
         ``None`` if not a syntax error."""
+
+    @cached_property
+    def message(self) -> str:
+        """The error message, without the source display."""
+        return super().__str__()
 
 
 class Requirement:

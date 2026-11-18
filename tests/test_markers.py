@@ -391,6 +391,19 @@ class TestMarker:
         assert err.source is None
         assert err.span is None
 
+    def test_invalid_marker_defers_argument_formatting(self) -> None:
+        class Message:
+            text: str
+
+            def __str__(self) -> str:
+                return self.text
+
+        message = Message()
+        err = InvalidMarker(message)
+        message.text = "invalid marker"
+        assert err.args == (message,)
+        assert err.message == str(err) == "invalid marker"
+
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
         [
