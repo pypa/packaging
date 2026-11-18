@@ -85,8 +85,8 @@ def load(results_dir: Path, commit: str) -> dict[str, Results]:
 
 def classify(changes: list[float], limit: float, min_count: int) -> int:
     """Return 1 for slower, -1 for faster, or 0. Changes are log ratios."""
-    low = min(min_count, len(changes))
-    for k in range(max(low, 1), len(changes) + 1):
+    low = max(min_count, 1)
+    for k in range(low, len(changes) + 1):
         bar = limit * low / k
         net = sum(c >= bar for c in changes) - sum(c <= -bar for c in changes)
         if abs(net) >= k:
@@ -138,7 +138,7 @@ def render(
     if not rows:
         return ["No benchmark results found."], False
 
-    counts = {"slower": 0, "faster": 0, "newly failing": 0}
+    counts = {"slower": 0, "faster": 0, "newly failing": 0, "fixed": 0}
     table = []
     for name, row in sorted(rows.items()):
         direction = classify(row.changes, limit, min_count)
@@ -147,6 +147,7 @@ def render(
         counts["slower"] += direction > 0
         counts["faster"] += direction < 0
         counts["newly failing"] += row.failed
+        counts["fixed"] += row.fixed
         cells = " | ".join(row.cells.get(py, "") for py in pythons)
         label = f"{mark} {name}" if mark else name
         table.append(f"| {label} | {cells} |")
