@@ -1400,13 +1400,23 @@ class VersionRange:
         if not isinstance(version, Version):
             version = Version(version)
 
-        lower = LowerBound(version, True)
-        upper = UpperBound(version, True)
+        bounds = ((LowerBound(version, True), UpperBound(version, True)),)
+
+        # Only a dev release can be the floor or a least successor, so any
+        # other singleton is already canonical and skips :meth:`_build`.
+        if version._dev is None:
+            instance = object.__new__(cls)
+            instance._bounds = bounds
+            instance._admit = instance._reject = frozenset()
+            instance._admit_arbitrary = False
+            instance._pre_region = ()
+            instance._prereleases_configured = prereleases
+            return instance
 
         # Collapse the floor: nothing sorts below ``MIN_VERSION``, so the
         # ``0.dev0`` singleton is ``(-inf, 0.dev0]`` in canonical form.
         return cls._build(
-            _canonical_floor(((lower, upper),)),
+            _canonical_floor(bounds),
             prereleases_configured=prereleases,
         )
 
