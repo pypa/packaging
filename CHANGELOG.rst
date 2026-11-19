@@ -87,6 +87,9 @@ Fixes for tags and filenames:
 * Keep explicitly empty ``platforms`` iterables in ``cpython_tags()``,
   ``generic_tags()``, and ``compatible_tags()`` instead of using the host
   platforms. (:pull:`1360`)
+* Detect free-threaded builds in ``cpython_tags()`` when a generic ABI such
+  as ``abi3`` or ``none`` comes first in ``abis``, or when ``abis`` holds
+  only ``abi3t``. (:pull:`1555`)
 
 Fixes for pylock and dependency groups:
 
