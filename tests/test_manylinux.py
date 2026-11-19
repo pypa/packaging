@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 import pretend
 import pytest
 
-from packaging import _manylinux
+from packaging import _manylinux, _musllinux, tags
 from packaging._manylinux import (
     _get_glibc_version,
     _get_manylinux_module,
@@ -210,3 +210,85 @@ def test_parse_elf_bad_executable(content: str | None) -> None:
     # None is not supported in the type annotation, but it was tested before.
     with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
         assert ef is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("arm-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ("", None),
+        (None, None),
+        (0, None),
+    ],
+)
+def test_get_multiarch(
+    monkeypatch: pytest.MonkeyPatch, value: object, expected: str | None
+) -> None:
+    monkeypatch.setattr(_manylinux.sysconfig, "get_config_var", lambda _: value)  # type: ignore[attr-defined]
+    assert _manylinux._get_multiarch() == expected
+
+
+@pytest.mark.parametrize(
+    ("archs", "multiarch", "expected"),
+    [
+        (["armv7l"], "arm-linux-gnueabihf", True),
+        (["armv8l", "armv7l"], "arm-linux-gnueabihf", True),
+        (["i686"], "i386-linux-gnu", True),
+        (["x86_64"], "x86_64-linux-musl", True),
+        (["armv6l"], "arm-linux-gnueabihf", False),
+    ],
+)
+def test_have_compatible_abi_multiarch(
+    monkeypatch: pytest.MonkeyPatch,
+    archs: list[str],
+    multiarch: str,
+    expected: bool,
+) -> None:
+    # The executable must not be read if MULTIARCH confirms the ABI.
+    monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: multiarch)
+    assert _manylinux._have_compatible_abi("does-not-exist", archs) is expected
+
+
+@pytest.mark.parametrize(
+    ("arch", "name", "expected"),
+    [
+        ("armv7l", "hello-world-armv7l-armhf", True),
+        ("armv7l", "hello-world-armv7l-armel", False),
+        ("i686", "hello-world-x86_64-i386", True),
+        ("i686", "hello-world-x86_64-x32", False),
+    ],
+)
+@pytest.mark.parametrize(
+    "multiarch",
+    [
+        None,
+        # PyPy reports this for hard-float and soft-float if the compiler
+        # does not print a multiarch value.
+        "arm-linux-gnu",
+        "arm-linux-gnueabi",
+        "x86_64-linux-gnux32",
+        "i386-linux-musl",
+    ],
+)
+def test_have_compatible_abi_elf_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    multiarch: str | None,
+    arch: str,
+    name: str,
+    expected: bool,
+) -> None:
+    # MULTIARCH can only confirm the ABI; the ELF header decides the rest.
+    monkeypatch.setattr(_manylinux, "_get_multiarch", lambda: multiarch)
+    path = pathlib.Path(__file__).parent / "manylinux" / name
+    assert _manylinux._have_compatible_abi(os.fsdecode(path), [arch]) is expected
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux" or _glibc_version_string() is None,
+    reason="requires a glibc-based Linux",
+)
+def test_sys_tags_glibc_host() -> None:
+    # No mocks: this checks the real interpreter, including its MULTIARCH.
+    assert not any(tag.platform.startswith("musllinux") for tag in tags.sys_tags())
+    if platform.python_implementation() == "CPython" and sys.version_info >= (3, 13):
+        assert _musllinux._is_glibc_build()

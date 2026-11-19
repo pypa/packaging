@@ -663,7 +663,15 @@ def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tags._musllinux, "_get_musl_version", lambda _: None)  # type: ignore[attr-defined]
 
 
-@pytest.mark.usefixtures("_disable_musl_detection")
+@pytest.fixture
+def _disable_multiarch(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Linux platform tests use fake executables for the ABI checks. Hide
+    # the MULTIARCH of the host interpreter so the ELF fallback is used.
+    monkeypatch.setattr(tags._manylinux, "_get_multiarch", lambda: None)  # type: ignore[attr-defined]
+    monkeypatch.setattr(tags._musllinux, "_is_glibc_build", lambda: False)  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("_disable_musl_detection", "_disable_multiarch")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
         # Clear the version and module caches
@@ -1713,7 +1721,7 @@ class TestCompatibleTags:
         ]
 
 
-@pytest.mark.usefixtures("_disable_musl_detection")
+@pytest.mark.usefixtures("_disable_musl_detection", "_disable_multiarch")
 class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache
