@@ -2295,13 +2295,17 @@ class VersionRange:
 
         :raises TypeError: if item is not a str or Version.
         """
-        if not isinstance(item, (str, Version)):
+        parsed: Version | None
+        if isinstance(item, Version):
+            parsed = item
+        elif isinstance(item, str):
+            parsed = None
+        else:
             raise TypeError(
                 f"VersionRange.contains() expected str or Version, "
                 f"got {type(item).__name__}"
             )
 
-        parsed: Version | None = item if isinstance(item, Version) else None
         if installed and parsed is None:
             parsed = coerce_version(item)
         if installed and parsed is not None and parsed.is_prerelease:
@@ -2322,16 +2326,14 @@ class VersionRange:
                         return False
                 return True
 
-        if not isinstance(item, Version):
-            if parsed is None:
-                parsed = coerce_version(item)
+        if parsed is None:
+            parsed = coerce_version(item)
             if parsed is None:
                 return self._arbitrary_active()
-            item = parsed
 
-        if effective_pre is False and item.is_prerelease:
+        if effective_pre is False and parsed.is_prerelease:
             return False
-        return matches_bounds_only(self._bounds, item)
+        return matches_bounds_only(self._bounds, parsed)
 
     def __contains__(self, item: Version | str) -> bool:
         """Return whether item is contained in this range.

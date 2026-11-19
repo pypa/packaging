@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"bisect"}
+
 import enum
 import functools
+from bisect import bisect_right
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -50,6 +53,15 @@ MIN_RELEASE: Final[Version] = Version("0")
 #: Sorts above any real post number and any local label, so a boundary can be
 #: ordered above the version family it covers when two boundaries are compared.
 _BOUNDARY_INF: Final[float] = float("inf")
+
+#: Edge keys compare against ``Version._key`` with plain tuple ordering: a
+#: version is inside ``(lower, upper)`` iff
+#: ``lower._floor_key <= version._key < upper._ceiling_key``. An empty key is
+#: an unbounded side, and this marks a bound that no single key expresses.
+_NO_EDGE_KEY: Final[tuple[Any, ...]] = (None,)
+
+#: A local segment that sorts above every real one.
+_LOCAL_KEY_MAX: Final[tuple[Any, ...]] = ((_BOUNDARY_INF,),)
 
 
 class BoundaryKind(enum.Enum):
@@ -207,7 +219,7 @@ class LowerBound:
     bound starts earlier.
     """
 
-    __slots__ = ("_above", "inclusive", "version")
+    __slots__ = ("_above", "_floor_key", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         # Two spellings of -inf would sort above each other under total_ordering.
@@ -216,6 +228,8 @@ class LowerBound:
 
         self.version = version
         self.inclusive = inclusive
+        # Filled by ``_edge_keys`` on first use, to keep construction cheap.
+        self._floor_key: tuple[Any, ...] | None = None
         # Pre-bind a predicate "is parsed at or above this lower
         # bound?" for the hot filter / contains loops. One direct
         # call per check, no operator-dispatch chain.
@@ -314,7 +328,7 @@ class UpperBound:
     bound ends earlier.
     """
 
-    __slots__ = ("_below", "inclusive", "version")
+    __slots__ = ("_below", "_ceiling_key", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         # Two spellings of +inf would sort above each other under total_ordering.
@@ -323,6 +337,7 @@ class UpperBound:
 
         self.version = version
         self.inclusive = inclusive
+        self._ceiling_key: tuple[Any, ...] | None = None
         # Pre-bind a predicate "is parsed at or below this upper
         # bound?". See LowerBound for the rationale.
         if version is None:
@@ -430,6 +445,88 @@ def coerce_version(version: Version | str) -> Version | None:
         except InvalidVersion:
             return None
     return version
+
+
+def _successor_key(key: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Smallest edge key above a version key: every greater version key is above it.
+
+    An empty local segment sorts below every real one, so appending it gives
+    the next point after a key with or without a local label.
+    """
+    return (*key[:3], (*key[3], ())) if len(key) == 4 else (*key, ())
+
+
+def _boundary_key(boundary: BoundaryVersion) -> tuple[Any, ...]:
+    """Edge key for the point where *boundary* sits."""
+    version = boundary.version
+    epoch, release, suffix = version._key[:3]
+    if boundary.kind == BoundaryKind.AFTER_LOCALS:
+        return epoch, release, suffix, _LOCAL_KEY_MAX
+    if version._pre is not None:
+        # Above every post-release of this pre-release, below the next one.
+        return epoch, release, (suffix[0], suffix[1], _BOUNDARY_INF)
+    if version._dev is not None and version._post is None:
+        # The family of a dev-only release is not contiguous in key order.
+        return _NO_EDGE_KEY
+    return epoch, release, (_BOUNDARY_INF,)
+
+
+def _edge_keys(
+    lower: LowerBound, upper: UpperBound
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    """Compute and cache the ``(floor_key, ceiling_key)`` of an interval."""
+    floor_key = lower._floor_key
+    if floor_key is None:
+        version = lower.version
+        if version is None:
+            floor_key = ()
+        elif isinstance(version, BoundaryVersion):
+            floor_key = _boundary_key(version)
+        elif lower.inclusive:
+            floor_key = version._key
+        else:
+            floor_key = _successor_key(version._key)
+        lower._floor_key = floor_key
+
+    ceiling_key = upper._ceiling_key
+    if ceiling_key is None:
+        version = upper.version
+        if version is None:
+            ceiling_key = ()
+        elif isinstance(version, BoundaryVersion):
+            # ``_below`` of an AFTER_POSTS upper does not mirror ``_above``.
+            if version.kind == BoundaryKind.AFTER_LOCALS:
+                ceiling_key = _boundary_key(version)
+            else:
+                ceiling_key = _NO_EDGE_KEY
+        elif upper.inclusive:
+            ceiling_key = _successor_key(version._key)
+        else:
+            ceiling_key = version._key
+        upper._ceiling_key = ceiling_key
+
+    return floor_key, ceiling_key
+
+
+def _flat_edge_keys(ranges: Sequence[Interval]) -> list[tuple[Any, ...]] | None:
+    """Edge keys of sorted *ranges* in one ascending list, for bisection.
+
+    A version is inside the ranges iff an odd number of edges are at or below
+    its key. Returns ``None`` when a bound has no edge key.
+    """
+    edges: list[tuple[Any, ...]] = []
+    for lower, upper in ranges:
+        floor_key = lower._floor_key
+        ceiling_key = upper._ceiling_key
+        if floor_key is None or ceiling_key is None:
+            floor_key, ceiling_key = _edge_keys(lower, upper)
+        if floor_key is _NO_EDGE_KEY or ceiling_key is _NO_EDGE_KEY:
+            return None
+        edges.append(floor_key)
+        # Only the last range can be unbounded above; it adds no closing edge.
+        if ceiling_key:
+            edges.append(ceiling_key)
+    return edges
 
 
 def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
@@ -590,23 +687,38 @@ def filter_by_ranges(
     it is force-admitted in place, as ``prereleases=True`` would yield it. A
     force-admitted pre-release is not a final, so it never suppresses the buffer.
     """
+    # Hot path: most specifiers and small SpecifierSets reduce to a single
+    # contiguous range, tested by comparing version keys inline.
+    keyed = False
+    edges = None
+    if len(ranges) == 1:
+        lower, upper = ranges[0]
+        floor_key = lower._floor_key
+        ceiling_key = upper._ceiling_key
+        if floor_key is None or ceiling_key is None:
+            floor_key, ceiling_key = _edge_keys(lower, upper)
+        keyed = floor_key is not _NO_EDGE_KEY and ceiling_key is not _NO_EDGE_KEY
+        # None is the cheapest unbounded test inside the loops.
+        floor_key = floor_key or None
+        ceiling_key = ceiling_key or None
+    else:
+        edges = _flat_edge_keys(ranges)
+
     if prereleases is None:
         prerelease_buffer: list[Any] = []
         found_final = False
 
-        if len(ranges) == 1:
-            # Hot path: most specifiers and small SpecifierSets reduce to
-            # a single contiguous range.
-            lower, upper = ranges[0]
-            above = lower._above
-            below = upper._below
+        if keyed:
             for item in iterable:
-                parsed = coerce_version(item if key is None else key(item))
-                if parsed is None:
+                parsed = item if key is None else key(item)
+                if not isinstance(parsed, Version):
+                    parsed = coerce_version(parsed)
+                    if parsed is None:
+                        continue
+                version_key = parsed._key_cache or parsed._key
+                if floor_key is not None and version_key < floor_key:
                     continue
-                if above is not None and not above(parsed):
-                    continue
-                if below is not None and not below(parsed):
+                if ceiling_key is not None and version_key >= ceiling_key:
                     continue
                 if not parsed.is_prerelease:
                     found_final = True
@@ -620,61 +732,58 @@ def filter_by_ranges(
             return
 
         for item in iterable:
-            parsed = coerce_version(item if key is None else key(item))
-            if parsed is None:
+            parsed = item if key is None else key(item)
+            if not isinstance(parsed, Version):
+                parsed = coerce_version(parsed)
+                if parsed is None:
+                    continue
+            if edges is None:
+                if not matches_bounds_only(ranges, parsed):
+                    continue
+            elif not bisect_right(edges, parsed._key_cache or parsed._key) & 1:
                 continue
-            for lower, upper in ranges:
-                above = lower._above
-                if above is not None and not above(parsed):
-                    break
-                below = upper._below
-                if below is None or below(parsed):
-                    if not parsed.is_prerelease:
-                        found_final = True
-                        yield item
-                    elif region and matches_bounds_only(region, parsed):
-                        yield item
-                    elif not found_final:
-                        prerelease_buffer.append(item)
-                    break
+            if not parsed.is_prerelease:
+                found_final = True
+                yield item
+            elif region and matches_bounds_only(region, parsed):
+                yield item
+            elif not found_final:
+                prerelease_buffer.append(item)
         if not found_final:
             yield from prerelease_buffer
         return
 
     exclude_prereleases = prereleases is False
 
-    if len(ranges) == 1:
-        # Hot path: most specifiers and small SpecifierSets reduce to
-        # a single contiguous range.
-        lower, upper = ranges[0]
-        above = lower._above
-        below = upper._below
+    if keyed:
         for item in iterable:
-            parsed = coerce_version(item if key is None else key(item))
-            if parsed is None:
-                continue
+            parsed = item if key is None else key(item)
+            if not isinstance(parsed, Version):
+                parsed = coerce_version(parsed)
+                if parsed is None:
+                    continue
             if exclude_prereleases and parsed.is_prerelease:
                 continue
-            if above is not None and not above(parsed):
+            version_key = parsed._key_cache or parsed._key
+            if floor_key is not None and version_key < floor_key:
                 continue
-            if below is None or below(parsed):
+            if ceiling_key is None or version_key < ceiling_key:
                 yield item
         return
 
     for item in iterable:
-        parsed = coerce_version(item if key is None else key(item))
-        if parsed is None:
-            continue
+        parsed = item if key is None else key(item)
+        if not isinstance(parsed, Version):
+            parsed = coerce_version(parsed)
+            if parsed is None:
+                continue
         if exclude_prereleases and parsed.is_prerelease:
             continue
-        for lower, upper in ranges:
-            above = lower._above
-            if above is not None and not above(parsed):
-                break
-            below = upper._below
-            if below is None or below(parsed):
+        if edges is None:
+            if matches_bounds_only(ranges, parsed):
                 yield item
-                break
+        elif bisect_right(edges, parsed._key_cache or parsed._key) & 1:
+            yield item
 
 
 def _nearest_release_above_prerelease(version: Version) -> Version:
@@ -857,13 +966,23 @@ def matches_bounds_only(ranges: Sequence[Interval], version: Version) -> bool:
     no pre-release policy applied. ``ranges`` are sorted and non-overlapping,
     so a version below one range's lower bound is below every later range too.
     """
+    version_key = version._key_cache or version._key
     for lower, upper in ranges:
-        above = lower._above
-        if above is not None and not above(version):
-            return False
+        floor_key = lower._floor_key
+        ceiling_key = upper._ceiling_key
+        if floor_key is None or ceiling_key is None:
+            floor_key, ceiling_key = _edge_keys(lower, upper)
 
-        below = upper._below
-        if below is None or below(version):
+        if floor_key is _NO_EDGE_KEY or ceiling_key is _NO_EDGE_KEY:
+            above = lower._above
+            if above is not None and not above(version):
+                return False
+            below = upper._below
+            if below is None or below(version):
+                return True
+        elif version_key < floor_key:
+            return False
+        elif not ceiling_key or version_key < ceiling_key:
             return True
 
     return False
