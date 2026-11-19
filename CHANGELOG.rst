@@ -8,6 +8,12 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Fixes:
+
+* Raise ``InvalidTag`` from ``parse_tag()`` for malformed tags regardless of
+  the ``limit`` argument, instead of ``TooManyTagsError``. The tag is now
+  validated before the limit is applied.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
