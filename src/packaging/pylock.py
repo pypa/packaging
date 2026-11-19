@@ -848,10 +848,17 @@ class Pylock:
                 #    :ref:`pylock-packages-wheels-name`; if one is not found then move
                 #    on to :ref:`pylock-packages-sdist` or an error MUST be raised about
                 #    a lack of source for the project.
+                # Sort by build first; the stable tag sort keeps the build
+                # as a tie-breaker after tag preference, like pip.
+                wheels = sorted(
+                    package.wheels,
+                    key=lambda w: parse_wheel_filename(w.filename)[2],
+                    reverse=True,
+                )
                 best_wheel = next(
                     compatible_tags_selector(
                         (wheel, parse_wheel_filename(wheel.filename)[-1])
-                        for wheel in package.wheels
+                        for wheel in wheels
                     ),
                     None,
                 )
