@@ -323,6 +323,65 @@ class TestInterpreterVersion:
         assert tags.interpreter_version() == version_str
 
 
+class TestPythonTag:
+    @pytest.mark.parametrize(
+        ("implementation", "version", "expected"),
+        [
+            (True, True, "cp311"),
+            (True, False, "cp3"),
+            (False, True, "py311"),
+            (False, False, "py3"),
+        ],
+    )
+    def test_python_tag_cpython(
+        self,
+        implementation: bool,
+        version: bool,
+        expected: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert (
+            tags.python_tag(implementation=implementation, version=version) == expected
+        )
+
+    def test_python_tag_pypy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert tags.python_tag() == "pp311"
+        assert tags.python_tag(version=False) == "pp3"
+
+    def test_python_tag_other_interpreter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "graalpy")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "311")
+        assert tags.python_tag() == "graalpy311"
+        assert tags.python_tag(implementation=False) == "py311"
+
+    def test_major_version_from_interpreter_version(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+        monkeypatch.setattr(tags, "interpreter_version", lambda **kwargs: "27")
+        assert tags.python_tag(version=False) == "cp2"
+
+    @pytest.mark.parametrize("version", [True, False])
+    def test_warn_forwarded(
+        self, version: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[bool] = []
+
+        def fake_interpreter_version(*, warn: bool = False) -> str:
+            calls.append(warn)
+            return "311"
+
+        monkeypatch.setattr(tags, "interpreter_version", fake_interpreter_version)
+        tags.python_tag(version=version, warn=True)
+        assert calls == [True]
+
+
 class TestMacOSPlatforms:
     @pytest.mark.parametrize(
         ("arch", "is_32bit", "expected"),
