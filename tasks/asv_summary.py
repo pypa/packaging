@@ -20,6 +20,7 @@ import itertools
 import json
 import math
 import subprocess
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -100,11 +101,11 @@ def compare(
     pythons: list[str],
     limit: float,
 ) -> dict[str, Row]:
-    """Return one row per benchmark, with one cell per Python version."""
+    """Return one row per asv benchmark ID, with one cell per Python version."""
     rows: dict[str, Row] = {}
     for py in pythons:
         for name, (new, new_version) in after[py].items():
-            row = rows.setdefault(clean_name(name), Row())
+            row = rows.setdefault(name, Row())
             if name not in before[py]:
                 row.cells[py] = "new"
                 continue
@@ -138,9 +139,13 @@ def render(
     if not rows:
         return ["No benchmark results found."], False
 
+    short = {name: clean_name(name) for name in rows}
+    taken = Counter(short.values())
+    labels = {n: s if taken[s] == 1 else n for n, s in short.items()}
+
     counts = {"slower": 0, "faster": 0, "newly failing": 0, "fixed": 0}
     table = []
-    for name, row in sorted(rows.items()):
+    for name, row in sorted(rows.items(), key=lambda item: labels[item[0]]):
         direction = classify(row.changes, limit, min_count)
         mark = "❌" if row.failed else "✅" if row.fixed else ""
         mark += {1: "🔴", -1: "🟢", 0: ""}[direction]
@@ -149,7 +154,7 @@ def render(
         counts["newly failing"] += row.failed
         counts["fixed"] += row.fixed
         cells = " | ".join(row.cells.get(py, "") for py in pythons)
-        label = f"{mark} {name}" if mark else name
+        label = f"{mark} {labels[name]}" if mark else labels[name]
         table.append(f"| {label} | {cells} |")
 
     status = [f"{n} {label}" for label, n in counts.items() if n]
