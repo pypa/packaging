@@ -1261,9 +1261,12 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
         assert all(t.abi in ("cp316", "none", "abi3") for t in result)
 
-    def test_no_abi3_in_threaded_interpreter(self) -> None:
-        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
-        assert all(t.abi in ("cp316t", "none", "abi3t") for t in result)
+    @pytest.mark.parametrize("abis", [["cp316t"], ["none", "cp316t"], ["abi3t"]])
+    def test_no_abi3_in_threaded_interpreter(self, abis: list[str]) -> None:
+        result = list(tags.cpython_tags((3, 16), abis, ["platform"]))
+        assert all(t.abi in {"cp316t", "none", "abi3t"} for t in result)
+        assert tags.Tag("cp315", "abi3t", "platform") in result
+        assert tags.Tag("cp316", "abi3t", "platform") in result
 
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
