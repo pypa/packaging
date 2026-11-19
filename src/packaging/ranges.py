@@ -435,20 +435,16 @@ def _struct_admits(
     return matches_bounds_only(bounds, parsed)
 
 
+def _version_key(version: Version) -> tuple[Any, ...]:
+    return version._key
+
+
 def _interval_slice(
     versions: Sequence[Version], lower: LowerBound, upper: UpperBound
 ) -> tuple[int, int]:
     """Return slice indices for an interval in an ascending version list."""
-    opens = lower._above
-    closes = upper._below
-
-    start = 0 if opens is None else bisect.bisect_left(versions, True, key=opens)
-
-    if closes is None:
-        stop = len(versions)
-    else:
-        stop = bisect.bisect_left(versions, True, key=lambda v: not closes(v))
-
+    start = bisect.bisect_left(versions, lower._floor_key, key=_version_key)
+    stop = bisect.bisect_left(versions, upper._ceiling_key, key=_version_key)
     return start, stop
 
 
