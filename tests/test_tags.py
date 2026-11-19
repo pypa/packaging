@@ -1266,6 +1266,7 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 16), abis, ["platform"]))
         assert all(t.abi in {"cp316t", "none", "abi3t"} for t in result)
         assert tags.Tag("cp315", "abi3t", "platform") in result
+        assert tags.Tag("cp316", "abi3t", "platform") in result
 
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
