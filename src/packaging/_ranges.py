@@ -488,29 +488,40 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
     is still empty when the upper excludes that least successor:
     ``(AFTER_POSTS(1.0a1), 1.0a2.dev0)`` holds no version.
     """
-    if upper.version is None:
+    upper_version = upper.version
+    if upper_version is None:
         return False
 
-    if lower.version is None:
+    lower_version = lower.version
+    if lower_version is None:
         # Nothing sorts below MIN_VERSION, so an exclusive upper at or below it
         # leaves an empty floor interval such as ``(-inf, 0.dev0)``.
         return (
             not upper.inclusive
-            and isinstance(upper.version, Version)
-            and upper.version <= MIN_VERSION
+            and isinstance(upper_version, Version)
+            and upper_version <= MIN_VERSION
         )
 
-    if isinstance(lower.version, BoundaryVersion):
-        successor = least_version_above(lower.version)
-        if successor is not None:
-            if upper.version == successor:
-                return not upper.inclusive
-            return upper.version < successor
+    # Version subclasses may override comparison.
+    if type(lower_version) is Version and type(upper_version) is Version:
+        lower_key = lower_version._key_cache
+        upper_key = upper_version._key_cache
+        if lower_key is not None and upper_key is not None:
+            if lower.inclusive and upper.inclusive:
+                return lower_key > upper_key
+            return lower_key >= upper_key
 
-    if lower.version == upper.version:
+    if isinstance(lower_version, BoundaryVersion):
+        successor = least_version_above(lower_version)
+        if successor is not None:
+            if upper_version == successor:
+                return not upper.inclusive
+            return upper_version < successor
+
+    if lower_version == upper_version:
         return not (lower.inclusive and upper.inclusive)
 
-    return lower.version > upper.version
+    return lower_version > upper_version
 
 
 def intersect_ranges(

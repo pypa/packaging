@@ -883,6 +883,19 @@ class TestSetRelations:
         # ``[1, 2]`` and ``[2, 3)`` both admit 2.0.
         assert not vr(">=1.0,<=2.0").is_disjoint(vr(">=2.0,<3.0"))
 
+    @pytest.mark.parametrize(
+        ("include_upper", "include_lower", "disjoint"),
+        [(True, True, False), (False, True, True), (True, False, True)],
+    )
+    def test_disjoint_shared_version_bound(
+        self, include_upper: bool, include_lower: bool, disjoint: bool
+    ) -> None:
+        left = VersionRange.from_bounds("1.0", "2.0", include_upper=include_upper)
+        right = VersionRange.from_bounds("2.0.0", "3.0", include_lower=include_lower)
+
+        assert left.is_disjoint(right) is disjoint
+        assert right.is_disjoint(left) is disjoint
+
     def test_subset_true(self) -> None:
         assert vr(">=1.5,<1.8").is_subset(vr(">=1.0,<2.0"))
 
