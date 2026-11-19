@@ -8,7 +8,6 @@ __lazy_modules__ = {
     "importlib.machinery",
     "operator",
     "platform",
-    "re",
     "struct",
     "subprocess",
     "sysconfig",
@@ -339,14 +338,20 @@ def _normalize_string(string: str) -> str:
     return string.replace(".", "_").replace("-", "_").replace(" ", "_")
 
 
+_CPYTHON_ABI_RE = re.compile(r"cp\d+(.*)")
+
+
 def _is_threaded_cpython(abis: list[str]) -> bool:
     """
-    Determine if the first version-specific CPython ABI is free-threaded.
+    Determine if the ABIs describe a free-threaded build.
 
-    The threaded builds are indicated by a "t" in the abiflags.
+    The first version-specific CPython ABI or ``abi3t`` decides. The threaded
+    builds are indicated by a "t" in the abiflags.
     """
     for abi in abis:
-        if match := re.match(r"cp\d+(.*)", abi):
+        if abi == "abi3t":
+            return True
+        if match := _CPYTHON_ABI_RE.match(abi):
             return "t" in match[1]
     return False
 
