@@ -1151,7 +1151,7 @@ class VersionRange:
 
     #: Cached :func:`~packaging._ranges.edge_keys` of ``_bounds``, built by
     #: :meth:`filter`. Not part of equality or the pickled state.
-    _edges: list[tuple[Any, ...]] | None
+    _edges: Sequence[tuple[Any, ...]] | None
 
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
@@ -1902,8 +1902,10 @@ class VersionRange:
             if edges is None:
                 edges = self._edges = edge_keys(self._bounds)
             if region and region == self._bounds:
-                return filter_by_ranges(edges, iterable, key, True)
-            return filter_by_ranges(edges, iterable, key, prereleases, region)
+                return filter_by_ranges(self._bounds, edges, iterable, key, True)
+            return filter_by_ranges(
+                self._bounds, edges, iterable, key, prereleases, region
+            )
         return self._filter_with_admission(
             iterable, key, prereleases, arbitrary_active, region
         )
