@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"bisect"}
+
 import enum
 import functools
+from bisect import bisect_right
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -18,10 +21,13 @@ from .version import InvalidVersion, Version
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
-    # Total-order key for comparing two boundaries (boundary-vs-boundary only).
-    # The post slot may be ``_BOUNDARY_INF`` for an AFTER_POSTS boundary.
+    # Total-order key of a boundary, comparable with other boundary keys and
+    # with ``Version._key``. The post slot may be ``_BOUNDARY_INF`` for an
+    # AFTER_POSTS boundary.
     _BoundaryOrderSuffix = tuple[int, int, int, int | float, int, int]
-    _BoundaryOrderKey = tuple[int, tuple[int, ...], _BoundaryOrderSuffix, float]
+    _BoundaryOrderKey = tuple[
+        int, tuple[int, ...], _BoundaryOrderSuffix, tuple[Any, ...]
+    ]
 
 __all__ = [
     "FULL_RANGE",
@@ -50,6 +56,20 @@ MIN_RELEASE: Final[Version] = Version("0")
 #: Sorts above any real post number and any local label, so a boundary can be
 #: ordered above the version family it covers when two boundaries are compared.
 _BOUNDARY_INF: Final[float] = float("inf")
+
+#: Edge keys compare against ``Version._key`` with plain tuple ordering: a
+#: version is inside ``(lower, upper)`` iff
+#: ``lower._floor_key <= version._key < upper._ceiling_key``. These are the
+#: keys of the unbounded sides.
+_FLOOR_KEY_MIN: Final[tuple[Any, ...]] = ()
+_CEILING_KEY_MAX: Final[tuple[Any, ...]] = (_BOUNDARY_INF,)
+
+#: Appended to a version key, gives the edge key just above that version:
+#: longer than the key, and below every greater version key.
+_JUST_ABOVE: Final[tuple[()]] = ()
+
+#: A local segment that sorts above every real one.
+_LOCAL_KEY_MAX: Final[tuple[Any, ...]] = ((_BOUNDARY_INF,),)
 
 
 class BoundaryKind(enum.Enum):
@@ -143,7 +163,7 @@ class BoundaryVersion:
         """Sort key placing this boundary just above the versions it covers.
 
         It extends ``V``'s comparison key ``(epoch, release, suffix)`` with
-        a trailing ``_BOUNDARY_INF`` local component, so the key sorts after
+        a trailing ``_LOCAL_KEY_MAX`` local component, so the key sorts after
         ``V`` and every ``V+local`` (whose keys carry a real, finite local
         segment). ``suffix`` is the 6-int comparison suffix
         ``(pre_rank, pre_n, post_rank, post_n, dev_rank, dev_n)``.
@@ -152,13 +172,14 @@ class BoundaryVersion:
         post number is ``_BOUNDARY_INF``, so the key also sorts after every
         ``V.postN``. An AFTER_LOCALS boundary uses ``V``'s suffix unchanged.
         """
-        version_key = self.version._key
+        version = self.version
+        version_key = version._key_cache or version._key
         suffix: _BoundaryOrderSuffix = version_key[2]
 
         if self.kind == BoundaryKind.AFTER_POSTS:
             suffix = (suffix[0], suffix[1], 1, _BOUNDARY_INF, 1, 0)
 
-        return version_key[0], version_key[1], suffix, _BOUNDARY_INF
+        return version_key[0], version_key[1], suffix, _LOCAL_KEY_MAX
 
     def __eq__(self, other: object) -> bool:
         # Key off the order key so equality matches the ``<`` / ``>`` order:
@@ -207,7 +228,7 @@ class LowerBound:
     bound starts earlier.
     """
 
-    __slots__ = ("_above", "inclusive", "version")
+    __slots__ = ("_floor_key", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         # Two spellings of -inf would sort above each other under total_ordering.
@@ -216,22 +237,17 @@ class LowerBound:
 
         self.version = version
         self.inclusive = inclusive
-        # Pre-bind a predicate "is parsed at or above this lower
-        # bound?" for the hot filter / contains loops. One direct
-        # call per check, no operator-dispatch chain.
+        # A version is at or above this bound iff ``version._key >= _floor_key``.
+        # Comparing keys keeps the hot filter / contains loops free of calls.
+        self._floor_key: tuple[Any, ...]
         if version is None:
-            self._above: Callable[[Version], bool] | None = None
+            self._floor_key = _FLOOR_KEY_MIN
         elif isinstance(version, BoundaryVersion):
-            # >V produces an AFTER_POSTS lower bound; the upper-side
-            # range of !=V produces an AFTER_LOCALS lower bound.
-            if version.kind == BoundaryKind.AFTER_POSTS:
-                self._above = _make_above_after_posts(version.version)
-            else:
-                self._above = _make_above_after_locals(version.version)
+            self._floor_key = version._order_key()
         elif inclusive:
-            self._above = version.__le__
+            self._floor_key = version._key_cache or version._key
         else:
-            self._above = version.__lt__
+            self._floor_key = (*version._key, _JUST_ABOVE)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LowerBound):
@@ -314,7 +330,7 @@ class UpperBound:
     bound ends earlier.
     """
 
-    __slots__ = ("_below", "inclusive", "version")
+    __slots__ = ("_ceiling_key", "inclusive", "version")
 
     def __init__(self, version: _VersionOrBoundary, inclusive: bool) -> None:
         # Two spellings of +inf would sort above each other under total_ordering.
@@ -323,24 +339,16 @@ class UpperBound:
 
         self.version = version
         self.inclusive = inclusive
-        # Pre-bind a predicate "is parsed at or below this upper
-        # bound?". See LowerBound for the rationale.
+        # A version is at or below this bound iff ``version._key < _ceiling_key``.
+        self._ceiling_key: tuple[Any, ...]
         if version is None:
-            self._below: Callable[[Version], bool] | None = None
+            self._ceiling_key = _CEILING_KEY_MAX
         elif isinstance(version, BoundaryVersion):
-            # Standard specifiers only ever produce AFTER_LOCALS upper
-            # bounds (from <=V / ==V / !=V with no local).
-            if version.kind == BoundaryKind.AFTER_LOCALS:
-                self._below = _make_below_after_locals(version.version)
-            else:
-                # An AFTER_POSTS upper is not produced by any specifier, but
-                # range algebra reaches it: complementing ``>V`` flips the
-                # ``AFTER_POSTS(V)`` lower into this upper bound.
-                self._below = version.__ge__
+            self._ceiling_key = version._order_key()
         elif inclusive:
-            self._below = version.__ge__
+            self._ceiling_key = (*(version._key_cache or version._key), _JUST_ABOVE)
         else:
-            self._below = version.__gt__
+            self._ceiling_key = version._key_cache or version._key
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, UpperBound):
@@ -430,53 +438,6 @@ def coerce_version(version: Version | str) -> Version | None:
         except InvalidVersion:
             return None
     return version
-
-
-def _make_above_after_posts(version: Version) -> Callable[[Version], bool]:
-    """Predicate ``parsed > AFTER_POSTS(V)`` for a lower bound.
-
-    Per PEP 440, ``>V`` excludes V's post-releases unless V is itself
-    a post-release. AFTER_POSTS sits above V and every V.postN (with
-    or without local), and just below the next release.
-    """
-    version_key = version._key
-    version_pre = version._pre
-
-    def above(parsed: Version) -> bool:
-        # Above V by key, and not in V's post family: the later versions
-        # that share V's epoch, trimmed release (the first two key items),
-        # and pre segment.
-        key = parsed._key_cache or parsed._key
-        return key > version_key and (
-            key[0] != version_key[0]
-            or key[1] != version_key[1]
-            or parsed._pre != version_pre
-        )
-
-    return above
-
-
-def _make_above_after_locals(version: Version) -> Callable[[Version], bool]:
-    """Match above a public version and all of its local labels."""
-    # The first three key fields identify the complete public version.
-    version_key = version._key[:3]
-
-    def above(parsed: Version) -> bool:
-        key = parsed._key_cache or parsed._key
-        return key[:3] > version_key
-
-    return above
-
-
-def _make_below_after_locals(version: Version) -> Callable[[Version], bool]:
-    """Match at or below the public version encoded by the first three key fields."""
-    version_key = version._key[:3]
-
-    def below(parsed: Version) -> bool:
-        key = parsed._key_cache or parsed._key
-        return key[:3] <= version_key
-
-    return below
 
 
 def first_version_after_locals(version: Version) -> Version:
@@ -575,14 +536,30 @@ def ranges_are_disjoint(left: Sequence[Interval], right: Sequence[Interval]) -> 
     return True
 
 
+def edge_keys(ranges: Sequence[Interval]) -> Sequence[tuple[Any, ...]]:
+    """Flatten sorted, non-overlapping *ranges* into their ascending edge keys.
+
+    The result is an input of :func:`filter_by_ranges`; callers cache it. A
+    single range is tested without edge keys, so it gets none.
+    """
+    if len(ranges) == 1:
+        return ()
+    return [
+        edge
+        for lower, upper in ranges
+        for edge in (lower._floor_key, upper._ceiling_key)
+    ]
+
+
 def filter_by_ranges(
     ranges: Sequence[Interval],
+    edges: Sequence[tuple[Any, ...]],
     iterable: Iterable[Any],
     key: Callable[[Any], Version | str] | None,
     prereleases: bool | None,
     region: Sequence[Interval] = (),
 ) -> Iterator[Any]:
-    """Filter *iterable* against precomputed version *ranges*.
+    """Filter *iterable* against version *ranges* and their :func:`edge_keys`.
 
     With ``prereleases=None``, the PEP 440 default applies: pre-releases are
     excluded unless no final matches, in which case buffered pre-releases come
@@ -590,23 +567,36 @@ def filter_by_ranges(
     it is force-admitted in place, as ``prereleases=True`` would yield it. A
     force-admitted pre-release is not a final, so it never suppresses the buffer.
     """
+    # Hot path: most specifiers and small SpecifierSets reduce to a single
+    # contiguous range, tested by comparing version keys inline. Several
+    # ranges bisect their edge keys: an odd count at or below a version's key
+    # means the version is inside.
+    single = len(ranges) == 1
+    if single:
+        lower, upper = ranges[0]
+        # None skips the comparison on an unbounded side, so a version that
+        # needs no comparison does not have its key built.
+        floor_key = None if lower.version is None else lower._floor_key
+        ceiling_key = None if upper.version is None else upper._ceiling_key
+
     if prereleases is None:
         prerelease_buffer: list[Any] = []
         found_final = False
 
-        if len(ranges) == 1:
-            # Hot path: most specifiers and small SpecifierSets reduce to
-            # a single contiguous range.
-            lower, upper = ranges[0]
-            above = lower._above
-            below = upper._below
+        if single:
             for item in iterable:
-                parsed = coerce_version(item if key is None else key(item))
-                if parsed is None:
+                parsed = item if key is None else key(item)
+                if not isinstance(parsed, Version):
+                    parsed = coerce_version(parsed)
+                    if parsed is None:
+                        continue
+                if floor_key is not None and (
+                    (parsed._key_cache or parsed._key) < floor_key
+                ):
                     continue
-                if above is not None and not above(parsed):
-                    continue
-                if below is not None and not below(parsed):
+                if ceiling_key is not None and (
+                    (parsed._key_cache or parsed._key) >= ceiling_key
+                ):
                     continue
                 if not parsed.is_prerelease:
                     found_final = True
@@ -620,61 +610,53 @@ def filter_by_ranges(
             return
 
         for item in iterable:
-            parsed = coerce_version(item if key is None else key(item))
-            if parsed is None:
+            parsed = item if key is None else key(item)
+            if not isinstance(parsed, Version):
+                parsed = coerce_version(parsed)
+                if parsed is None:
+                    continue
+            if not bisect_right(edges, parsed._key_cache or parsed._key) & 1:
                 continue
-            for lower, upper in ranges:
-                above = lower._above
-                if above is not None and not above(parsed):
-                    break
-                below = upper._below
-                if below is None or below(parsed):
-                    if not parsed.is_prerelease:
-                        found_final = True
-                        yield item
-                    elif region and matches_bounds_only(region, parsed):
-                        yield item
-                    elif not found_final:
-                        prerelease_buffer.append(item)
-                    break
+            if not parsed.is_prerelease:
+                found_final = True
+                yield item
+            elif region and matches_bounds_only(region, parsed):
+                yield item
+            elif not found_final:
+                prerelease_buffer.append(item)
         if not found_final:
             yield from prerelease_buffer
         return
 
     exclude_prereleases = prereleases is False
 
-    if len(ranges) == 1:
-        # Hot path: most specifiers and small SpecifierSets reduce to
-        # a single contiguous range.
-        lower, upper = ranges[0]
-        above = lower._above
-        below = upper._below
+    if single:
         for item in iterable:
-            parsed = coerce_version(item if key is None else key(item))
-            if parsed is None:
-                continue
+            parsed = item if key is None else key(item)
+            if not isinstance(parsed, Version):
+                parsed = coerce_version(parsed)
+                if parsed is None:
+                    continue
             if exclude_prereleases and parsed.is_prerelease:
                 continue
-            if above is not None and not above(parsed):
+            if floor_key is not None and (
+                (parsed._key_cache or parsed._key) < floor_key
+            ):
                 continue
-            if below is None or below(parsed):
+            if ceiling_key is None or (parsed._key_cache or parsed._key) < ceiling_key:
                 yield item
         return
 
     for item in iterable:
-        parsed = coerce_version(item if key is None else key(item))
-        if parsed is None:
-            continue
+        parsed = item if key is None else key(item)
+        if not isinstance(parsed, Version):
+            parsed = coerce_version(parsed)
+            if parsed is None:
+                continue
         if exclude_prereleases and parsed.is_prerelease:
             continue
-        for lower, upper in ranges:
-            above = lower._above
-            if above is not None and not above(parsed):
-                break
-            below = upper._below
-            if below is None or below(parsed):
-                yield item
-                break
+        if bisect_right(edges, parsed._key_cache or parsed._key) & 1:
+            yield item
 
 
 def _nearest_release_above_prerelease(version: Version) -> Version:
@@ -857,13 +839,12 @@ def matches_bounds_only(ranges: Sequence[Interval], version: Version) -> bool:
     no pre-release policy applied. ``ranges`` are sorted and non-overlapping,
     so a version below one range's lower bound is below every later range too.
     """
+    version_key = version._key_cache or version._key
     for lower, upper in ranges:
-        above = lower._above
-        if above is not None and not above(version):
+        if version_key < lower._floor_key:
             return False
 
-        below = upper._below
-        if below is None or below(version):
+        if version_key < upper._ceiling_key:
             return True
 
     return False
