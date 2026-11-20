@@ -558,8 +558,9 @@ def filter_by_ranges(
     single = len(ranges) == 1
     if single:
         lower, upper = ranges[0]
-        floor_key = lower._floor_key
-        # None skips the comparison for the common unbounded upper side.
+        # None skips the comparison on an unbounded side, so a version that
+        # needs no comparison does not have its key built.
+        floor_key = None if lower.version is None else lower._floor_key
         ceiling_key = None if upper.version is None else upper._ceiling_key
     else:
         edges = [
@@ -579,10 +580,13 @@ def filter_by_ranges(
                     parsed = coerce_version(parsed)
                     if parsed is None:
                         continue
-                version_key = parsed._key_cache or parsed._key
-                if version_key < floor_key:
+                if floor_key is not None and (
+                    (parsed._key_cache or parsed._key) < floor_key
+                ):
                     continue
-                if ceiling_key is not None and version_key >= ceiling_key:
+                if ceiling_key is not None and (
+                    (parsed._key_cache or parsed._key) >= ceiling_key
+                ):
                     continue
                 if not parsed.is_prerelease:
                     found_final = True
@@ -625,10 +629,11 @@ def filter_by_ranges(
                     continue
             if exclude_prereleases and parsed.is_prerelease:
                 continue
-            version_key = parsed._key_cache or parsed._key
-            if version_key < floor_key:
+            if floor_key is not None and (
+                (parsed._key_cache or parsed._key) < floor_key
+            ):
                 continue
-            if ceiling_key is None or version_key < ceiling_key:
+            if ceiling_key is None or (parsed._key_cache or parsed._key) < ceiling_key:
                 yield item
         return
 
