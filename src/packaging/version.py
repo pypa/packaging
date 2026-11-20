@@ -627,9 +627,8 @@ class Version(_BaseVersion):
 
     # Override comparison methods to use direct _key_cache access
     # This is faster than property access, especially before Python 3.12
-    # The ordering methods compare with other._key_cache before the type
-    # check. A missing key is None, which raises TypeError, and that selects
-    # the slower path.
+    # The ordering methods read other._key_cache before the type check.
+    # The type check is only necessary when that key is missing.
     def __lt__(self, other: _BaseVersion) -> bool:
         if (key := self._key_cache) is None:
             self._key_cache = key = _cmpkey(
@@ -641,9 +640,11 @@ class Version(_BaseVersion):
                 self._local,
             )
         try:
-            return key < other._key_cache  # type: ignore[attr-defined, no-any-return]
-        except (TypeError, AttributeError):
-            pass
+            other_key = other._key_cache  # type: ignore[attr-defined]
+        except AttributeError:
+            other_key = None
+        if other_key is not None:
+            return key < other_key  # type: ignore[no-any-return]
 
         if isinstance(other, Version):
             other._key_cache = other_key = _cmpkey(
@@ -672,9 +673,11 @@ class Version(_BaseVersion):
                 self._local,
             )
         try:
-            return key <= other._key_cache  # type: ignore[attr-defined, no-any-return]
-        except (TypeError, AttributeError):
-            pass
+            other_key = other._key_cache  # type: ignore[attr-defined]
+        except AttributeError:
+            other_key = None
+        if other_key is not None:
+            return key <= other_key  # type: ignore[no-any-return]
 
         if isinstance(other, Version):
             other._key_cache = other_key = _cmpkey(
@@ -730,9 +733,11 @@ class Version(_BaseVersion):
                 self._local,
             )
         try:
-            return key >= other._key_cache  # type: ignore[attr-defined, no-any-return]
-        except (TypeError, AttributeError):
-            pass
+            other_key = other._key_cache  # type: ignore[attr-defined]
+        except AttributeError:
+            other_key = None
+        if other_key is not None:
+            return key >= other_key  # type: ignore[no-any-return]
 
         if isinstance(other, Version):
             other._key_cache = other_key = _cmpkey(
@@ -761,9 +766,11 @@ class Version(_BaseVersion):
                 self._local,
             )
         try:
-            return key > other._key_cache  # type: ignore[attr-defined, no-any-return]
-        except (TypeError, AttributeError):
-            pass
+            other_key = other._key_cache  # type: ignore[attr-defined]
+        except AttributeError:
+            other_key = None
+        if other_key is not None:
+            return key > other_key  # type: ignore[no-any-return]
 
         if isinstance(other, Version):
             other._key_cache = other_key = _cmpkey(
