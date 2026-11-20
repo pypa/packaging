@@ -42,6 +42,7 @@ from ._ranges import (
     LowerBound,
     UpperBound,
     coerce_version,
+    edge_keys,
     filter_by_ranges,
     first_version_after_locals,
     intersect_ranges,
@@ -1139,6 +1140,7 @@ class VersionRange:
         "_admit",
         "_admit_arbitrary",
         "_bounds",
+        "_edges",
         "_pre_region",
         "_prereleases_configured",
         "_reject",
@@ -1146,6 +1148,10 @@ class VersionRange:
 
     #: The disjoint, sorted, non-overlapping interval list.
     _bounds: tuple[Interval, ...]
+
+    #: Cached :func:`~packaging._ranges.edge_keys` of ``_bounds``, built by
+    #: :meth:`filter`. Not part of equality or the pickled state.
+    _edges: list[tuple[Any, ...]] | None
 
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
@@ -1254,6 +1260,7 @@ class VersionRange:
 
         instance = object.__new__(cls)
         instance._bounds = bounds
+        instance._edges = None
         instance._admit = admit
         instance._reject = reject
         instance._admit_arbitrary = admit_arbitrary
@@ -1891,9 +1898,12 @@ class VersionRange:
             # pre-release, i.e. ``prereleases=True``; take the cheaper no-buffer
             # path. (Confined to this branch: the admission path orders arbitrary
             # strings differently under True than under the region.)
+            edges = self._edges
+            if edges is None:
+                edges = self._edges = edge_keys(self._bounds)
             if region and region == self._bounds:
-                return filter_by_ranges(self._bounds, iterable, key, True)
-            return filter_by_ranges(self._bounds, iterable, key, prereleases, region)
+                return filter_by_ranges(edges, iterable, key, True)
+            return filter_by_ranges(edges, iterable, key, prereleases, region)
         return self._filter_with_admission(
             iterable, key, prereleases, arbitrary_active, region
         )

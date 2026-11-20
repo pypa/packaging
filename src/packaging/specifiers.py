@@ -28,6 +28,7 @@ from ._ranges import (
     FULL_RANGE,
     bounds_for_spec,
     coerce_version,
+    edge_keys,
     filter_by_ranges,
     intersect_specifier_bounds,
     matches_bounds_only,
@@ -254,6 +255,7 @@ class Specifier(BaseSpecifier):
 
     __slots__ = (
         "_canonical_spec_cache",
+        "_edges",
         "_prereleases",
         "_ranges",
         "_spec",
@@ -405,6 +407,9 @@ class Specifier(BaseSpecifier):
         # Version range cache (populated by _to_ranges)
         self._ranges: Sequence[Interval] | None = None
 
+        # Edge key cache of the ranges (populated by filter)
+        self._edges: list[tuple[Any, ...]] | None = None
+
         # Canonical (operator, version) cache (populated by _canonical_spec)
         self._canonical_spec_cache: tuple[str, str] | None = None
 
@@ -532,6 +537,7 @@ class Specifier(BaseSpecifier):
         # Always discard cached values - they will be recomputed on demand.
         self._spec_version = None
         self._ranges = None
+        self._edges = None
         self._canonical_spec_cache = None
 
         if isinstance(state, tuple):
@@ -814,7 +820,10 @@ class Specifier(BaseSpecifier):
             )
             return _apply_prereleases_filter(matches, key, prereleases)
 
-        return filter_by_ranges(self._to_ranges(), iterable, key, prereleases)
+        edges = self._edges
+        if edges is None:
+            edges = self._edges = edge_keys(self._to_ranges())
+        return filter_by_ranges(edges, iterable, key, prereleases)
 
 
 def _apply_prereleases_filter(
@@ -860,6 +869,7 @@ class SpecifierSet(BaseSpecifier):
 
     __slots__ = (
         "_canonicalized",
+        "_edges",
         "_has_arbitrary",
         "_is_unsatisfiable",
         "_prereleases",
@@ -912,6 +922,7 @@ class SpecifierSet(BaseSpecifier):
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
         self._ranges: Sequence[Interval] | None = None
+        self._edges: list[tuple[Any, ...]] | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -987,6 +998,7 @@ class SpecifierSet(BaseSpecifier):
     def __setstate__(self, state: object) -> None:
         # Always discard cached values - they will be recomputed on demand.
         self._ranges = None
+        self._edges = None
         self._is_unsatisfiable = None
 
         if isinstance(state, tuple):
@@ -1510,10 +1522,10 @@ class SpecifierSet(BaseSpecifier):
                 )
                 return _apply_prereleases_filter(matches, key, prereleases)
 
-            ranges = self._ranges
-            if ranges is None:
-                ranges = self._get_ranges()
-            return filter_by_ranges(ranges, iterable, key, prereleases)
+            edges = self._edges
+            if edges is None:
+                edges = self._edges = edge_keys(self._get_ranges())
+            return filter_by_ranges(edges, iterable, key, prereleases)
 
         # Empty SpecifierSet.
         return _apply_prereleases_filter(iterable, key, prereleases)

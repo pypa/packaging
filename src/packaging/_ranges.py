@@ -536,14 +536,26 @@ def ranges_are_disjoint(left: Sequence[Interval], right: Sequence[Interval]) -> 
     return True
 
 
+def edge_keys(ranges: Sequence[Interval]) -> list[tuple[Any, ...]]:
+    """Flatten sorted, non-overlapping *ranges* into their ascending edge keys.
+
+    The result is the input of :func:`filter_by_ranges`; callers cache it.
+    """
+    return [
+        edge
+        for lower, upper in ranges
+        for edge in (lower._floor_key, upper._ceiling_key)
+    ]
+
+
 def filter_by_ranges(
-    ranges: Sequence[Interval],
+    edges: Sequence[tuple[Any, ...]],
     iterable: Iterable[Any],
     key: Callable[[Any], Version | str] | None,
     prereleases: bool | None,
     region: Sequence[Interval] = (),
 ) -> Iterator[Any]:
-    """Filter *iterable* against precomputed version *ranges*.
+    """Filter *iterable* against the :func:`edge_keys` of version ranges.
 
     With ``prereleases=None``, the PEP 440 default applies: pre-releases are
     excluded unless no final matches, in which case buffered pre-releases come
@@ -555,19 +567,12 @@ def filter_by_ranges(
     # contiguous range, tested by comparing version keys inline. Several
     # ranges bisect their edge keys: an odd count at or below a version's key
     # means the version is inside.
-    single = len(ranges) == 1
+    single = len(edges) == 2
     if single:
-        lower, upper = ranges[0]
         # None skips the comparison on an unbounded side, so a version that
         # needs no comparison does not have its key built.
-        floor_key = None if lower.version is None else lower._floor_key
-        ceiling_key = None if upper.version is None else upper._ceiling_key
-    else:
-        edges = [
-            edge
-            for lower, upper in ranges
-            for edge in (lower._floor_key, upper._ceiling_key)
-        ]
+        floor_key = edges[0] or None
+        ceiling_key = None if edges[1] is _CEILING_KEY_MAX else edges[1]
 
     if prereleases is None:
         prerelease_buffer: list[Any] = []

@@ -3477,15 +3477,20 @@ def test_pickle_specifier_setstate_clears_cache() -> None:
     # Warm up every cache slot.
     _ = s._to_ranges()  # populates _spec_version + _ranges
     _ = s._canonical_spec
+    # The second call reads the _edges that the first call populates.
+    assert list(s.filter(["1.5"])) == list(s.filter(["1.5"])) == ["1.5"]
     assert s._spec_version is not None
     assert s._ranges is not None
+    assert s._edges is not None
     assert s._canonical_spec_cache is not None
 
-    s.__setstate__((("==", "1.*"), None))
+    s.__setstate__((("==", "2.*"), None))
 
     assert s._spec_version is None
     assert s._ranges is None
+    assert s._edges is None
     assert s._canonical_spec_cache is None
+    assert list(s.filter(["1.5", "2.5"])) == ["2.5"]
 
 
 def test_pickle_specifierset_setstate_clears_cache() -> None:
@@ -3494,13 +3499,17 @@ def test_pickle_specifierset_setstate_clears_cache() -> None:
     ss = SpecifierSet(">=1.0,<2.0")
     # Warm up every cache slot.
     ss.is_unsatisfiable()  # populates _is_unsatisfiable + _ranges
+    assert list(ss.filter(["1.5"])) == ["1.5"]  # populates _edges
     assert ss._is_unsatisfiable is not None
     assert ss._ranges is not None
+    assert ss._edges is not None
 
     ss.__setstate__(((Specifier(">=3.0"), Specifier("<4.0")), None))
 
     assert ss._is_unsatisfiable is None
     assert ss._ranges is None
+    assert ss._edges is None
+    assert list(ss.filter(["1.5", "3.5"])) == ["3.5"]
 
 
 # Pickle bytes generated with packaging==25.0, Python 3.13.13, pickle protocol 2.
