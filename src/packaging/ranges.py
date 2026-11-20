@@ -43,8 +43,8 @@ from ._ranges import (
     UpperBound,
     coerce_version,
     filter_by_ranges,
+    first_version_after_locals,
     intersect_ranges,
-    least_version_above,
     matches_bounds_only,
     range_is_empty,
     ranges_are_disjoint,
@@ -330,11 +330,8 @@ def _canonical_floor(bounds: tuple[Interval, ...]) -> tuple[Interval, ...]:
 def _predecessor_boundary(version: Version) -> BoundaryVersion | None:
     """The boundary whose least successor is *version*, or ``None``.
 
-    Inverse of :func:`~packaging._ranges.least_version_above`. A plain version
-    that is exactly such a successor (``1.0a2.dev0`` sits just above
-    ``AFTER_POSTS(1.0a1)``) folds back to that boundary, so ``>=1.0a2.dev0`` and
-    ``>1.0a1`` share one form. The proposed boundary is confirmed by
-    round-tripping through ``least_version_above``.
+    For example, ``1.0a2.dev0`` sits just above ``AFTER_POSTS(1.0a1)``, so
+    ``>=1.0a2.dev0`` and ``>1.0a1`` share one form.
     """
     # Only a least successor carries a dev segment, so nothing else can fold.
     if version.dev is None:
@@ -363,7 +360,7 @@ def _predecessor_boundary(version: Version) -> BoundaryVersion | None:
         )
         candidate = BoundaryVersion(base, BoundaryKind.AFTER_LOCALS)
 
-    if candidate is not None and least_version_above(candidate) == version:
+    if candidate is not None and candidate.successor == version:
         return candidate
     return None
 
@@ -689,7 +686,7 @@ def _encode_lower(lower: LowerBound, keep_dev0: bool) -> list[str] | None:
             else:
                 # A ``.post`` release recovers its prerelease-free ``>`` spelling
                 # from the successor (``>3.8.post1`` for ``AFTER_LOCALS(3.8.post1)``).
-                successor = least_version_above(lower_version)
+                successor = lower_version.successor
                 clean = _clean_lower(successor) if successor is not None else None
                 if clean is not None:
                     return clean
@@ -741,7 +738,7 @@ def _encode_upper(upper: UpperBound, keep_dev0: bool) -> list[str] | None:
         # ``AFTER_POSTS(P)`` sits just below the next pre-release's ``.dev0``
         # (canonicalization of a ``<P.preN.dev0`` upper), so it is ``<`` that
         # least successor. A final-release AFTER_POSTS has no successor or form.
-        successor = least_version_above(upper_version)
+        successor = upper_version.successor
         if successor is not None:
             return [f"<{successor}"]
         return None
@@ -882,7 +879,7 @@ def _detect_not_equal(
     if isinstance(left_upper.version, BoundaryVersion):
         # A boundary upper is always inclusive; its least successor is the first
         # excluded V (``None`` for a final AFTER_POSTS, which names no point).
-        first = least_version_above(left_upper.version)
+        first = left_upper.version.successor
         if first is None:
             return None
     elif left_upper.version is None or left_upper.inclusive:
@@ -913,10 +910,9 @@ def _detect_not_equal(
     # exactly ``first`` plus a contiguous dev run up to ``last``. Any other gap
     # (e.g. ``2.3`` to ``AFTER_LOCALS(2.7)`` from complementing ``>=2.3,<=2.7``)
     # spans a whole interval and fails this test.
-    second = least_version_above(BoundaryVersion(first, BoundaryKind.AFTER_LOCALS))
+    second = first_version_after_locals(first)
     if (
-        second is not None
-        and second.dev is not None
+        second.dev is not None
         and last.dev is not None
         and last.dev >= second.dev
         and last.__replace__(dev=second.dev) == second

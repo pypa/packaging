@@ -28,9 +28,9 @@ __all__ = [
     "bounds_for_spec",
     "coerce_version",
     "filter_by_ranges",
+    "first_version_after_locals",
     "intersect_ranges",
     "intersect_specifier_bounds",
-    "least_version_above",
     "matches_bounds_only",
     "range_is_empty",
     "ranges_are_disjoint",
@@ -78,6 +78,7 @@ class BoundaryVersion:
         "_cached_epoch",
         "_cached_post",
         "_cached_pre",
+        "_cached_successor",
         "_cached_trimmed_release",
         "kind",
         "version",
@@ -94,6 +95,24 @@ class BoundaryVersion:
         self._cached_pre = version.pre
         self._cached_post = version.post
         self._cached_dev = version.dev
+        self._cached_successor: Version | None = None
+
+    @property
+    def successor(self) -> Version | None:
+        """The smallest real version above this boundary, if one exists."""
+        if self._cached_successor is not None:
+            return self._cached_successor
+
+        if self.kind is BoundaryKind.AFTER_LOCALS:
+            self._cached_successor = first_version_after_locals(self.version)
+        elif self.version.pre is not None:
+            # The first version after 1a1 and all its post-releases is 1a2.dev0.
+            tag, number = self.version.pre
+            self._cached_successor = self.version.__replace__(
+                pre=(tag, number + 1), post=None, dev=0, local=None
+            )
+
+        return self._cached_successor
 
     def _is_family(self, other: Version) -> bool:
         """Is ``other`` a version that this boundary sorts above?"""
@@ -460,25 +479,13 @@ def _make_below_after_locals(version: Version) -> Callable[[Version], bool]:
     return below
 
 
-def least_version_above(boundary: BoundaryVersion) -> Version | None:
-    """Smallest real version strictly above *boundary*, or ``None`` if none exists."""
-    base = boundary.version
+def first_version_after_locals(version: Version) -> Version:
+    """The first version above *version* and all its local versions."""
+    if version.dev is not None:
+        return version.__replace__(dev=version.dev + 1, local=None)
 
-    if boundary.kind == BoundaryKind.AFTER_LOCALS:
-        # AFTER_LOCALS(V) sits just below V.post0, so its least successor is
-        # V.post0.dev0 (V.dev(N+1) if V has a dev, V.post(N+1).dev0 if a post).
-        if base.dev is not None:
-            return base.__replace__(dev=base.dev + 1, local=None)
-        next_post = (base.post + 1) if base.post is not None else 0
-        return base.__replace__(post=next_post, dev=0, local=None)
-
-    # AFTER_POSTS(V): a pre-release V steps to the next pre-release's .dev0;
-    # a final-release AFTER_POSTS has no least successor.
-    if base.pre is not None:
-        kind, number = base.pre
-        return base.__replace__(pre=(kind, number + 1), post=None, dev=0, local=None)
-
-    return None
+    next_post = version.post + 1 if version.post is not None else 0
+    return version.__replace__(post=next_post, dev=0, local=None)
 
 
 def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
@@ -510,7 +517,7 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
         return lower_key >= upper_key
 
     if isinstance(lower_version, BoundaryVersion):
-        successor = least_version_above(lower_version)
+        successor = lower_version.successor
         if successor is not None:
             if upper_version == successor:
                 return not upper.inclusive
