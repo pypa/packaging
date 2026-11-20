@@ -502,14 +502,12 @@ def range_is_empty(lower: LowerBound, upper: UpperBound) -> bool:
             and upper_version <= MIN_VERSION
         )
 
-    # Version subclasses may override comparison.
-    if type(lower_version) is Version and type(upper_version) is Version:
-        lower_key = lower_version._key_cache
-        upper_key = upper_version._key_cache
-        if lower_key is not None and upper_key is not None:
-            if lower.inclusive and upper.inclusive:
-                return lower_key > upper_key
-            return lower_key >= upper_key
+    lower_key = lower_version._key_cache
+    upper_key = upper_version._key_cache
+    if lower_key is not None and upper_key is not None:
+        if lower.inclusive and upper.inclusive:
+            return lower_key > upper_key
+        return lower_key >= upper_key
 
     if isinstance(lower_version, BoundaryVersion):
         successor = least_version_above(lower_version)
