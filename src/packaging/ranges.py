@@ -1406,6 +1406,7 @@ class VersionRange:
         if version._dev is None:
             instance = object.__new__(cls)
             instance._bounds = bounds
+            instance._edges = None
             instance._admit = instance._reject = frozenset()
             instance._admit_arbitrary = False
             instance._pre_region = ()

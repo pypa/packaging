@@ -77,6 +77,11 @@ class TestConstruction:
         assert Version("1.0+local") not in VersionRange.singleton("1.0")
         assert Version("1.0+local") in vr("==1.0")
 
+    @pytest.mark.parametrize("version", ["1.0", "1.0.dev1"])
+    def test_singleton_filter(self, version: str) -> None:
+        r = VersionRange.singleton(version, prereleases=True)
+        assert list(r.filter(["0.9", version, "1.1"])) == [version]
+
     def test_singleton_accepts_version(self) -> None:
         assert Version("1.0") in VersionRange.singleton(Version("1.0"))
 
