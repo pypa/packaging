@@ -896,6 +896,15 @@ class TestSetRelations:
         assert left.is_disjoint(right) is disjoint
         assert right.is_disjoint(left) is disjoint
 
+    def test_disjoint_shared_boundary_bound(self) -> None:
+        # Both sides meet at the same AFTER_POSTS boundary, which has no key.
+        above = vr(">1.0", prereleases=True)
+        below = above.complement()
+
+        assert above.is_disjoint(below)
+        assert below.is_disjoint(above)
+        assert (above & below).is_empty
+
     def test_subset_true(self) -> None:
         assert vr(">=1.5,<1.8").is_subset(vr(">=1.0,<2.0"))
 
