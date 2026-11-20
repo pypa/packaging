@@ -627,35 +627,31 @@ class Version(_BaseVersion):
 
     # Override comparison methods to use direct _key_cache access
     # This is faster than property access, especially before Python 3.12
-    # The ordering methods read other._key_cache before the type check.
-    # The type check is only necessary when that key is missing.
     def __lt__(self, other: _BaseVersion) -> bool:
-        if (key := self._key_cache) is None:
-            self._key_cache = key = _cmpkey(
-                self._epoch,
-                self._release,
-                self._pre,
-                self._post,
-                self._dev,
-                self._local,
-            )
+        o: Version = other  # type: ignore[assignment]
         try:
-            other_key = other._key_cache  # type: ignore[attr-defined]
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if o._key_cache is None:
+                o._key_cache = _cmpkey(
+                    o._epoch,
+                    o._release,
+                    o._pre,
+                    o._post,
+                    o._dev,
+                    o._local,
+                )
         except AttributeError:
-            other_key = None
-        if other_key is not None:
-            return key < other_key  # type: ignore[no-any-return]
-
-        if isinstance(other, Version):
-            other._key_cache = other_key = _cmpkey(
-                other._epoch,
-                other._release,
-                other._pre,
-                other._post,
-                other._dev,
-                other._local,
-            )
-            return key < other_key
+            pass
+        else:
+            return self._key_cache < o._key_cache
 
         if not isinstance(other, _BaseVersion):
             return NotImplemented
@@ -663,32 +659,30 @@ class Version(_BaseVersion):
         return super().__lt__(other)
 
     def __le__(self, other: _BaseVersion) -> bool:
-        if (key := self._key_cache) is None:
-            self._key_cache = key = _cmpkey(
-                self._epoch,
-                self._release,
-                self._pre,
-                self._post,
-                self._dev,
-                self._local,
-            )
+        o: Version = other  # type: ignore[assignment]
         try:
-            other_key = other._key_cache  # type: ignore[attr-defined]
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if o._key_cache is None:
+                o._key_cache = _cmpkey(
+                    o._epoch,
+                    o._release,
+                    o._pre,
+                    o._post,
+                    o._dev,
+                    o._local,
+                )
         except AttributeError:
-            other_key = None
-        if other_key is not None:
-            return key <= other_key  # type: ignore[no-any-return]
-
-        if isinstance(other, Version):
-            other._key_cache = other_key = _cmpkey(
-                other._epoch,
-                other._release,
-                other._pre,
-                other._post,
-                other._dev,
-                other._local,
-            )
-            return key <= other_key
+            pass
+        else:
+            return self._key_cache <= o._key_cache
 
         if not isinstance(other, _BaseVersion):
             return NotImplemented
@@ -723,32 +717,30 @@ class Version(_BaseVersion):
         return super().__eq__(other)
 
     def __ge__(self, other: _BaseVersion) -> bool:
-        if (key := self._key_cache) is None:
-            self._key_cache = key = _cmpkey(
-                self._epoch,
-                self._release,
-                self._pre,
-                self._post,
-                self._dev,
-                self._local,
-            )
+        o: Version = other  # type: ignore[assignment]
         try:
-            other_key = other._key_cache  # type: ignore[attr-defined]
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if o._key_cache is None:
+                o._key_cache = _cmpkey(
+                    o._epoch,
+                    o._release,
+                    o._pre,
+                    o._post,
+                    o._dev,
+                    o._local,
+                )
         except AttributeError:
-            other_key = None
-        if other_key is not None:
-            return key >= other_key  # type: ignore[no-any-return]
-
-        if isinstance(other, Version):
-            other._key_cache = other_key = _cmpkey(
-                other._epoch,
-                other._release,
-                other._pre,
-                other._post,
-                other._dev,
-                other._local,
-            )
-            return key >= other_key
+            pass
+        else:
+            return self._key_cache >= o._key_cache
 
         if not isinstance(other, _BaseVersion):
             return NotImplemented
@@ -756,32 +748,30 @@ class Version(_BaseVersion):
         return super().__ge__(other)
 
     def __gt__(self, other: _BaseVersion) -> bool:
-        if (key := self._key_cache) is None:
-            self._key_cache = key = _cmpkey(
-                self._epoch,
-                self._release,
-                self._pre,
-                self._post,
-                self._dev,
-                self._local,
-            )
+        o: Version = other  # type: ignore[assignment]
         try:
-            other_key = other._key_cache  # type: ignore[attr-defined]
+            if self._key_cache is None:
+                self._key_cache = _cmpkey(
+                    self._epoch,
+                    self._release,
+                    self._pre,
+                    self._post,
+                    self._dev,
+                    self._local,
+                )
+            if o._key_cache is None:
+                o._key_cache = _cmpkey(
+                    o._epoch,
+                    o._release,
+                    o._pre,
+                    o._post,
+                    o._dev,
+                    o._local,
+                )
         except AttributeError:
-            other_key = None
-        if other_key is not None:
-            return key > other_key  # type: ignore[no-any-return]
-
-        if isinstance(other, Version):
-            other._key_cache = other_key = _cmpkey(
-                other._epoch,
-                other._release,
-                other._pre,
-                other._post,
-                other._dev,
-                other._local,
-            )
-            return key > other_key
+            pass
+        else:
+            return self._key_cache > o._key_cache
 
         if not isinstance(other, _BaseVersion):
             return NotImplemented
