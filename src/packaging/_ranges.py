@@ -536,6 +536,15 @@ def ranges_are_disjoint(left: Sequence[Interval], right: Sequence[Interval]) -> 
     return True
 
 
+def _edge_keys(ranges: Sequence[Interval]) -> list[tuple[Any, ...]]:
+    """The sorted floor and ceiling keys of *ranges*, for a bisect."""
+    return [
+        edge
+        for lower, upper in ranges
+        for edge in (lower._floor_key, upper._ceiling_key)
+    ]
+
+
 def filter_by_ranges(
     ranges: Sequence[Interval],
     iterable: Iterable[Any],
@@ -562,12 +571,15 @@ def filter_by_ranges(
         # needs no comparison does not have its key built.
         floor_key = None if lower.version is None else lower._floor_key
         ceiling_key = None if upper.version is None else upper._ceiling_key
+    elif ranges:
+        # The first range is tested inline. The edge list is built when a
+        # version first reaches the ceiling of that range, because the build
+        # costs more than a short filter that stays in the first range.
+        lower, upper = ranges[0]
+        first_floor, first_ceiling = lower._floor_key, upper._ceiling_key
+        edges: list[tuple[Any, ...]] | None = None
     else:
-        edges = [
-            edge
-            for lower, upper in ranges
-            for edge in (lower._floor_key, upper._ceiling_key)
-        ]
+        edges = []
 
     if prereleases is None:
         prerelease_buffer: list[Any] = []
@@ -605,7 +617,13 @@ def filter_by_ranges(
                 parsed = coerce_version(parsed)
                 if parsed is None:
                     continue
-            if not bisect_right(edges, parsed._key_cache or parsed._key) & 1:
+            version_key = parsed._key_cache or parsed._key
+            if edges is None:
+                if version_key >= first_ceiling:
+                    edges = _edge_keys(ranges)
+                elif version_key < first_floor:
+                    continue
+            if edges is not None and not bisect_right(edges, version_key) & 1:
                 continue
             if not parsed.is_prerelease:
                 found_final = True
@@ -645,8 +663,15 @@ def filter_by_ranges(
                 continue
         if exclude_prereleases and parsed.is_prerelease:
             continue
-        if bisect_right(edges, parsed._key_cache or parsed._key) & 1:
-            yield item
+        version_key = parsed._key_cache or parsed._key
+        if edges is None:
+            if version_key >= first_ceiling:
+                edges = _edge_keys(ranges)
+            elif version_key < first_floor:
+                continue
+        if edges is not None and not bisect_right(edges, version_key) & 1:
+            continue
+        yield item
 
 
 def _nearest_release_above_prerelease(version: Version) -> Version:
