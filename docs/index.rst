@@ -36,6 +36,7 @@ The ``packaging`` library uses calendar-based versioning (``YY.N``).
     dependency_groups
     errors
     utils
+    validator
 
 .. toctree::
     :maxdepth: 2
