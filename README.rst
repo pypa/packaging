@@ -47,11 +47,12 @@ Discussion
 
 If you run into bugs, you can file them in our `issue tracker`_.
 
-You can also join discussions on `GitHub Discussions`_ to ask questions or get involved.
+You can also ask questions or get involved in the `Packaging category`_ on
+discuss.python.org.
 
 .. _`documentation`: https://packaging.pypa.io/
 .. _`issue tracker`: https://github.com/pypa/packaging/issues
-.. _`GitHub Discussions`: https://github.com/pypa/packaging/discussions
+.. _`Packaging category`: https://discuss.python.org/c/packaging/14
 
 
 Code of Conduct
