@@ -2196,6 +2196,13 @@ class TestBoundaryCanonicalization:
         assert a._bounds == b._bounds
         assert len({a, b}) == 1
 
+    def test_boundary_reuses_its_successor(self) -> None:
+        boundary = BoundaryVersion(Version("1a1"), BoundaryKind.AFTER_POSTS)
+        successor = boundary.successor
+
+        assert successor == Version("1a2.dev0")
+        assert boundary.successor is successor
+
     def test_upper_bound_folds_to_boundary(self) -> None:
         # The exclusive-upper mirror: ``<1.0a2.dev0`` ends at AFTER_POSTS(1.0a1).
         assert "1.0a1[AFTER_POSTS]" in repr(vr("<1.0a2.dev0"))

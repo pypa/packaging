@@ -325,7 +325,7 @@ _ADJACENCY_LEADS = [
 def _next_adjacent(version: Version) -> Version:
     """The immediate successor of *version* and its local family.
 
-    Independent of the production ``least_version_above`` so the strategy does
+    Independent of the production ``first_version_after_locals`` so the strategy does
     not validate the encoder against itself: a dev release steps its dev; any
     other release steps to its next post at ``.dev0`` (``.post0.dev0`` for a
     final release, ``.post(N+1).dev0`` for a ``.postN`` release).
