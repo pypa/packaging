@@ -435,20 +435,16 @@ def _struct_admits(
     return matches_bounds_only(bounds, parsed)
 
 
+def _version_key(version: Version) -> tuple[Any, ...]:
+    return version._key
+
+
 def _interval_slice(
     versions: Sequence[Version], lower: LowerBound, upper: UpperBound
 ) -> tuple[int, int]:
     """Return slice indices for an interval in an ascending version list."""
-    opens = lower._above
-    closes = upper._below
-
-    start = 0 if opens is None else bisect.bisect_left(versions, True, key=opens)
-
-    if closes is None:
-        stop = len(versions)
-    else:
-        stop = bisect.bisect_left(versions, True, key=lambda v: not closes(v))
-
+    start = bisect.bisect_left(versions, lower._floor_key, key=_version_key)
+    stop = bisect.bisect_left(versions, upper._ceiling_key, key=_version_key)
     return start, stop
 
 
@@ -2295,13 +2291,17 @@ class VersionRange:
 
         :raises TypeError: if item is not a str or Version.
         """
-        if not isinstance(item, (str, Version)):
+        parsed: Version | None
+        if isinstance(item, Version):
+            parsed = item
+        elif isinstance(item, str):
+            parsed = None
+        else:
             raise TypeError(
                 f"VersionRange.contains() expected str or Version, "
                 f"got {type(item).__name__}"
             )
 
-        parsed: Version | None = item if isinstance(item, Version) else None
         if installed and parsed is None:
             parsed = coerce_version(item)
         if installed and parsed is not None and parsed.is_prerelease:
@@ -2322,16 +2322,14 @@ class VersionRange:
                         return False
                 return True
 
-        if not isinstance(item, Version):
-            if parsed is None:
-                parsed = coerce_version(item)
+        if parsed is None:
+            parsed = coerce_version(item)
             if parsed is None:
                 return self._arbitrary_active()
-            item = parsed
 
-        if effective_pre is False and item.is_prerelease:
+        if effective_pre is False and parsed.is_prerelease:
             return False
-        return matches_bounds_only(self._bounds, item)
+        return matches_bounds_only(self._bounds, parsed)
 
     def __contains__(self, item: Version | str) -> bool:
         """Return whether item is contained in this range.
