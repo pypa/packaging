@@ -8,6 +8,12 @@ Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
 
+Behavior adaptations:
+
+* Reject requirement names and extras that end in ``_``, such as ``name_``
+  and ``pkg[extra_]``, as the dependency specifier grammar requires; they
+  were accepted before. (:pull:`1466`)
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
