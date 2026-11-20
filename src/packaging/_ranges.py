@@ -783,9 +783,16 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval
             return []
         return [(NEG_INF, UpperBound(bound, False))]
 
-    # ==, !=: local versions of V match when the spec has no local segment.
-    after_locals = BoundaryVersion(version, BoundaryKind.AFTER_LOCALS)
-    upper = version if has_local else after_locals
+    if op == "~=":
+        prefix = version.__replace__(release=version.release[:-1])
+        return [
+            (LowerBound(version, True), UpperBound(_next_prefix_dev0(prefix), False))
+        ]
+
+    # ==1.4 includes every local version of 1.4, and !=1.4 excludes them all.
+    upper = (
+        version if has_local else BoundaryVersion(version, BoundaryKind.AFTER_LOCALS)
+    )
 
     if op == "==":
         return [(LowerBound(version, True), UpperBound(upper, True))]
@@ -794,12 +801,6 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval
         return [
             (NEG_INF, UpperBound(version, False)),
             (LowerBound(upper, False), POS_INF),
-        ]
-
-    if op == "~=":
-        prefix = version.__replace__(release=version.release[:-1])
-        return [
-            (LowerBound(version, True), UpperBound(_next_prefix_dev0(prefix), False))
         ]
 
     raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
