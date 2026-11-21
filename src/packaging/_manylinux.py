@@ -41,36 +41,29 @@ def _parse_elf(path: str) -> Generator[ELFFile | None]:
         yield None
 
 
-def _is_linux_armhf(executable: str) -> bool:
-    # hard-float ABI can be detected from the ELF header of the running
-    # process
-    # https://static.docs.arm.com/ihi0044/g/aaelf32.pdf
+@functools.lru_cache
+def _get_32bit_elf_arch(executable: str) -> str | None:
     with _parse_elf(executable) as f:
-        return (
-            f is not None
-            and f.capacity == EIClass.C32
-            and f.encoding == EIData.Lsb
-            and f.machine == EMachine.Arm
+        if f is None or f.capacity != EIClass.C32 or f.encoding != EIData.Lsb:
+            return None
+        if f.machine == EMachine.X8664:
+            return "x32"
+        if f.machine == EMachine.I386:
+            return "i686"
+        if (
+            f.machine == EMachine.Arm
             and f.flags & EF_ARM_ABIMASK == EF_ARM_ABI_VER5
             and f.flags & EF_ARM_ABI_FLOAT_HARD == EF_ARM_ABI_FLOAT_HARD
-        )
-
-
-def _is_linux_i686(executable: str) -> bool:
-    with _parse_elf(executable) as f:
-        return (
-            f is not None
-            and f.capacity == EIClass.C32
-            and f.encoding == EIData.Lsb
-            and f.machine == EMachine.I386
-        )
+        ):
+            return "armv7l"
+        return None
 
 
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
     if "armv7l" in archs:
-        return _is_linux_armhf(executable)
+        return _get_32bit_elf_arch(executable) == "armv7l"
     if "i686" in archs:
-        return _is_linux_i686(executable)
+        return _get_32bit_elf_arch(executable) == "i686"
     return any(arch in _ALLOWED_ARCHS for arch in archs)
 
 
