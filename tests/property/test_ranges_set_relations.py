@@ -80,7 +80,7 @@ def test_relations_match_algebra_after_set_operations(
 )
 @SETTINGS
 def test_disjoint_matches_algebra_rich(a: SpecifierSet, b: SpecifierSet) -> None:
-    """``===`` ranges defer to the algebra; ``_is_plain`` must gate them out."""
+    """``===`` ranges defer to the algebra; ``_plain`` must gate them out."""
     ra, rb = a.to_range(), b.to_range()
     assert ra.is_disjoint(rb) == (ra & rb).is_empty
 
@@ -91,7 +91,7 @@ def test_disjoint_matches_algebra_rich(a: SpecifierSet, b: SpecifierSet) -> None
 )
 @SETTINGS
 def test_subset_matches_algebra_rich(a: SpecifierSet, b: SpecifierSet) -> None:
-    """``===`` ranges defer to the algebra; ``_is_plain`` must gate them out."""
+    """``===`` ranges defer to the algebra; ``_plain`` must gate them out."""
     ra, rb = a.to_range(), b.to_range()
     assert ra.is_subset(rb) == (ra & ~rb).is_empty
 
