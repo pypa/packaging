@@ -4,6 +4,12 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
+Fixes:
+
+* Reject invalid sdist project names and wheel build tags containing path
+  separators, null bytes, or NTFS stream delimiters.
+  (:pull:`1337`)
+
 Removals:
 
 * Drop support for EOL Python 3.9. (:pull:`1263`)
