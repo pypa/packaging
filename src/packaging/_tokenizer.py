@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, NoReturn
 from .specifiers import Specifier
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Mapping
+    from collections.abc import Generator
 
 
 @dataclass(slots=True)
@@ -101,16 +101,10 @@ class Tokenizer:
     matches.
     """
 
-    __slots__ = ("next_token", "position", "rules", "source")
+    __slots__ = ("next_token", "position", "source")
 
-    def __init__(
-        self,
-        source: str,
-        *,
-        rules: Mapping[str, re.Pattern[str]],
-    ) -> None:
+    def __init__(self, source: str) -> None:
         self.source = source
-        self.rules = rules
         self.next_token: Token | None = None
         self.position = 0
 
@@ -119,18 +113,18 @@ class Tokenizer:
         assert self.next_token is None, (
             f"Cannot consume {name!r}, already have {self.next_token!r}"
         )
-        assert name in self.rules, f"Unknown token name: {name!r}"
+        assert name in DEFAULT_RULES, f"Unknown token name: {name!r}"
 
         # Consumed tokens are discarded, so advance without allocating a Token
         # or copying the matched text.
-        match = self.rules[name].match(self.source, self.position)
+        match = DEFAULT_RULES[name].match(self.source, self.position)
         if match is not None:
             self.position = match.end()
 
     def match_pattern(self, pattern: re.Pattern[str]) -> re.Match[str] | None:
         """Match a pattern at the current position, and move beyond the match.
 
-        The pattern must agree with the rules of this tokenizer.
+        The pattern must agree with the default tokenizer rules.
         """
         assert self.next_token is None, (
             f"Cannot match a pattern, already have {self.next_token!r}"
@@ -151,9 +145,9 @@ class Tokenizer:
         assert self.next_token is None, (
             f"Cannot check for {name!r}, already have {self.next_token!r}"
         )
-        assert name in self.rules, f"Unknown token name: {name!r}"
+        assert name in DEFAULT_RULES, f"Unknown token name: {name!r}"
 
-        expression = self.rules[name]
+        expression = DEFAULT_RULES[name]
 
         match = expression.match(self.source, self.position)
         if match is None:
@@ -164,7 +158,7 @@ class Tokenizer:
 
     def peek(self, name: str) -> Token | None:
         """Return a matching token without changing the tokenizer state."""
-        match = self.rules[name].match(self.source, self.position)
+        match = DEFAULT_RULES[name].match(self.source, self.position)
         if match is None:
             return None
         return Token(name, match[0], self.position)
