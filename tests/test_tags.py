@@ -430,6 +430,70 @@ class TestMacOSPlatforms:
         platforms = list(tags.mac_platforms(arch="x86_64"))
         assert not platforms[0].startswith(unexpected)
 
+    @pytest.mark.parametrize("version_str", ["", "invalid.version", "11"])
+    def test_version_detection_invalid_mac_ver(
+        self, version_str: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            platform, "mac_ver", lambda: (version_str, ("", "", ""), "x86_64")
+        )
+        assert list(tags.mac_platforms(arch="x86_64")) == []
+
+    @pytest.mark.parametrize(
+        "run_func",
+        [
+            pretend.raiser(subprocess.SubprocessError("probe failed")),
+            pretend.raiser(OSError("probe could not start")),
+            lambda *args, **kwargs: subprocess.CompletedProcess([], 1, stdout=""),
+            lambda *args, **kwargs: subprocess.CompletedProcess(
+                [], 0, stdout="invalid.version"
+            ),
+            lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout="11"),
+            lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout="10.16"),
+        ],
+    )
+    @pytest.mark.parametrize("arch", ["x86_64", "arm64"])
+    def test_version_detection_10_16_unresolved_probe(
+        self,
+        run_func: collections.abc.Callable[..., subprocess.CompletedProcess[str]],
+        arch: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(platform, "mac_ver", lambda: ("10.16", ("", "", ""), arch))
+        monkeypatch.setattr(subprocess, "run", run_func)
+        # The 10.16 alias is only reported on macOS 11+, so 11.0 is a safe minimum.
+        assert list(tags.mac_platforms(arch=arch)) == list(
+            tags.mac_platforms((11, 0), arch)
+        )
+
+    @pytest.mark.parametrize("arch", ["x86_64", "arm64"])
+    def test_version_detection_10_16_successful_probe(
+        self, arch: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(platform, "mac_ver", lambda: ("10.16", ("", "", ""), arch))
+        monkeypatch.setenv("PACKAGING_PROBE_SENTINEL", "preserved")
+        monkeypatch.setenv("SYSTEM_VERSION_COMPAT", "1")
+
+        def run(
+            command: list[str],
+            *,
+            check: bool,
+            env: dict[str, str],
+            stdout: int,
+            text: bool,
+        ) -> subprocess.CompletedProcess[str]:
+            assert command[:2] == [sys.executable, "-sS"]
+            assert check
+            assert text
+            assert stdout == subprocess.PIPE
+            assert env["PACKAGING_PROBE_SENTINEL"] == "preserved"
+            assert env["SYSTEM_VERSION_COMPAT"] == "0"
+            return subprocess.CompletedProcess(command, 0, stdout="14.2\n")
+
+        monkeypatch.setattr(subprocess, "run", run)
+        assert next(tags.mac_platforms(arch=arch)) == f"macosx_14_0_{arch}"
+        assert os.environ["SYSTEM_VERSION_COMPAT"] == "1"
+
     @pytest.mark.parametrize("arch", ["x86_64", "i386"])
     def test_arch_detection(self, arch: str, monkeypatch: pytest.MonkeyPatch) -> None:
         if platform.system() != "Darwin" or platform.mac_ver()[2] != arch:
