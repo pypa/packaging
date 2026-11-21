@@ -3,7 +3,6 @@ from __future__ import annotations
 __lazy_modules__ = {"re", "warnings", f"{__spec__.parent}._elffile"}
 
 import collections
-import contextlib
 import functools
 import os
 import re
@@ -11,15 +10,23 @@ import sys
 import warnings
 from typing import TYPE_CHECKING, NamedTuple
 
-from ._elffile import EIClass, EIData, ELFFile, EMachine
+from ._elffile import EIClass, EIData, EMachine, _parse_elf
 
 if TYPE_CHECKING:
     import types
-    from collections.abc import Generator, Iterator, Sequence
+    from collections.abc import Iterator, Sequence
 
 EF_ARM_ABIMASK = 0xFF000000
 EF_ARM_ABI_VER5 = 0x05000000
 EF_ARM_ABI_FLOAT_HARD = 0x00000400
+
+EF_LOONGARCH_ABI_MODIFIER_MASK = 0x07
+EF_LOONGARCH_ABI_DOUBLE_FLOAT = 0x03
+EF_LOONGARCH_OBJABI_MASK = 0xC0
+EF_LOONGARCH_OBJABI_V1 = 0x40
+
+AT_HWCAP = 16
+HWCAP_LOONGARCH_LSX = 1 << 4
 
 _ALLOWED_ARCHS = {
     "x86_64",
@@ -27,18 +34,8 @@ _ALLOWED_ARCHS = {
     "ppc64",
     "ppc64le",
     "s390x",
-    "loongarch64",
     "riscv64",
 }
-
-
-@contextlib.contextmanager
-def _parse_elf(path: str) -> Generator[ELFFile | None]:
-    try:
-        with open(path, "rb") as f:
-            yield ELFFile(f)
-    except (OSError, TypeError, ValueError):
-        yield None
 
 
 def _is_linux_armhf(executable: str) -> bool:
@@ -66,11 +63,39 @@ def _is_linux_i686(executable: str) -> bool:
         )
 
 
+def _has_lsx() -> bool:
+    try:
+        import ctypes  # noqa: PLC0415
+
+        getauxval = ctypes.CDLL(None).getauxval
+    except (ImportError, OSError, AttributeError):
+        return False
+    getauxval.argtypes = [ctypes.c_ulong]
+    getauxval.restype = ctypes.c_ulong
+    return bool(getauxval(AT_HWCAP) & HWCAP_LOONGARCH_LSX)
+
+
+def _is_linux_loongarch64(executable: str) -> bool:
+    with _parse_elf(executable) as elf:
+        return (
+            elf is not None
+            and elf.capacity == EIClass.C64
+            and elf.encoding == EIData.Lsb
+            and elf.machine == EMachine.LoongArch
+            and elf.flags & EF_LOONGARCH_ABI_MODIFIER_MASK
+            == EF_LOONGARCH_ABI_DOUBLE_FLOAT
+            and elf.flags & EF_LOONGARCH_OBJABI_MASK == EF_LOONGARCH_OBJABI_V1
+            and _has_lsx()
+        )
+
+
 def _have_compatible_abi(executable: str, archs: Sequence[str]) -> bool:
     if "armv7l" in archs:
         return _is_linux_armhf(executable)
     if "i686" in archs:
         return _is_linux_i686(executable)
+    if "loongarch64" in archs:
+        return _is_linux_loongarch64(executable)
     return any(arch in _ALLOWED_ARCHS for arch in archs)
 
 

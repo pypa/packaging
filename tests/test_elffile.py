@@ -1,10 +1,18 @@
 import io
+import os
 import pathlib
 import struct
 
 import pytest
 
-from packaging._elffile import EIClass, EIData, ELFFile, ELFInvalid, EMachine
+from packaging._elffile import (
+    EIClass,
+    EIData,
+    ELFFile,
+    ELFInvalid,
+    EMachine,
+    _parse_elf,
+)
 
 DIR_MANYLINUX = pathlib.Path(__file__, "..", "manylinux").resolve()
 DIR_MUSLLINUX = pathlib.Path(__file__, "..", "musllinux").resolve()
@@ -19,6 +27,7 @@ BIN_MUSL_X86_64 = DIR_MUSLLINUX.joinpath("musl-x86_64").read_bytes()
         ("x86_64-amd64", EIClass.C64, EIData.Lsb, EMachine.X8664),
         ("armv7l-armel", EIClass.C32, EIData.Lsb, EMachine.Arm),
         ("armv7l-armhf", EIClass.C32, EIData.Lsb, EMachine.Arm),
+        ("loongarch64-loong64", EIClass.C64, EIData.Lsb, EMachine.LoongArch),
         ("s390x-s390x", EIClass.C64, EIData.Msb, EMachine.S390),
     ],
 )
@@ -102,3 +111,26 @@ def test_elffle_no_interpreter_section() -> None:
         data = data[:sb] + struct.pack(ef._p_fmt, 0, *section[1:]) + data[se:]
 
     assert ELFFile(io.BytesIO(data)).interpreter is None
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,
+        "invalid-magic",
+        "invalid-class",
+        "invalid-data",
+        "too-short",
+        "does-not-exist",
+    ],
+)
+def test_parse_elf_bad_executable(content: str | None) -> None:
+    path_str: str | None
+    if content:
+        path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
+        path_str = os.fsdecode(path)
+    else:
+        path_str = None
+    # None is not supported in the type annotation, but it was tested before.
+    with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
+        assert ef is None

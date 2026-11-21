@@ -9,12 +9,16 @@ ELF header: https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
 
 from __future__ import annotations
 
-__lazy_modules__ = {"struct", "typing"}
+__lazy_modules__ = {"struct"}
 
+import contextlib
 import enum
 import os
 import struct
-from typing import IO
+from typing import IO, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class ELFInvalid(ValueError):
@@ -37,6 +41,7 @@ class EMachine(enum.IntEnum):
     Arm = 40
     X8664 = 62
     AArch64 = 183
+    LoongArch = 258
 
 
 class ELFFile:
@@ -108,3 +113,12 @@ class ELFFile:
             self._f.seek(data[self._p_idx[1]])
             return os.fsdecode(self._f.read(data[self._p_idx[2]])).strip("\0")
         return None
+
+
+@contextlib.contextmanager
+def _parse_elf(path: str) -> Generator[ELFFile | None]:
+    try:
+        with open(path, "rb") as f:
+            yield ELFFile(f)
+    except (OSError, TypeError, ValueError):
+        yield None

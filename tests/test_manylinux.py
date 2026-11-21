@@ -5,7 +5,6 @@ try:
 except ImportError:
     ctypes = None  # type: ignore[assignment]
 import os
-import pathlib
 import platform
 import re
 import sys
@@ -27,7 +26,6 @@ from packaging._manylinux import (
     _glibc_version_string_ctypes,
     _GLibCVersion,
     _is_compatible,
-    _parse_elf,
     _parse_glibc_version,
 )
 
@@ -197,16 +195,31 @@ def test_glibc_version_string_none(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not _is_compatible("any", _GLibCVersion(2, 4))
 
 
+@pytest.mark.parametrize("hwcap", [0, 1 << 3, 1 << 4, (1 << 4) | (1 << 5)])
+def test_has_lsx(hwcap: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    getauxval = pretend.call_recorder(lambda _: hwcap)
+    ctypes = pretend.stub(
+        CDLL=lambda _: pretend.stub(getauxval=getauxval), c_ulong=object()
+    )
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes)
+    assert _manylinux._has_lsx() is bool(hwcap & (1 << 4))
+    assert getauxval.calls == [pretend.call(16)]
+    assert getauxval.argtypes == [ctypes.c_ulong]
+    assert getauxval.restype is ctypes.c_ulong
+
+
 @pytest.mark.parametrize(
-    "content", [None, "invalid-magic", "invalid-class", "invalid-data", "too-short"]
+    "ctypes_module",
+    [
+        None,
+        pretend.stub(CDLL=pretend.raiser(OSError)),
+        pretend.stub(CDLL=lambda _: pretend.stub()),
+    ],
+    ids=["missing-ctypes", "dlopen-error", "missing-getauxval"],
 )
-def test_parse_elf_bad_executable(content: str | None) -> None:
-    path_str: str | None
-    if content:
-        path = pathlib.Path(__file__).parent / "manylinux" / f"hello-world-{content}"
-        path_str = os.fsdecode(path)
-    else:
-        path_str = None
-    # None is not supported in the type annotation, but it was tested before.
-    with _parse_elf(path_str) as ef:  # type: ignore[arg-type]
-        assert ef is None
+def test_has_lsx_unavailable(
+    ctypes_module: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes_module)
+    assert not _manylinux._has_lsx()
