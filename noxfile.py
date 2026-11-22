@@ -257,6 +257,8 @@ PROJECTS = {
     ),
     "pdm": Project(
         "https://github.com/pdm-project/pdm/archive/refs/tags/2.29.7.tar.gz",
+        # Match pdm.lock when regenerating the release's shell completion scripts.
+        install=("-e.", "--group=test", "argcomplete==3.7.0"),
         install_env={"PDM_BUILD_SCM_VERSION": "2.29.7"},
         pytest_args=("-m", "not network and not integration"),
     ),
