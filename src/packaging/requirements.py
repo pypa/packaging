@@ -5,6 +5,7 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "copy",
+    "urllib.parse",
     f"{__spec__.parent}._parser",
     f"{__spec__.parent}._tokenizer",
     f"{__spec__.parent}.markers",
@@ -16,6 +17,7 @@ import builtins
 import copy
 import functools
 import sys
+import urllib.parse
 from typing import TYPE_CHECKING, Any
 
 from ._parser import parse_requirement as _parse_requirement
@@ -37,6 +39,21 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
+
+
+def _redact_url(url: str) -> str:
+    """Return *url* with any URL userinfo (``user:password@``) removed.
+
+    Host, port, path, query, and fragment are left untouched, so the result is
+    a faithful representation of the URL apart from its credentials.
+    """
+    parts = urllib.parse.urlsplit(url)
+    netloc = parts.netloc
+    if "@" not in netloc:
+        return url
+    # A literal '@' in userinfo must be percent-encoded, so the last '@'
+    # separates userinfo from host:port. Keep host and port verbatim.
+    return urllib.parse.urlunsplit(parts._replace(netloc=netloc.rpartition("@")[2]))
 
 
 # Sentinel for __replace__, typed as Any so it can be the default for any field.
@@ -203,7 +220,7 @@ class Requirement:
         result.specifier = copy.deepcopy(tmp.specifier)
         return result
 
-    def _iter_parts(self, name: str) -> Iterator[str]:
+    def _iter_parts(self, name: str, *, redact: bool = False) -> Iterator[str]:
         yield name
 
         if self.extras:
@@ -214,7 +231,8 @@ class Requirement:
             yield str(self.specifier)
 
         if self.url:
-            yield f" @ {self.url}"
+            url = _redact_url(self.url) if redact else self.url
+            yield f" @ {url}"
             if self.marker:
                 yield " "
 
@@ -284,7 +302,8 @@ class Requirement:
         return "".join(self._iter_parts(self.name))
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({str(self)!r})>"
+        parts = "".join(self._iter_parts(self.name, redact=True))
+        return f"<{self.__class__.__name__}({parts!r})>"
 
     def __hash__(self) -> int:
         # Mirror __eq__ by hashing the canonical specifier object rather than

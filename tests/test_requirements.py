@@ -948,6 +948,57 @@ class TestRequirementBehaviour:
         assert str(req) == to_parse.strip()
         assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
 
+    @pytest.mark.parametrize(
+        ("requirement_string", "credential", "redacted_url"),
+        [
+            (
+                "foo @ https://user:secret@example.com/x",
+                "secret",
+                "https://example.com/x",
+            ),
+            (
+                "foo @ ssh://user:pass%20word@example.com/packagename.zip",
+                "pass%20word",
+                "ssh://example.com/packagename.zip",
+            ),
+            (
+                "foo @ https://user:s3cr3t@[2001:db8::1]:8443/path?q=1#frag",
+                "s3cr3t",
+                "https://[2001:db8::1]:8443/path?q=1#frag",
+            ),
+            (
+                "foo @ git+ssh://git@github.com:pypa/packaging.git",
+                "git@",
+                "git+ssh://github.com:pypa/packaging.git",
+            ),
+        ],
+    )
+    def test_repr_redacts_url_credentials(
+        self, requirement_string: str, credential: str, redacted_url: str
+    ) -> None:
+        req = Requirement(requirement_string)
+
+        # str() stays faithful: it drives serialization and must round-trip.
+        assert str(req) == requirement_string
+        assert credential in str(req)
+
+        # repr() drops userinfo but keeps the rest of the URL intact.
+        representation = repr(req)
+        assert credential not in representation
+        assert representation == f"<Requirement('foo @ {redacted_url}')>"
+
+        # Redaction in repr must not affect equality or pickling.
+        loaded = pickle.loads(pickle.dumps(req))
+        assert loaded == req
+        assert str(loaded) == str(req)
+        assert loaded.__getstate__()[0] == requirement_string
+
+    def test_repr_keeps_url_without_credentials(self) -> None:
+        requirement_string = "foo @ https://example.com/x?query=1#frag"
+        req = Requirement(requirement_string)
+        assert repr(req) == f"<Requirement({requirement_string!r})>"
+        assert str(req) == requirement_string
+
     @pytest.mark.parametrize(("dep1", "dep2"), EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
         """Requirement objects created from equal strings should be equal."""
