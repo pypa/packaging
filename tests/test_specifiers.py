@@ -14,6 +14,7 @@ import typing
 
 import pytest
 
+from packaging._ranges import IntervalIndex
 from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet, _fast_match
 from packaging.version import InvalidVersion, Version, parse
 
@@ -1171,6 +1172,24 @@ class TestSpecifierInternal:
     changed afterwards, and neither survives __setstate__.
     """
 
+    def test_specifier_and_set_share_the_filter_index(self) -> None:
+        spec = Specifier("!=2.*")
+        spec_set = SpecifierSet([spec])
+        index = spec._to_ranges()
+        assert isinstance(index, IntervalIndex)
+
+        assert list(spec.filter([])) == []
+        assert list(spec.filter(["1"])) == ["1"]
+        assert not index._edges
+
+        assert list(spec.filter(["1", "2", "3"])) == ["1", "3"]
+        edges = index._edges
+        assert edges
+
+        assert list(spec_set.filter(["3", "2", "1"])) == ["3", "1"]
+        assert spec_set._get_ranges() is index
+        assert index._edges is edges
+
     @pytest.mark.parametrize(
         ("specifier", "test_versions"),
         [
@@ -1397,6 +1416,15 @@ class TestFastMatch:
 
 
 class TestSpecifierSet:
+    @pytest.mark.parametrize("num_exclusions", [1, 64])
+    def test_filter_excludes_odd_major_versions(self, num_exclusions: int) -> None:
+        last = 2 * num_exclusions
+        spec = SpecifierSet(",".join(f"!={n}.*" for n in range(1, last, 2)))
+        versions = [f"{n}.1" for n in range(last, -1, -1)]
+        even_versions = [f"{n}.1" for n in range(last, -1, -2)]
+
+        assert list(spec.filter(versions)) == even_versions
+
     def test_replace_specifiers_and_prereleases(self) -> None:
         original = SpecifierSet(">=1.0a1,<2.0", prereleases=False)
         assert original.contains("1.5")
@@ -3829,7 +3857,7 @@ def test_specifierset_contains_reads_cached_bounds() -> None:
     assert ss._ranges is not None
     assert ss.contains("2.0") is True
 
-    ss._ranges = ()
+    ss._ranges = IntervalIndex(())
     assert ss.contains("2.0") is False
 
 

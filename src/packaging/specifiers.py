@@ -38,13 +38,13 @@ from .utils import canonicalize_version
 from .version import Version, _adapt_possessive
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator
     from typing import TypeGuard
 
     from typing_extensions import Self
 
     from . import ranges
-    from ._ranges import Interval
+    from ._ranges import SearchBounds
 
 
 __all__ = [
@@ -403,7 +403,7 @@ class Specifier(BaseSpecifier):
         self._spec_version: Version | None = None
 
         # Version range cache (populated by _to_ranges)
-        self._ranges: Sequence[Interval] | None = None
+        self._ranges: SearchBounds | None = None
 
         # Canonical (operator, version) cache (populated by _canonical_spec)
         self._canonical_spec_cache: tuple[str, str] | None = None
@@ -469,8 +469,8 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> Sequence[Interval]:
-        """Convert this specifier to sorted, non-overlapping version ranges.
+    def _to_ranges(self) -> SearchBounds:
+        """Return the search bounds for this specifier.
 
         Each standard operator maps to one or two ranges.  ``===`` is
         modeled as full range (actual check done separately).  Cached.
@@ -482,7 +482,7 @@ class Specifier(BaseSpecifier):
         ver_str = self.version
 
         if op == "===":
-            result: Sequence[Interval] = FULL_RANGE
+            result: SearchBounds = FULL_RANGE
         else:
             version = self._require_spec_version()
             result = bounds_for_spec(op, ver_str, version)
@@ -911,7 +911,7 @@ class SpecifierSet(BaseSpecifier):
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
-        self._ranges: Sequence[Interval] | None = None
+        self._ranges: SearchBounds | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -1150,8 +1150,8 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> Sequence[Interval]:
-        """Intersect all specifiers into a single sequence of version ranges.
+    def _get_ranges(self) -> SearchBounds:
+        """Return the search bounds shared by all specifiers in this set.
 
         Empty when unsatisfiable. Callers must ensure ``self._specs``
         is non-empty.

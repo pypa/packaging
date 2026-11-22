@@ -17,6 +17,7 @@ from packaging._ranges import (
     POS_INF,
     BoundaryKind,
     BoundaryVersion,
+    IntervalIndex,
     LowerBound,
     UpperBound,
 )
@@ -71,6 +72,14 @@ class TestConstruction:
         r = VersionRange.singleton("1.2.3")
         assert Version("1.2.3") in r
         assert Version("1.2.4") not in r
+
+    def test_singleton_waits_until_comparison_to_build_the_key(self) -> None:
+        version = Version("1.0")
+        point = VersionRange.singleton(version)
+        assert version._key_cache is None
+
+        assert "1.0" in point
+        assert version._key_cache is not None
 
     def test_singleton_is_strict(self) -> None:
         # ``==1.0`` matches 1.0+local; the strict singleton does not.
@@ -3038,6 +3047,43 @@ def test_copy_and_pickle_subclass_state() -> None:
         assert clone.extra == original.extra
         assert clone.extra is not original.extra
         assert clone.owner is clone
+
+
+def test_filter_cache_stays_out_of_subclass_pickle() -> None:
+    original = DerivedRange.singleton("1") | vr("==4")
+    candidates = ["4+local", "3", "1", "4", "1+local"]
+    expected = ["4+local", "1", "4"]
+
+    assert isinstance(original._search_bounds, IntervalIndex)
+    assert not original._search_bounds._edges
+
+    assert list(original.filter(candidates)) == expected
+    assert original._search_bounds._edges
+
+    restored = pickle.loads(pickle.dumps(original))
+    assert isinstance(restored._search_bounds, IntervalIndex)
+    assert restored._search_bounds.intervals is restored._bounds
+    assert not restored._search_bounds._edges
+    assert list(restored.filter(candidates)) == expected
+
+
+def test_short_filter_on_many_intervals_skips_the_full_index() -> None:
+    r = vr(",".join(f"!={major}.*" for major in range(1, 128, 2)))
+    assert list(r.filter(["128", "127"])) == ["128"]
+    assert isinstance(r._search_bounds, IntervalIndex)
+    assert not r._search_bounds._edges
+
+
+def test_membership_and_filter_share_a_disjoint_range_index() -> None:
+    r = vr("!=1.*,!=3.*,!=5.*,!=7.*")
+    candidates = ["2", "3", "4", "5", "6", "7", "8"]
+    assert [v for v in candidates if v in r] == ["2", "4", "6", "8"]
+
+    assert isinstance(r._search_bounds, IntervalIndex)
+    edges = r._search_bounds._edges
+    assert edges
+    assert list(r.filter(reversed(candidates))) == ["8", "6", "4", "2"]
+    assert r._search_bounds._edges is edges
 
 
 def test_pickle_has_no_private_references() -> None:
