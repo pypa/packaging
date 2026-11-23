@@ -122,7 +122,7 @@ Performance:
 * Speed up ``Version`` parsing, string conversion, and release validation.
   (:pull:`1520`, :pull:`1523`, :pull:`1524`, :pull:`1538`)
 * Speed up ``Specifier`` parsing, string conversion, hashing, and equality.
-  (:pull:`1529`, :pull:`1544`)
+  (:pull:`1529`, :pull:`1544`, :pull:`1571`)
 * Speed up ``Specifier.contains()`` for simple comparisons. (:pull:`1536`)
 * Speed up marker and requirement parsing. (:pull:`1494`, :pull:`1495`,
   :pull:`1525`, :pull:`1545`)
@@ -143,7 +143,7 @@ Benchmarks:
 
 * Add Python 3.15 to the benchmarks. (:pull:`1380`)
 * Add ``VersionRange`` and PubGrub resolver benchmarks. (:pull:`1541`,
-  :pull:`1543`)
+  :pull:`1543`, :pull:`1570`)
 * Report benchmark changes in a summary table and as PR comments.
   (:pull:`1526`, :pull:`1528`)
 * Make the cold benchmarks independent of internal caches, and do not filter
