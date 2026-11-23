@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = {f"{__spec__.parent}._ranges", f"{__spec__.parent}.utils"}
+__lazy_modules__ = {f"{__spec__.parent}._ranges"}
 
 import abc
 import builtins
@@ -34,7 +34,6 @@ from ._ranges import (
     ranges_are_prerelease_only,
     resolve_prereleases,
 )
-from .utils import canonicalize_version
 from .version import Version, _adapt_possessive
 
 if TYPE_CHECKING:
@@ -619,10 +618,8 @@ class Specifier(BaseSpecifier):
         if operator == "===" or version.endswith(".*"):
             result = self._spec
         else:
-            canonical = canonicalize_version(
-                self._require_spec_version(),
-                strip_trailing_zero=(operator != "~="),
-            )
+            parsed = self._require_spec_version()
+            canonical = str(parsed if operator == "~=" else parsed._trim_release())
             # Most versions are already canonical, so reuse the existing tuple rather
             # than retaining a second copy of a string equal to the one we hold.
             result = self._spec if canonical == version else (operator, canonical)

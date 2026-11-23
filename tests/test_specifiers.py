@@ -9,6 +9,7 @@ import itertools
 import operator
 import pickle
 import re
+import subprocess
 import sys
 import typing
 
@@ -42,6 +43,21 @@ SPECIFIERS = [
     "<1.0.dev1",
     ">2.0.post1",
 ]
+
+
+def test_specifiers_do_not_import_filename_utilities() -> None:
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "from packaging.specifiers import Specifier\n"
+            "assert hash(Specifier('>=1.0')) == hash(Specifier('>=1'))\n"
+            "assert 'packaging.utils' not in sys.modules\n"
+            "assert 'packaging.tags' not in sys.modules\n",
+        ],
+        check=True,
+    )
 
 
 class TestSpecifier:
