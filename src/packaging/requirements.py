@@ -5,7 +5,6 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "copy",
-    "urllib.parse",
     f"{__spec__.parent}._parser",
     f"{__spec__.parent}._tokenizer",
     f"{__spec__.parent}.markers",
@@ -17,7 +16,6 @@ import builtins
 import copy
 import functools
 import sys
-import urllib.parse
 from typing import TYPE_CHECKING, Any
 
 from ._parser import parse_requirement as _parse_requirement
@@ -42,18 +40,28 @@ def __dir__() -> list[str]:
 
 
 def _redact_url(url: str) -> str:
-    """Return *url* with any URL userinfo (``user:password@``) removed.
+    """Return *url* with any URL userinfo masked.
 
-    Host, port, path, query, and fragment are left untouched, so the result is
-    a faithful representation of the URL apart from its credentials.
+    ``user:password@`` becomes ``user:****@`` and a username-only ``user@``
+    becomes ``****@`` (the username may itself be a token). Host, port, path,
+    query and fragment are preserved. The parsing is deliberately plain string
+    handling: ``__repr__`` must never raise, even for a malformed URL.
     """
-    parts = urllib.parse.urlsplit(url)
-    netloc = parts.netloc
-    if "@" not in netloc:
+    scheme, separator, rest = url.partition("://")
+    if not separator:
         return url
-    # A literal '@' in userinfo must be percent-encoded, so the last '@'
-    # separates userinfo from host:port. Keep host and port verbatim.
-    return urllib.parse.urlunsplit(parts._replace(netloc=netloc.rpartition("@")[2]))
+    end = len(rest)
+    for delimiter in "/?#":
+        index = rest.find(delimiter)
+        if 0 <= index < end:
+            end = index
+    netloc, tail = rest[:end], rest[end:]
+    userinfo, at, host = netloc.rpartition("@")
+    if not at or not userinfo:
+        return url
+    user, colon, _password = userinfo.partition(":")
+    masked = f"{user}:****" if colon else "****"
+    return f"{scheme}{separator}{masked}@{host}{tail}"
 
 
 # Sentinel for __replace__, typed as Any so it can be the default for any field.
