@@ -1144,6 +1144,7 @@ class VersionRange:
         "_admit",
         "_admit_arbitrary",
         "_bounds",
+        "_plain",
         "_pre_region",
         "_prereleases_configured",
         "_reject",
@@ -1195,6 +1196,10 @@ class VersionRange:
     #: :meth:`intersection` and :meth:`union` require it to match on both
     #: operands. Part of equality.
     _prereleases_configured: bool | None
+
+    #: True when ``_bounds`` alone decides membership: no ``===`` literals, no
+    #: arbitrary-string flag, and no policy that excludes pre-releases.
+    _plain: bool
 
     def __new__(cls, *args: object, **kwargs: object) -> VersionRange:  # noqa: PYI034
         raise TypeError(
@@ -1269,6 +1274,12 @@ class VersionRange:
         instance._reject = reject
         instance._admit_arbitrary = admit_arbitrary
         instance._prereleases_configured = prereleases_configured
+        instance._plain = (
+            not admit
+            and not reject
+            and not admit_arbitrary
+            and prereleases_configured is not False
+        )
 
         # A configured policy makes the region inert, so drop it. Otherwise fold
         # least-successor bounds (_from_specifier_set passes the region unfolded),
@@ -1295,14 +1306,6 @@ class VersionRange:
         it keeps ``~~full() == full()`` and union idempotent.
         """
         return self._admit_arbitrary and self._bounds == FULL_RANGE
-
-    def _is_plain(self) -> bool:
-        """True when ``_bounds`` alone decides membership."""
-        return (
-            not self._has_literals()
-            and not self._admit_arbitrary
-            and self._prereleases_configured is not False
-        )
 
     def _check_policy_compat(self, other: VersionRange) -> None:
         """Refuse combining ranges with different pre-release policies."""
@@ -1416,6 +1419,7 @@ class VersionRange:
             instance._admit_arbitrary = False
             instance._pre_region = ()
             instance._prereleases_configured = prereleases
+            instance._plain = prereleases is not False
             return instance
 
         # Collapse the floor: nothing sorts below ``MIN_VERSION``, so the
@@ -1769,7 +1773,7 @@ class VersionRange:
             return False
 
         # Plain ranges: subset reduces to bounds containment, no algebra needed.
-        if self._is_plain() and other._is_plain():
+        if self._plain and other._plain:
             return next(_difference_ranges(self._bounds, other._bounds), None) is None
 
         # difference (unlike intersection with the one-way complement) resolves
@@ -1810,7 +1814,7 @@ class VersionRange:
         self._check_policy_compat(other)
 
         # Plain ranges: stop as soon as the bounds overlap.
-        if self._is_plain() and other._is_plain():
+        if self._plain and other._plain:
             return ranges_are_disjoint(self._bounds, other._bounds)
         return self.intersection(other).is_empty
 
@@ -1829,7 +1833,7 @@ class VersionRange:
         self._check_policy_compat(other)
 
         # Plain ranges: one walk over the bounds settles both answers.
-        if self._is_plain() and other._is_plain():
+        if self._plain and other._plain:
             if self._bounds == other._bounds:
                 return RangeRelation.SUBSET if self._bounds else RangeRelation.EMPTY
             return _relate_bounds(self._bounds, other._bounds)
