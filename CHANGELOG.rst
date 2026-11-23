@@ -115,8 +115,10 @@ Performance:
 * Speed up and cache ``str(Marker)``. (:pull:`1371`, :pull:`1459`)
 * Avoid ``literal_eval`` for plain marker strings. (:pull:`1429`)
 * Speed up ``VersionRange`` construction, subtraction, comparison,
-  disjointness checks, and filtering. (:pull:`1458`, :pull:`1460`,
-  :pull:`1471`, :pull:`1506`, :pull:`1542`, :pull:`1551`)
+  disjointness checks, membership checks, and filtering. (:pull:`1458`,
+  :pull:`1460`, :pull:`1471`, :pull:`1506`, :pull:`1542`, :pull:`1551`,
+  :pull:`1556`, :pull:`1558`, :pull:`1562`, :pull:`1563`, :pull:`1564`,
+  :pull:`1568`)
 * Speed up ``Version`` parsing, string conversion, and release validation.
   (:pull:`1520`, :pull:`1523`, :pull:`1524`, :pull:`1538`)
 * Speed up ``Specifier`` parsing, string conversion, hashing, and equality.
