@@ -44,6 +44,7 @@ from ._ranges import (
     coerce_version,
     filter_by_ranges,
     first_version_after_locals,
+    index_intervals,
     intersect_ranges,
     matches_bounds_only,
     range_is_empty,
@@ -56,7 +57,7 @@ from .version import Version
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
-    from ._ranges import Interval
+    from ._ranges import Interval, SearchBounds
     from .specifiers import SpecifierSet
 
 
@@ -435,19 +436,19 @@ def _struct_admits(
     return matches_bounds_only(bounds, parsed)
 
 
+def _version_key(version: Version) -> tuple[Any, ...]:
+    return version._key
+
+
 def _interval_slice(
     versions: Sequence[Version], lower: LowerBound, upper: UpperBound
 ) -> tuple[int, int]:
     """Return slice indices for an interval in an ascending version list."""
-    opens = lower._above
-    closes = upper._below
-
-    start = 0 if opens is None else bisect.bisect_left(versions, True, key=opens)
-
-    if closes is None:
-        stop = len(versions)
-    else:
-        stop = bisect.bisect_left(versions, True, key=lambda v: not closes(v))
+    start, stop = 0, len(versions)
+    if lower.version is not None:
+        start = bisect.bisect_left(versions, lower.filter_key(), key=_version_key)
+    if upper.version is not None:
+        stop = bisect.bisect_left(versions, upper.filter_key(), key=_version_key)
 
     return start, stop
 
@@ -1147,10 +1148,14 @@ class VersionRange:
         "_pre_region",
         "_prereleases_configured",
         "_reject",
+        "_search_bounds",
     )
 
     #: The disjoint, sorted, non-overlapping interval list.
     _bounds: tuple[Interval, ...]
+
+    # The index searches the same tuple that the algebra uses.
+    _search_bounds: SearchBounds
 
     #: Whether this range matches non-version strings as well as versions.
     #: True only by construction on ``SpecifierSet("")`` / :meth:`full`. The flag
@@ -1263,6 +1268,8 @@ class VersionRange:
 
         instance = object.__new__(cls)
         instance._bounds = bounds
+        instance._search_bounds = index_intervals(bounds)
+
         instance._admit = admit
         instance._reject = reject
         instance._admit_arbitrary = admit_arbitrary
@@ -1406,6 +1413,8 @@ class VersionRange:
         if version._dev is None:
             instance = object.__new__(cls)
             instance._bounds = bounds
+            instance._search_bounds = bounds
+
             instance._admit = instance._reject = frozenset()
             instance._admit_arbitrary = False
             instance._pre_region = ()
@@ -1712,7 +1721,7 @@ class VersionRange:
         parsed = coerce_version(literal)
         if parsed is None:
             return self._arbitrary_active()
-        return matches_bounds_only(self._bounds, parsed)
+        return matches_bounds_only(self._search_bounds, parsed)
 
     def __and__(self, other: object) -> VersionRange:
         """Operator alias for :meth:`intersection`."""
@@ -1895,13 +1904,13 @@ class VersionRange:
 
         arbitrary_active = self._arbitrary_active()
         if not self._admit and not self._reject and not arbitrary_active:
-            # A region spanning the whole bounds force-admits every in-bounds
-            # pre-release, i.e. ``prereleases=True``; take the cheaper no-buffer
-            # path. (Confined to this branch: the admission path orders arbitrary
-            # strings differently under True than under the region.)
+            # If every interval allows pre-releases, yield them as they arrive.
+            # The literal-matching branch below has its own ordering rules.
             if region and region == self._bounds:
-                return filter_by_ranges(self._bounds, iterable, key, True)
-            return filter_by_ranges(self._bounds, iterable, key, prereleases, region)
+                return filter_by_ranges(self._search_bounds, iterable, key, True)
+            return filter_by_ranges(
+                self._search_bounds, iterable, key, prereleases, region
+            )
         return self._filter_with_admission(
             iterable, key, prereleases, arbitrary_active, region
         )
@@ -1932,7 +1941,7 @@ class VersionRange:
             parsed = coerce_version(raw)
             if parsed is None:
                 return arbitrary_active, None, False
-            if not matches_bounds_only(self._bounds, parsed):
+            if not matches_bounds_only(self._search_bounds, parsed):
                 return False, None, False
             return True, parsed, False
 
@@ -2051,25 +2060,6 @@ class VersionRange:
         full range, an unsatisfiable set yields the empty range, and ``===``
         specifiers contribute literal-string admission.
         """
-        if not specifier_set:
-            result = cls.full()
-        elif not specifier_set._has_arbitrary:
-            result = cls._build(
-                bounds=_canonical_floor(tuple(specifier_set._get_ranges()))
-            )
-        else:
-            result = cls.full()
-            for spec in specifier_set:
-                if spec.operator == "===":
-                    operand = cls._build(
-                        bounds=(), admit=frozenset({spec.version.lower()})
-                    )
-                else:
-                    operand = cls._build(
-                        bounds=_canonical_floor(tuple(spec._to_ranges()))
-                    )
-                result = result.intersection(operand)
-
         # Each pre-release-naming specifier opts its own versions in; their union,
         # clipped to the set's bounds by _build, is the region. Clipping refolds
         # under intersection, so a set built directly equals one built by
@@ -2079,8 +2069,33 @@ class VersionRange:
             for spec in specifier_set:
                 # ``===`` literals are not a range; filter force-admits them.
                 if spec.operator != "===" and spec.prereleases:
-                    spec_bounds = _canonical_floor(tuple(spec._to_ranges()))
+                    spec_bounds = _canonical_floor(spec._to_intervals())
                     region = _union_ranges(region, spec_bounds)
+
+        if not specifier_set:
+            return cls.full(prereleases=specifier_set._prereleases)
+
+        if not specifier_set._has_arbitrary:
+            bounds = _canonical_floor(tuple(specifier_set._get_ranges()))
+            result = cls._build(
+                bounds=bounds,
+                pre_region=tuple(region),
+                prereleases_configured=specifier_set._prereleases,
+            )
+
+            # Prepare only the endpoints the finished range will search.
+            for lower, upper in result._bounds:
+                lower.filter_key()
+                upper.filter_key()
+            return result
+
+        result = cls.full()
+        for spec in specifier_set:
+            if spec.operator == "===":
+                operand = cls._build(bounds=(), admit=frozenset({spec.version.lower()}))
+            else:
+                operand = cls._build(bounds=_canonical_floor(spec._to_intervals()))
+            result = result.intersection(operand)
 
         return result._with_policy(
             pre_region=tuple(region),
@@ -2299,15 +2314,16 @@ class VersionRange:
 
         :raises TypeError: if item is not a str or Version.
         """
-        if not isinstance(item, (str, Version)):
+        if isinstance(item, Version):
+            parsed: Version | None = item
+        elif isinstance(item, str):
+            parsed = coerce_version(item) if installed else None
+        else:
             raise TypeError(
                 f"VersionRange.contains() expected str or Version, "
                 f"got {type(item).__name__}"
             )
 
-        parsed: Version | None = item if isinstance(item, Version) else None
-        if installed and parsed is None:
-            parsed = coerce_version(item)
         if installed and parsed is not None and parsed.is_prerelease:
             prereleases = True
 
@@ -2326,16 +2342,14 @@ class VersionRange:
                         return False
                 return True
 
-        if not isinstance(item, Version):
-            if parsed is None:
-                parsed = coerce_version(item)
-            if parsed is None:
-                return self._arbitrary_active()
-            item = parsed
+        if parsed is None and not installed:
+            parsed = coerce_version(item)
+        if parsed is None:
+            return self._arbitrary_active()
 
-        if effective_pre is False and item.is_prerelease:
+        if effective_pre is False and parsed.is_prerelease:
             return False
-        return matches_bounds_only(self._bounds, item)
+        return matches_bounds_only(self._search_bounds, parsed)
 
     def __contains__(self, item: Version | str) -> bool:
         """Return whether item is contained in this range.

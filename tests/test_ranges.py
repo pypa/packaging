@@ -17,6 +17,7 @@ from packaging._ranges import (
     POS_INF,
     BoundaryKind,
     BoundaryVersion,
+    IntervalIndex,
     LowerBound,
     UpperBound,
 )
@@ -71,6 +72,14 @@ class TestConstruction:
         r = VersionRange.singleton("1.2.3")
         assert Version("1.2.3") in r
         assert Version("1.2.4") not in r
+
+    def test_singleton_waits_until_comparison_to_build_the_key(self) -> None:
+        version = Version("1.0")
+        point = VersionRange.singleton(version)
+        assert version._key_cache is None
+
+        assert "1.0" in point
+        assert version._key_cache is not None
 
     def test_singleton_is_strict(self) -> None:
         # ``==1.0`` matches 1.0+local; the strict singleton does not.
@@ -3040,13 +3049,56 @@ def test_copy_and_pickle_subclass_state() -> None:
         assert clone.owner is clone
 
 
+def test_short_filter_on_many_intervals_skips_the_full_index() -> None:
+    r = vr(",".join(f"!={major}.*" for major in range(1, 128, 2)))
+    assert list(r.filter(["128", "127"])) == ["128"]
+    assert isinstance(r._search_bounds, IntervalIndex)
+    assert not r._search_bounds._edges
+
+
+def test_membership_and_filter_share_a_disjoint_range_index() -> None:
+    r = vr("!=1.*,!=3.*,!=5.*,!=7.*")
+    candidates = ["2", "3", "4", "5", "6", "7", "8"]
+    assert [v for v in candidates if v in r] == ["2", "4", "6", "8"]
+
+    assert isinstance(r._search_bounds, IntervalIndex)
+    edges = r._search_bounds._edges
+    assert edges
+    assert list(r.filter(reversed(candidates))) == ["8", "6", "4", "2"]
+    assert r._search_bounds._edges is edges
+
+
 def test_pickle_has_no_private_references() -> None:
     original = ~vr(">1.0a1,!=1.5,<2")
     data = pickle.dumps(original, pickle.HIGHEST_PROTOCOL)
+    assert list(original.filter(["1", "1.5", "2", "3"])) == ["1.5", "2", "3"]
+    assert pickle.dumps(original, pickle.HIGHEST_PROTOCOL) == data
     assert pickle.loads(data) == original
     assert b"_ranges" not in data
     assert b"BoundaryVersion" not in data
     assert b"packaging.version" not in data
+
+
+# Protocol 4 pickle of ~vr("===1.5") & vr(">1a1,!=2.*,<4"), from 126bc239ab.
+_VERSION_RANGE_PICKLE = (
+    b"\x80\x04\x95\xd0\x00\x00\x00\x00\x00\x00\x00\x8c\x10packaging.r"
+    b"anges\x94\x8c\x16_restore_version"
+    b"_range\x94\x93\x94h\x00\x8c\x0cVersionRang"
+    b"e\x94\x93\x94(\x8c\x031a1\x94\x8c\x0bAFTER_POSTS"
+    b"\x94\x86\x94\x89\x86\x94\x8c\x062.dev0\x94\x89\x86\x94\x86\x94\x8c\x063."
+    b"dev0\x94\x88\x86\x94\x8c\x064.dev0\x94\x89\x86\x94\x86\x94\x86\x94"
+    b"\x8c\x031a1\x94h\x06\x86\x94\x89\x86\x94\x8c\x062.dev0\x94\x89\x86"
+    b"\x94\x86\x94\x8c\x063.dev0\x94\x88\x86\x94\x8c\x064.dev0\x94"
+    b"\x89\x86\x94\x86\x94\x86\x94]\x94]\x94\x8c\x031.5\x94a\x89Nt\x94\x86\x94"
+    b"R\x94."
+)
+
+
+def test_load_version_range_pickle() -> None:
+    restored = pickle.loads(_VERSION_RANGE_PICKLE)
+    assert type(restored) is VersionRange
+    candidates = ["1a1", "1a2", "1", "1.5", "2", "3", "4"]
+    assert list(restored.filter(candidates)) == ["1a2", "1", "3"]
 
 
 class SlottedRange(VersionRange):

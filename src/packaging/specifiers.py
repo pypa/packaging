@@ -26,9 +26,11 @@ from typing import (
 
 from ._ranges import (
     FULL_RANGE,
+    IntervalIndex,
     bounds_for_spec,
     coerce_version,
     filter_by_ranges,
+    index_intervals,
     intersect_specifier_bounds,
     matches_bounds_only,
     ranges_are_prerelease_only,
@@ -38,13 +40,13 @@ from .utils import canonicalize_version
 from .version import Version, _adapt_possessive
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator
     from typing import TypeGuard
 
     from typing_extensions import Self
 
     from . import ranges
-    from ._ranges import Interval
+    from ._ranges import Interval, SearchBounds
 
 
 __all__ = [
@@ -402,8 +404,8 @@ class Specifier(BaseSpecifier):
         # Specifier version cache
         self._spec_version: Version | None = None
 
-        # Version range cache (populated by _to_ranges)
-        self._ranges: Sequence[Interval] | None = None
+        # Cached intervals, with an index once this specifier needs one.
+        self._ranges: tuple[Interval, ...] | IntervalIndex | None = None
 
         # Canonical (operator, version) cache (populated by _canonical_spec)
         self._canonical_spec_cache: tuple[str, str] | None = None
@@ -469,24 +471,26 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
-    def _to_ranges(self) -> Sequence[Interval]:
-        """Convert this specifier to sorted, non-overlapping version ranges.
+    def _to_intervals(self) -> tuple[Interval, ...]:
+        """Get the intervals for intersection without preparing an index."""
+        ranges = self._ranges
+        if ranges is None:
+            op, version = self.operator, self.version
+            ranges = self._ranges = (
+                FULL_RANGE
+                if op == "==="
+                else bounds_for_spec(op, version, self._require_spec_version())
+            )
 
-        Each standard operator maps to one or two ranges.  ``===`` is
-        modeled as full range (actual check done separately).  Cached.
-        """
-        if self._ranges is not None:
-            return self._ranges
+        return ranges.intervals if isinstance(ranges, IntervalIndex) else ranges
 
-        op = self.operator
-        ver_str = self.version
+    def _to_ranges(self) -> SearchBounds:
+        """Prepare these intervals for direct membership checks."""
+        ranges = self._ranges
+        if isinstance(ranges, IntervalIndex):
+            return ranges
 
-        if op == "===":
-            result: Sequence[Interval] = FULL_RANGE
-        else:
-            version = self._require_spec_version()
-            result = bounds_for_spec(op, ver_str, version)
-
+        result = index_intervals(self._to_intervals() if ranges is None else ranges)
         self._ranges = result
         return result
 
@@ -911,7 +915,7 @@ class SpecifierSet(BaseSpecifier):
 
         self._canonicalized = len(self._specs) <= 1
         self._is_unsatisfiable: bool | None = None
-        self._ranges: Sequence[Interval] | None = None
+        self._ranges: SearchBounds | None = None
 
         # Store our prereleases value so we can use it later to determine if
         # we accept prereleases or not.
@@ -1150,8 +1154,8 @@ class SpecifierSet(BaseSpecifier):
         """
         return iter(self._specs)
 
-    def _get_ranges(self) -> Sequence[Interval]:
-        """Intersect all specifiers into a single sequence of version ranges.
+    def _get_ranges(self) -> SearchBounds:
+        """Return the search bounds shared by all specifiers in this set.
 
         Empty when unsatisfiable. Callers must ensure ``self._specs``
         is non-empty.
@@ -1159,7 +1163,12 @@ class SpecifierSet(BaseSpecifier):
         if self._ranges is not None:
             return self._ranges
 
-        self._ranges = intersect_specifier_bounds(s._to_ranges() for s in self._specs)
+        if len(self._specs) == 1:
+            self._ranges = self._specs[0]._to_ranges()
+        else:
+            self._ranges = intersect_specifier_bounds(
+                s._to_intervals() for s in self._specs
+            )
         return self._ranges
 
     def is_unsatisfiable(self) -> bool:
