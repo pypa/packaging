@@ -26,9 +26,11 @@ from typing import (
 
 from ._ranges import (
     FULL_RANGE,
+    IntervalIndex,
     bounds_for_spec,
     coerce_version,
     filter_by_ranges,
+    index_intervals,
     intersect_specifier_bounds,
     matches_bounds_only,
     ranges_are_prerelease_only,
@@ -44,7 +46,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from . import ranges
-    from ._ranges import SearchBounds
+    from ._ranges import Interval, SearchBounds
 
 
 __all__ = [
@@ -402,8 +404,8 @@ class Specifier(BaseSpecifier):
         # Specifier version cache
         self._spec_version: Version | None = None
 
-        # Version range cache (populated by _to_ranges)
-        self._ranges: SearchBounds | None = None
+        # Cached intervals, with an index once this specifier needs one.
+        self._ranges: tuple[Interval, ...] | IntervalIndex | None = None
 
         # Canonical (operator, version) cache (populated by _canonical_spec)
         self._canonical_spec_cache: tuple[str, str] | None = None
@@ -469,24 +471,26 @@ class Specifier(BaseSpecifier):
         assert spec_version is not None
         return spec_version
 
+    def _to_intervals(self) -> tuple[Interval, ...]:
+        """Get the intervals for intersection without preparing an index."""
+        ranges = self._ranges
+        if ranges is None:
+            op, version = self.operator, self.version
+            ranges = self._ranges = (
+                FULL_RANGE
+                if op == "==="
+                else bounds_for_spec(op, version, self._require_spec_version())
+            )
+
+        return ranges.intervals if isinstance(ranges, IntervalIndex) else ranges
+
     def _to_ranges(self) -> SearchBounds:
-        """Return the search bounds for this specifier.
+        """Prepare these intervals for direct membership checks."""
+        ranges = self._ranges
+        if isinstance(ranges, IntervalIndex):
+            return ranges
 
-        Each standard operator maps to one or two ranges.  ``===`` is
-        modeled as full range (actual check done separately).  Cached.
-        """
-        if self._ranges is not None:
-            return self._ranges
-
-        op = self.operator
-        ver_str = self.version
-
-        if op == "===":
-            result: SearchBounds = FULL_RANGE
-        else:
-            version = self._require_spec_version()
-            result = bounds_for_spec(op, ver_str, version)
-
+        result = index_intervals(self._to_intervals() if ranges is None else ranges)
         self._ranges = result
         return result
 
@@ -1159,7 +1163,12 @@ class SpecifierSet(BaseSpecifier):
         if self._ranges is not None:
             return self._ranges
 
-        self._ranges = intersect_specifier_bounds(s._to_ranges() for s in self._specs)
+        if len(self._specs) == 1:
+            self._ranges = self._specs[0]._to_ranges()
+        else:
+            self._ranges = intersect_specifier_bounds(
+                s._to_intervals() for s in self._specs
+            )
         return self._ranges
 
     def is_unsatisfiable(self) -> bool:

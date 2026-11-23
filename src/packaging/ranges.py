@@ -2056,25 +2056,6 @@ class VersionRange:
         full range, an unsatisfiable set yields the empty range, and ``===``
         specifiers contribute literal-string admission.
         """
-        if not specifier_set:
-            result = cls.full()
-        elif not specifier_set._has_arbitrary:
-            result = cls._build(
-                bounds=_canonical_floor(tuple(specifier_set._get_ranges()))
-            )
-        else:
-            result = cls.full()
-            for spec in specifier_set:
-                if spec.operator == "===":
-                    operand = cls._build(
-                        bounds=(), admit=frozenset({spec.version.lower()})
-                    )
-                else:
-                    operand = cls._build(
-                        bounds=_canonical_floor(tuple(spec._to_ranges()))
-                    )
-                result = result.intersection(operand)
-
         # Each pre-release-naming specifier opts its own versions in; their union,
         # clipped to the set's bounds by _build, is the region. Clipping refolds
         # under intersection, so a set built directly equals one built by
@@ -2084,8 +2065,33 @@ class VersionRange:
             for spec in specifier_set:
                 # ``===`` literals are not a range; filter force-admits them.
                 if spec.operator != "===" and spec.prereleases:
-                    spec_bounds = _canonical_floor(tuple(spec._to_ranges()))
+                    spec_bounds = _canonical_floor(spec._to_intervals())
                     region = _union_ranges(region, spec_bounds)
+
+        if not specifier_set:
+            return cls.full(prereleases=specifier_set._prereleases)
+
+        if not specifier_set._has_arbitrary:
+            bounds = _canonical_floor(tuple(specifier_set._get_ranges()))
+            result = cls._build(
+                bounds=bounds,
+                pre_region=tuple(region),
+                prereleases_configured=specifier_set._prereleases,
+            )
+
+            # Prepare only the endpoints the finished range will search.
+            for lower, upper in result._bounds:
+                lower.filter_key()
+                upper.filter_key()
+            return result
+
+        result = cls.full()
+        for spec in specifier_set:
+            if spec.operator == "===":
+                operand = cls._build(bounds=(), admit=frozenset({spec.version.lower()}))
+            else:
+                operand = cls._build(bounds=_canonical_floor(spec._to_intervals()))
+            result = result.intersection(operand)
 
         return result._with_policy(
             pre_region=tuple(region),

@@ -1175,11 +1175,16 @@ class TestSpecifierInternal:
     def test_specifier_and_set_share_the_filter_index(self) -> None:
         spec = Specifier("!=2.*")
         spec_set = SpecifierSet([spec])
-        index = spec._to_ranges()
-        assert isinstance(index, IntervalIndex)
+
+        # First use the same specifier in an intersection, then search it on its own.
+        combined = SpecifierSet([spec, ">=2"])
+        assert list(combined.filter(["1", "2", "3"])) == ["3"]
 
         assert list(spec.filter([])) == []
         assert list(spec.filter(["1"])) == ["1"]
+
+        index = spec._to_ranges()
+        assert isinstance(index, IntervalIndex)
         assert not index._edges
 
         assert list(spec.filter(["1", "2", "3"])) == ["1", "3"]

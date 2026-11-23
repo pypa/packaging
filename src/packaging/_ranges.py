@@ -506,16 +506,17 @@ def intersect_ranges(
         right_lower, right_upper = right[right_index]
 
         lower = max(left_lower, right_lower)
-        upper = min(left_upper, right_upper)
+
+        # The earlier end closes the intersection and advances that side.
+        if right_upper < left_upper:
+            upper = right_upper
+            right_index += 1
+        else:
+            upper = left_upper
+            left_index += 1
 
         if not range_is_empty(lower, upper):
             result.append((lower, upper))
-
-        # Advance whichever side has the smaller upper bound.
-        if left_upper < right_upper:
-            left_index += 1
-        else:
-            right_index += 1
 
     return result
 
@@ -555,14 +556,22 @@ def filter_by_ranges(
     it is force-admitted in place, as ``prereleases=True`` would yield it. A
     force-admitted pre-release is not a final, so it never suppresses the buffer.
     """
-    if isinstance(ranges, IntervalIndex):
-        indexed: IntervalIndex | None = ranges
-        edges = ranges._edges
-    else:
-        indexed = None
+    if isinstance(ranges, tuple):
+        indexed: IntervalIndex | None = None
         ((lower, upper),) = ranges
-        floor = lower.filter_key() if lower.version is not None else None
-        ceiling = upper.filter_key() if upper.version is not None else None
+        floor = (
+            (lower._filter_key or lower.filter_key())
+            if lower.version is not None
+            else None
+        )
+        ceiling = (
+            (upper._filter_key or upper.filter_key())
+            if upper.version is not None
+            else None
+        )
+    else:
+        indexed = ranges
+        edges = indexed._edges
 
     if prereleases is None:
         prerelease_buffer: list[Any] = []
@@ -656,7 +665,7 @@ def ranges_are_prerelease_only(ranges: Iterable[Interval]) -> bool:
     return True
 
 
-def wildcard_ranges(op: str, base: Version) -> list[Interval]:
+def wildcard_ranges(op: str, base: Version) -> tuple[Interval, ...]:
     """Ranges for ==V.* and !=V.*.
 
     ==1.2.* -> [1.2.dev0, 1.3.dev0);  !=1.2.* -> complement.
@@ -664,15 +673,15 @@ def wildcard_ranges(op: str, base: Version) -> list[Interval]:
     lower = _base_dev0(base)
     upper = _next_prefix_dev0(base)
     if op == "==":
-        return [(LowerBound(lower, True), UpperBound(upper, False))]
+        return ((LowerBound(lower, True), UpperBound(upper, False)),)
     # !=
-    return [
+    return (
         (NEG_INF, UpperBound(lower, False)),
         (LowerBound(upper, True), POS_INF),
-    ]
+    )
 
 
-def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval]:
+def standard_ranges(op: str, version: Version, has_local: bool) -> tuple[Interval, ...]:
     """Ranges for the standard PEP 440 operators (no wildcard, no ===).
 
     *has_local* indicates whether the spec string included a ``+local``
@@ -680,34 +689,34 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval
     upper bound includes V's local family.
     """
     if op == ">=":
-        return [(LowerBound(version, True), POS_INF)]
+        return ((LowerBound(version, True), POS_INF),)
 
     if op == "<=":
-        return [
+        return (
             (
                 NEG_INF,
                 UpperBound(BoundaryVersion(version, BoundaryKind.AFTER_LOCALS), True),
-            )
-        ]
+            ),
+        )
 
     if op == ">":
         if version.dev is not None:
             # >V.devN: dev versions have no post-releases, so the
             # next real version is V.dev(N+1).
             lower_bound = version.__replace__(dev=version.dev + 1, local=None)
-            return [(LowerBound(lower_bound, True), POS_INF)]
+            return ((LowerBound(lower_bound, True), POS_INF),)
         if version.post is not None:
             # >V.postN: next real version is V.post(N+1).dev0.
             lower_bound = version.__replace__(post=version.post + 1, dev=0, local=None)
-            return [(LowerBound(lower_bound, True), POS_INF)]
+            return ((LowerBound(lower_bound, True), POS_INF),)
         # >V (final or pre-release V): exclude V itself, V+local, and
         # every V.postN per PEP 440.
-        return [
+        return (
             (
                 LowerBound(BoundaryVersion(version, BoundaryKind.AFTER_POSTS), False),
                 POS_INF,
-            )
-        ]
+            ),
+        )
 
     if op == "<":
         # <V excludes pre-releases of V when V is not a pre-release.
@@ -716,14 +725,14 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval
             version if version.is_prerelease else version.__replace__(dev=0, local=None)
         )
         if bound <= MIN_VERSION:
-            return []
-        return [(NEG_INF, UpperBound(bound, False))]
+            return ()
+        return ((NEG_INF, UpperBound(bound, False)),)
 
     if op == "~=":
         prefix = version.__replace__(release=version.release[:-1])
-        return [
-            (LowerBound(version, True), UpperBound(_next_prefix_dev0(prefix), False))
-        ]
+        return (
+            (LowerBound(version, True), UpperBound(_next_prefix_dev0(prefix), False)),
+        )
 
     # ==1.4 includes every local version of 1.4, and !=1.4 excludes them all.
     upper = (
@@ -731,18 +740,20 @@ def standard_ranges(op: str, version: Version, has_local: bool) -> list[Interval
     )
 
     if op == "==":
-        return [(LowerBound(version, True), UpperBound(upper, True))]
+        return ((LowerBound(version, True), UpperBound(upper, True)),)
 
     if op == "!=":
-        return [
+        return (
             (NEG_INF, UpperBound(version, False)),
             (LowerBound(upper, False), POS_INF),
-        ]
+        )
 
     raise ValueError(f"Unknown operator: {op!r}")  # pragma: no cover
 
 
-def bounds_for_spec(op: str, version_str: str, version: Version) -> SearchBounds:
+def bounds_for_spec(
+    op: str, version_str: str, version: Version
+) -> tuple[Interval, ...]:
     """Ranges for one specifier's ``(op, version_str)``.
 
     Dispatches between the wildcard and standard builders. ``version`` is the
@@ -751,43 +762,21 @@ def bounds_for_spec(op: str, version_str: str, version: Version) -> SearchBounds
     compared in :mod:`packaging.specifiers`.
     """
     if version_str.endswith(".*"):
-        bounds = wildcard_ranges(op, version)
-    else:
-        bounds = standard_ranges(op, version, "+" in version_str)
-
-    # A specifier can reuse these keys each time it checks a candidate.
-    for lower, upper in bounds:
-        lower.filter_key()
-        upper.filter_key()
-
-    return index_intervals(bounds)
+        return wildcard_ranges(op, version)
+    return standard_ranges(op, version, "+" in version_str)
 
 
 def intersect_specifier_bounds(
-    per_specifier_ranges: Iterable[SearchBounds],
+    per_specifier_ranges: Iterator[tuple[Interval, ...]],
 ) -> SearchBounds:
-    """Intersect the allowed intervals of all the specifiers.
-
-    Short-circuits once the running intersection is empty, since no later
-    specifier can revive it. Callers must pass at least one specifier.
-    """
-    result: Sequence[Interval] | IntervalIndex | None = None
+    """Intersect the specifiers before building a search index for the set."""
+    result: Sequence[Interval] = next(per_specifier_ranges)
     for sub in per_specifier_ranges:
-        if result is None:
-            result = sub
-        else:
-            left = result.intervals if isinstance(result, IntervalIndex) else result
-            right = sub.intervals if isinstance(sub, IntervalIndex) else sub
+        result = intersect_ranges(result, sub)
+        if not result:
+            break
 
-            result = intersect_ranges(left, right)
-            if not result:
-                break
-
-    if result is None:  # pragma: no cover - callers guard non-empty input
-        raise RuntimeError("intersect_specifier_bounds called with no specifiers")
-
-    # A one-specifier set can share its specifier's index.
-    return result if isinstance(result, IntervalIndex) else index_intervals(result)
+    return index_intervals(result)
 
 
 def matches_bounds_only(
