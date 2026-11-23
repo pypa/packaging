@@ -105,9 +105,6 @@ class BoundaryVersion:
             _AFTER_LOCALS,
         )
 
-    def __reduce__(self) -> tuple[type[BoundaryVersion], tuple[Version, BoundaryKind]]:
-        return type(self), (self.version, self.kind)
-
     @property
     def successor(self) -> Version | None:
         """The smallest real version above this boundary, if one exists."""
@@ -186,9 +183,6 @@ class _Bound:
 
         self._filter_key = key
         return key
-
-    def __reduce__(self) -> tuple[type[_Bound], tuple[_VersionOrBoundary, bool]]:
-        return type(self), (self.version, self.inclusive)
 
 
 @functools.total_ordering
@@ -395,10 +389,6 @@ class IntervalIndex:
 
         # Each start enters an interval and each end leaves it. An odd count matches.
         return bisect_right(edges, key) % 2 == 1
-
-    def __reduce__(self) -> tuple[type[IntervalIndex], tuple[tuple[Interval, ...]]]:
-        # Only the intervals need to be pickled.
-        return type(self), (self.intervals,)
 
 
 if TYPE_CHECKING:

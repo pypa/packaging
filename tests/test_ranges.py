@@ -3049,24 +3049,6 @@ def test_copy_and_pickle_subclass_state() -> None:
         assert clone.owner is clone
 
 
-def test_filter_cache_stays_out_of_subclass_pickle() -> None:
-    original = DerivedRange.singleton("1") | vr("==4")
-    candidates = ["4+local", "3", "1", "4", "1+local"]
-    expected = ["4+local", "1", "4"]
-
-    assert isinstance(original._search_bounds, IntervalIndex)
-    assert not original._search_bounds._edges
-
-    assert list(original.filter(candidates)) == expected
-    assert original._search_bounds._edges
-
-    restored = pickle.loads(pickle.dumps(original))
-    assert isinstance(restored._search_bounds, IntervalIndex)
-    assert restored._search_bounds.intervals is restored._bounds
-    assert not restored._search_bounds._edges
-    assert list(restored.filter(candidates)) == expected
-
-
 def test_short_filter_on_many_intervals_skips_the_full_index() -> None:
     r = vr(",".join(f"!={major}.*" for major in range(1, 128, 2)))
     assert list(r.filter(["128", "127"])) == ["128"]
@@ -3089,10 +3071,34 @@ def test_membership_and_filter_share_a_disjoint_range_index() -> None:
 def test_pickle_has_no_private_references() -> None:
     original = ~vr(">1.0a1,!=1.5,<2")
     data = pickle.dumps(original, pickle.HIGHEST_PROTOCOL)
+    assert list(original.filter(["1", "1.5", "2", "3"])) == ["1.5", "2", "3"]
+    assert pickle.dumps(original, pickle.HIGHEST_PROTOCOL) == data
     assert pickle.loads(data) == original
     assert b"_ranges" not in data
     assert b"BoundaryVersion" not in data
     assert b"packaging.version" not in data
+
+
+# Protocol 4 pickle of ~vr("===1.5") & vr(">1a1,!=2.*,<4"), from 126bc239ab.
+_VERSION_RANGE_PICKLE = (
+    b"\x80\x04\x95\xd0\x00\x00\x00\x00\x00\x00\x00\x8c\x10packaging.r"
+    b"anges\x94\x8c\x16_restore_version"
+    b"_range\x94\x93\x94h\x00\x8c\x0cVersionRang"
+    b"e\x94\x93\x94(\x8c\x031a1\x94\x8c\x0bAFTER_POSTS"
+    b"\x94\x86\x94\x89\x86\x94\x8c\x062.dev0\x94\x89\x86\x94\x86\x94\x8c\x063."
+    b"dev0\x94\x88\x86\x94\x8c\x064.dev0\x94\x89\x86\x94\x86\x94\x86\x94"
+    b"\x8c\x031a1\x94h\x06\x86\x94\x89\x86\x94\x8c\x062.dev0\x94\x89\x86"
+    b"\x94\x86\x94\x8c\x063.dev0\x94\x88\x86\x94\x8c\x064.dev0\x94"
+    b"\x89\x86\x94\x86\x94\x86\x94]\x94]\x94\x8c\x031.5\x94a\x89Nt\x94\x86\x94"
+    b"R\x94."
+)
+
+
+def test_load_version_range_pickle() -> None:
+    restored = pickle.loads(_VERSION_RANGE_PICKLE)
+    assert type(restored) is VersionRange
+    candidates = ["1a1", "1a2", "1", "1.5", "2", "3", "4"]
+    assert list(restored.filter(candidates)) == ["1a2", "1", "3"]
 
 
 class SlottedRange(VersionRange):
