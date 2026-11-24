@@ -69,6 +69,29 @@ Usage
     not have such rules, and the check incorrectly disallows valid requirement
     strings from being parsed.
 
+Pre-release filtering
+---------------------
+
+The :attr:`Requirement.specifier` attribute is a
+:class:`~packaging.specifiers.SpecifierSet`. Use its
+:meth:`~packaging.specifiers.SpecifierSet.contains` method to check a single
+version, or :meth:`~packaging.specifiers.SpecifierSet.filter` to select from
+a collection of versions.
+
+To include pre-releases even when a final release is available, pass
+``prereleases=True`` to :meth:`~packaging.specifiers.SpecifierSet.filter`:
+
+.. code-block:: python
+
+    from packaging.requirements import Requirement
+
+    req = Requirement("name>=1.0")
+    print(list(req.specifier.filter(["1.0", "1.1a1"], prereleases=True)))
+    # ['1.0', '1.1a1']
+
+Pass ``prereleases=False`` to exclude pre-releases. For the default behavior
+when ``prereleases=None``, see :doc:`specifiers`.
+
 Reference
 ---------
 
