@@ -37,11 +37,14 @@ jobs:
           - name: Install uv
             uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
             with:
+              activate-environment: true
               cache-suffix: ${{ github.job }}
+            env:
+              UV_PYTHON: "3.14"
 
       - name: Setup ASV
         run: |
-          uv tool install asv
+          uv pip install -r pylock.dev.toml --group benchmark
           asv machine --yes
 
       - name: Run ASV continuous benchmark

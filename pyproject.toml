@@ -44,9 +44,11 @@ test = [
   "pytest>=6.2.0",
   "tomli; python_version<'3.11'",
   "tomli_w",
+  { include-group = "editable-build" },
 ]
 docs = [
   "furo",
+  { include-group = "editable-build" },
 ]
 benchmark = [
   "asv",
@@ -54,9 +56,24 @@ benchmark = [
 ]
 dev = [
   { include-group = "test" },
+  { include-group = "docs" },
   { include-group = "benchmark" },
+  { include-group = "lint" },
+  { include-group = "nox" },
+  { include-group = "locks" },
+  { include-group = "licenses" },
 ]
 
+editable-build = ["flit_core>=3.12"]
+lint = [
+  "prek",
+  "build",
+  "twine",
+  { include-group = "editable-build" },
+]
+nox = ["nox>=2026.10.20", "packaging"]
+locks = ["nab==0.0.31"]
+licenses = ["httpx"]
 
 [tool.flit.sdist]
 include = ["tests/", "docs/", "CHANGELOG.rst"]
@@ -79,6 +96,7 @@ ANDed = "ANDed"
 ORed = "ORed"
 
 [tool.typos.default.extend-words]
+certifi = "certifi"
 dynamc = "dynamc"
 notin = "notin"
 nd = "nd"
@@ -185,3 +203,77 @@ flake8-unused-arguments.ignore-variadic-names = true
 "src/packaging/_musllinux.py" = ["T20"]
 "docs/conf.py" = ["INP001", "S", "A001"]
 "noxfile.py" = ["T20", "S"]
+
+[tool.nab]
+dist-policy = "sdist-if-needed"
+uploaded-prior-to = "P7D"
+default-groups = ["nox"]
+# Newer Python annotations need Sphinx 9.1, which requires Python 3.12.
+constraints = ["sphinx>=9.1; python_version >= '3.12'"]
+
+[tool.nab.matrix]
+python = ">=3.10,<3.16"
+platforms = [
+  "linux_x86_64",
+  "linux_aarch64",
+  "macos_x86_64",
+  "macos_arm64",
+  "windows_amd64",
+]
+
+# Python before 3.13 has no free-threaded build, so add those builds separately.
+[[tool.nab.matrix.include]]
+python = ">=3.13,<3.16"
+free-threaded = true
+
+# Match CI's PyPy 7.3.x interpreter (Python 3.10, wheel ABI pp73).
+[[tool.nab.matrix.include]]
+python = "==3.10"
+implementations = ["pypy"]
+platforms = [
+  { id = "linux_x86_64", pypy-abi = "pp73" },
+  { id = "linux_aarch64", pypy-abi = "pp73" },
+  { id = "macos_x86_64", pypy-abi = "pp73" },
+  { id = "macos_arm64", pypy-abi = "pp73" },
+  { id = "windows_amd64", pypy-abi = "pp73" },
+]
+
+# Match CI's PyPy 8.0.x interpreter (Python 3.11, wheel ABI pp80).
+[[tool.nab.matrix.include]]
+python = "==3.11"
+implementations = ["pypy"]
+platforms = [
+  { id = "linux_x86_64", pypy-abi = "pp80" },
+  { id = "linux_aarch64", pypy-abi = "pp80" },
+  { id = "macos_x86_64", pypy-abi = "pp80" },
+  { id = "macos_arm64", pypy-abi = "pp80" },
+  { id = "windows_amd64", pypy-abi = "pp80" },
+]
+
+# Match the Alpine test job's Python 3.12 and musl 1.2 environment.
+[[tool.nab.matrix.include]]
+python = "==3.12"
+platforms = [
+  { id = "linux_x86_64", libc = "musl", runs-on-libc = "1.2" },
+]
+
+# Hypothesis cannot be built from source on PyPy or free-threaded Python.
+[tool.nab.packages.hypothesis]
+dist-policy = "wheel-only"
+
+# Admit the released locker, its components, and their packaging requirement.
+[[tool.nab.package-rules]]
+match = [
+  "nab==0.0.31",
+  "nab-index==0.0.31",
+  "nab-markersets==0.0.31",
+  "nab-project==0.0.31",
+  "nab-provider==0.0.31",
+  "nab-resolver==0.0.31",
+  "packaging==26.4",
+]
+uploaded-prior-to = "2026-11-24T05:46:00Z"
+
+# PyYAML's sdist marks Requires-Python as dynamic, even though setup.py fixes it.
+[tool.nab.packages."pyyaml==6.0.3"]
+requires-python = ">=3.8"

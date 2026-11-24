@@ -62,10 +62,16 @@ jobs:
           - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
             name: Setup uv
             with:
+              activate-environment: true
               cache-suffix: ${{ github.job }}-${{ matrix.python_version }}
+            env:
+              UV_PYTHON: "3.14"
+
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
 
       - name: Run nox
-        run: pipx run nox -s tests
+        run: nox -s tests
         env:
           NOXFORCEPYTHON: ${{ matrix.python_version }}
 
@@ -87,12 +93,16 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
-
-      - name: Run tests
-        run: uv run --python python3 python -m pytest
         env:
           UV_PYTHON_PREFERENCE: only-system
+
+      - name: Run tests
+        run: |
+          uv pip install -r pylock.dev.toml --group test
+          uv pip install --no-deps --no-build-isolation -e .
+          python -m pytest
 
   property-tests:
     name: Property tests
@@ -111,10 +121,14 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
 
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
+
       - name: Run nox
-        run: pipx run nox -s property_tests
+        run: nox -s property_tests
 
   downstream:
     name: Downstream ${{ matrix.project }}
@@ -152,12 +166,16 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}-${{ matrix.project }}
+
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
 
       - name: Run nox
         env:
           MATRIX_PROJECT: ${{ matrix.project }}
-        run: pipx run nox -s "downstream(project='$MATRIX_PROJECT')"
+        run: nox -s "downstream(project='$MATRIX_PROJECT')"
 
   pickle:
     name: Pickle test
@@ -175,10 +193,14 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
 
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
+
       - name: Run nox
-        run: pipx run nox -s test_pickle
+        run: nox -s test_pickle
 
   pass:
     name: All pass

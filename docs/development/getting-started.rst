@@ -1,9 +1,25 @@
 Getting started
 ===============
 
-Working on packaging requires the installation of a small number of
-development dependencies. To see what dependencies are required to
-run the tests manually, please look at the ``noxfile.py`` file.
+In an activated virtual environment, install Nox from the development lock:
+
+.. code-block:: console
+
+    $ uv pip install -r pylock.dev.toml
+    $ nox -s tests
+
+The test, documentation and lint sessions install their groups from this file.
+
+For an environment with all development tools, use the ``dev`` group:
+
+.. code-block:: console
+
+    $ uv pip install -r pylock.dev.toml --group dev
+    $ uv pip install --no-deps --no-build-isolation -e .
+
+Pip 26.3 or newer can install the same selection with
+``python -m pip install --group pylock.dev.toml:dev``. Nox retains its usual
+environment backend. Select ``dev`` to combine the development tools.
 
 Running tests
 ~~~~~~~~~~~~~
@@ -91,6 +107,12 @@ Use `nox`_ to build the documentation. For example:
 
 The HTML documentation index can now be found at
 ``docs/_build/html/index.html``.
+
+Updating dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+Refresh the development lock with ``nox -s locks -- --upgrade``. Use
+``nox -s locks -- --locked`` to check the committed file.
 
 .. _`pytest`: https://pypi.org/project/pytest/
 .. _`nox`: https://pypi.org/project/nox/

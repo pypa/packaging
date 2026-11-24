@@ -29,7 +29,11 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         name: Setup uv
         with:
+          activate-environment: true
           cache-suffix: ${{ github.job }}
 
+      - name: Install Nox
+        run: uv pip install -r pylock.dev.toml
+
       - name: Build documentation
-        run: pipx run nox -s docs
+        run: nox -s docs

@@ -9,13 +9,15 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.14"
+  jobs:
+    install:
+      # Read the Docs skips uv setup for custom install jobs.
+      - >-
+        "$READTHEDOCS_VIRTUALENV_PATH/bin/python" -m pip install "pip>=26.3"
+      - >-
+        "$READTHEDOCS_VIRTUALENV_PATH/bin/python" -m pip install --group pylock.dev.toml:docs
+      - >-
+        "$READTHEDOCS_VIRTUALENV_PATH/bin/python" -m pip install --no-deps --no-build-isolation -e .
 
 sphinx:
   configuration: docs/conf.py
-
-python:
-  install:
-    - method: uv
-      command: sync
-      groups:
-        - docs
