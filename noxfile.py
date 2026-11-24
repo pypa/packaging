@@ -454,6 +454,14 @@ def release(session: nox.Session) -> None:
         external=True,
     )
     # fmt: on
+    release_sha = session.run(
+        "git",
+        "rev-parse",
+        f"{release_version}^{{commit}}",
+        silent=True,
+        external=True,
+    )
+    release_sha = "" if release_sha is None else release_sha.strip()
 
     # Prepare for development.
     _changelog_add_unreleased_title(file=changelog_file)
@@ -470,6 +478,10 @@ def release(session: nox.Session) -> None:
     session.log("Run the following to push changes and tag (assuming 'upstream')")
     print()
     print(f"  git push upstream main {release_version}")
+    print()
+    session.log("Then trigger the publish workflow with this release commit SHA:")
+    print()
+    print(f"  {release_sha}")
     print()
 
 
