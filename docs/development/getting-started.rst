@@ -111,11 +111,27 @@ The HTML documentation index can now be found at
 Updating dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
-Refresh the development and build locks with ``nox -s locks -- --upgrade``. Use
-``nox -s locks -- --locked`` to check the committed files.
+The development lock contains groups that can be installed together. Each pickle
+compatibility session and downstream test suite has its own lock. Refresh all
+the locks with:
 
-The pickle compatibility sessions install historical packaging releases from
-separate files under ``tasks/pickle/``. The locks session refreshes these too.
+.. code-block:: console
+
+    $ nox -s locks -- --upgrade
+
+Use ``nox -s locks -- --locked`` to check the committed files. Each downstream
+release is pinned by URL and SHA-256 in ``tasks/downstream/nab.toml``.
+The fixture plans import shared groups from the root ``pyproject.toml``. Historical
+pickle locks live under ``tasks/pickle/``. After changing a fixture, refresh and run
+that suite, for example:
+
+.. code-block:: console
+
+    $ nab lock tasks/downstream/nab.toml --plan tox
+    $ nox -s "downstream(project='tox')"
+
+Nox installs the dependencies from the suite's lock, then installs and tests
+the pinned source. Downstream locks cover CPython 3.14 on Linux x86-64.
 
 Build and deployment tools use the separate
 ``pylock.build.toml``. Its requirements come from the ``build`` group and

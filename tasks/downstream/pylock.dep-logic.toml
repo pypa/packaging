@@ -1,0 +1,155 @@
+lock-version = "1.0"
+environments = [
+    "python_version == \"3.14\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
+]
+requires-python = "<3.15,>=3.14"
+created-by = "nab"
+
+[[packages]]
+name = "flit-core"
+version = "4.2.0"
+requires-python = ">=3.8"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "flit_core-4.2.0-py3-none-any.whl"
+upload-time = 2026-10-27T21:07:46.392085+00:00
+url = "https://files.pythonhosted.org/packages/d9/f0/e546c28b937f094b354ca29b9060c5f1dd5043a332b2905049a51420b7a2/flit_core-4.2.0-py3-none-any.whl"
+size = 48025
+
+[packages.wheels.hashes]
+sha256 = "2bee22dc8ba89c2e35b4e1ad575e596aac945c85672dd8f3cad21b629036e044"
+
+[[packages]]
+name = "iniconfig"
+version = "2.3.1"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "iniconfig-2.3.1-py3-none-any.whl"
+upload-time = 2026-10-06T22:48:36.959685+00:00
+url = "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl"
+size = 7552
+
+[packages.wheels.hashes]
+sha256 = "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+
+[[packages]]
+name = "packaging"
+version = "26.3"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "packaging-26.3-py3-none-any.whl"
+upload-time = 2026-08-04T18:15:27.159957+00:00
+url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+size = 129956
+
+[packages.wheels.hashes]
+sha256 = "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+
+[[packages]]
+name = "pdm-backend"
+version = "2.5.0"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pdm_backend-2.5.0-py3-none-any.whl"
+upload-time = 2026-09-30T13:35:34.996150+00:00
+url = "https://files.pythonhosted.org/packages/5e/a6/c743c589188f9e45e1a7c8f3e2e725f9b5df5decd72779fbfc1695b45866/pdm_backend-2.5.0-py3-none-any.whl"
+size = 199650
+
+[packages.wheels.hashes]
+sha256 = "5b8746b567a16a1fd506ce66ee28e89d46374526f52238aa1b96cc2c08245c63"
+
+[[packages]]
+name = "pip"
+version = "26.3"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pip-26.3-py3-none-any.whl"
+upload-time = 2026-11-02T20:34:25.728168+00:00
+url = "https://files.pythonhosted.org/packages/07/25/ee8c38ae72d66b844ce8eb9711ba905dba21ca1a8a0c960057c41cd23337/pip-26.3-py3-none-any.whl"
+size = 1950951
+
+[packages.wheels.hashes]
+sha256 = "f3b60b20ffaadd4415ed7957212a38ac63fa4c5fa375bd0f4a797777940fad13"
+
+[[packages]]
+name = "pluggy"
+version = "1.7.0"
+requires-python = ">=3.10"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pluggy-1.7.0-py3-none-any.whl"
+upload-time = 2026-10-15T09:50:56.808462+00:00
+url = "https://files.pythonhosted.org/packages/40/9e/2b38731e0fc536806f16490e1a12d7f0dc2a1235aa8cc07bcc75416a7daa/pluggy-1.7.0-py3-none-any.whl"
+size = 27082
+
+[packages.wheels.hashes]
+sha256 = "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+
+[[packages]]
+name = "pygments"
+version = "2.21.0"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pygments-2.21.0-py3-none-any.whl"
+upload-time = 2026-08-17T08:02:44.912148+00:00
+url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl"
+size = 1250147
+
+[packages.wheels.hashes]
+sha256 = "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+
+[[packages]]
+name = "pytest"
+version = "9.2.0"
+requires-python = ">=3.10"
+dependencies = [
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "pytest-9.2.0-py3-none-any.whl"
+upload-time = 2026-10-27T21:30:19.131148+00:00
+url = "https://files.pythonhosted.org/packages/51/39/1f5d8c8877a0fa327db959c19341d4be61660de1ab6b7391f9eb805bcd67/pytest-9.2.0-py3-none-any.whl"
+size = 411776
+
+[packages.wheels.hashes]
+sha256 = "07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588"
+
+[tool.nab]
+nab-version = "0.0.31"
+created-at = 2026-11-24T20:00:24.504012+00:00
+command-line = [
+    "nab",
+    "lock",
+    "tasks/downstream/nab.toml",
+    "--output",
+    "tasks/downstream/pylock.dep-logic.toml",
+    "--plan",
+    "dep-logic",
+    "--upgrade",
+]
+input-path = "tasks/downstream/nab.toml"
+mode = "specific"
+python-specifier = ">=3.14,<3.15"
+
+[tool.nab.validation]
+version = 1
+all-inputs-sha256 = "f5e9c0e13ed296046d16a013f37078049c190a9465a2fefed77c5ed64e4aecc6"
+selection-inputs-sha256 = "72fe198e0ea6524a35d193b77fb80bed2de610950a130a45c38e585f8ae7be2f"
+contents-sha256 = "5fbcfea8794319a2ffb7619c458ef4883e225083a64bca42e154e4d6a9e64983"
