@@ -7,22 +7,15 @@ import re
 
 import pytest
 
-from packaging._parser import _parse_marker, _parse_requirement
-from packaging._tokenizer import DEFAULT_RULES, Tokenizer
+from packaging._parser import _parse_full_marker, _parse_requirement
+from packaging._tokenizer import Tokenizer
 
 
 @pytest.mark.parametrize("whitespace", ["", " ", "\t", " \t  "])
 def test_consume_preserves_next_token(whitespace: str) -> None:
-    tokenizer = Tokenizer(
-        f"{whitespace}name{whitespace}>=1",
-        rules={
-            "WS": re.compile(r"[ \t]+"),
-            "NAME": re.compile(r"\w+"),
-            "OP": re.compile(r">="),
-        },
-    )
+    tokenizer = Tokenizer(f"{whitespace}name{whitespace}>=1")
     tokenizer.consume("WS")
-    name = tokenizer.expect("NAME", expected="name")
+    name = tokenizer.expect("IDENTIFIER", expected="name")
     assert (name.text, name.position) == ("name", len(whitespace))
     tokenizer.consume("WS")
     operator = tokenizer.expect("OP", expected="operator")
@@ -30,38 +23,30 @@ def test_consume_preserves_next_token(whitespace: str) -> None:
 
 
 def test_consume_empty_match() -> None:
-    tokenizer = Tokenizer("name", rules={"EMPTY": re.compile(r"")})
-    tokenizer.consume("EMPTY")
+    tokenizer = Tokenizer("")
+    tokenizer.consume("END")
     assert tokenizer.position == 0
     assert tokenizer.next_token is None
 
 
 def test_match_pattern() -> None:
-    tokenizer = Tokenizer("ab", rules={"B": re.compile("b")})
+    tokenizer = Tokenizer("a>=1")
     assert tokenizer.match_pattern(re.compile("b")) is None
     assert tokenizer.position == 0
     match = tokenizer.match_pattern(re.compile("a"))
     assert match is not None
     assert tokenizer.position == 1
-    assert tokenizer.expect("B", expected="b").position == 1
+    assert tokenizer.expect("OP", expected="operator").position == 1
 
 
 def test_enclosing_tokens() -> None:
-    rules = {"LP": re.compile(r"\("), "RP": re.compile(r"\)")}
-    tokenizer = Tokenizer("()", rules=rules)
-    assert tokenizer.check("LP")
-    with tokenizer.enclosing_tokens("LP", "RP", around="nothing"):
+    tokenizer = Tokenizer("()")
+    assert tokenizer.check("LEFT_PARENTHESIS")
+    with tokenizer.enclosing_tokens(
+        "LEFT_PARENTHESIS", "RIGHT_PARENTHESIS", around="nothing"
+    ):
         assert tokenizer.position == 1
     assert tokenizer.position == 2
-
-
-@pytest.mark.parametrize("op", ["==", "in", "not in"])
-def test_marker_item_with_other_rules(op: str) -> None:
-    # Rules other than the default mapping must use the token path.
-    tokenizer = Tokenizer(f'os_name {op} "a"', rules=dict(DEFAULT_RULES))
-    assert str(_parse_marker(tokenizer)) == (
-        f"[(<Variable('os_name')>, <Op({op!r})>, <Value('a')>)]"
-    )
 
 
 @pytest.mark.parametrize(
@@ -73,10 +58,9 @@ def test_marker_item_with_other_rules(op: str) -> None:
         '(os_name == "posix"  )',
     ],
 )
-def test_marker_with_partial_whitespace_rule(source: str) -> None:
-    rules = dict(DEFAULT_RULES, WS=re.compile(r"[ \t]"))
-    tokenizer = Tokenizer(source, rules=rules)
-    marker = _parse_marker(tokenizer)
+def test_marker_with_whitespace(source: str) -> None:
+    tokenizer = Tokenizer(source)
+    marker = _parse_full_marker(tokenizer)
 
     assert tokenizer.position == len(source)
     if isinstance(marker[0], list):
@@ -96,9 +80,8 @@ def test_marker_with_partial_whitespace_rule(source: str) -> None:
         ("name >=1.0 ; os_name == 'posix'  ", ">=1.0"),
     ],
 )
-def test_requirement_with_partial_whitespace_rule(source: str, specifier: str) -> None:
-    rules = dict(DEFAULT_RULES, WS=re.compile(r"[ \t]"))
-    tokenizer = Tokenizer(source, rules=rules)
+def test_requirement_with_whitespace(source: str, specifier: str) -> None:
+    tokenizer = Tokenizer(source)
     parsed = _parse_requirement(tokenizer)
 
     assert tokenizer.position == len(source)
