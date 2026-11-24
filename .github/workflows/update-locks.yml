@@ -1,0 +1,108 @@
+name: Update locks
+
+on:
+  schedule:
+    - cron: "37 5 * * 2"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh locks
+    if: github.repository == 'notatallshaw/packaging' || github.repository == 'pypa/packaging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      source: ${{ steps.source.outputs.commit }}
+      saved-locks-valid: ${{ steps.saved.outcome == 'success' }}
+    steps:
+      - id: source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          activate-environment: true
+
+      - name: Install locked Nox
+        run: uv pip install -r pylock.dev.toml
+
+      - name: Check whether the committed locks need repair
+        id: saved
+        continue-on-error: true
+        run: nox -s locks -- --locked
+
+      - name: Refresh with the current checkout
+        run: nox -s locks -- --upgrade
+
+      - name: Check refreshed locks
+        run: nox -s locks -- --locked
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: refreshed-locks
+          path: |
+            pylock.*.toml
+            tasks/pickle/pylock.pickle-*.toml
+            tasks/downstream/pylock.*.toml
+          if-no-files-found: error
+          retention-days: 1
+
+  pull-request:
+    name: Open dependency PR
+    needs: refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # Push the managed lock-update branch and sign its commit.
+      pull-requests: write # Open or update its draft PR.
+    outputs:
+      changed: ${{ steps.pr.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.refresh.outputs.source }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: refreshed-locks
+
+      - name: Open or update the dependency PR
+        id: pr
+        run: python3 tasks/update_lock_pr.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SAVED_LOCKS_VALID: ${{ needs.refresh.outputs.saved-locks-valid }}
+
+  checks:
+    name: Start dependency checks
+    needs: pull-request
+    if: needs.pull-request.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # Dispatch CI for the managed update branch.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # GITHUB_TOKEN-created PRs otherwise need approval before their CI starts.
+      - run: gh workflow run test.yml --ref ci/update-locks
+      - run: gh workflow run docs.yml --ref ci/update-locks
+      - run: gh workflow run perf.yml --ref ci/update-locks
+      - run: gh workflow run lint.yml --ref ci/update-locks

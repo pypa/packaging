@@ -1,6 +1,7 @@
 name: Performance Benchmarks
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
