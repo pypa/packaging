@@ -83,7 +83,7 @@ DEFAULT_RULES: dict[str, re.Pattern[str]] = {
     ),
     "AT": re.compile(r"\@"),
     "URL": re.compile(r"\S+"),
-    "IDENTIFIER": re.compile(r"\b[a-zA-Z0-9][a-zA-Z0-9._-]*\b"),
+    "IDENTIFIER": re.compile(r"\b[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?"),
     # A whole specifier list, for SpecifierSet to parse in one pass. It accepts
     # only printable ASCII and tabs, and must end at ``;``, ``)``, or the end.
     "SPECIFIER_LIST": re.compile(r"[\t\x20-\x28\x2a-\x3a\x3c-\x7e]*(?=[;)]|\Z)"),
