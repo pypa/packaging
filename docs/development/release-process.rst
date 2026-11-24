@@ -3,9 +3,9 @@ Release Process
 
 #. Checkout the current ``main`` branch.
 
-#. Install the latest ``nox``::
+#. With an activated Python 3.14 virtual environment on Linux, install Nox::
 
-    $ pip install nox
+    $ uv pip install -r pylock.dev.toml
 
 #. Manually update the changelog to list all unreleased changes. Also verify
    that no new changes were added to a previous release in an earlier PR due to

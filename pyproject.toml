@@ -72,6 +72,7 @@ lint = [
   { include-group = "editable-build" },
 ]
 nox = ["nox>=2026.10.20", "packaging"]
+build = ["build", "twine"]
 locks = ["nab==0.0.31"]
 licenses = ["httpx"]
 
@@ -277,3 +278,16 @@ uploaded-prior-to = "2026-11-24T05:46:00Z"
 # PyYAML's sdist marks Requires-Python as dynamic, even though setup.py fixes it.
 [tool.nab.packages."pyyaml==6.0.3"]
 requires-python = ">=3.8"
+
+[tool.nab.plans.build]
+groups = ["build"]
+build-requirements = true
+
+[tool.nab.plans.build.settings]
+mode = "specific"
+requires-python = ">=3.14,<3.15"
+dist-policy = "wheel-only"
+
+[tool.nab.plans.build.settings.environment]
+python = "3.14"
+platform = "linux_x86_64"

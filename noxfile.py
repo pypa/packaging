@@ -45,6 +45,7 @@ ROOT = Path(__file__).resolve().parent
 PYPROJECT = nox.project.load_toml(ROOT / "pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 DEV_LOCK = ROOT / "pylock.dev.toml"
+BUILD_LOCK = ROOT / "pylock.build.toml"
 
 # Interpreters that run the tests without coverage, because tracing is too slow
 # there: PyPy, and free-threaded 3.13, which has no fast C tracer.
@@ -163,6 +164,7 @@ def locks(session: nox.Session) -> None:
         *groups,
         *session.posargs,
     )
+    session.run("nab", "lock", "--all-plans", *session.posargs)
 
 
 # A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13)
@@ -462,7 +464,7 @@ def docs(session: nox.Session) -> None:
     )
 
 
-@nox.session(default=False)
+@nox.session(python="3.14", default=False)
 def release(session: nox.Session) -> None:
     """
     Give a version number to use as tag.
@@ -529,7 +531,7 @@ def release(session: nox.Session) -> None:
     print()
 
 
-@nox.session(default=False)
+@nox.session(python="3.14", default=False)
 def release_build(session: nox.Session) -> None:
     """
     Build version from command-line arguments otherwise current Git tag.
@@ -631,7 +633,7 @@ def _build_and_check(
 ) -> None:
     package_name = "packaging"
 
-    session.install("build", "twine")
+    session.install("-r", str(BUILD_LOCK))
 
     # Determine if we're in install-only mode. This works as `python --version`
     # should always succeed when running `nox`, but in install-only mode
@@ -642,7 +644,7 @@ def _build_and_check(
     install_only = session.run("python", "--version", silent=True) is None
 
     # Build the distribution.
-    session.run("python", "-m", "build")
+    session.run("python", "-m", "build", "--no-isolation")
 
     # Check what files are in dist/ for upload.
     files = sorted(glob.glob("dist/*"))
