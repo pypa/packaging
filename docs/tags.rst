@@ -97,6 +97,16 @@ to the implementation to provide.
 
 .. autofunction:: cpython_tags
 
+.. note::
+
+   When ``abis`` is omitted and the running CPython is detected as a debug
+   build, :func:`cpython_tags` lists the debug ABI first. For Python 3.8 or
+   later, it also lists the corresponding non-debug ABI. For example, a
+   GIL-enabled debug build of CPython 3.12 lists ``cp312d`` ahead of
+   ``cp312`` for the same platform. These are compatibility candidates, in
+   preference order. The presence of ``cp312`` does not change the ABI tag
+   of a wheel built for the debug ABI.
+
 .. autofunction:: generic_tags
 
 
