@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
+import pickle
+from typing import Any
+
 import pytest
 
 from packaging.direct_url import (
@@ -357,3 +362,73 @@ def test_to_dict_strip_url_git_safe_default() -> None:
         vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
     )
     assert direct_url.to_dict()["url"] == "ssh://git@g.c/user/repo.git"
+
+
+class _OldPickle:
+    """Pickle as an instance of ``cls`` with ``state`` as the state."""
+
+    def __init__(self, cls: type, state: dict[str, Any]) -> None:
+        self.cls = cls
+        self.state = state
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return object.__new__, (self.cls,), self.state
+
+
+def _dict_state(value: object) -> object:
+    """Make dataclasses (also nested ones) pickle like packaging 26.3 did,
+    with the instance ``__dict__`` as the state."""
+    if dataclasses.is_dataclass(value):
+        state = {
+            f.name: _dict_state(getattr(value, f.name))
+            for f in dataclasses.fields(value)
+        }
+        return _OldPickle(type(value), state)
+    if isinstance(value, (list, tuple)):
+        return type(value)(_dict_state(v) for v in value)
+    return value
+
+
+_DIRECT_URLS = [
+    DirectUrl(url="file:///p", dir_info=DirInfo(editable=True)),
+    DirectUrl(
+        url="https://e.com/a.zip",
+        archive_info=ArchiveInfo(hashes={"sha256": "f" * 40}),
+        subdirectory="sub",
+    ),
+    DirectUrl(
+        url="https://g.c/r.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40, requested_revision="v1"),
+    ),
+]
+
+
+@pytest.mark.parametrize("direct_url", _DIRECT_URLS)
+def test_pickle_roundtrip(direct_url: DirectUrl) -> None:
+    assert pickle.loads(pickle.dumps(direct_url)) == direct_url
+    assert copy.deepcopy(direct_url) == direct_url
+
+
+@pytest.mark.parametrize("direct_url", _DIRECT_URLS)
+def test_pickle_old_dict_state_loads(direct_url: DirectUrl) -> None:
+    assert pickle.loads(pickle.dumps(_dict_state(direct_url))) == direct_url
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        {"url": "file:///p"},
+        {
+            "url": "file:///p",
+            "archive_info": None,
+            "vcs_info": None,
+            "dir_info": None,
+            "subdirectory": None,
+            "unknown": None,
+        },
+    ],
+)
+def test_pickle_old_dict_state_wrong_keys(state: dict[str, Any]) -> None:
+    data = pickle.dumps(_OldPickle(DirectUrl, state))
+    with pytest.raises(TypeError, match="DirectUrl"):
+        pickle.loads(data)

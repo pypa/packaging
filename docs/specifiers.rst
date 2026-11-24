@@ -14,7 +14,7 @@ Usage
 
 .. doctest::
 
-    >>> from packaging.specifiers import SpecifierSet
+    >>> from packaging.specifiers import Specifier, SpecifierSet
     >>> from packaging.version import Version
     >>> spec1 = SpecifierSet("~=1.0")
     >>> spec1
@@ -49,6 +49,10 @@ Usage
     >>> # contained within our specifier.
     >>> list(combined_spec.filter([v1, v2, "1.4"]))
     [<Version('1.0')>, '1.4']
+    >>> Specifier(">=1.0").__replace__(version="2.0")
+    <Specifier('>=2.0')>
+    >>> combined_spec.__replace__(specifiers=">=2.0,<3.0")
+    <SpecifierSet('<3.0,>=2.0')>
     >>> # We can check if a specifier set can never be satisfied
     >>> SpecifierSet(">=2.0,<1.0").is_unsatisfiable()
     True
@@ -74,6 +78,11 @@ The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
 :class:`~packaging.ranges.VersionRange`, a set-algebra view of the accepted
 versions that supports intersection, union, complement, and difference. See
 :doc:`ranges` for details.
+
+Both :class:`~packaging.specifiers.Specifier` and
+:class:`~packaging.specifiers.SpecifierSet` support ``__replace__``. A call that
+does not change an object may return that same instance. While ``prereleases``
+remains mutable, changing it through either reference also changes the other.
 
 The relation helpers take another :class:`~packaging.specifiers.SpecifierSet`
 and compare the versions the two sets accept, not the specifier objects

@@ -4,6 +4,16 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "importlib.machinery",
+    "operator",
+    "platform",
+    "struct",
+    "subprocess",
+    "sysconfig",
+    f"{__spec__.parent}",
+}
+
 import logging
 import operator
 import platform
@@ -80,6 +90,10 @@ INTERPRETER_SHORT_NAMES: dict[str, str] = {
     "ironpython": "ip",
     "jython": "jy",
 }
+"""
+A dictionary mapping interpreter names to their `abbreviation codes`_
+(e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
+"""
 
 
 # This function can be unit tested without reloading the module
@@ -324,20 +338,22 @@ def _normalize_string(string: str) -> str:
     return string.replace(".", "_").replace("-", "_").replace(" ", "_")
 
 
+_CPYTHON_ABI_RE = re.compile(r"cp\d+(.*)")
+
+
 def _is_threaded_cpython(abis: list[str]) -> bool:
     """
-    Determine if the ABI corresponds to a threaded (`--disable-gil`) build.
+    Determine if the ABIs describe a free-threaded build.
 
-    The threaded builds are indicated by a "t" in the abiflags.
+    The first version-specific CPython ABI or ``abi3t`` decides. The threaded
+    builds are indicated by a "t" in the abiflags.
     """
-    if len(abis) == 0:
-        return False
-    # expect e.g., cp313
-    m = re.match(r"cp\d+(.*)", abis[0])
-    if not m:
-        return False
-    abiflags = m.group(1)
-    return "t" in abiflags
+    for abi in abis:
+        if abi == "abi3t":
+            return True
+        if match := _CPYTHON_ABI_RE.match(abi):
+            return "t" in match[1]
+    return False
 
 
 def _abi3_applies(python_version: PythonVersion, threading: bool) -> bool:

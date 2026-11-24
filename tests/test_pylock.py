@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import datetime
+import pickle
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,8 @@ from packaging.pylock import (
 from packaging.specifiers import SpecifierSet
 from packaging.utils import NormalizedName
 from packaging.version import Version
+
+from .test_direct_url import _dict_state
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -65,7 +69,9 @@ def test_pylock_version(version: str) -> None:
     Pylock.from_dict(data)
 
 
-@pytest.mark.parametrize("version", ["0.9", "2", "2.0", "2.1"])
+@pytest.mark.parametrize(
+    "version", ["0.9", "2", "2.0", "2.1", "2.0.dev0", "2.0a1", "2.0rc1"]
+)
 def test_pylock_unsupported_version(version: str) -> None:
     data = {
         "lock-version": version,
@@ -1006,3 +1012,54 @@ def test_validate_attestation_identity_invalid_kind() -> None:
         "Unexpected type int (expected str) "
         "in 'packages[0].attestation-identities[0].kind'"
     )
+
+
+def _pickle_example() -> Pylock:
+    hashes = {"sha256": "f" * 40}
+    return Pylock.from_dict(
+        {
+            "lock-version": "1.0",
+            "created-by": "pip",
+            "environments": ["os_name == 'posix'"],
+            "requires-python": ">=3.10",
+            "packages": [
+                {
+                    "name": "a",
+                    "version": "1.0",
+                    "sdist": {"url": "https://e.com/a-1.0.tar.gz", "hashes": hashes},
+                    "wheels": [
+                        {
+                            "url": "https://e.com/a-1.0-py3-none-any.whl",
+                            "hashes": hashes,
+                        }
+                    ],
+                },
+                {
+                    "name": "b",
+                    "vcs": {
+                        "type": "git",
+                        "url": "https://g.c/b.git",
+                        "commit-id": "a" * 40,
+                    },
+                },
+                {"name": "c", "directory": {"path": "c", "editable": True}},
+                {
+                    "name": "d",
+                    "archive": {"url": "https://e.com/d.zip", "hashes": hashes},
+                },
+            ],
+            "tool": {"x": {"y": 1}},
+        }
+    )
+
+
+def test_pickle_roundtrip() -> None:
+    pylock = _pickle_example()
+    assert pickle.loads(pickle.dumps(pylock)) == pylock
+    assert copy.deepcopy(pylock) == pylock
+
+
+def test_pickle_old_dict_state_loads() -> None:
+    pylock = _pickle_example()
+    # Dataclass equality also checks the type of each nested object.
+    assert pickle.loads(pickle.dumps(_dict_state(pylock))) == pylock

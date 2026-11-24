@@ -4,13 +4,19 @@
 
 from __future__ import annotations
 
+import copy
 import pickle
+import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from packaging.markers import Marker
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import Specifier, SpecifierSet
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 EQUAL_DEPENDENCIES = [
     ("packaging>20.1", "packaging>20.1"),
@@ -64,6 +70,58 @@ DIFFERENT_DEPENDENCIES = [
         "appdirs>=1.4.4,<2; os_name == 'posix' and extra == 'docs'",
     ),
 ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "==1.0",
+        "!=1.0.*",
+        "~=1.2",
+        ">1.0,<2",
+        ">=1.0,<=2",
+        "==01!1.0+ABC",
+        ">=\n1.0",
+        ">=1.0,>=1.0,",
+        "===opaque,>=1.0",
+    ],
+)
+@pytest.mark.parametrize("prereleases", [None, False, True])
+def test_requirement_specifier_construction(
+    text: str, prereleases: bool | None
+) -> None:
+    actual = Requirement(f"demo{text}").specifier
+    expected = SpecifierSet(text)
+    assert type(actual) is SpecifierSet
+    assert str(actual) == str(expected)
+    assert repr(actual) == repr(expected)
+    assert hash(actual) == hash(expected)
+    assert pickle.loads(pickle.dumps(actual)) == expected
+    actual.prereleases = expected.prereleases = prereleases
+    versions = ["1.0a1", "1.0", "1.1", "2.0", "2.1"]
+    assert list(actual.filter(versions)) == list(expected.filter(versions))
+    assert [actual.contains(v) for v in versions] == [
+        expected.contains(v) for v in versions
+    ]
+
+
+def test_requirement_specifiers_are_independent() -> None:
+    first = Requirement("demo>=1.0").specifier
+    second = Requirement("demo>=1.0").specifier
+    specifier = next(iter(first))
+    specifier.prereleases = True
+    assert first.prereleases is True
+    assert second.prereleases is None
+    assert next(iter(second)) is not specifier
+
+
+@pytest.mark.parametrize("text", [",>=1.0", ">=1.0,,<2", ">=1.0, ,<2", ">=1.0,,"])
+def test_requirement_specifier_empty_items(text: str) -> None:
+    # SpecifierSet accepts these, but the grammar only allows a trailing comma.
+    SpecifierSet(text)
+    with pytest.raises(InvalidRequirement, match="Expected"):
+        Requirement(f"demo{text}")
 
 
 @pytest.mark.parametrize(
@@ -252,6 +310,12 @@ class TestRequirementParsing:
         with pytest.raises(InvalidRequirement):
             Requirement(f"name @ https://example.com/name.whl{line_break}evil==1")
 
+    def test_error_when_marker_too_deeply_nested(self) -> None:
+        # Deep nesting must be reported as InvalidRequirement, not RecursionError.
+        marker = "(" * 10_000 + 'python_version >= "3"' + ")" * 10_000
+        with pytest.raises(InvalidRequirement, match="nested more than"):
+            Requirement(f"name; {marker}")
+
     @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
     def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
         assert Requirement("name>=1" + whitespace) == Requirement("name>=1")
@@ -279,16 +343,26 @@ class TestRequirementParsing:
         assert req.specifier == ""
 
     @pytest.mark.parametrize(
-        "specifier", ["===bar===", "===arbitrarystring,>=1", ">=1,===arbitrarystring"]
+        "specifier",
+        [
+            "===bar===",
+            "===arbitrarystring,>=1",
+            ">=1,===arbitrarystring",
+            "===arbitrarystring,>= 1",
+            "===arbitrarystring, >=1",
+            "===arbitrarystring , != 1.0",
+            " (===arbitrarystring,>= 1)",
+            "===arbitrarystring,>= 1 ; python_version >= '3'",
+        ],
     )
     def test_nonempty_arbitrary_version(self, specifier: str) -> None:
         req = Requirement(f"foo{specifier}")
-        assert req.specifier == specifier
+        assert req.specifier == specifier.partition(";")[0].strip(" ()")
 
     # ----------------------------------------------------------------------------------
     # Everything below this (in this class) should be parsing failure modes
     # ----------------------------------------------------------------------------------
-    # Start all method names with with `test_error_`
+    # Start all method names with `test_error_`
     # to make it easier to run these tests with `-k error`
 
     def test_error_when_specifier_set_rejects_parsed_specifier(self) -> None:
@@ -298,6 +372,55 @@ class TestRequirementParsing:
         # WHEN
         with pytest.raises(InvalidRequirement, match="Invalid specifier: 'y'"):
             Requirement(to_parse)
+
+    def test_error_syntax_details(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("name[bar")
+
+        assert ctx.value.message == (
+            "Expected matching RIGHT_BRACKET for LEFT_BRACKET, after extras"
+        )
+        assert ctx.value.source == "name[bar"
+        assert ctx.value.span == (4, 8)
+        assert str(ctx.value).startswith(ctx.value.message + "\n")
+
+    def test_error_details_absent_for_non_syntax_error(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("demo===x,y")
+
+        assert ctx.value.message == str(ctx.value)
+        assert ctx.value.source is None
+        assert ctx.value.span is None
+
+    def test_error_details_pickle(self) -> None:
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement("name[bar")
+
+        loaded = pickle.loads(pickle.dumps(ctx.value))
+        assert str(loaded) == str(ctx.value)
+        assert loaded.message == ctx.value.message
+        assert loaded.source == ctx.value.source
+        assert loaded.span == ctx.value.span
+
+    def test_error_manual_construction(self) -> None:
+        err = InvalidRequirement("custom")
+        assert err.message == "custom"
+        assert err.source is None
+        assert err.span is None
+
+    def test_error_subclass_can_initialize_context(self) -> None:
+        class LocatedError(InvalidRequirement):
+            def __init__(self, filename: str) -> None:
+                super().__init__("invalid requirement")
+                self.filename = filename
+
+            def __str__(self) -> str:
+                return f"{self.filename}: {super().__str__()}"
+
+        err = LocatedError("pyproject.toml")
+        assert err.args == ("invalid requirement",)
+        assert str(err) == "pyproject.toml: invalid requirement"
+        assert err.message == "invalid requirement"
 
     def test_error_when_empty_string(self) -> None:
         # GIVEN
@@ -860,6 +983,34 @@ class TestRequirementBehaviour:
     def test_compare_with_string(self) -> None:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'python_version >= "3.10" and sys_platform == "linux"',
+            '(os_name == "posix" or sys_platform == "win32") and extra == "Some_Extra"',
+        ],
+    )
+    def test_marker_serialization_reuses_the_string(self, text: str) -> None:
+        marker = Requirement(f"demo; {text}").marker
+        assert marker is not None
+        expected = str(marker)
+
+        assert str(marker) is expected
+        assert repr(marker) == f"<Marker({expected!r})>"
+        assert hash(marker) == hash(expected)
+        assert marker == Marker(expected)
+
+    def test_requirement_serialization_uses_replaced_marker(self) -> None:
+        requirement = Requirement('demo; sys_platform == "linux"')
+        original = str(requirement)
+
+        requirement.marker = Marker('sys_platform == "win32"')
+
+        expected = Requirement('demo; sys_platform == "win32"')
+        assert str(requirement) == str(expected)
+        assert hash(requirement) == hash(expected)
+        assert str(requirement) != original
+
 
 def test_requirement_slots() -> None:
     # Requirement defines __slots__, so instances have no __dict__ and reject
@@ -900,6 +1051,51 @@ def test_pickle_requirement_preserves_prereleases(prereleases: bool | None) -> N
     loaded = pickle.loads(pickle.dumps(r))
     assert loaded.specifier._prereleases == prereleases
     assert loaded == r
+
+
+@pytest.mark.parametrize(
+    "roundtrip",
+    [lambda r: pickle.loads(pickle.dumps(r)), copy.copy, copy.deepcopy],
+    ids=["pickle", "copy", "deepcopy"],
+)
+def test_requirement_copy_preserves_inner_prereleases(
+    roundtrip: Callable[[Requirement], Requirement],
+) -> None:
+    r = Requirement("demo")
+    r.specifier = SpecifierSet([Specifier(">=1", prereleases=True)])
+    loaded = roundtrip(r)
+    assert list(loaded.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+    assert loaded == r
+
+    # The copy does not share mutable specifiers with the original.
+    assert loaded.specifier is not r.specifier
+    assert all(a is not b for a, b in zip(loaded.specifier, r.specifier, strict=True))
+
+
+def test_pickle_requirement_state() -> None:
+    # The state holds only primitives, in canonical specifier order.
+    r = Requirement("foo")
+    r.specifier = SpecifierSet(
+        [Specifier(">=1.0", prereleases=True), Specifier("<3")], prereleases=False
+    )
+    assert r.__getstate__() == ("foo<3,>=1.0", False, (None, True))
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        ("foo>=1.0", None, ()),
+        ("foo>=1.0", None, (True, False)),
+        ("foo>=1.0", None, ("yes",)),
+        ("foo>=1.0", None, [True]),
+        ("foo>=1.0", "yes", (None,)),
+        ("foo>=1.0", SpecifierSet(">=1.0")),
+    ],
+)
+def test_pickle_requirement_setstate_rejects_bad_prereleases(state: object) -> None:
+    r = Requirement.__new__(Requirement)
+    with pytest.raises(TypeError, match="Cannot restore Requirement"):
+        r.__setstate__(state)
 
 
 def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
@@ -1019,6 +1215,23 @@ _PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
 )
 
 
+# Pickle bytes generated with packaging==26.4, Python 3.14.7, pickle protocol 2,
+# for ``Requirement("demo")`` after setting
+# ``r.specifier = SpecifierSet([Specifier(">=1", prereleases=True)])``.
+# Format: (requirement string, prereleases, prereleases of each specifier).
+_PACKAGING_26_4_PICKLE_DEMO_GE_1_INNER_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\x07\x00\x00"
+    b"\x00demo>=1q\x02N\x88\x85q\x03\x87q\x04b."
+)
+
+
+def test_pickle_requirement_26_4_format_preserves_inner_prereleases() -> None:
+    r = pickle.loads(_PACKAGING_26_4_PICKLE_DEMO_GE_1_INNER_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("demo>=1")
+    assert list(r.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+
+
 def test_pickle_requirement_old_format_preserves_prereleases() -> None:
     # A specifier prereleases override stored in a packaging <= 26.1 pickle
     # (plain __dict__) is preserved on load.
@@ -1085,3 +1298,90 @@ def test_pickle_requirement_25_0_format_loads() -> None:
     assert str(r.specifier) == ">=2.0"
     assert r.marker is None
     assert r == Requirement("requests>=2.0")
+
+
+def test_replace() -> None:
+    r = Requirement('requests[security]>=2.0; python_version >= "3"')
+    r2 = r.__replace__(name="flask")
+    assert r2.name == "flask"
+    assert r2.extras == r.extras
+    assert r2.specifier == r.specifier
+    assert r2.marker == r.marker
+    # The original is untouched.
+    assert r.name == "requests"
+    # A URL requirement may not keep a version specifier, so clear it.
+    r_url = r.__replace__(url="https://example.com/flask.zip", specifier=SpecifierSet())
+    assert r_url.url == "https://example.com/flask.zip"
+    assert not r_url.specifier
+    # No changes gives an equal but distinct instance.
+    r3 = r.__replace__()
+    assert r3 == r
+    assert r3 is not r
+    with pytest.raises(TypeError):
+        r.__replace__(nonexistent=1)  # type: ignore[call-arg]
+
+
+def test_replace_validates_and_normalizes() -> None:
+    r = Requirement("requests>=2.0")
+    # Invalid fields are rejected by the parser round-trip.
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(name="not a name!")
+    # A field that would smuggle in extra syntax is rejected too.
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(name="foo[bar]")
+    with pytest.raises(InvalidRequirement):
+        r.__replace__(extras={"a,b"})
+    # Marker extras are normalized like they are when parsing.
+    r2 = r.__replace__(marker=Marker('extra == "Foo_Bar"'))
+    assert str(r2.marker) == 'extra == "foo-bar"'
+    # An explicit prereleases override on the specifier is preserved.
+    r3 = r.__replace__(specifier=SpecifierSet(">=2.0", prereleases=True))
+    assert r3.specifier.prereleases is True
+
+
+@pytest.mark.parametrize("new_specifier", [False, True])
+def test_replace_keeps_inner_specifier_prereleases(new_specifier: bool) -> None:
+    spec = SpecifierSet([Specifier(">=1", prereleases=True)])
+    if new_specifier:
+        r = Requirement("demo").__replace__(specifier=spec)
+    else:
+        orig = Requirement("demo")
+        orig.specifier = spec
+        r = orig.__replace__(name="other")
+    assert list(r.specifier.filter(["1.1rc1", "1.1"])) == ["1.1rc1", "1.1"]
+
+    # The result does not share mutable specifiers with the input.
+    assert r.specifier is not spec
+    assert all(a is not b for a, b in zip(r.specifier, spec, strict=True))
+
+
+def test_replace_keeps_subclass() -> None:
+    class MyRequirement(Requirement):
+        pass
+
+    r = MyRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is MyRequirement
+
+
+def test_replace_subclass_with_init_state() -> None:
+    class TaggedRequirement(Requirement):
+        def __init__(self, requirement_string: str) -> None:
+            super().__init__(requirement_string)
+            self.tag = "tagged"
+
+        def __str__(self) -> str:
+            return f"{super().__str__()}  # {self.tag}"
+
+    r = TaggedRequirement("requests>=2.0").__replace__(name="flask")
+    assert type(r) is TaggedRequirement
+    assert str(r) == "flask>=2.0  # tagged"
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="copy.replace() requires Python 3.13"
+)
+def test_copy_replace() -> None:
+    r = Requirement("requests>=2.0")
+    r2 = copy.replace(r, specifier=SpecifierSet(">=3.0"))  # type: ignore[attr-defined]
+    assert str(r2) == "requests>=3.0"
+    assert str(r) == "requests>=2.0"

@@ -4,10 +4,11 @@ import dataclasses
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+from unittest import mock
 
 import pytest
 
-from packaging.markers import Marker, default_environment
+from packaging.markers import Marker, UndefinedEnvironmentName, default_environment
 from packaging.pylock import (
     Package,
     PackageArchive,
@@ -20,6 +21,7 @@ from packaging.pylock import (
 )
 from packaging.specifiers import SpecifierSet
 from packaging.tags import Tag
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 if sys.version_info >= (3, 11):
@@ -194,6 +196,117 @@ def test_package_select_by_marker() -> None:
     )
     assert len(selected) == 1
     assert selected[0][0].name == "foo"
+
+
+def test_package_marker_is_evaluated_in_the_lock_file_context() -> None:
+    # extra is undefined in the lock file context.
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[
+            Package(
+                name=cast("NormalizedName", "tomli"),
+                marker=Marker('extra == "docs"'),
+                version=Version("1.0"),
+                archive=PackageArchive(
+                    path="tomli-1.0.tar.gz", hashes={"sha256": "abc123"}
+                ),
+            ),
+        ],
+    )
+    pylock.validate()
+    with pytest.raises(UndefinedEnvironmentName, match=r"^'extra'$"):
+        list(
+            pylock.select(
+                tags=_py312_linux.tags,
+                environment=_py312_linux.environment,
+            )
+        )
+
+
+def test_package_markers_use_one_default_environment() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        packages=[
+            Package(
+                name=canonicalize_name(name),
+                marker=Marker("os_name == 'posix'"),
+                directory=PackageDirectory(path=f"./{name}"),
+            )
+            for name in ("foo", "bar")
+        ],
+    )
+    pylock.validate()
+    with mock.patch(
+        "packaging.markers.default_environment", wraps=default_environment
+    ) as detected:
+        selected = list(
+            pylock.select(tags=_py312_linux.tags, environment=_py312_linux.environment)
+        )
+
+    assert [package.name for package, _ in selected] == ["foo", "bar"]
+    assert detected.call_count == 1
+
+
+def test_environments_are_evaluated_in_the_requirement_context() -> None:
+    # extras is defined in the lock file context and not in the requirement
+    # one, so an environments entry naming it is an error.
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        environments=[Marker('"docs" in extras')],
+        packages=[],
+    )
+    pylock.validate()
+    with pytest.raises(UndefinedEnvironmentName, match=r"^'extras'$"):
+        list(
+            pylock.select(
+                tags=_py312_linux.tags,
+                environment=_py312_linux.environment,
+            )
+        )
+
+
+def test_empty_environments_fail_before_preparing_host_values() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        environments=[],
+        packages=[],
+    )
+    pylock.validate()
+    with (
+        mock.patch(
+            "packaging.markers.default_environment",
+            side_effect=AssertionError(
+                "An empty environment list needs no host values"
+            ),
+        ),
+        pytest.raises(PylockSelectError),
+    ):
+        list(
+            pylock.select(tags=_py312_linux.tags, environment=_py312_linux.environment)
+        )
+
+
+def test_environment_markers_use_one_default_environment() -> None:
+    pylock = Pylock(
+        lock_version=Version("1.0"),
+        created_by="some_tool",
+        environments=[Marker("os_name == 'nt'"), Marker("os_name == 'posix'")],
+        packages=[],
+    )
+    pylock.validate()
+    with mock.patch(
+        "packaging.markers.default_environment", wraps=default_environment
+    ) as detected:
+        selected = list(
+            pylock.select(tags=_py312_linux.tags, environment=_py312_linux.environment)
+        )
+
+    assert selected == []
+    assert detected.call_count == 1
 
 
 def test_duplicate_packages() -> None:

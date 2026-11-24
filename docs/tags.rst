@@ -69,10 +69,7 @@ information is not defined in the compatibility tag standards but is noted as be
 to the implementation to provide.
 
 
-.. attribute:: INTERPRETER_SHORT_NAMES
-
-    A dictionary mapping interpreter names to their `abbreviation codes`_
-    (e.g. ``"cpython"`` is ``"cp"``). All interpreter names are lower-case.
+.. autodata:: INTERPRETER_SHORT_NAMES
 
 
 .. autodata:: PythonVersion
