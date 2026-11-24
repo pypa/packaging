@@ -45,6 +45,25 @@ Usage
     >>> Version("1.0.post0").is_postrelease
     True
 
+Development releases
+--------------------
+
+``is_prerelease`` is true for versions with a development segment, including
+versions without an alpha, beta, or release candidate segment. Use
+``is_devrelease`` to check for a development segment and ``pre`` to identify
+whether it also has an alpha, beta, or release candidate segment.
+
+.. doctest::
+
+    >>> final_dev = Version("1.0.dev1")
+    >>> candidate_dev = Version("1.0rc1.dev1")
+    >>> final_dev.is_prerelease, candidate_dev.is_prerelease
+    (True, True)
+    >>> final_dev.is_devrelease, candidate_dev.is_devrelease
+    (True, True)
+    >>> final_dev.pre, candidate_dev.pre
+    (None, ('rc', 1))
+
 
 Reference
 ---------
