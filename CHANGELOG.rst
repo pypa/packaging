@@ -4,11 +4,7 @@ Changelog
 *unreleased*
 ~~~~~~~~~~~~
 
-Fixes:
-
-* Reject invalid sdist project names and wheel build tags containing path
-  separators, null bytes, or NTFS stream delimiters.
-  (:pull:`1337`)
+No unreleased changes.
 
 26.4 - 2026-11-23
 ~~~~~~~~~~~~~~~~~
