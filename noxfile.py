@@ -150,6 +150,7 @@ class Project:
     pytest_args: tuple[str, ...] = ()
     extra_env: dict[str, str | None] | None = None
     date_limit: bool = False
+    isolated_home: bool = False
 
 
 PROJECTS = {
@@ -167,6 +168,9 @@ PROJECTS = {
         install=("-e.[test,cover]",),
         swap=("setuptools/_vendor/packaging",),
         pytest_args=(
+            # Performance comparisons require a Git checkout.
+            "-p",
+            "no:perf",
             "-k",
             "not test_editable_install and not test_editable_with_pyproject",
         ),
@@ -200,6 +204,13 @@ PROJECTS = {
         # twine keeps its test deps in tox.ini rather than a [test] extra.
         install=("-e.", "pretend", "pytest", "pytest-socket", "coverage"),
         install_env={"SETUPTOOLS_SCM_PRETEND_VERSION": "7.0.0"},
+        isolated_home=True,
+        extra_env={
+            "TWINE_PASSWORD": None,
+            "TWINE_USERNAME": None,
+            "TWINE_CONFIG_FILE": None,
+            "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring",
+        },
         # test_fails_rst_no_content expects an RST document with only a title
         # to render as empty, which readme_renderer 46 changed; unrelated to
         # packaging.
@@ -332,16 +343,6 @@ def downstream(session: nox.Session, project: str) -> None:
         session.env["UV_EXCLUDE_NEWER"] = PYTEST_910_CUTOFF
         session.env["PIP_UPLOADED_PRIOR_TO"] = PYTEST_910_CUTOFF
 
-    # nox points TMPDIR inside this git checkout, so downstream tools that walk up
-    # the tree (hatchling's VCS sdist builder, tox/pdm config discovery) find
-    # packaging's own repo metadata and misbehave. Keep the test temp dir outside.
-    test_env: dict[str, str | None] = {
-        "FORCE_COLOR": None,
-        "TMPDIR": tempfile.mkdtemp(prefix="downstream-"),
-    }
-    if cfg.extra_env:
-        test_env |= cfg.extra_env
-
     session.install(*cfg.install, env=cfg.install_env)
 
     if project == "pip":
@@ -363,7 +364,21 @@ def downstream(session: nox.Session, project: str) -> None:
         shutil.copytree(pkg_dir, repl_dir)
 
     session.run(*pip_cmd, "list")
-    session.run("pytest", *cfg.pytest_args, *session.posargs, env=test_env)
+    # Keep test-created projects outside this checkout's VCS and tool configuration.
+    with tempfile.TemporaryDirectory(prefix="downstream-") as test_tmp:
+        test_env: dict[str, str | None] = {
+            "FORCE_COLOR": None,
+            "NO_COLOR": None,
+            "TMPDIR": test_tmp,
+        }
+        if cfg.isolated_home:
+            # Match the downstream suite's clean home without reading host credentials.
+            home = Path(test_tmp) / "home"
+            home.mkdir()
+            test_env["HOME"] = str(home)
+        if cfg.extra_env:
+            test_env |= cfg.extra_env
+        session.run("pytest", *cfg.pytest_args, *session.posargs, env=test_env)
 
 
 @nox.session(python="3.10")
