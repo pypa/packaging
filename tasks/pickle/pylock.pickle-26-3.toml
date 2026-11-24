@@ -1,0 +1,107 @@
+lock-version = "1.0"
+environments = [
+    "python_version == \"3.10\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.10\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.10\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.10\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.10\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.10\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.11\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.11\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.11\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.11\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.11\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.11\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.11\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.11\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.11\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.11\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"pypy\"",
+    "python_version == \"3.12\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.12\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.12\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.12\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.12\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.13\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.13\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.13\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.13\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.13\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.14\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.14\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.14\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.14\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.14\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.15\" and sys_platform == \"linux\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.15\" and sys_platform == \"linux\" and platform_machine == \"aarch64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.15\" and sys_platform == \"darwin\" and platform_machine == \"x86_64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.15\" and sys_platform == \"darwin\" and platform_machine == \"arm64\" and implementation_name == \"cpython\"",
+    "python_version == \"3.15\" and sys_platform == \"win32\" and platform_machine == \"AMD64\" and implementation_name == \"cpython\"",
+]
+requires-python = ">=3.10"
+created-by = "nab"
+
+[[packages]]
+name = "flit-core"
+version = "4.2.0"
+requires-python = ">=3.8"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "flit_core-4.2.0-py3-none-any.whl"
+upload-time = 2026-10-27T21:07:46.392085+00:00
+url = "https://files.pythonhosted.org/packages/d9/f0/e546c28b937f094b354ca29b9060c5f1dd5043a332b2905049a51420b7a2/flit_core-4.2.0-py3-none-any.whl"
+size = 48025
+
+[packages.wheels.hashes]
+sha256 = "2bee22dc8ba89c2e35b4e1ad575e596aac945c85672dd8f3cad21b629036e044"
+
+[[packages]]
+name = "packaging"
+version = "26.3"
+requires-python = ">=3.9"
+index = "https://pypi.org/simple/"
+
+[[packages.wheels]]
+name = "packaging-26.3-py3-none-any.whl"
+upload-time = 2026-08-04T18:15:27.159957+00:00
+url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+size = 129956
+
+[packages.wheels.hashes]
+sha256 = "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+
+[tool.nab]
+nab-version = "0.0.31"
+created-at = 2026-11-24T19:59:07.434488+00:00
+command-line = [
+    "nab",
+    "lock",
+    "--output",
+    "tasks/pickle/pylock.pickle-26-3.toml",
+    "--plan",
+    "pickle-26-3",
+    "--upgrade",
+]
+input-path = "pyproject.toml"
+mode = "universal"
+python-specifier = ">=3.10,<3.16"
+platforms = [
+    "linux_x86_64",
+    "linux_aarch64",
+    "macos_x86_64",
+    "macos_arm64",
+    "windows_amd64",
+]
+package-metadata-overrides = [
+    "pyyaml==6.0.3: requires-python",
+]
+
+[tool.nab.validation]
+version = 1
+all-inputs-sha256 = "1cc9ee31eae8ac7900b8bd3dc4fd0ef8b296f58806fb0c6fa02f428242b94bfe"
+selection-inputs-sha256 = "3cd91f0150f27866c8310519864ebb7d4a758cc23f80a31514fa07261ca554b8"
+contents-sha256 = "0c3691c11ff01dd4a4018fbe2e10733def2ab17d6ecad876e50412f811f595ed"
