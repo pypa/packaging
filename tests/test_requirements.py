@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from packaging.markers import Marker
-from packaging.requirements import InvalidRequirement, Requirement
+from packaging.requirements import InvalidRequirement, Requirement, _redact_url
 from packaging.specifiers import Specifier, SpecifierSet
 
 if TYPE_CHECKING:
@@ -947,6 +947,73 @@ class TestRequirementBehaviour:
         # THEN
         assert str(req) == to_parse.strip()
         assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
+
+    @pytest.mark.parametrize(
+        ("requirement_string", "credential", "redacted_url"),
+        [
+            (
+                "foo @ https://user:secret@example.com/x",
+                "secret",
+                "https://user:****@example.com/x",
+            ),
+            (
+                "foo @ ssh://user:pass%20word@example.com/packagename.zip",
+                "pass%20word",
+                "ssh://user:****@example.com/packagename.zip",
+            ),
+            (
+                "foo @ https://user:s3cr3t@[2001:db8::1]:8443/path?q=1#frag",
+                "s3cr3t",
+                "https://user:****@[2001:db8::1]:8443/path?q=1#frag",
+            ),
+            (
+                "foo @ git+ssh://git@github.com:pypa/packaging.git",
+                "git@",
+                "git+ssh://****@github.com:pypa/packaging.git",
+            ),
+        ],
+    )
+    def test_repr_redacts_url_credentials(
+        self, requirement_string: str, credential: str, redacted_url: str
+    ) -> None:
+        req = Requirement(requirement_string)
+
+        # str() stays faithful: it drives serialization and must round-trip.
+        assert str(req) == requirement_string
+        assert credential in str(req)
+
+        # repr() masks credentials but keeps the rest of the URL intact.
+        representation = repr(req)
+        assert credential not in representation
+        assert "****" in representation
+        assert representation == f"<Requirement('foo @ {redacted_url}')>"
+
+        # Redaction in repr must not affect equality or pickling.
+        loaded = pickle.loads(pickle.dumps(req))
+        assert loaded == req
+        assert str(loaded) == str(req)
+        assert loaded.__getstate__()[0] == requirement_string
+
+    def test_repr_keeps_url_without_credentials(self) -> None:
+        requirement_string = "foo @ https://example.com/x?query=1#frag"
+        req = Requirement(requirement_string)
+        assert repr(req) == f"<Requirement({requirement_string!r})>"
+        assert str(req) == requirement_string
+
+    def test_repr_never_raises_on_malformed_url(self) -> None:
+        # A malformed netloc must not turn __repr__ into an exception source.
+        for malformed in (
+            "https://[unclosed:user:secret@example.com/x",
+            "https://user:secret@example.com/x%zz",
+            "://user:secret@",
+        ):
+            redacted = _redact_url(malformed)
+            assert "secret" not in redacted
+            assert isinstance(redacted, str)
+
+        # No scheme means no parsable URL; the value must still be returned intact.
+        plain = "no-scheme/user:secret@example.com"
+        assert _redact_url(plain) == plain
 
     @pytest.mark.parametrize(("dep1", "dep2"), EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
