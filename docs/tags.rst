@@ -68,6 +68,12 @@ These functions capture the precise details of which environments support which 
 information is not defined in the compatibility tag standards but is noted as being up
 to the implementation to provide.
 
+On 64-bit Linux kernels running a 32-bit x32 interpreter (detected via
+``MULTIARCH`` or the interpreter's ELF header), :func:`platform_tags` and
+:func:`sys_tags` emit ``linux_x32`` (and ``musllinux_*_x32`` on musl) ahead of
+a lower-priority ``linux_i686`` fallback for locally built wheels, while
+excluding incompatible IA-32 ``manylinux*_i686`` and ``musllinux_*_i686`` tags.
+
 
 .. autodata:: INTERPRETER_SHORT_NAMES
 

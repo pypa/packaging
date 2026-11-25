@@ -20,6 +20,7 @@ import pytest
 
 from packaging import _manylinux
 from packaging._manylinux import (
+    _get_32bit_elf_arch,
     _get_glibc_version,
     _get_manylinux_module,
     _glibc_version_string,
@@ -35,6 +36,7 @@ from packaging._manylinux import (
 @pytest.fixture(autouse=True)
 def clear_lru_cache() -> Generator[None]:
     yield
+    _get_32bit_elf_arch.cache_clear()
     _get_glibc_version.cache_clear()
     _get_manylinux_module.cache_clear()
 
