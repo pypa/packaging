@@ -180,6 +180,12 @@ Internal:
 * Update GitHub Actions and pre-commit hooks. (:pull:`1401`, :pull:`1402`,
   :pull:`1432`, :pull:`1433`, :pull:`1483`, :pull:`1484`)
 
+Fixes:
+
+* Raise ``InvalidTag`` from ``parse_tag()`` for malformed tags regardless of
+  the ``limit`` argument, instead of ``TooManyTagsError``. The tag is now
+  validated before the limit is applied.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
