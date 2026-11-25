@@ -74,7 +74,7 @@ class Value(Node):
     __slots__ = ()
 
     def serialize(self) -> str:
-        value = str(self)
+        value = str(self).replace("\\", "\\\\")
         if '"' not in value:
             return f'"{value}"'
         if "'" not in value:
