@@ -39,6 +39,7 @@ repos:
           - hypothesis
           - 'nox>=2026.10.20'
           - pytest
+          - pytest-codspeed
           - tomli
           - tomli_w
           - 'typing_extensions>=4.16.0'

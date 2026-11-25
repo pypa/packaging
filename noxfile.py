@@ -137,6 +137,18 @@ def property_tests(session: nox.Session) -> None:
     )
 
 
+@nox.session(default=False)
+def codspeed(session: nox.Session) -> None:
+    """
+    Run the asv benchmarks with pytest-codspeed (wall time when run locally).
+    """
+    session.install(*nox.project.dependency_groups(PYPROJECT, "codspeed"))
+    session.install("-e.")
+    session.run(
+        "python", "-m", "pytest", "benchmarks/codspeed", "--codspeed", *session.posargs
+    )
+
+
 # A few of the pinned releases break under pytest 9.1.0 (released 2026-06-13)
 PYTEST_910_CUTOFF = "2026-06-12 00:00:00Z"
 
