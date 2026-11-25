@@ -180,6 +180,13 @@ Internal:
 * Update GitHub Actions and pre-commit hooks. (:pull:`1401`, :pull:`1402`,
   :pull:`1432`, :pull:`1433`, :pull:`1483`, :pull:`1484`)
 
+Fixes for tags:
+
+* Prevent ``mac_platforms`` from raising ``ValueError`` when ``platform.mac_ver()``
+  returns an invalid version string. Preserve the environment during the macOS
+  10.16 compatibility probe, and fall back to macOS 11.0 tags if the real
+  version cannot be determined.
+
 26.3 - 2026-08-03
 ~~~~~~~~~~~~~~~~~
 
