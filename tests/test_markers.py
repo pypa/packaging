@@ -110,6 +110,18 @@ class TestNode:
     ) -> None:
         assert Value(value).serialize() == expected
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("a\\b", '"a\\\\b"'),
+            ("C:\\Program Files\\Python", '"C:\\\\Program Files\\\\Python"'),
+        ],
+    )
+    def test_value_serialize_escapes_backslashes(
+        self, value: str, expected: str
+    ) -> None:
+        assert Value(value).serialize() == expected
+
     def test_value_serialize_rejects_both_quote_delimiters(self) -> None:
         with pytest.raises(
             ValueError,
@@ -826,6 +838,17 @@ class TestMarker:
         Marker.__init__(marker, 'sys_platform == "win32"')
 
         assert str(marker) == 'sys_platform == "win32"'
+
+
+def test_marker_str_round_trip_preserves_backslashes() -> None:
+    env = {"sys_platform": "linux"}
+    marker = Marker(r'sys_platform == "linu\\x78"')
+    assert not marker.evaluate(env)
+
+    reparsed = Marker(str(marker))
+
+    assert not reparsed.evaluate(env)
+    assert str(reparsed) == str(marker)
 
 
 def test_and_operator_evaluates_true() -> None:
