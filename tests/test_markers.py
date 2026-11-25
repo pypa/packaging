@@ -140,8 +140,6 @@ class TestNode:
     @pytest.mark.parametrize(
         "python_str",
         [
-            r'"a\\b"',
-            r'"C:\\Program Files\\Python"',
             '"a\tb"',
             '"a\nb"',
             '"a\rb"',
@@ -403,6 +401,21 @@ class TestMarker:
         message.text = "invalid marker"
         assert err.args == (message,)
         assert err.message == str(err) == "invalid marker"
+
+    @pytest.mark.parametrize(
+        "marker_string",
+        [
+            r'sys_platform == "linu\x78"',
+            r'sys_platform == "linu\\x78"',
+            r"sys_platform == 'linu\x78'",
+            r"sys_platform == 'linu\\x78'",
+        ],
+    )
+    def test_parses_invalid_quoted_string_with_backslash(
+        self, marker_string: str
+    ) -> None:
+        with pytest.raises(InvalidMarker):
+            Marker(marker_string)
 
     @pytest.mark.parametrize(
         ("marker_string", "expected"),
