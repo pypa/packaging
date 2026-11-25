@@ -14,10 +14,45 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, NamedTuple
 
-from ._elffile import ELFFile
+from ._elffile import EIClass, EIData, EMachine, _parse_elf
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+
+
+EF_LOONGARCH_ABI_MODIFIER_MASK = 0x07
+EF_LOONGARCH_ABI_DOUBLE_FLOAT = 0x03
+EF_LOONGARCH_OBJABI_MASK = 0xC0
+EF_LOONGARCH_OBJABI_V1 = 0x40
+
+AT_HWCAP = 16
+HWCAP_LOONGARCH_LSX = 1 << 4
+
+
+def _has_lsx() -> bool:
+    try:
+        import ctypes  # noqa: PLC0415
+
+        getauxval = ctypes.CDLL(None).getauxval
+    except (ImportError, OSError, AttributeError):
+        return False
+    getauxval.argtypes = [ctypes.c_ulong]
+    getauxval.restype = ctypes.c_ulong
+    return bool(getauxval(AT_HWCAP) & HWCAP_LOONGARCH_LSX)
+
+
+def _is_linux_loongarch64(executable: str) -> bool:
+    with _parse_elf(executable) as elf:
+        return (
+            elf is not None
+            and elf.capacity == EIClass.C64
+            and elf.encoding == EIData.Lsb
+            and elf.machine == EMachine.LoongArch
+            and elf.flags & EF_LOONGARCH_ABI_MODIFIER_MASK
+            == EF_LOONGARCH_ABI_DOUBLE_FLOAT
+            and elf.flags & EF_LOONGARCH_OBJABI_MASK == EF_LOONGARCH_OBJABI_V1
+            and _has_lsx()
+        )
 
 
 class _MuslVersion(NamedTuple):
@@ -47,11 +82,10 @@ def _get_musl_version(executable: str) -> _MuslVersion | None:
         Version 1.2.2
         Dynamic Program Loader
     """
-    try:
-        with open(executable, "rb") as f:
-            ld = ELFFile(f).interpreter
-    except (OSError, TypeError, ValueError):
-        return None
+    with _parse_elf(executable) as elf:
+        if elf is None:
+            return None
+        ld = elf.interpreter
     if ld is None or "musl" not in ld:
         return None
     proc = subprocess.run([ld], check=False, stderr=subprocess.PIPE, text=True)
@@ -73,6 +107,8 @@ def platform_tags(archs: Sequence[str]) -> Iterator[str]:
     if sys_musl is None:  # Python not dynamically linked against musl.
         return
     for arch in archs:
+        if arch == "loongarch64" and not _is_linux_loongarch64(sys.executable):
+            continue
         for minor in range(sys_musl.minor, -1, -1):
             yield f"musllinux_{sys_musl.major}_{minor}_{arch}"
 
