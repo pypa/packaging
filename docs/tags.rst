@@ -13,22 +13,60 @@ Usage
 
 .. doctest::
 
-    >>> from packaging.tags import Tag, sys_tags
+    >>> from packaging.tags import Tag, create_compatible_tags_selector, sys_tags
     >>> import sys
     >>> looking_for = Tag("py{major}".format(major=sys.version_info.major), "none", "any")
     >>> supported_tags = list(sys_tags())
     >>> looking_for in supported_tags
     True
     >>> really_old = Tag("py1", "none", "any")
-    >>> wheels = {really_old, looking_for}
-    >>> best_wheel = None
-    >>> for supported_tag in supported_tags:
-    ...     for wheel_tag in wheels:
-    ...         if supported_tag == wheel_tag:
-    ...             best_wheel = wheel_tag
-    ...             break
-    >>> best_wheel == looking_for
+    >>> really_old in supported_tags
+    False
+
+Selecting wheels
+''''''''''''''''
+
+Supported tags are ordered from most to least preferred. To select compatible
+wheels in that order, use :func:`create_compatible_tags_selector` with each
+wheel's filename and the tag set returned by
+:func:`~packaging.utils.parse_wheel_filename`. A wheel may have several tags;
+its best matching tag determines its position. Incompatible wheels are omitted.
+
+This example uses explicit target tags so the result is independent of the
+machine running it. The platform-specific wheel is preferred over the universal
+wheel, even though the universal wheel appears first in the input:
+
+.. doctest::
+
+    >>> from packaging.utils import parse_wheel_filename
+    >>> target_tags = [
+    ...     Tag("cp312", "cp312", "manylinux_2_17_x86_64"),
+    ...     Tag("py3", "none", "any"),
+    ... ]
+    >>> select_wheels = create_compatible_tags_selector(target_tags)
+    >>> filenames = [
+    ...     "example-1.0-py2.py3-none-any.whl",
+    ...     "example-1.0-cp312-cp312-manylinux_2_17_x86_64.whl",
+    ...     "example-1.0-cp312-cp312-win_amd64.whl",
+    ... ]
+    >>> candidates = [
+    ...     (filename, parse_wheel_filename(filename)[-1]) for filename in filenames
+    ... ]
+    >>> list(select_wheels(candidates))
+    ['example-1.0-cp312-cp312-manylinux_2_17_x86_64.whl', 'example-1.0-py2.py3-none-any.whl']
+    >>> best_wheel = next(select_wheels(candidates), None)
+    >>> best_wheel
+    'example-1.0-cp312-cp312-manylinux_2_17_x86_64.whl'
+    >>> next(select_wheels([]), None) is None
     True
+    >>> next(select_wheels(candidates[2:]), None) is None
+    True
+
+For the running interpreter, pass :func:`sys_tags` instead of ``target_tags``.
+Take the first result to choose the preferred compatible wheel, or use ``None``
+as the default to handle the case where no wheel matches. Continuing through
+the supported tags after finding a match can replace a preferred wheel with a
+less preferred one.
 
 Reference
 ---------
