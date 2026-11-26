@@ -294,11 +294,15 @@ def parse_tag(
         if "" in parts:
             component = ".".join(parts)
             raise InvalidTag(f"Tag {tag!r} has an empty component: {component!r}")
-        if validate_order and parts != sorted(parts):
-            component = ".".join(parts)
-            raise UnsortedTagsError(
-                f"Tag component {component!r} is not in sorted order per PEP 425"
-            )
+        if validate_order:
+            # Tags are case-insensitive, so sort order must be compared on the
+            # lowercased components — the same normalization Tag.__init__ applies.
+            lowered = [part.lower() for part in parts]
+            if lowered != sorted(lowered):
+                component = ".".join(parts)
+                raise UnsortedTagsError(
+                    f"Tag component {component!r} is not in sorted order per PEP 425"
+                )
 
     tag_count = 1
     for parts in component_parts:
