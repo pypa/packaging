@@ -9,7 +9,6 @@ __lazy_modules__ = {
     "datetime",
     "email.message",
     "hashlib",
-    "html",
     "json",
     "urllib.parse",
     f"{__spec__.parent}.utils",
@@ -17,11 +16,11 @@ __lazy_modules__ = {
 import contextlib
 import datetime as dt
 import email.message
-import functools
+import functools  # Decorators used on methods.
 import hashlib
 import html.parser  # HTMLParser used as a base class.
 import json
-import typing  # The `from ... import` forces an eager import.
+import typing  # The `from ... import` below forces an eager import.
 import urllib.parse
 from typing import (  # TypedDict is used as a base class.
     TYPE_CHECKING,
@@ -94,6 +93,13 @@ class InvalidJSON(IndexServerException):
     wrong types for values. Invalid values raise :exc:`InvalidData`.
     """
 
+    key: str
+    """The JSON key which is invalid or missing."""
+
+    def __init__(self, key: str, message: str) -> None:
+        self.key = key
+        super().__init__(message)
+
 
 class InvalidData(IndexServerException):
     """Some value was invalid from an index server."""
@@ -156,13 +162,13 @@ class _ProjectData:
         self._json_data = json_data
         if api_version is None:
             if (meta := json_data.get("meta")) is None:
-                raise InvalidJSON("missing 'meta'")
+                raise InvalidJSON("meta", "missing 'meta'")
             if not isinstance(meta, dict):
-                raise InvalidJSON("expected 'meta' to be a dict")
+                raise InvalidJSON("meta", "expected 'meta' to be a dict")
             try:
                 api_version = meta["api-version"]
             except KeyError as exc:
-                raise InvalidJSON("missing 'api-version'") from exc
+                raise InvalidJSON("api-version", "missing 'api-version'") from exc
 
         if _api_version_guard(api_version):
             self._api_version = api_version
@@ -188,7 +194,7 @@ class _ProjectData:
             return None
         elif not isinstance(value, expect):
             raise InvalidJSON(
-                f"expected type {expect!r}, not {type(value)!r} for {key!r}"
+                key, f"expected type {expect!r}, not {type(value)!r} for {key!r}"
             )
         return value
 
@@ -199,9 +205,9 @@ class _ProjectData:
         if values is None:
             return None
         elif not isinstance(values, list):
-            raise InvalidJSON(f"expected a list for {key!r}")
+            raise InvalidJSON(key, f"expected a list for {key!r}")
         if not all(isinstance(v, expect_values) for v in values):
-            raise InvalidJSON(f"expected a list of {expect_values!r} for {key!r}")
+            raise InvalidJSON(key, f"expected a list of {expect_values!r} for {key!r}")
         return values
 
     def _get_dict(self, key: str, added_in: _API_VERSION) -> dict[str, str] | None:
@@ -209,10 +215,10 @@ class _ProjectData:
         if d is None:
             return None
         elif not isinstance(d, dict):
-            raise InvalidJSON(f"expected a dict for {key!r}")
+            raise InvalidJSON(key, f"expected a dict for {key!r}")
         if not all(isinstance(k, str) and isinstance(v, str) for k, v in d.items()):
             raise InvalidJSON(
-                f"expected dict of 'str' keys and 'str' values for {key!r}"
+                key, f"expected dict of 'str' keys and 'str' values for {key!r}"
             )
         return d
 
@@ -233,7 +239,7 @@ class ProjectListDetails(_ProjectData):
         "The normalized name of the project."
         name = self._get_value("name", str, "1.0")
         if name is None:
-            raise InvalidJSON("missing 'name'")
+            raise InvalidJSON("name", "missing 'name'")
         return utils.canonicalize_name(name)
 
 
@@ -252,9 +258,9 @@ class ProjectList(_ProjectData):
         """The list of projects hosted by the index."""
         projects = self._get("projects", "1.0")
         if not isinstance(projects, list):
-            raise InvalidJSON("expected a list for 'projects'")
+            raise InvalidJSON("projects", "expected a list for 'projects'")
         if not all(isinstance(p, dict) for p in projects):
-            raise InvalidJSON("expected dicts in 'projects'")
+            raise InvalidJSON("projects", "expected dicts in 'projects'")
         return [ProjectListDetails(project, self._api_version) for project in projects]
 
 
@@ -289,14 +295,14 @@ class ProjectDetailsFile(_ProjectData):
     def filename(self) -> str:
         """The filename of the file."""
         if (name := self._get_value("filename", str, "1.0")) is None:
-            raise InvalidJSON("missing 'filename'")
+            raise InvalidJSON("filename", "missing 'filename'")
         return name
 
     @functools.cached_property
     def url(self) -> str:
         """The URL for the file."""
         if (url := self._get_value("url", str, "1.0")) is None:
-            raise InvalidJSON("missing 'url'")
+            raise InvalidJSON("url", "missing 'url'")
         if not url.startswith(("http://", "https://")):
             url = urllib.parse.urljoin(self._base_url, url)
         return url
@@ -310,7 +316,7 @@ class ProjectDetailsFile(_ProjectData):
         """
         raw_hashes = self._get_dict("hashes", "1.0")
         if raw_hashes is None:
-            raise InvalidJSON("missing 'hashes'")
+            raise InvalidJSON("hashes", "missing 'hashes'")
         return {k.lower(): v for k, v in raw_hashes.items()}
 
     @functools.cached_property
@@ -341,7 +347,9 @@ class ProjectDetailsFile(_ProjectData):
             return True, yanked
         elif isinstance(yanked, bool):
             return yanked, ""
-        raise InvalidJSON(f"Expected 'yanked' to be bool or str, not {type(yanked)!r}")
+        raise InvalidJSON(
+            "yanked", f"Expected 'yanked' to be bool or str, not {type(yanked)!r}"
+        )
 
     @functools.cached_property
     def core_metadata(self) -> tuple[str | None, dict[str, str]]:
@@ -352,13 +360,19 @@ class ProjectDetailsFile(_ProjectData):
         the URL will be ``None``. The hashes dictionary has its keys as
         lowercased hash algorithms and values as the hashes.
         """
-        if (metadata := self._get("core-metadata", "1.0")) is None and (
-            metadata := self._get("dist-info-metadata", "1.0")
-        ) is None:
-            return None, {}
+        metadata_key = "core-metadata"
+        metadata = self._get(metadata_key, "1.0")
+        if metadata is None:
+            metadata_key = "dist-info-metadata"
+            metadata = self._get(metadata_key, "1.0")
+            if metadata is None:
+                return None, {}
 
         if not isinstance(metadata, (bool, dict)):
-            raise InvalidJSON("Expected 'core-metadata' to be a bool or dict of hashes")
+            raise InvalidJSON(
+                metadata_key,
+                f"Expected {metadata_key!r} to be a bool or dict of hashes",
+            )
         if not metadata:
             return None, {}
 
@@ -368,8 +382,9 @@ class ProjectDetailsFile(_ProjectData):
                 isinstance(k, str) and isinstance(v, str) for k, v in metadata.items()
             ):
                 raise InvalidJSON(
-                    "Expected hashes dict for 'core-metadata' to be strings for all "
-                    "keys and values"
+                    metadata_key,
+                    f"Expected hashes dict for {metadata_key!r} to be strings for all "
+                    "keys and values",
                 )
             normalized_hashes = {k.lower(): v for k, v in metadata.items()}
             return url, normalized_hashes
@@ -461,17 +476,17 @@ class ProjectDetails(_ProjectData):
     def name(self) -> utils.NormalizedName:
         """The name of the project."""
         if (name := self._get_value("name", str, "1.0")) is None:
-            raise InvalidJSON("Missing 'name'")
+            raise InvalidJSON("name", "Missing 'name'")
         return utils.canonicalize_name(name)
 
     @functools.cached_property
     def files(self) -> Collection[ProjectDetailsFile]:
         if (files := self._get("files", "1.0")) is None:
-            raise InvalidJSON("Missing 'files'")
+            raise InvalidJSON("files", "Missing 'files'")
         if not isinstance(files, list):
-            raise InvalidJSON("'files' is not a list")
+            raise InvalidJSON("files", "'files' is not a list")
         if not all(isinstance(f, dict) for f in files):
-            raise InvalidJSON("Expected all values in 'files' to be dicts")
+            raise InvalidJSON("files", "Expected all values in 'files' to be dicts")
         return [ProjectDetailsFile(self._url, f, self._api_version) for f in files]
 
     @functools.cached_property
@@ -512,7 +527,7 @@ class ProjectDetails(_ProjectData):
         if (raw_project_status := self._get("project-status", "1.4")) is None:
             return ProjectDetailsStatus({}, self._api_version)
         if not isinstance(raw_project_status, dict):
-            raise InvalidJSON("expected a dict for 'project-status'")
+            raise InvalidJSON("project-status", "expected a dict for 'project-status'")
         return ProjectDetailsStatus(
             {
                 key: value
