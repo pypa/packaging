@@ -15,7 +15,7 @@ __lazy_modules__ = {
     f"{__spec__.parent}.utils",
 }
 import contextlib
-import datetime  # noqa: ICN001
+import datetime
 import email.message
 import functools
 import hashlib
@@ -33,8 +33,13 @@ from typing import (  # TypedDict is used as a base class.
 from . import specifiers, utils, version
 
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Collection
-    from typing import TypeIs
+
+    if sys.version_info >= (3, 13):
+        from typing import TypeIs
+    else:
+        from typing_extensions import TypeIs
 
     from .utils import NormalizedName
 
