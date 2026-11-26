@@ -15,7 +15,7 @@ __lazy_modules__ = {
     f"{__spec__.parent}.utils",
 }
 import contextlib
-import datetime
+import datetime as dt
 import email.message
 import functools
 import hashlib
@@ -380,7 +380,7 @@ class ProjectDetailsFile(_ProjectData):
         return size
 
     @functools.cached_property
-    def upload_time(self) -> datetime.datetime | None:
+    def upload_time(self) -> dt.datetime | None:
         """The UTC upload time of the file.
 
         If the format does not match "%Y-%m-%dT%H:%M:%S.%fZ" or
@@ -398,8 +398,8 @@ class ProjectDetailsFile(_ProjectData):
         else:
             datetime_format = "%Y-%m-%dT%H:%M:%SZ"
         try:
-            return datetime.datetime.strptime(raw_datetime, datetime_format).replace(
-                tzinfo=datetime.timezone.utc
+            return dt.datetime.strptime(raw_datetime, datetime_format).replace(
+                tzinfo=dt.timezone.utc
             )
         except ValueError as exc:
             raise InvalidData("Invalid upload-time format") from exc
