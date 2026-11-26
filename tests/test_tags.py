@@ -27,6 +27,7 @@ import pytest
 from packaging import tags
 from packaging._manylinux import _GLibCVersion
 from packaging._musllinux import _MuslVersion
+from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -216,6 +217,44 @@ class TestParseTag:
     def test_sorted_multi_interpreter_valid(self) -> None:
         # py2 < py3 alphabetically — should not raise even with validation
         result = tags.parse_tag("py2.py3-none-any", validate_order=True)
+        assert tags.Tag("py2", "none", "any") in result
+        assert tags.Tag("py3", "none", "any") in result
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "PY3.py2-none-any",  # Uppercase first member sorts before lowercase second
+            "Py3.py2-none-any",  # Mixed-case variant of the same unsorted order
+            "PY3.PY2-none-any",  # All-uppercase unsorted members
+        ],
+    )
+    def test_unsorted_case_variants_raise_with_validate(self, tag: str) -> None:
+        # Tags are case-insensitive: these are unsorted once lowercased.
+        with pytest.raises(tags.UnsortedTagsError, match="not in sorted order"):
+            tags.parse_tag(tag, validate_order=True)
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "PY2.py3-none-any",  # Uppercased first member
+            "py2.PY3-none-any",  # Uppercased second member
+            "PY2.PY3-none-any",  # All-uppercase sorted members
+        ],
+    )
+    def test_sorted_case_variants_valid_with_validate(self, tag: str) -> None:
+        # These are sorted once lowercased and must not be rejected.
+        result = tags.parse_tag(tag, validate_order=True)
+        assert tags.Tag("py2", "none", "any") in result
+        assert tags.Tag("py3", "none", "any") in result
+
+    def test_unsorted_case_variants_via_wheel_filename(self) -> None:
+        # parse_wheel_filename(validate_order=True) delegates to parse_tag.
+        with pytest.raises(InvalidWheelFilename, match="sorted order"):
+            parse_wheel_filename("foo-1.0-PY3.py2-none-any.whl", validate_order=True)
+
+        result = parse_wheel_filename(
+            "foo-1.0-py2.PY3-none-any.whl", validate_order=True
+        )[-1]
         assert tags.Tag("py2", "none", "any") in result
         assert tags.Tag("py3", "none", "any") in result
 
