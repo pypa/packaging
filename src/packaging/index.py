@@ -57,6 +57,7 @@ __all__ = [
     "ProjectDetailsStatus",
     "ProjectList",
     "ProjectListDetails",
+    "ProjectStatus",
     "RawProjectDetails",
     "RawProjectDetailsFile",
     "RawProjectList",
@@ -303,6 +304,7 @@ class ProjectDetailsFile(_ProjectData):
         """The URL for the file."""
         if (url := self._get_value("url", str, "1.0")) is None:
             raise InvalidJSON("url", "missing 'url'")
+        # Relative URL check comes from pip.
         if not url.startswith(("http://", "https://")):
             url = urllib.parse.urljoin(self._base_url, url)
         return url
@@ -323,7 +325,10 @@ class ProjectDetailsFile(_ProjectData):
     def requires_python(self) -> specifiers.SpecifierSet | None:
         """The Python version requirement."""
         if raw := self._get_value("requires-python", str, "1.0"):
-            return specifiers.SpecifierSet(raw)
+            try:
+                return specifiers.SpecifierSet(raw)
+            except specifiers.InvalidSpecifier as exc:
+                raise InvalidData("requires-python is malformed") from exc
         return None
 
     @functools.cached_property
@@ -429,17 +434,20 @@ class ProjectDetailsFile(_ProjectData):
 
     @functools.cached_property
     def provenance(self) -> str | None:
+        """The URL to provenance information about the file."""
         provenance = self._get("provenance", "1.3")
         if provenance is None:
             return None
         elif not isinstance(provenance, str):
-            raise InvalidData(
-                f"Expected a 'str' for provenance, not {type(provenance)}"
+            raise InvalidJSON(
+                "provenance", f"Expected a 'str' for provenance, not {type(provenance)}"
             )
         return provenance
 
 
 class ProjectStatus(enum.Enum):
+    """The status of a project."""
+
     ACTIVE = "active"
     ARCHIVED = "archived"
     QUARANTINED = "quarantined"
@@ -447,6 +455,8 @@ class ProjectStatus(enum.Enum):
 
 
 class ProjectDetailsStatus(_ProjectData):
+    """Information about the status of a project."""
+
     def __init__(
         self, json_data: dict[object, object], api_version: _API_VERSION
     ) -> None:
@@ -456,7 +466,10 @@ class ProjectDetailsStatus(_ProjectData):
     def status(self) -> ProjectStatus:
         if (status := self._get_value("status", str, "1.4")) is None:
             return ProjectStatus.ACTIVE
-        return ProjectStatus(status)
+        try:
+            return ProjectStatus(status)
+        except ValueError as exc:
+            raise InvalidData("Invalid status") from exc
 
     @functools.cached_property
     def reason(self) -> str | None:
