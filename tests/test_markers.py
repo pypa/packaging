@@ -771,6 +771,19 @@ class TestMarker:
         with pytest.raises(UndefinedComparison):
             marker.evaluate(context="lock_file")
 
+    @pytest.mark.parametrize("variable", ["extras", "dependency_groups"])
+    @pytest.mark.parametrize("op", ["==", "!=", ">=", "<=", "<", ">"])
+    def test_set_valued_marker_on_rhs_raises_undefined_comparison(
+        self, variable: str, op: str
+    ) -> None:
+        """The mirror image of the case above: a set-valued marker on the
+        right-hand side is also only defined in the membership form, so any
+        other operator raises ``UndefinedComparison`` instead of quietly
+        evaluating to ``False`` (or to ``True`` for ``!=``)."""
+        marker = Marker(f"'foo' {op} {variable}")
+        with pytest.raises(UndefinedComparison, match="right-hand side"):
+            marker.evaluate(context="lock_file")
+
     @pytest.mark.parametrize(
         ("marker_string", "environment", "expected"),
         [
