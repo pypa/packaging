@@ -404,6 +404,23 @@ def _evaluate_markers(
                     f"{environment_key}); it cannot appear on the left-hand "
                     f"side of {op.serialize()!r}."
                 )
+
+            # Mirror of the check above: these variables are only defined in the
+            # membership form, so a set-valued right-hand side under any other
+            # operator is undefined instead of silently False (or True for
+            # ``!=``, which would otherwise select a package for an expression
+            # the spec leaves undefined).
+            if environment_key in MARKERS_ALLOWING_SET and not isinstance(
+                rhs_value, str
+            ):
+                op_str = op.serialize()
+                if op_str not in {"in", "not in"}:
+                    raise UndefinedComparison(
+                        f"Set-valued marker {environment_key!r} can only be used "
+                        f'with the membership form (e.g. "<name>" in '
+                        f"{environment_key}); it cannot appear on the right-hand "
+                        f"side of {op_str!r}."
+                    )
             lhs_value, rhs_value = _normalize(lhs_value, rhs_value, key=environment_key)
             groups[-1].append(_eval_op(lhs_value, op, rhs_value, key=environment_key))
         elif marker == "or":
@@ -729,7 +746,8 @@ class Marker:
             specifiers <pypug:version-specifiers>`, or ``extra`` holds
             something other than a string or a set, or a set of extras is used
             with an operator other than ``==`` or ``!=``, or a set-valued marker
-            is given a string or used on the left-hand side of a comparison.
+            is given a string, or is compared with an operator other than
+            ``in``/``not in``.
         :raises UndefinedEnvironmentName: If the marker references a value that
             is missing from ``environment``.
         :returns: ``True`` if the marker matches, otherwise ``False``.
