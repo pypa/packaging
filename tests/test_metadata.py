@@ -611,6 +611,21 @@ class TestMetadata:
         with pytest.raises(ExceptionGroup):
             metadata.Metadata.from_raw(raw, validate=True)
 
+    @pytest.mark.parametrize("meta_version", [None, "9.9"])
+    @pytest.mark.parametrize("key", ["dynamc", "from_raw"])
+    def test_unrecognized_field_without_usable_metadata_version(
+        self, meta_version: str | None, key: str
+    ) -> None:
+        raw: dict[str, object] = {"name": "packaging", "version": "2023.0.0", key: []}
+        if meta_version is not None:
+            raw["metadata_version"] = meta_version
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            metadata.Metadata.from_raw(raw, validate=True)  # type: ignore[arg-type]
+
+        errors = exc_info.value.exceptions
+        assert f"unrecognized field: {key!r}" in [str(error) for error in errors]
+
     def test_raw_data_not_mutated(self) -> None:
         raw = _RAW_EXAMPLE.copy()
         meta = metadata.Metadata.from_raw(raw, validate=True)

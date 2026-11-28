@@ -858,15 +858,15 @@ class Metadata:
 
             for key in fields_to_check:
                 try:
+                    # Can't use getattr() as that triggers descriptor protocol which
+                    # will fail due to no value for the instance argument.
+                    validator = Metadata.__dict__.get(key)
+                    if not isinstance(validator, _Validator):
+                        exc = InvalidMetadata(key, f"unrecognized field: {key!r}")
+                        collector.error(exc)
+                        continue
                     if metadata_version:
-                        # Can't use getattr() as that triggers descriptor protocol which
-                        # will fail due to no value for the instance argument.
-                        try:
-                            field_metadata_version = Metadata.__dict__[key].added
-                        except KeyError:
-                            exc = InvalidMetadata(key, f"unrecognized field: {key!r}")
-                            collector.error(exc)
-                            continue
+                        field_metadata_version = validator.added
                         field_age = _VALID_METADATA_VERSIONS.index(
                             field_metadata_version
                         )
